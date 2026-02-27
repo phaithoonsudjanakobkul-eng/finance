@@ -3,188 +3,504 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PS Smart Financial</title>
+    <title>PS Smart Finance</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
-        .card { background: white; border-radius: 1.5rem; border: 1px solid #f1f5f9; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap');
+        
+        :root {
+            --font-main: 'Roboto', 'Sarabun', sans-serif;
+        }
+
+        body { 
+            font-family: var(--font-main); 
+            background-color: #f8fafc; 
+            color: #1e293b; 
+        }
+        
+        .glass-card { 
+            background: white; 
+            border-radius: 1.5rem; 
+            border: 1px solid #f1f5f9; 
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02); 
+        }
+        
+        .tab-active { 
+            background: white; 
+            color: #2563eb; 
+            box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.1); 
+        }
+
+        .thai-label {
+            font-size: 0.85rem;
+            font-weight: 800;
+            color: #64748b;
+            letter-spacing: 0.025em;
+        }
+
+        .animate-in {
+            animation: fadeIn 0.3s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        
+        .summary-badge {
+            display: inline-block;
+            min-width: 80px;
+            white-space: nowrap;
+            text-align: right;
+            padding: 0.375rem 0.75rem;
+            border-radius: 0.5rem;
+            font-weight: 900;
+            font-size: 0.875rem;
+            transition: all 0.2s ease;
+        }
     </style>
 </head>
-<body class="min-h-screen flex flex-col">
+<body class="min-h-screen pb-20">
 
-    <nav class="bg-white border-b sticky top-0 z-50">
-        <div class="max-w-4xl mx-auto px-4 h-16 flex justify-between items-center">
-            <div class="flex items-center gap-2 text-blue-600 font-black text-xl">
-                <span>฿</span> PS SMART FINANCE
+    <!-- Header & Navigation -->
+    <nav class="bg-white/90 backdrop-blur-md sticky top-0 z-50 border-b border-gray-100">
+        <div class="max-w-6xl mx-auto px-6 h-20 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm border-2 border-blue-600">
+                    <span class="text-blue-600 font-black text-xl leading-none">฿</span>
+                </div>
+                <div>
+                    <div class="text-blue-600 font-black text-lg tracking-tighter leading-none uppercase">PS SMART FINANCE</div>
+                    <div class="flex items-center gap-1.5 mt-1">
+                        <div class="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></div>
+                        <div id="db-name-display" class="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none truncate max-w-[150px]">Ready to Start</div>
+                    </div>
+                </div>
             </div>
-            <div class="flex bg-gray-100 p-1 rounded-xl text-[10px] font-black">
-                <button onclick="switchTab('dashboard')" id="btn-dashboard" class="px-4 py-2 rounded-lg bg-white shadow-sm text-blue-600">DASHBOARD</button>
-                <button onclick="switchTab('edit')" id="btn-edit" class="px-4 py-2 rounded-lg text-gray-400">RECORDS</button>
+            
+            <div class="bg-gray-100 p-1 rounded-2xl flex gap-1">
+                <button onclick="showTab('dashboard')" id="btn-dash" class="px-5 py-2 rounded-xl text-xs font-bold tab-active transition-all uppercase">Dashboard</button>
+                <button onclick="showTab('edit')" id="btn-edit" class="px-5 py-2 rounded-xl text-xs font-bold text-gray-400 transition-all uppercase">RECORDS</button>
+                <button onclick="document.getElementById('fileInput').click()" class="px-5 py-2 rounded-xl text-xs font-bold text-gray-400 hover:text-blue-600 transition-all uppercase">Import</button>
             </div>
         </div>
     </nav>
 
-    <main class="max-w-4xl mx-auto w-full p-4 py-8 flex-grow">
-        <!-- Dashboard Tab -->
+    <main class="max-w-6xl mx-auto px-6 mt-8">
+        
+        <!-- DASHBOARD TAB -->
         <div id="tab-dashboard" class="space-y-6">
-            <div id="no-data" class="text-center py-20 bg-white rounded-[2rem] border-2 border-dashed border-gray-200">
-                <h2 class="text-gray-400 font-bold mb-6">ยังไม่มีข้อมูลในระบบ</h2>
-                <button onclick="document.getElementById('fileInput').click()" class="bg-blue-600 text-white px-8 py-3 rounded-2xl font-black shadow-lg">Open JSON Database</button>
-            </div>
-
-            <div id="dashboard-content" class="hidden space-y-6">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div class="card"><div class="text-[10px] font-black text-gray-400 mb-1">INCOME</div><div id="stat-income" class="text-2xl font-black">0</div></div>
-                    <div class="card"><div class="text-[10px] font-black text-gray-400 mb-1">EXPENSE</div><div id="stat-expense" class="text-2xl font-black text-red-500">0</div></div>
-                    <div id="stat-surplus-card" class="card bg-blue-600 text-white border-none shadow-xl shadow-blue-100">
-                        <div class="text-[10px] font-black opacity-60 mb-1">SURPLUS</div>
-                        <div id="stat-surplus" class="text-2xl font-black">0</div>
+            <div id="dash-content" class="hidden space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div id="surplus-card-main" class="glass-card p-6 bg-gradient-to-br from-blue-600 to-blue-700 text-white border-none shadow-blue-200">
+                        <p class="text-[10px] font-bold uppercase tracking-widest opacity-70 mb-1 text-white">Current Balance</p>
+                        <h2 id="dash-surplus" class="text-3xl font-black truncate">0.00</h2>
+                        <div class="mt-4 pt-4 border-t border-white/20 flex justify-between items-end">
+                             <p id="status-text" class="text-xs font-bold uppercase tracking-widest">Starting...</p>
+                             <p id="current-month-label" class="text-xs font-bold uppercase tracking-widest opacity-60">-</p>
+                        </div>
+                    </div>
+                    <div class="glass-card p-6 flex flex-col justify-center border-l-4 border-emerald-500">
+                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">YTD Earnings</p>
+                        <h2 id="ytd-income" class="text-2xl font-black text-emerald-600 truncate">0.00</h2>
+                    </div>
+                    <div class="glass-card p-6 flex flex-col justify-center border-l-4 border-rose-500">
+                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">YTD Expenses</p>
+                        <h2 id="ytd-expense" class="text-2xl font-black text-rose-500 truncate">0.00</h2>
+                    </div>
+                    <div class="glass-card p-6 flex flex-col justify-center border-l-4 border-amber-500">
+                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Savings Rate</p>
+                        <h2 id="ytd-savings-rate" class="text-2xl font-black text-amber-600">0%</h2>
                     </div>
                 </div>
-                <div class="card h-64 flex items-center justify-center text-gray-300 font-bold italic">
-                    Trend Chart will appear after adding more data.
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="glass-card p-6">
+                        <div class="flex justify-between items-center mb-6">
+                            <h4 class="font-bold text-sm uppercase tracking-widest text-gray-500">Trend Comparison</h4>
+                            <select id="compareRange" onchange="updateDashboard()" class="bg-gray-100 border-none rounded-lg px-4 py-1.5 text-xs font-bold outline-none text-blue-600">
+                                <option value="2" selected>Compare Last Mo</option>
+                                <option value="6">Last 6 Months</option>
+                                <option value="12">Last 12 Months</option>
+                            </select>
+                        </div>
+                        <div class="h-64"><canvas id="compareChart"></canvas></div>
+                    </div>
+                    <div class="glass-card p-6">
+                        <h4 class="font-bold text-sm uppercase tracking-widest text-gray-500 mb-6 text-center">Distribution</h4>
+                        <div class="h-64 flex justify-center items-center"><canvas id="distChart"></canvas></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass-card p-12 text-center max-w-xl mx-auto" id="empty-state">
+                <div class="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                </div>
+                <h3 class="text-gray-900 font-black text-lg mb-2">เริ่มวางแผนการเงินของคุณ</h3>
+                <p class="text-gray-400 text-sm mb-6">ยังไม่มีข้อมูลในระบบ คุณสามารถเริ่มกรอกที่เมนู RECORDS หรือ Import ไฟล์สำรองข้อมูลที่มีอยู่</p>
+                <div class="flex flex-col sm:flex-row gap-2 justify-center">
+                    <button onclick="showTab('edit')" class="bg-blue-600 text-white px-8 py-3 rounded-2xl font-bold shadow-lg shadow-blue-100 transition-all active:scale-95">ไปหน้าบันทึก (Records)</button>
+                    <button onclick="document.getElementById('fileInput').click()" class="bg-gray-100 text-gray-600 px-8 py-3 rounded-2xl font-bold transition-all active:scale-95">Import Data</button>
                 </div>
             </div>
         </div>
 
-        <!-- Edit Tab -->
-        <div id="tab-edit" class="hidden space-y-6 max-w-2xl mx-auto">
-            <div class="flex flex-col md:flex-row gap-4 bg-white p-4 rounded-3xl border border-gray-100 shadow-sm">
-                <input type="month" id="monthInput" class="font-black text-blue-600 bg-blue-50 px-4 py-2 rounded-xl outline-none border border-blue-100">
-                <button onclick="exportData()" class="flex-grow bg-gray-900 text-white px-6 py-3 rounded-xl text-[10px] font-black shadow-lg">EXPORT DATABASE (.JSON)</button>
-            </div>
-
-            <div class="card">
-                <label class="text-[10px] font-black text-gray-400 mb-2 block">MONTHLY INCOME (PAYDAY)</label>
-                <input type="number" id="paydayInput" oninput="updateCalculation()" class="w-full text-4xl font-black text-blue-600 outline-none" placeholder="0.00">
-            </div>
-
-            <div id="fixed-container" class="card bg-blue-50/50 border-blue-100">
-                <div class="flex justify-between items-center mb-4">
-                    <span class="text-[10px] font-black text-gray-500">FIXED & INVESTMENTS</span>
-                    <button onclick="addItem('fixed')" class="text-blue-600 font-bold text-xl">+</button>
+        <!-- RECORDS TAB -->
+        <div id="tab-edit" class="hidden space-y-4 animate-in">
+            <!-- Header Bar -->
+            <div class="flex flex-wrap gap-4 items-center justify-between bg-white p-4 rounded-3xl border border-gray-100">
+                <div class="flex items-center gap-4">
+                    <input type="month" id="monthInput" onchange="loadMonth(this.value)" class="bg-transparent border-none font-black text-blue-600 outline-none text-lg">
+                    <div class="flex gap-1">
+                        <button onclick="clonePreviousMonth()" class="text-blue-600 text-[10px] font-bold px-3 py-1.5 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors uppercase">Pull Last Data</button>
+                        <button onclick="clearCurrentMonth()" class="text-rose-600 text-[10px] font-bold px-3 py-1.5 bg-rose-50 rounded-lg hover:bg-rose-100 transition-colors uppercase flex items-center gap-1">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                            Clear Month
+                        </button>
+                    </div>
                 </div>
-                <div id="fixed-list" class="space-y-3"></div>
+                <button onclick="exportJSON()" class="bg-gray-900 text-white px-6 py-2.5 rounded-xl text-xs font-bold hover:bg-black transition-all uppercase tracking-widest">Save File</button>
             </div>
 
-            <div id="dynamic-container" class="card bg-orange-50/50 border-orange-100">
-                <div class="flex justify-between items-center mb-4">
-                    <span class="text-[10px] font-black text-gray-500">VARIABLE EXPENSES</span>
-                    <button onclick="addItem('dynamic')" class="text-orange-600 font-bold text-xl">+</button>
+            <!-- UNIFIED FINANCIAL BAR -->
+            <div class="glass-card overflow-hidden">
+                <div class="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-gray-100">
+                    <div class="p-6 bg-blue-50/30">
+                        <p class="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1">Monthly Income (รายรับ)</p>
+                        <div class="flex items-center gap-2">
+                            <span class="text-xl font-black text-blue-600">฿</span>
+                            <input type="text" id="paydayDisplay" oninput="handleCurrencyInput(this, 'paydayVal')" class="w-full text-2xl font-black text-blue-600 outline-none bg-transparent" placeholder="0">
+                            <input type="hidden" id="paydayVal">
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Total Expenses (รายจ่าย)</p>
+                        <div id="sum-total-exp" class="text-2xl font-black text-rose-500">฿ 0.00</div>
+                    </div>
+                    <div id="record-balance-card" class="p-6 transition-colors duration-300">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-[10px] font-black uppercase tracking-widest opacity-60 mb-1">Balance (คงเหลือ)</p>
+                                <div id="record-balance-val" class="text-2xl font-black">฿ 0.00</div>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-[10px] font-black uppercase tracking-widest opacity-60 mb-1">Saving Rate</p>
+                                <div id="current-saving-rate" class="inline-block px-3 py-1 rounded-lg bg-white/50 text-sm font-black">0%</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div id="dynamic-list" class="space-y-3"></div>
+            </div>
+
+            <!-- List Columns -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- Column: Fixed -->
+                <div class="space-y-4">
+                    <div class="flex items-end justify-between px-2 min-h-[48px]">
+                        <div class="flex flex-col flex-grow">
+                            <h4 class="thai-label uppercase">รายจ่ายประจำ / เงินลงทุน</h4>
+                            <div id="last-fixed-ref" class="text-[9px] font-bold text-gray-300 uppercase tracking-tight">Last Mo: -</div>
+                        </div>
+                        <div class="flex-shrink-0 ml-4 pr-7"> 
+                            <span id="sum-fixed" class="summary-badge text-blue-600 bg-blue-50 border border-blue-100">฿ 0.00</span>
+                        </div>
+                    </div>
+                    <div id="fixed-list" class="space-y-2"></div>
+                    <button onclick="addInput('fixed')" class="w-full py-3 border-2 border-dashed border-gray-200 rounded-xl text-gray-400 font-bold hover:border-blue-400 hover:text-blue-500 transition-all text-xs uppercase tracking-widest">+ Add Fixed Expense</button>
+                </div>
+
+                <!-- Column: Variable -->
+                <div class="space-y-4">
+                    <div class="flex items-end justify-between px-2 min-h-[48px]">
+                        <div class="flex flex-col flex-grow">
+                            <h4 class="thai-label uppercase">รายจ่ายผันแปร</h4>
+                            <div id="last-dynamic-ref" class="text-[9px] font-bold text-gray-300 uppercase tracking-tight">Last Mo: -</div>
+                        </div>
+                        <div class="flex-shrink-0 ml-4 pr-7">
+                            <span id="sum-dynamic" class="summary-badge text-orange-600 bg-orange-50 border border-orange-100">฿ 0.00</span>
+                        </div>
+                    </div>
+                    <div id="dynamic-list" class="space-y-2"></div>
+                    <button onclick="addInput('dynamic')" class="w-full py-3 border-2 border-dashed border-gray-200 rounded-xl text-gray-400 font-bold hover:border-orange-400 hover:text-orange-500 transition-all text-xs uppercase tracking-widest">+ Add Variable Expense</button>
+                </div>
             </div>
         </div>
     </main>
 
-    <input type="file" id="fileInput" class="hidden" accept=".json" onchange="importData(event)">
+    <input type="file" id="fileInput" class="hidden" accept=".json" onchange="importJSON(event)">
 
     <script>
         let records = [];
-        let currentMonth = new Date().toISOString().slice(0, 7);
+        let curMonth = new Date().toISOString().slice(0, 7);
+        let compareChart, distChart;
 
-        function switchTab(tab) {
-            document.getElementById('tab-dashboard').classList.toggle('hidden', tab !== 'dashboard');
-            document.getElementById('tab-edit').classList.toggle('hidden', tab !== 'edit');
-            document.getElementById('btn-dashboard').className = tab === 'dashboard' ? 'px-4 py-2 rounded-lg bg-white shadow-sm text-blue-600' : 'px-4 py-2 rounded-lg text-gray-400';
-            document.getElementById('btn-edit').className = tab === 'edit' ? 'px-4 py-2 rounded-lg bg-white shadow-sm text-blue-600' : 'px-4 py-2 rounded-lg text-gray-400';
-            if (tab === 'dashboard') renderDashboard();
-        }
+        const formatNumber = (num) => {
+            if (num === 0) return "0.00";
+            return num.toFixed(2).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        };
+        const stripCommas = (str) => str.toString().replace(/,/g, '');
+        const sumArr = (arr) => arr ? arr.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0) : 0;
 
-        function renderDashboard() {
-            if (records.length === 0) {
-                document.getElementById('no-data').classList.remove('hidden');
-                document.getElementById('dashboard-content').classList.add('hidden');
-                return;
+        function handleCurrencyInput(el, hiddenId) {
+            let val = stripCommas(el.value);
+            if (isNaN(val) || val === "") val = 0;
+            document.getElementById(hiddenId).value = val;
+            if (el.value !== "") {
+                let formatted = val.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+                el.value = formatted;
             }
-            document.getElementById('no-data').classList.add('hidden');
-            document.getElementById('dashboard-content').classList.remove('hidden');
-
-            const latest = records[records.length - 1];
-            const fixed = (latest.fixedItems || []).reduce((s, i) => s + (Number(i.amount) || 0), 0);
-            const dynamic = (latest.dynamicItems || []).reduce((s, i) => s + (Number(i.amount) || 0), 0);
-            const expense = fixed + dynamic;
-            const surplus = Number(latest.payday || 0) - expense;
-
-            document.getElementById('stat-income').innerText = Number(latest.payday).toLocaleString();
-            document.getElementById('stat-expense').innerText = expense.toLocaleString();
-            document.getElementById('stat-surplus').innerText = surplus.toLocaleString();
-            document.getElementById('stat-surplus-card').style.backgroundColor = surplus >= 0 ? '#2563eb' : '#dc2626';
+            saveAndCalc();
         }
 
-        function addItem(type, name = '', amount = '') {
+        function showTab(t) {
+            document.getElementById('tab-dashboard').classList.toggle('hidden', t !== 'dashboard');
+            document.getElementById('tab-edit').classList.toggle('hidden', t !== 'edit');
+            document.getElementById('btn-dash').className = t === 'dashboard' ? 'px-5 py-2 rounded-xl text-xs font-bold tab-active transition-all uppercase' : 'px-5 py-2 rounded-xl text-xs font-bold text-gray-400 transition-all uppercase';
+            document.getElementById('btn-edit').className = t === 'edit' ? 'px-5 py-2 rounded-xl text-xs font-bold tab-active transition-all uppercase' : 'px-5 py-2 rounded-xl text-xs font-bold text-gray-400 transition-all uppercase';
+            if (t === 'dashboard') updateDashboard();
+        }
+
+        function addInput(type, name = '', val = '') {
             const container = document.getElementById(type + '-list');
-            const id = Date.now() + Math.random();
+            const id = 'row-' + Math.random().toString(36).substr(2, 9);
+            const hiddenId = 'hidden-' + id;
+            const formattedVal = val !== '' ? (parseFloat(val).toLocaleString()) : '';
+
             const html = `
-                <div id="item-${id}" class="flex gap-2">
-                    <input type="text" value="${name}" oninput="updateRecord()" class="flex-grow p-3 rounded-xl text-sm font-bold border-none shadow-sm" placeholder="รายการ...">
-                    <input type="number" value="${amount}" oninput="updateRecord()" class="w-24 p-3 rounded-xl text-sm font-black text-right border-none shadow-sm" placeholder="0">
-                    <button onclick="document.getElementById('item-${id}').remove(); updateRecord();" class="text-gray-300 px-2">×</button>
+                <div id="${id}" class="flex gap-2 items-center group animate-in">
+                    <input type="text" value="${name}" oninput="saveAndCalc()" placeholder="รายการ..." 
+                        class="flex-grow bg-white border border-gray-100 rounded-xl px-4 py-3 text-sm font-medium outline-none shadow-sm focus:border-blue-300 transition-all">
+                    <div class="relative w-40 flex-shrink-0">
+                        <input type="text" value="${formattedVal}" oninput="handleCurrencyInput(this, '${hiddenId}')" placeholder="0" 
+                            class="w-full bg-white border border-gray-100 rounded-xl px-4 py-3 text-sm font-black text-right outline-none shadow-sm focus:border-blue-300 transition-all">
+                        <input type="hidden" id="${hiddenId}" value="${val}">
+                    </div>
+                    <button onclick="document.getElementById('${id}').remove(); saveAndCalc();" 
+                        class="text-gray-300 hover:text-red-500 transition-all opacity-0 group-hover:opacity-100 flex-shrink-0">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
                 </div>
             `;
             container.insertAdjacentHTML('beforeend', html);
         }
 
-        function updateRecord() {
-            const payday = document.getElementById('paydayInput').value;
-            const fixedItems = Array.from(document.getElementById('fixed-list').children).map(el => ({
-                name: el.querySelectorAll('input')[0].value,
-                amount: el.querySelectorAll('input')[1].value
-            }));
-            const dynamicItems = Array.from(document.getElementById('dynamic-list').children).map(el => ({
-                name: el.querySelectorAll('input')[0].value,
-                amount: el.querySelectorAll('input')[1].value
-            }));
+        function saveAndCalc() {
+            const payday = parseFloat(document.getElementById('paydayVal').value) || 0;
+            const month = document.getElementById('monthInput').value;
+            
+            const getItems = (id) => Array.from(document.getElementById(id).children).map(row => {
+                const inputs = row.querySelectorAll('input');
+                return {
+                    name: inputs[0].value,
+                    amount: inputs[2].value 
+                };
+            });
 
-            const record = { id: currentMonth, payday, fixedItems, dynamicItems };
-            const idx = records.findIndex(r => r.id === currentMonth);
-            if (idx > -1) records[idx] = record;
-            else records.push(record);
+            const fixed = getItems('fixed-list');
+            const dynamic = getItems('dynamic-list');
+            const sf = sumArr(fixed);
+            const sd = sumArr(dynamic);
+            const totalExp = sf + sd;
+            const balance = payday - totalExp;
+            const rate = payday > 0 ? Math.round((balance / payday) * 100) : 0;
+
+            document.getElementById('sum-fixed').innerText = '฿ ' + formatNumber(sf);
+            document.getElementById('sum-dynamic').innerText = '฿ ' + formatNumber(sd);
+            document.getElementById('sum-total-exp').innerText = '฿ ' + formatNumber(totalExp);
+            document.getElementById('current-saving-rate').innerText = rate + '%';
+            document.getElementById('record-balance-val').innerText = '฿ ' + formatNumber(balance);
+            
+            const card = document.getElementById('record-balance-card');
+            if (payday === 0 && totalExp === 0) {
+                card.className = "p-6 bg-gray-50 text-gray-400 transition-colors duration-300";
+            } else if (balance < 0) {
+                card.className = "p-6 bg-rose-50 text-rose-600 transition-colors duration-300";
+            } else {
+                card.className = "p-6 bg-emerald-50 text-emerald-600 transition-colors duration-300";
+            }
+
+            const data = { id: month, payday, fixed, dynamic };
+            const idx = records.findIndex(r => r.id === month);
+            if (idx > -1) records[idx] = data; else records.push(data);
             records.sort((a,b) => a.id.localeCompare(b.id));
+
+            updateReferenceBadges();
         }
 
-        function exportData() {
+        function updateReferenceBadges() {
+            const currentIdx = records.findIndex(r => r.id === curMonth);
+            const prevData = currentIdx > 0 ? records[currentIdx - 1] : null;
+            const fixedRef = document.getElementById('last-fixed-ref');
+            const dynRef = document.getElementById('last-dynamic-ref');
+            if (prevData) {
+                fixedRef.innerText = `Last Mo: ฿ ${formatNumber(sumArr(prevData.fixed))}`;
+                dynRef.innerText = `Last Mo: ฿ ${formatNumber(sumArr(prevData.dynamic))}`;
+            } else {
+                fixedRef.innerText = "Last Mo: -";
+                dynRef.innerText = "Last Mo: -";
+            }
+        }
+
+        function updateDashboard() {
+            const validRecords = records.filter(r => r.payday > 0 || r.fixed.length > 0 || r.dynamic.length > 0);
+            if (validRecords.length === 0) {
+                document.getElementById('empty-state').classList.remove('hidden');
+                document.getElementById('dash-content').classList.add('hidden');
+                return;
+            }
+            document.getElementById('empty-state').classList.add('hidden');
+            document.getElementById('dash-content').classList.remove('hidden');
+
+            const latest = records.find(r => r.id === curMonth) || records[records.length - 1];
+            const expense = sumArr(latest.fixed) + sumArr(latest.dynamic);
+            const surplus = latest.payday - expense;
+
+            document.getElementById('dash-surplus').innerText = formatNumber(surplus);
+            document.getElementById('current-month-label').innerText = latest.id;
+            
+            const mainCard = document.getElementById('surplus-card-main');
+            if (surplus < 0) {
+                mainCard.className = "glass-card p-6 bg-gradient-to-br from-rose-600 to-rose-700 text-white border-none shadow-rose-200";
+                document.getElementById('status-text').innerText = "Overspent";
+            } else {
+                mainCard.className = "glass-card p-6 bg-gradient-to-br from-emerald-600 to-emerald-700 text-white border-none shadow-emerald-200";
+                document.getElementById('status-text').innerText = "Healthy";
+            }
+
+            const currentYear = latest.id.split('-')[0];
+            const ytdRecords = records.filter(r => r.id.startsWith(currentYear));
+            const ytdInc = ytdRecords.reduce((s, r) => s + r.payday, 0);
+            const ytdExp = ytdRecords.reduce((s, r) => s + (sumArr(r.fixed) + sumArr(r.dynamic)), 0);
+            
+            document.getElementById('ytd-income').innerText = '฿ ' + formatNumber(ytdInc);
+            document.getElementById('ytd-expense').innerText = '฿ ' + formatNumber(ytdExp);
+            document.getElementById('ytd-savings-rate').innerText = (ytdInc > 0 ? Math.round(((ytdInc-ytdExp)/ytdInc)*100) : 0) + '%';
+            updateCharts(latest, validRecords);
+        }
+
+        function updateCharts(latest, validRecords) {
+            const ctxDist = document.getElementById('distChart').getContext('2d');
+            const fixedAmt = sumArr(latest.fixed);
+            const dynAmt = sumArr(latest.dynamic);
+            const savingsAmt = Math.max(0, latest.payday - (fixedAmt + dynAmt));
+            if (distChart) distChart.destroy();
+            distChart = new Chart(ctxDist, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Fixed', 'Variable', 'Savings'],
+                    datasets: [{
+                        data: [fixedAmt, dynAmt, savingsAmt],
+                        backgroundColor: ['#2563eb', '#f97316', '#10b981'],
+                        borderWidth: 0
+                    }]
+                },
+                options: { cutout: '80%', maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { font: { weight: 'bold' } } } } }
+            });
+
+            const rangeLimit = parseInt(document.getElementById('compareRange').value);
+            const displayData = validRecords.slice(-rangeLimit);
+            const ctxComp = document.getElementById('compareChart').getContext('2d');
+            if (compareChart) compareChart.destroy();
+            compareChart = new Chart(ctxComp, {
+                type: 'bar',
+                data: {
+                    labels: displayData.map(r => r.id),
+                    datasets: [
+                        { label: 'Income', data: displayData.map(r => r.payday), backgroundColor: '#10b981', borderRadius: 4 },
+                        { label: 'Expense', data: displayData.map(r => sumArr(r.fixed) + sumArr(r.dynamic)), backgroundColor: '#ef4444', borderRadius: 4 }
+                    ]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top', labels: { boxWidth: 10, font: { weight: 'bold', size: 10 } } } }, scales: { y: { beginAtZero: true, ticks: { font: { size: 9 } } }, x: { ticks: { font: { weight: 'bold', size: 10 } } } } }
+            });
+        }
+
+        function loadMonth(m) {
+            curMonth = m;
+            const r = records.find(rec => rec.id === m);
+            const paydayVal = r ? r.payday : 0;
+            document.getElementById('paydayVal').value = paydayVal;
+            document.getElementById('paydayDisplay').value = paydayVal > 0 ? (paydayVal.toLocaleString()) : '';
+            document.getElementById('fixed-list').innerHTML = '';
+            document.getElementById('dynamic-list').innerHTML = '';
+            if (r) {
+                r.fixed.forEach(i => addInput('fixed', i.name, i.amount));
+                r.dynamic.forEach(i => addInput('dynamic', i.name, i.amount));
+            }
+            saveAndCalc();
+            updateDashboard();
+        }
+
+        function clearCurrentMonth() {
+            document.getElementById('paydayVal').value = 0;
+            document.getElementById('paydayDisplay').value = '';
+            document.getElementById('fixed-list').innerHTML = '';
+            document.getElementById('dynamic-list').innerHTML = '';
+            saveAndCalc();
+            updateDashboard();
+        }
+
+        function clonePreviousMonth() {
+            const currentIdx = records.findIndex(r => r.id === curMonth);
+            let prevData = null;
+            for (let i = currentIdx - 1; i >= 0; i--) {
+                if (records[i].payday > 0 || records[i].fixed.length > 0) {
+                    prevData = records[i];
+                    break;
+                }
+            }
+            if (prevData) {
+                document.getElementById('paydayVal').value = prevData.payday;
+                document.getElementById('paydayDisplay').value = prevData.payday.toLocaleString();
+                document.getElementById('fixed-list').innerHTML = '';
+                document.getElementById('dynamic-list').innerHTML = '';
+                prevData.fixed.forEach(i => addInput('fixed', i.name, i.amount));
+                prevData.dynamic.forEach(i => addInput('dynamic', i.name, i.amount));
+                saveAndCalc();
+            }
+        }
+
+        function exportJSON() {
             const blob = new Blob([JSON.stringify(records, null, 2)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
-            a.href = url;
-            a.download = `finance_db_${currentMonth}.json`;
+            a.href = URL.createObjectURL(blob);
+            // Updated file name as requested: PS-Smart-Finance.json
+            a.download = 'PS-Smart-Finance.json';
             a.click();
         }
 
-        function importData(e) {
+        function importJSON(e) {
             const file = e.target.files[0];
+            if (!file) return;
             const reader = new FileReader();
             reader.onload = (ev) => {
-                records = JSON.parse(ev.target.result);
-                loadMonth(currentMonth);
-                switchTab('dashboard');
+                try {
+                    const data = JSON.parse(ev.target.result);
+                    if (Array.isArray(data)) {
+                        records = data;
+                        document.getElementById('db-name-display').innerText = file.name;
+                        loadMonth(curMonth);
+                        updateDashboard();
+                        showTab('dashboard');
+                    }
+                } catch(err) {
+                    console.error("Import error", err);
+                }
             };
             reader.readAsText(file);
         }
 
-        function loadMonth(m) {
-            currentMonth = m;
-            const r = records.find(rec => rec.id === m);
-            document.getElementById('paydayInput').value = r ? r.payday : '';
-            document.getElementById('fixed-list').innerHTML = '';
-            document.getElementById('dynamic-list').innerHTML = '';
-            
-            if (r) {
-                r.fixedItems.forEach(i => addItem('fixed', i.name, i.amount));
-                r.dynamicItems.forEach(i => addItem('dynamic', i.name, i.amount));
-            } else {
-                addItem('fixed', 'รถ+คอนโด', '8963.01');
-                addItem('fixed', 'DCA (VOO+SMH)', '3000.00');
-                addItem('dynamic', 'ค่าน้ำมัน', '');
-            }
-        }
-
-        document.getElementById('monthInput').value = currentMonth;
-        document.getElementById('monthInput').onchange = (e) => loadMonth(e.target.value);
-        loadMonth(currentMonth);
+        window.onload = () => {
+            document.getElementById('monthInput').value = curMonth;
+            loadMonth(curMonth);
+        };
     </script>
 </body>
 </html>
