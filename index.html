@@ -177,7 +177,7 @@
                         <p class="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1">Monthly Income (รายรับ)</p>
                         <div class="flex items-center gap-2">
                             <span class="text-xl font-black text-blue-600">฿</span>
-                            <input type="text" id="paydayDisplay" oninput="handleCurrencyInput(this, 'paydayVal')" class="w-full text-2xl font-black text-blue-600 outline-none bg-transparent" placeholder="0">
+                            <input type="text" id="paydayDisplay" oninput="handleCurrencyInput(this, 'paydayVal')" onpaste="handlePaste(event, this, 'paydayVal')" onblur="handleBlur(this, 'paydayVal')" class="w-full text-2xl font-black text-blue-600 outline-none bg-transparent" placeholder="0.00">
                             <input type="hidden" id="paydayVal">
                         </div>
                     </div>
@@ -242,23 +242,54 @@
         let curMonth = new Date().toISOString().slice(0, 7);
         let compareChart, distChart;
 
+        // Utilities
         const formatNumber = (num) => {
             if (num === 0) return "0.00";
-            return num.toFixed(2).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+            return parseFloat(num).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         };
+
         const stripCommas = (str) => str.toString().replace(/,/g, '');
-        const sumArr = (arr) => arr ? arr.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0) : 0;
+
+        // Core Input Logic
+        function parseToValidNumber(str) {
+            let val = stripCommas(str);
+            // อนุญาตตัวเลขและจุดทศนิยมอันเดียว
+            val = val.replace(/[^0-9.]/g, '');
+            const parts = val.split('.');
+            if (parts.length > 2) val = parts[0] + '.' + parts.slice(1).join('');
+            return val;
+        }
 
         function handleCurrencyInput(el, hiddenId) {
-            let val = stripCommas(el.value);
-            if (isNaN(val) || val === "") val = 0;
+            let val = parseToValidNumber(el.value);
             document.getElementById(hiddenId).value = val;
-            if (el.value !== "") {
-                let formatted = val.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-                el.value = formatted;
+            
+            // ถ้าไม่มีจุด หรือไม่มีเศษทศนิยมที่กำลังพิมพ์ ให้ฟอร์แมตคอมมา
+            if (!val.includes('.') && val !== "") {
+                el.value = parseFloat(val).toLocaleString();
+            } else {
+                el.value = val; // ปล่อยให้พิมพ์จุดได้อิสระ
             }
             saveAndCalc();
         }
+
+        function handlePaste(e, el, hiddenId) {
+            e.preventDefault();
+            let text = (e.clipboardData || window.clipboardData).getData('text');
+            // ล้างฟอร์แมตจาก Excel/CSV
+            let clean = parseToValidNumber(text);
+            el.value = clean;
+            document.getElementById(hiddenId).value = clean;
+            handleBlur(el, hiddenId); // ฟอร์แมตทันทีหลังวาง
+        }
+
+        function handleBlur(el, hiddenId) {
+            let val = parseFloat(document.getElementById(hiddenId).value) || 0;
+            el.value = val > 0 ? formatNumber(val) : "";
+            saveAndCalc();
+        }
+
+        const sumArr = (arr) => arr ? arr.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0) : 0;
 
         function showTab(t) {
             document.getElementById('tab-dashboard').classList.toggle('hidden', t !== 'dashboard');
@@ -272,14 +303,18 @@
             const container = document.getElementById(type + '-list');
             const id = 'row-' + Math.random().toString(36).substr(2, 9);
             const hiddenId = 'hidden-' + id;
-            const formattedVal = val !== '' ? (parseFloat(val).toLocaleString()) : '';
+            const displayVal = val !== '' ? formatNumber(val) : '';
 
             const html = `
                 <div id="${id}" class="flex gap-2 items-center group animate-in">
                     <input type="text" value="${name}" oninput="saveAndCalc()" placeholder="รายการ..." 
                         class="flex-grow bg-white border border-gray-100 rounded-xl px-4 py-3 text-sm font-medium outline-none shadow-sm focus:border-blue-300 transition-all">
                     <div class="relative w-40 flex-shrink-0">
-                        <input type="text" value="${formattedVal}" oninput="handleCurrencyInput(this, '${hiddenId}')" placeholder="0" 
+                        <input type="text" value="${displayVal}" 
+                            oninput="handleCurrencyInput(this, '${hiddenId}')" 
+                            onpaste="handlePaste(event, this, '${hiddenId}')"
+                            onblur="handleBlur(this, '${hiddenId}')"
+                            placeholder="0.00" 
                             class="w-full bg-white border border-gray-100 rounded-xl px-4 py-3 text-sm font-black text-right outline-none shadow-sm focus:border-blue-300 transition-all">
                         <input type="hidden" id="${hiddenId}" value="${val}">
                     </div>
@@ -427,7 +462,7 @@
             const r = records.find(rec => rec.id === m);
             const paydayVal = r ? r.payday : 0;
             document.getElementById('paydayVal').value = paydayVal;
-            document.getElementById('paydayDisplay').value = paydayVal > 0 ? (paydayVal.toLocaleString()) : '';
+            document.getElementById('paydayDisplay').value = paydayVal > 0 ? formatNumber(paydayVal) : '';
             document.getElementById('fixed-list').innerHTML = '';
             document.getElementById('dynamic-list').innerHTML = '';
             if (r) {
@@ -458,7 +493,7 @@
             }
             if (prevData) {
                 document.getElementById('paydayVal').value = prevData.payday;
-                document.getElementById('paydayDisplay').value = prevData.payday.toLocaleString();
+                document.getElementById('paydayDisplay').value = formatNumber(prevData.payday);
                 document.getElementById('fixed-list').innerHTML = '';
                 document.getElementById('dynamic-list').innerHTML = '';
                 prevData.fixed.forEach(i => addInput('fixed', i.name, i.amount));
@@ -471,7 +506,6 @@
             const blob = new Blob([JSON.stringify(records, null, 2)], { type: 'application/json' });
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
-            // Updated file name as requested: PS-Smart-Finance.json
             a.download = 'PS-Smart-Finance.json';
             a.click();
         }
