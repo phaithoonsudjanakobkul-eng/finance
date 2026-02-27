@@ -4,255 +4,187 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PS Smart Financial</title>
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- React & ReactDOM -->
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <!-- Babel -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <!-- Recharts -->
-    <script src="https://unpkg.com/recharts/umd/Recharts.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; margin: 0; }
-        .fade-in { animation: fadeIn 0.3s ease-in-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+        .card { background: white; border-radius: 1.5rem; border: 1px solid #f1f5f9; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
     </style>
 </head>
-<body>
-    <div id="root"></div>
+<body class="min-h-screen flex flex-col">
 
-    <script type="text/babel">
-        const { useState, useMemo, useEffect, useRef } = React;
-        const { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } = Recharts;
+    <nav class="bg-white border-b sticky top-0 z-50">
+        <div class="max-w-4xl mx-auto px-4 h-16 flex justify-between items-center">
+            <div class="flex items-center gap-2 text-blue-600 font-black text-xl">
+                <span>฿</span> PS SMART FINANCE
+            </div>
+            <div class="flex bg-gray-100 p-1 rounded-xl text-[10px] font-black">
+                <button onclick="switchTab('dashboard')" id="btn-dashboard" class="px-4 py-2 rounded-lg bg-white shadow-sm text-blue-600">DASHBOARD</button>
+                <button onclick="switchTab('edit')" id="btn-edit" class="px-4 py-2 rounded-lg text-gray-400">RECORDS</button>
+            </div>
+        </div>
+    </nav>
 
-        // Inline SVG Icons for maximum compatibility
-        const Icons = {
-            Save: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>,
-            Folder: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>,
-            Plus: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>,
-            Trash: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>,
-            Baht: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-6 h-6" xmlns="http://www.w3.org/2000/svg"><path d="M6 12h12M6 6h10a3 3 0 0 1 0 6H6M6 12h11a3 3 0 0 1 0 6H6M11 4v16" /></svg>
-        };
+    <main class="max-w-4xl mx-auto w-full p-4 py-8 flex-grow">
+        <!-- Dashboard Tab -->
+        <div id="tab-dashboard" class="space-y-6">
+            <div id="no-data" class="text-center py-20 bg-white rounded-[2rem] border-2 border-dashed border-gray-200">
+                <h2 class="text-gray-400 font-bold mb-6">ยังไม่มีข้อมูลในระบบ</h2>
+                <button onclick="document.getElementById('fileInput').click()" class="bg-blue-600 text-white px-8 py-3 rounded-2xl font-black shadow-lg">Open JSON Database</button>
+            </div>
 
-        function App() {
-            const [activeTab, setActiveTab] = useState('dashboard');
-            const [records, setRecords] = useState([]);
-            const [fileName, setFileName] = useState('ยังไม่ได้เลือกไฟล์');
-            const [selectedMonth, setSelectedMonth] = useState(`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`);
-            const [editingRecord, setEditingRecord] = useState(null);
-            const fileInputRef = useRef(null);
-
-            const formatCurrency = (n) => new Intl.NumberFormat('th-TH').format(n || 0);
-            const formatDisplay = (v) => v ? String(v).replace(/\B(?=(\d{3})+(?!\d))/g, ',') : '';
-            const parseInput = (v) => String(v).replace(/,/g, '').replace(/[^0-9.]/g, '');
-
-            const loadData = (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onload = (ev) => {
-                    try {
-                        const data = JSON.parse(ev.target.result);
-                        if (Array.isArray(data)) {
-                            setRecords(data);
-                            setFileName(file.name);
-                        }
-                    } catch (err) { alert('รูปแบบไฟล์ JSON ไม่ถูกต้อง'); }
-                };
-                reader.readAsText(file);
-            };
-
-            const saveFile = () => {
-                const blob = new Blob([JSON.stringify(records, null, 2)], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = fileName.includes('.json') ? fileName : 'finance-db.json';
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-            };
-
-            const processedData = useMemo(() => {
-                return records.map(r => {
-                    const fixed = r.fixedItems?.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0) || 0;
-                    const dynamic = r.dynamicItems?.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0) || 0;
-                    const debt = fixed + dynamic;
-                    return { ...r, debt, surplus: (parseFloat(r.payday) || 0) - debt };
-                }).sort((a, b) => a.id.localeCompare(b.id));
-            }, [records]);
-
-            const latestMonth = processedData[processedData.length - 1] || null;
-
-            useEffect(() => {
-                const found = records.find(r => r.id === selectedMonth);
-                if (found) setEditingRecord(JSON.parse(JSON.stringify(found)));
-                else {
-                    const date = new Date(selectedMonth + '-01');
-                    setEditingRecord({
-                        id: selectedMonth, 
-                        label: date.toLocaleString('en-US', { month: 'short', year: 'numeric' }),
-                        payday: '', 
-                        fixedItems: [
-                            { id: 'f1', name: 'รถ+คอนโด', amount: '8963.01' }, 
-                            { id: 'f2', name: 'DCA (VOO+SMH)', amount: '3000.00' }
-                        ],
-                        dynamicItems: [{ id: 'd1', name: 'ค่าน้ำมัน', amount: '' }]
-                    });
-                }
-            }, [selectedMonth, records]);
-
-            const syncUpdate = (updated) => {
-                setEditingRecord(updated);
-                setRecords(prev => {
-                    const idx = prev.findIndex(r => r.id === updated.id);
-                    if (idx > -1) {
-                        const next = [...prev];
-                        next[idx] = updated;
-                        return next;
-                    }
-                    return [...prev, updated].sort((a,b) => a.id.localeCompare(b.id));
-                });
-            };
-
-            const currentSurplus = (parseFloat(editingRecord?.payday) || 0) - 
-                ((editingRecord?.fixedItems?.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0) || 0) + 
-                 (editingRecord?.dynamicItems?.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0) || 0));
-
-            return (
-                <div className="min-h-screen bg-gray-50 font-sans">
-                    <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={loadData} />
-                    
-                    {/* Header */}
-                    <nav className="bg-white border-b border-gray-200 sticky top-0 z-20 shadow-sm">
-                        <div className="max-w-4xl mx-auto px-4 h-16 flex justify-between items-center">
-                            <div className="flex items-center gap-2 text-blue-600">
-                                <Icons.Baht />
-                                <span className="font-black text-xl tracking-tighter">PS SMART FINANCE</span>
-                            </div>
-                            <div className="flex bg-gray-100 p-1 rounded-2xl">
-                                <button onClick={() => setActiveTab('dashboard')} className={`px-4 py-2 rounded-xl text-xs font-black transition ${activeTab === 'dashboard' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-400'}`}>DASHBOARD</button>
-                                <button onClick={() => setActiveTab('edit')} className={`px-4 py-2 rounded-xl text-xs font-black transition ${activeTab === 'edit' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-400'}`}>RECORDS</button>
-                            </div>
-                        </div>
-                    </nav>
-
-                    <main className="max-w-4xl mx-auto p-4 md:py-8">
-                        {activeTab === 'dashboard' ? (
-                            records.length === 0 ? (
-                                <div className="text-center py-20 bg-white rounded-[2rem] border-2 border-dashed border-gray-200 flex flex-col items-center">
-                                    <div className="text-gray-100 mb-6"><Icons.Folder /></div>
-                                    <h2 className="text-xl font-bold text-gray-400 mb-6 uppercase tracking-widest">Connect your database</h2>
-                                    <button onClick={() => fileInputRef.current.click()} className="bg-blue-600 text-white px-10 py-4 rounded-3xl font-black shadow-xl shadow-blue-100 hover:bg-blue-700 transition transform hover:-translate-y-1">
-                                        Open JSON Database
-                                    </button>
-                                    <p className="mt-4 text-xs text-gray-400">Database should be in OneDrive to sync across devices.</p>
-                                </div>
-                            ) : (
-                                <div className="space-y-6 fade-in">
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                        <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100">
-                                            <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Recent Income</div>
-                                            <div className="text-2xl font-black">{formatCurrency(latestMonth?.payday)} <span className="text-sm font-normal text-gray-300">฿</span></div>
-                                        </div>
-                                        <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100">
-                                            <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Expenses</div>
-                                            <div className="text-2xl font-black text-red-500">{formatCurrency(latestMonth?.debt)} <span className="text-sm font-normal text-gray-300">฿</span></div>
-                                        </div>
-                                        <div className={`p-6 rounded-[2rem] shadow-lg ${latestMonth?.surplus >= 0 ? 'bg-blue-600 text-white' : 'bg-red-600 text-white'}`}>
-                                            <div className="text-[10px] font-black uppercase tracking-widest mb-1 opacity-70">Surplus</div>
-                                            <div className="text-2xl font-black">{formatCurrency(latestMonth?.surplus)} <span className="text-sm font-normal opacity-50">฿</span></div>
-                                        </div>
-                                    </div>
-                                    
-                                    <div className="bg-white p-6 md:p-8 rounded-[2rem] shadow-sm border border-gray-100 h-96">
-                                        <h3 className="text-[10px] font-black text-gray-400 mb-6 uppercase tracking-widest">Financial Trends (6 Months)</h3>
-                                        <ResponsiveContainer width="100%" height="90%">
-                                            <BarChart data={processedData.slice(-6)}>
-                                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                                                <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{fontSize: 12, fontWeight: 700, fill: '#94a3b8'}} />
-                                                <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#cbd5e1'}} />
-                                                <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{borderRadius: '20px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.05)'}} />
-                                                <Bar dataKey="payday" name="Income" fill="#3b82f6" radius={[6, 6, 0, 0]} barSize={24} />
-                                                <Bar dataKey="debt" name="Expense" fill="#ef4444" radius={[6, 6, 0, 0]} barSize={24} />
-                                            </BarChart>
-                                        </ResponsiveContainer>
-                                    </div>
-                                </div>
-                            )
-                        ) : (
-                            <div className="max-w-2xl mx-auto space-y-6 fade-in">
-                                <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white p-4 rounded-3xl shadow-sm border border-gray-100">
-                                    <div className="flex items-center gap-4">
-                                        <input type="month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} className="font-black outline-none text-blue-600 bg-blue-50 px-5 py-2 rounded-2xl border border-blue-100" />
-                                        <button onClick={() => fileInputRef.current.click()} className="p-2 text-gray-300 hover:text-blue-600 transition"><Icons.Folder /></button>
-                                    </div>
-                                    <button onClick={saveFile} className="w-full md:w-auto bg-gray-900 text-white px-8 py-3 rounded-2xl text-[10px] font-black flex items-center justify-center gap-3 shadow-lg hover:bg-black transition transform active:scale-95">
-                                        <Icons.Save /> EXPORT DATABASE (.JSON)
-                                    </button>
-                                </div>
-
-                                {editingRecord && (
-                                    <div className="space-y-6">
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <div className="bg-white p-8 rounded-[2rem] border border-gray-100 shadow-sm">
-                                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 block">Payday Income</label>
-                                                <div className="flex items-end gap-2">
-                                                    <input type="text" value={formatDisplay(editingRecord.payday)} onChange={e => syncUpdate({...editingRecord, payday: parseInput(e.target.value)})} className="w-full text-4xl font-black text-blue-600 outline-none" placeholder="0.00" />
-                                                    <span className="text-xl font-bold text-gray-200">฿</span>
-                                                </div>
-                                            </div>
-                                            <div className={`p-8 rounded-[2rem] border-2 flex flex-col justify-center transition-all ${currentSurplus >= 0 ? 'bg-blue-600 border-blue-500 text-white shadow-xl shadow-blue-100' : 'bg-red-600 border-red-500 text-white shadow-xl shadow-red-100'}`}>
-                                                <div className="text-[10px] font-black uppercase opacity-60 tracking-widest mb-1">Calculated Surplus</div>
-                                                <div className="text-3xl font-black">{formatCurrency(currentSurplus)} <span className="text-lg font-medium opacity-50">฿</span></div>
-                                            </div>
-                                        </div>
-
-                                        {['fixedItems', 'dynamicItems'].map(type => (
-                                            <div key={type} className={`p-6 md:p-8 rounded-[2.5rem] border ${type === 'fixedItems' ? 'bg-blue-50/50 border-blue-100' : 'bg-orange-50/50 border-orange-100'}`}>
-                                                <div className="flex justify-between items-center mb-6">
-                                                    <span className="text-[10px] font-black uppercase text-gray-500 tracking-[0.2em]">{type === 'fixedItems' ? 'Fixed & Investments (DCA)' : 'Variable Expenses (Gas/Food)'}</span>
-                                                    <button onClick={() => {
-                                                        const updated = {...editingRecord, [type]: [...editingRecord[type], { id: Date.now().toString(), name: '', amount: '' }]};
-                                                        syncUpdate(updated);
-                                                    }} className="bg-white p-2 rounded-xl border border-gray-100 shadow-sm text-blue-600 hover:bg-blue-600 hover:text-white transition"><Icons.Plus /></button>
-                                                </div>
-                                                <div className="space-y-3">
-                                                    {editingRecord[type].map(item => (
-                                                        <div key={item.id} className="flex gap-3 items-center group">
-                                                            <input type="text" value={item.name} onChange={e => {
-                                                                const next = editingRecord[type].map(it => it.id === item.id ? {...it, name: e.target.value} : it);
-                                                                syncUpdate({...editingRecord, [type]: next});
-                                                            }} className="flex-1 bg-white/80 border border-transparent rounded-2xl px-5 py-3 text-sm font-bold outline-none shadow-sm focus:bg-white focus:border-blue-200 transition" placeholder="Item Name..."/>
-                                                            <input type="text" value={formatDisplay(item.amount)} onChange={e => {
-                                                                const next = editingRecord[type].map(it => it.id === item.id ? {...it, amount: parseInput(e.target.value)} : it);
-                                                                syncUpdate({...editingRecord, [type]: next});
-                                                            }} className="w-28 md:w-36 bg-white/80 border border-transparent rounded-2xl px-5 py-3 text-sm font-black text-right outline-none shadow-sm focus:bg-white focus:border-blue-200 transition" placeholder="0.00"/>
-                                                            <button onClick={() => {
-                                                                const next = editingRecord[type].filter(it => it.id !== item.id);
-                                                                syncUpdate({...editingRecord, [type]: next});
-                                                            }} className="text-gray-300 hover:text-red-500 transition-colors p-2"><Icons.Trash /></button>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                    </main>
-                    <footer className="mt-auto py-10 text-center text-[10px] font-black text-gray-300 uppercase tracking-[0.5em]">
-                        PS Smart Finance System v2.0
-                    </footer>
+            <div id="dashboard-content" class="hidden space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="card"><div class="text-[10px] font-black text-gray-400 mb-1">INCOME</div><div id="stat-income" class="text-2xl font-black">0</div></div>
+                    <div class="card"><div class="text-[10px] font-black text-gray-400 mb-1">EXPENSE</div><div id="stat-expense" class="text-2xl font-black text-red-500">0</div></div>
+                    <div id="stat-surplus-card" class="card bg-blue-600 text-white border-none shadow-xl shadow-blue-100">
+                        <div class="text-[10px] font-black opacity-60 mb-1">SURPLUS</div>
+                        <div id="stat-surplus" class="text-2xl font-black">0</div>
+                    </div>
                 </div>
-            );
+                <div class="card h-64 flex items-center justify-center text-gray-300 font-bold italic">
+                    Trend Chart will appear after adding more data.
+                </div>
+            </div>
+        </div>
+
+        <!-- Edit Tab -->
+        <div id="tab-edit" class="hidden space-y-6 max-w-2xl mx-auto">
+            <div class="flex flex-col md:flex-row gap-4 bg-white p-4 rounded-3xl border border-gray-100 shadow-sm">
+                <input type="month" id="monthInput" class="font-black text-blue-600 bg-blue-50 px-4 py-2 rounded-xl outline-none border border-blue-100">
+                <button onclick="exportData()" class="flex-grow bg-gray-900 text-white px-6 py-3 rounded-xl text-[10px] font-black shadow-lg">EXPORT DATABASE (.JSON)</button>
+            </div>
+
+            <div class="card">
+                <label class="text-[10px] font-black text-gray-400 mb-2 block">MONTHLY INCOME (PAYDAY)</label>
+                <input type="number" id="paydayInput" oninput="updateCalculation()" class="w-full text-4xl font-black text-blue-600 outline-none" placeholder="0.00">
+            </div>
+
+            <div id="fixed-container" class="card bg-blue-50/50 border-blue-100">
+                <div class="flex justify-between items-center mb-4">
+                    <span class="text-[10px] font-black text-gray-500">FIXED & INVESTMENTS</span>
+                    <button onclick="addItem('fixed')" class="text-blue-600 font-bold text-xl">+</button>
+                </div>
+                <div id="fixed-list" class="space-y-3"></div>
+            </div>
+
+            <div id="dynamic-container" class="card bg-orange-50/50 border-orange-100">
+                <div class="flex justify-between items-center mb-4">
+                    <span class="text-[10px] font-black text-gray-500">VARIABLE EXPENSES</span>
+                    <button onclick="addItem('dynamic')" class="text-orange-600 font-bold text-xl">+</button>
+                </div>
+                <div id="dynamic-list" class="space-y-3"></div>
+            </div>
+        </div>
+    </main>
+
+    <input type="file" id="fileInput" class="hidden" accept=".json" onchange="importData(event)">
+
+    <script>
+        let records = [];
+        let currentMonth = new Date().toISOString().slice(0, 7);
+
+        function switchTab(tab) {
+            document.getElementById('tab-dashboard').classList.toggle('hidden', tab !== 'dashboard');
+            document.getElementById('tab-edit').classList.toggle('hidden', tab !== 'edit');
+            document.getElementById('btn-dashboard').className = tab === 'dashboard' ? 'px-4 py-2 rounded-lg bg-white shadow-sm text-blue-600' : 'px-4 py-2 rounded-lg text-gray-400';
+            document.getElementById('btn-edit').className = tab === 'edit' ? 'px-4 py-2 rounded-lg bg-white shadow-sm text-blue-600' : 'px-4 py-2 rounded-lg text-gray-400';
+            if (tab === 'dashboard') renderDashboard();
         }
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
+        function renderDashboard() {
+            if (records.length === 0) {
+                document.getElementById('no-data').classList.remove('hidden');
+                document.getElementById('dashboard-content').classList.add('hidden');
+                return;
+            }
+            document.getElementById('no-data').classList.add('hidden');
+            document.getElementById('dashboard-content').classList.remove('hidden');
+
+            const latest = records[records.length - 1];
+            const fixed = (latest.fixedItems || []).reduce((s, i) => s + (Number(i.amount) || 0), 0);
+            const dynamic = (latest.dynamicItems || []).reduce((s, i) => s + (Number(i.amount) || 0), 0);
+            const expense = fixed + dynamic;
+            const surplus = Number(latest.payday || 0) - expense;
+
+            document.getElementById('stat-income').innerText = Number(latest.payday).toLocaleString();
+            document.getElementById('stat-expense').innerText = expense.toLocaleString();
+            document.getElementById('stat-surplus').innerText = surplus.toLocaleString();
+            document.getElementById('stat-surplus-card').style.backgroundColor = surplus >= 0 ? '#2563eb' : '#dc2626';
+        }
+
+        function addItem(type, name = '', amount = '') {
+            const container = document.getElementById(type + '-list');
+            const id = Date.now() + Math.random();
+            const html = `
+                <div id="item-${id}" class="flex gap-2">
+                    <input type="text" value="${name}" oninput="updateRecord()" class="flex-grow p-3 rounded-xl text-sm font-bold border-none shadow-sm" placeholder="รายการ...">
+                    <input type="number" value="${amount}" oninput="updateRecord()" class="w-24 p-3 rounded-xl text-sm font-black text-right border-none shadow-sm" placeholder="0">
+                    <button onclick="document.getElementById('item-${id}').remove(); updateRecord();" class="text-gray-300 px-2">×</button>
+                </div>
+            `;
+            container.insertAdjacentHTML('beforeend', html);
+        }
+
+        function updateRecord() {
+            const payday = document.getElementById('paydayInput').value;
+            const fixedItems = Array.from(document.getElementById('fixed-list').children).map(el => ({
+                name: el.querySelectorAll('input')[0].value,
+                amount: el.querySelectorAll('input')[1].value
+            }));
+            const dynamicItems = Array.from(document.getElementById('dynamic-list').children).map(el => ({
+                name: el.querySelectorAll('input')[0].value,
+                amount: el.querySelectorAll('input')[1].value
+            }));
+
+            const record = { id: currentMonth, payday, fixedItems, dynamicItems };
+            const idx = records.findIndex(r => r.id === currentMonth);
+            if (idx > -1) records[idx] = record;
+            else records.push(record);
+            records.sort((a,b) => a.id.localeCompare(b.id));
+        }
+
+        function exportData() {
+            const blob = new Blob([JSON.stringify(records, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `finance_db_${currentMonth}.json`;
+            a.click();
+        }
+
+        function importData(e) {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                records = JSON.parse(ev.target.result);
+                loadMonth(currentMonth);
+                switchTab('dashboard');
+            };
+            reader.readAsText(file);
+        }
+
+        function loadMonth(m) {
+            currentMonth = m;
+            const r = records.find(rec => rec.id === m);
+            document.getElementById('paydayInput').value = r ? r.payday : '';
+            document.getElementById('fixed-list').innerHTML = '';
+            document.getElementById('dynamic-list').innerHTML = '';
+            
+            if (r) {
+                r.fixedItems.forEach(i => addItem('fixed', i.name, i.amount));
+                r.dynamicItems.forEach(i => addItem('dynamic', i.name, i.amount));
+            } else {
+                addItem('fixed', 'รถ+คอนโด', '8963.01');
+                addItem('fixed', 'DCA (VOO+SMH)', '3000.00');
+                addItem('dynamic', 'ค่าน้ำมัน', '');
+            }
+        }
+
+        document.getElementById('monthInput').value = currentMonth;
+        document.getElementById('monthInput').onchange = (e) => loadMonth(e.target.value);
+        loadMonth(currentMonth);
     </script>
 </body>
 </html>
