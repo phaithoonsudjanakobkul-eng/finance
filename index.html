@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PS Smart Finance</title>
+    <title>PS Smart Finance - Secured</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -38,6 +38,7 @@
             font-weight: 800;
             color: #64748b;
             letter-spacing: 0.025em;
+            line-height: 1;
         }
 
         .animate-in {
@@ -65,9 +66,52 @@
             font-size: 0.875rem;
             transition: all 0.2s ease;
         }
+
+        .row-paid {
+            opacity: 0.6;
+            background-color: #f0fdf4 !important;
+        }
+        .row-paid input {
+            text-decoration: line-through;
+            background-color: transparent !important;
+        }
+
+        .ref-badge {
+            font-size: 10px;
+            font-weight: 700;
+            color: #94a3b8;
+            background: none;
+            padding: 0;
+            display: inline-block;
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+            margin-left: 8px;
+            line-height: 1;
+        }
+
+        /* Modal Background */
+        #confirm-modal {
+            background-color: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(4px);
+        }
     </style>
 </head>
 <body class="min-h-screen pb-20">
+
+    <!-- Confirmation Modal -->
+    <div id="confirm-modal" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-[2rem] max-w-sm w-full p-8 shadow-2xl animate-in">
+            <div class="w-16 h-16 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-6">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+            </div>
+            <h3 class="text-xl font-black text-gray-900 text-center mb-2">ยืนยันการล้างข้อมูล?</h3>
+            <p class="text-gray-500 text-center text-sm mb-8 leading-relaxed">การกระทำนี้จะลบรายการรับ-จ่ายทั้งหมดของเดือน <span id="modal-month-name" class="font-bold text-gray-900 underline"></span> และไม่สามารถย้อนคืนได้</p>
+            <div class="flex flex-col gap-2">
+                <button onclick="executeClear()" class="w-full py-4 bg-rose-500 hover:bg-rose-600 text-white rounded-2xl font-bold transition-all active:scale-95 shadow-lg shadow-rose-100 uppercase text-xs tracking-widest">ล้างข้อมูลทันที</button>
+                <button onclick="closeModal()" class="w-full py-4 bg-gray-100 hover:bg-gray-200 text-gray-500 rounded-2xl font-bold transition-all uppercase text-xs tracking-widest">ยกเลิก</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Header & Navigation -->
     <nav class="bg-white/90 backdrop-blur-md sticky top-0 z-50 border-b border-gray-100">
@@ -155,22 +199,34 @@
 
         <!-- RECORDS TAB -->
         <div id="tab-edit" class="hidden space-y-4 animate-in">
-            <!-- Header Bar -->
             <div class="flex flex-wrap gap-4 items-center justify-between bg-white p-4 rounded-3xl border border-gray-100">
                 <div class="flex items-center gap-4">
-                    <input type="month" id="monthInput" onchange="loadMonth(this.value)" class="bg-transparent border-none font-black text-blue-600 outline-none text-lg">
+                    <div class="flex items-center bg-gray-50 rounded-xl px-2">
+                        <button onclick="stepMonth(-1)" class="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                        </button>
+                        <input type="month" id="monthInput" onchange="loadMonth(this.value)" class="bg-transparent border-none font-black text-blue-600 outline-none text-lg px-2">
+                        <button onclick="stepMonth(1)" class="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                        </button>
+                    </div>
                     <div class="flex gap-1">
                         <button onclick="clonePreviousMonth()" class="text-blue-600 text-[10px] font-bold px-3 py-1.5 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors uppercase">Pull Last Data</button>
-                        <button onclick="clearCurrentMonth()" class="text-rose-600 text-[10px] font-bold px-3 py-1.5 bg-rose-50 rounded-lg hover:bg-rose-100 transition-colors uppercase flex items-center gap-1">
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                            Clear Month
-                        </button>
+                        
+                        <div class="relative group">
+                            <!-- Clear Button with Tooltip/Lock mechanism -->
+                            <button id="clear-btn" onclick="requestClear()" class="text-rose-600 text-[10px] font-bold px-3 py-1.5 bg-rose-50 rounded-lg hover:bg-rose-100 disabled:bg-gray-50 disabled:text-gray-300 disabled:cursor-not-allowed transition-colors uppercase flex items-center gap-1">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                Clear Month
+                            </button>
+                            <div id="lock-tooltip" class="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[8px] py-1 px-2 rounded opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity whitespace-nowrap">เดือนเก่าถูกล็อคเพื่อความปลอดภัย</div>
+                        </div>
                     </div>
                 </div>
                 <button onclick="exportJSON()" class="bg-gray-900 text-white px-6 py-2.5 rounded-xl text-xs font-bold hover:bg-black transition-all uppercase tracking-widest">Save File</button>
             </div>
 
-            <!-- UNIFIED FINANCIAL BAR -->
+            <!-- FINANCIAL BAR -->
             <div class="glass-card overflow-hidden">
                 <div class="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-gray-100">
                     <div class="p-6 bg-blue-50/30">
@@ -202,30 +258,30 @@
 
             <!-- List Columns -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <!-- Column: Fixed -->
                 <div class="space-y-4">
-                    <div class="flex items-end justify-between px-2 min-h-[48px]">
-                        <div class="flex flex-col flex-grow">
+                    <div class="flex items-center justify-between px-2 min-h-[40px]">
+                        <div class="flex items-center">
                             <h4 class="thai-label uppercase">รายจ่ายประจำ / เงินลงทุน</h4>
-                            <div id="last-fixed-ref" class="text-[9px] font-bold text-gray-300 uppercase tracking-tight">Last Mo: -</div>
+                            <span id="last-fixed-ref" class="ref-badge">LAST MO: -</span>
                         </div>
-                        <div class="flex-shrink-0 ml-4 pr-7"> 
+                        <div class="flex flex-col items-end gap-1">
                             <span id="sum-fixed" class="summary-badge text-blue-600 bg-blue-50 border border-blue-100">฿ 0.00</span>
+                            <div id="paid-fixed-badge" class="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 hidden">PAID: ฿ 0.00</div>
                         </div>
                     </div>
                     <div id="fixed-list" class="space-y-2"></div>
                     <button onclick="addInput('fixed')" class="w-full py-3 border-2 border-dashed border-gray-200 rounded-xl text-gray-400 font-bold hover:border-blue-400 hover:text-blue-500 transition-all text-xs uppercase tracking-widest">+ Add Fixed Expense</button>
                 </div>
 
-                <!-- Column: Variable -->
                 <div class="space-y-4">
-                    <div class="flex items-end justify-between px-2 min-h-[48px]">
-                        <div class="flex flex-col flex-grow">
+                    <div class="flex items-center justify-between px-2 min-h-[40px]">
+                        <div class="flex items-center">
                             <h4 class="thai-label uppercase">รายจ่ายผันแปร</h4>
-                            <div id="last-dynamic-ref" class="text-[9px] font-bold text-gray-300 uppercase tracking-tight">Last Mo: -</div>
+                            <span id="last-dynamic-ref" class="ref-badge">LAST MO: -</span>
                         </div>
-                        <div class="flex-shrink-0 ml-4 pr-7">
+                        <div class="flex flex-col items-end gap-1">
                             <span id="sum-dynamic" class="summary-badge text-orange-600 bg-orange-50 border border-orange-100">฿ 0.00</span>
+                            <div id="paid-dynamic-badge" class="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 hidden">PAID: ฿ 0.00</div>
                         </div>
                     </div>
                     <div id="dynamic-list" class="space-y-2"></div>
@@ -242,7 +298,6 @@
         let curMonth = new Date().toISOString().slice(0, 7);
         let compareChart, distChart;
 
-        // Utilities
         const formatNumber = (num) => {
             if (num === 0) return "0.00";
             return parseFloat(num).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -250,10 +305,8 @@
 
         const stripCommas = (str) => str.toString().replace(/,/g, '');
 
-        // Core Input Logic
         function parseToValidNumber(str) {
             let val = stripCommas(str);
-            // อนุญาตตัวเลขและจุดทศนิยมอันเดียว
             val = val.replace(/[^0-9.]/g, '');
             const parts = val.split('.');
             if (parts.length > 2) val = parts[0] + '.' + parts.slice(1).join('');
@@ -263,12 +316,10 @@
         function handleCurrencyInput(el, hiddenId) {
             let val = parseToValidNumber(el.value);
             document.getElementById(hiddenId).value = val;
-            
-            // ถ้าไม่มีจุด หรือไม่มีเศษทศนิยมที่กำลังพิมพ์ ให้ฟอร์แมตคอมมา
             if (!val.includes('.') && val !== "") {
                 el.value = parseFloat(val).toLocaleString();
             } else {
-                el.value = val; // ปล่อยให้พิมพ์จุดได้อิสระ
+                el.value = val;
             }
             saveAndCalc();
         }
@@ -276,11 +327,10 @@
         function handlePaste(e, el, hiddenId) {
             e.preventDefault();
             let text = (e.clipboardData || window.clipboardData).getData('text');
-            // ล้างฟอร์แมตจาก Excel/CSV
             let clean = parseToValidNumber(text);
             el.value = clean;
             document.getElementById(hiddenId).value = clean;
-            handleBlur(el, hiddenId); // ฟอร์แมตทันทีหลังวาง
+            handleBlur(el, hiddenId);
         }
 
         function handleBlur(el, hiddenId) {
@@ -290,6 +340,7 @@
         }
 
         const sumArr = (arr) => arr ? arr.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0) : 0;
+        const sumPaidArr = (arr) => arr ? arr.reduce((s, i) => s + (i.isPaid ? (parseFloat(i.amount) || 0) : 0), 0) : 0;
 
         function showTab(t) {
             document.getElementById('tab-dashboard').classList.toggle('hidden', t !== 'dashboard');
@@ -299,33 +350,89 @@
             if (t === 'dashboard') updateDashboard();
         }
 
-        function addInput(type, name = '', val = '') {
+        function stepMonth(delta) {
+            const input = document.getElementById('monthInput');
+            if (!input.value) return;
+            const [year, month] = input.value.split('-').map(Number);
+            const date = new Date(year, (month - 1) + delta, 1);
+            const newYear = date.getFullYear();
+            const newMonth = (date.getMonth() + 1).toString().padStart(2, '0');
+            const newValue = `${newYear}-${newMonth}`;
+            input.value = newValue;
+            loadMonth(newValue);
+        }
+
+        function addInput(type, name = '', val = '', isPaid = false) {
             const container = document.getElementById(type + '-list');
             const id = 'row-' + Math.random().toString(36).substr(2, 9);
             const hiddenId = 'hidden-' + id;
             const displayVal = val !== '' ? formatNumber(val) : '';
 
             const html = `
-                <div id="${id}" class="flex gap-2 items-center group animate-in">
+                <div id="${id}" class="flex gap-2 items-center group animate-in p-1 rounded-xl transition-all ${isPaid ? 'row-paid' : ''}">
+                    <input type="checkbox" onchange="togglePaidStatus('${id}', this.checked)" ${isPaid ? 'checked' : ''} 
+                        class="w-5 h-5 rounded-md border-gray-200 text-blue-600 focus:ring-blue-500 cursor-pointer">
                     <input type="text" value="${name}" oninput="saveAndCalc()" placeholder="รายการ..." 
                         class="flex-grow bg-white border border-gray-100 rounded-xl px-4 py-3 text-sm font-medium outline-none shadow-sm focus:border-blue-300 transition-all">
                     <div class="relative w-40 flex-shrink-0">
-                        <input type="text" value="${displayVal}" 
-                            oninput="handleCurrencyInput(this, '${hiddenId}')" 
-                            onpaste="handlePaste(event, this, '${hiddenId}')"
-                            onblur="handleBlur(this, '${hiddenId}')"
-                            placeholder="0.00" 
-                            class="w-full bg-white border border-gray-100 rounded-xl px-4 py-3 text-sm font-black text-right outline-none shadow-sm focus:border-blue-300 transition-all">
+                        <input type="text" value="${displayVal}" oninput="handleCurrencyInput(this, '${hiddenId}')" onpaste="handlePaste(event, this, '${hiddenId}')" onblur="handleBlur(this, '${hiddenId}')"
+                            placeholder="0.00" class="w-full bg-white border border-gray-100 rounded-xl px-4 py-3 text-sm font-black text-right outline-none shadow-sm focus:border-blue-300 transition-all">
                         <input type="hidden" id="${hiddenId}" value="${val}">
                     </div>
-                    <button onclick="document.getElementById('${id}').remove(); saveAndCalc();" 
-                        class="text-gray-300 hover:text-red-500 transition-all opacity-0 group-hover:opacity-100 flex-shrink-0">
+                    <button onclick="document.getElementById('${id}').remove(); saveAndCalc();" class="text-gray-300 hover:text-red-500 transition-all opacity-0 group-hover:opacity-100 flex-shrink-0">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                     </button>
                 </div>
             `;
             container.insertAdjacentHTML('beforeend', html);
         }
+
+        function togglePaidStatus(rowId, checked) {
+            const el = document.getElementById(rowId);
+            if (checked) el.classList.add('row-paid');
+            else el.classList.remove('row-paid');
+            saveAndCalc();
+        }
+
+        // --- Safety Features Implementation ---
+        
+        function requestClear() {
+            const monthVal = document.getElementById('monthInput').value;
+            document.getElementById('modal-month-name').innerText = monthVal;
+            document.getElementById('confirm-modal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('confirm-modal').classList.add('hidden');
+        }
+
+        function executeClear() {
+            document.getElementById('paydayVal').value = 0;
+            document.getElementById('paydayDisplay').value = '';
+            document.getElementById('fixed-list').innerHTML = '';
+            document.getElementById('dynamic-list').innerHTML = '';
+            saveAndCalc();
+            updateDashboard();
+            closeModal();
+        }
+
+        function checkSafetyLock(m) {
+            const today = new Date();
+            const thisMonth = today.toISOString().slice(0, 7);
+            const btn = document.getElementById('clear-btn');
+            const tooltip = document.getElementById('lock-tooltip');
+            
+            // Lock if viewed month is earlier than current month
+            if (m < thisMonth) {
+                btn.disabled = true;
+                tooltip.classList.remove('hidden');
+            } else {
+                btn.disabled = false;
+                tooltip.classList.add('hidden');
+            }
+        }
+
+        // --- Core Logic ---
 
         function saveAndCalc() {
             const payday = parseFloat(document.getElementById('paydayVal').value) || 0;
@@ -334,21 +441,39 @@
             const getItems = (id) => Array.from(document.getElementById(id).children).map(row => {
                 const inputs = row.querySelectorAll('input');
                 return {
-                    name: inputs[0].value,
-                    amount: inputs[2].value 
+                    isPaid: inputs[0].checked,
+                    name: inputs[1].value,
+                    amount: inputs[3].value 
                 };
             });
 
             const fixed = getItems('fixed-list');
             const dynamic = getItems('dynamic-list');
+            
             const sf = sumArr(fixed);
             const sd = sumArr(dynamic);
+            const pf = sumPaidArr(fixed);
+            const pd = sumPaidArr(dynamic);
+
             const totalExp = sf + sd;
             const balance = payday - totalExp;
             const rate = payday > 0 ? Math.round((balance / payday) * 100) : 0;
 
             document.getElementById('sum-fixed').innerText = '฿ ' + formatNumber(sf);
             document.getElementById('sum-dynamic').innerText = '฿ ' + formatNumber(sd);
+            
+            const fBadge = document.getElementById('paid-fixed-badge');
+            if (pf > 0) {
+                fBadge.innerText = 'PAID: ฿ ' + formatNumber(pf);
+                fBadge.classList.remove('hidden');
+            } else fBadge.classList.add('hidden');
+
+            const dBadge = document.getElementById('paid-dynamic-badge');
+            if (pd > 0) {
+                dBadge.innerText = 'PAID: ฿ ' + formatNumber(pd);
+                dBadge.classList.remove('hidden');
+            } else dBadge.classList.add('hidden');
+
             document.getElementById('sum-total-exp').innerText = '฿ ' + formatNumber(totalExp);
             document.getElementById('current-saving-rate').innerText = rate + '%';
             document.getElementById('record-balance-val').innerText = '฿ ' + formatNumber(balance);
@@ -372,20 +497,32 @@
 
         function updateReferenceBadges() {
             const currentIdx = records.findIndex(r => r.id === curMonth);
-            const prevData = currentIdx > 0 ? records[currentIdx - 1] : null;
             const fixedRef = document.getElementById('last-fixed-ref');
             const dynRef = document.getElementById('last-dynamic-ref');
+            
+            let prevData = null;
+            for (let i = currentIdx - 1; i >= 0; i--) {
+                const hasFixed = records[i].fixed && records[i].fixed.length > 0;
+                const hasDyn = records[i].dynamic && records[i].dynamic.length > 0;
+                if (hasFixed || hasDyn) {
+                    prevData = records[i];
+                    break;
+                }
+            }
+
             if (prevData) {
-                fixedRef.innerText = `Last Mo: ฿ ${formatNumber(sumArr(prevData.fixed))}`;
-                dynRef.innerText = `Last Mo: ฿ ${formatNumber(sumArr(prevData.dynamic))}`;
+                const lastFixed = sumArr(prevData.fixed);
+                const lastDyn = sumArr(prevData.dynamic);
+                fixedRef.innerText = `LAST MO: ฿ ${formatNumber(lastFixed)}`;
+                dynRef.innerText = `LAST MO: ฿ ${formatNumber(lastDyn)}`;
             } else {
-                fixedRef.innerText = "Last Mo: -";
-                dynRef.innerText = "Last Mo: -";
+                fixedRef.innerText = "LAST MO: -";
+                dynRef.innerText = "LAST MO: -";
             }
         }
 
         function updateDashboard() {
-            const validRecords = records.filter(r => r.payday > 0 || r.fixed.length > 0 || r.dynamic.length > 0);
+            const validRecords = records.filter(r => r.payday > 0 || (r.fixed && r.fixed.length > 0) || (r.dynamic && r.dynamic.length > 0));
             if (validRecords.length === 0) {
                 document.getElementById('empty-state').classList.remove('hidden');
                 document.getElementById('dash-content').classList.add('hidden');
@@ -453,12 +590,15 @@
                         { label: 'Expense', data: displayData.map(r => sumArr(r.fixed) + sumArr(r.dynamic)), backgroundColor: '#ef4444', borderRadius: 4 }
                     ]
                 },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top', labels: { boxWidth: 10, font: { weight: 'bold', size: 10 } } } }, scales: { y: { beginAtZero: true, ticks: { font: { size: 9 } } }, x: { ticks: { font: { weight: 'bold', size: 10 } } } } }
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top', labels: { boxWidth: 10, font: { weight: 'bold', size: 10 } } } }, scales: { y: { beginAtZero: true }, x: { ticks: { font: { weight: 'bold', size: 10 } } } } }
             });
         }
 
         function loadMonth(m) {
             curMonth = m;
+            document.getElementById('monthInput').value = m;
+            checkSafetyLock(m); // Check lock on load
+            
             const r = records.find(rec => rec.id === m);
             const paydayVal = r ? r.payday : 0;
             document.getElementById('paydayVal').value = paydayVal;
@@ -466,27 +606,19 @@
             document.getElementById('fixed-list').innerHTML = '';
             document.getElementById('dynamic-list').innerHTML = '';
             if (r) {
-                r.fixed.forEach(i => addInput('fixed', i.name, i.amount));
-                r.dynamic.forEach(i => addInput('dynamic', i.name, i.amount));
+                if(r.fixed) r.fixed.forEach(i => addInput('fixed', i.name, i.amount, i.isPaid));
+                if(r.dynamic) r.dynamic.forEach(i => addInput('dynamic', i.name, i.amount, i.isPaid));
             }
-            saveAndCalc();
-            updateDashboard();
-        }
-
-        function clearCurrentMonth() {
-            document.getElementById('paydayVal').value = 0;
-            document.getElementById('paydayDisplay').value = '';
-            document.getElementById('fixed-list').innerHTML = '';
-            document.getElementById('dynamic-list').innerHTML = '';
             saveAndCalc();
             updateDashboard();
         }
 
         function clonePreviousMonth() {
             const currentIdx = records.findIndex(r => r.id === curMonth);
+            let searchIdx = currentIdx > -1 ? currentIdx - 1 : records.length - 1;
             let prevData = null;
-            for (let i = currentIdx - 1; i >= 0; i--) {
-                if (records[i].payday > 0 || records[i].fixed.length > 0) {
+            for (let i = searchIdx; i >= 0; i--) {
+                if (records[i].payday > 0 || records[i].fixed?.length > 0) {
                     prevData = records[i];
                     break;
                 }
@@ -496,8 +628,8 @@
                 document.getElementById('paydayDisplay').value = formatNumber(prevData.payday);
                 document.getElementById('fixed-list').innerHTML = '';
                 document.getElementById('dynamic-list').innerHTML = '';
-                prevData.fixed.forEach(i => addInput('fixed', i.name, i.amount));
-                prevData.dynamic.forEach(i => addInput('dynamic', i.name, i.amount));
+                if(prevData.fixed) prevData.fixed.forEach(i => addInput('fixed', i.name, i.amount, false));
+                if(prevData.dynamic) prevData.dynamic.forEach(i => addInput('dynamic', i.name, i.amount, false));
                 saveAndCalc();
             }
         }
@@ -521,12 +653,8 @@
                         records = data;
                         document.getElementById('db-name-display').innerText = file.name;
                         loadMonth(curMonth);
-                        updateDashboard();
-                        showTab('dashboard');
                     }
-                } catch(err) {
-                    console.error("Import error", err);
-                }
+                } catch(err) { console.error(err); }
             };
             reader.readAsText(file);
         }
