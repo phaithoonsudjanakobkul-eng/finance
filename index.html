@@ -118,9 +118,9 @@
         <div class="max-w-6xl mx-auto px-6 h-20 flex justify-between items-center">
             <div class="flex items-center gap-3">
                 <div onclick="document.getElementById('avatarInput').click()" title="Click to change profile picture"
-                    style="width:65px;height:65px;border-radius:50%;border:2px solid #2563eb;overflow:hidden;cursor:pointer;flex-shrink:0;background:#eff6ff;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(37,99,235,0.15);">
+                    style="width:70px;height:70px;border-radius:50%;border:2px solid #2563eb;overflow:hidden;cursor:pointer;flex-shrink:0;background:#eff6ff;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(37,99,235,0.15);">
                     <img id="avatarImg" src="" alt="avatar" style="width:100%;height:100%;object-fit:cover;display:none;">
-                    <svg id="avatarPlaceholder" xmlns="http://www.w3.org/2000/svg" style="width:36px;height:36px;color:#93c5fd;" fill="currentColor" viewBox="0 0 24 24">
+                    <svg id="avatarPlaceholder" xmlns="http://www.w3.org/2000/svg" style="width:38px;height:38px;color:#93c5fd;" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
                     </svg>
                 </div>
@@ -300,6 +300,7 @@
 
     <script>
         let records = [];
+        let db = { avatar: null }; // metadata stored alongside records in JSON
         let curMonth = new Date().toISOString().slice(0, 7);
         let compareChart, distChart;
 
@@ -640,7 +641,8 @@
         }
 
         function exportJSON() {
-            const blob = new Blob([JSON.stringify(records, null, 2)], { type: 'application/json' });
+            const exportData = { meta: { avatar: db.avatar }, records: records };
+            const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
             a.download = 'PS-Smart-Finance.json';
@@ -654,14 +656,27 @@
             reader.onload = (ev) => {
                 try {
                     const data = JSON.parse(ev.target.result);
+                    // Support new format { meta, records } and legacy array format
                     if (Array.isArray(data)) {
                         records = data;
-                        document.getElementById('db-name-display').innerText = file.name;
-                        loadMonth(curMonth);
+                    } else if (data.records && Array.isArray(data.records)) {
+                        records = data.records;
+                        if (data.meta && data.meta.avatar) {
+                            db.avatar = data.meta.avatar;
+                            setAvatarImage(db.avatar);
+                        }
                     }
+                    document.getElementById('db-name-display').innerText = file.name;
+                    loadMonth(curMonth);
                 } catch(err) { console.error(err); }
             };
             reader.readAsText(file);
+        }
+
+        function setAvatarImage(src) {
+            document.getElementById('avatarImg').src = src;
+            document.getElementById('avatarImg').style.display = 'block';
+            document.getElementById('avatarPlaceholder').style.display = 'none';
         }
 
         function handleAvatar(e) {
@@ -669,21 +684,13 @@
             if (!file) return;
             const reader = new FileReader();
             reader.onload = (ev) => {
-                document.getElementById('avatarImg').src = ev.target.result;
-                document.getElementById('avatarImg').style.display = 'block';
-                document.getElementById('avatarPlaceholder').style.display = 'none';
-                localStorage.setItem('ps_avatar', ev.target.result);
+                db.avatar = ev.target.result;
+                setAvatarImage(db.avatar);
             };
             reader.readAsDataURL(file);
         }
 
         window.onload = () => {
-            const savedAvatar = localStorage.getItem('ps_avatar');
-            if (savedAvatar) {
-                document.getElementById('avatarImg').src = savedAvatar;
-                document.getElementById('avatarImg').style.display = 'block';
-                document.getElementById('avatarPlaceholder').style.display = 'none';
-            }
             document.getElementById('monthInput').value = curMonth;
             loadMonth(curMonth);
         };
