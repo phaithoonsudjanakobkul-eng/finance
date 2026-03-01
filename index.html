@@ -625,6 +625,7 @@
             isLoading = true;
             curMonth = m;
             document.getElementById('monthInput').value = m;
+            try { localStorage.setItem('ps_month', m); } catch(e) {}
             checkSafetyLock(m);
             
             const r = records.find(rec => rec.id === m);
@@ -741,6 +742,8 @@
                 const savedName = localStorage.getItem('ps_dbname');
                 if (savedName) document.getElementById('db-name-display').innerText = savedName;
             } catch(e) {}
+            const savedMonth = localStorage.getItem('ps_month');
+            if (savedMonth) curMonth = savedMonth;
             document.getElementById('monthInput').value = curMonth;
             const savedTab = localStorage.getItem('ps_tab') || 'dashboard';
             showTab(savedTab, false);
