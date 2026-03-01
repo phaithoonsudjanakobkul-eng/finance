@@ -315,6 +315,7 @@
         let records = [];
         let db = { avatar: null }; // metadata stored alongside records in JSON
         let curMonth = new Date().toISOString().slice(0, 7);
+        let isLoading = false;
         let compareChart, distChart;
 
         const formatNumber = (num) => {
@@ -507,9 +508,11 @@
             }
 
             const data = { id: month, payday, fixed, dynamic };
-            const idx = records.findIndex(r => r.id === month);
-            if (idx > -1) records[idx] = data; else records.push(data);
-            records.sort((a,b) => a.id.localeCompare(b.id));
+            if (!isLoading) {
+                const idx = records.findIndex(r => r.id === month);
+                if (idx > -1) records[idx] = data; else records.push(data);
+                records.sort((a,b) => a.id.localeCompare(b.id));
+            }
 
             updateReferenceBadges();
         }
@@ -614,9 +617,10 @@
         }
 
         function loadMonth(m) {
+            isLoading = true;
             curMonth = m;
             document.getElementById('monthInput').value = m;
-            checkSafetyLock(m); // Check lock on load
+            checkSafetyLock(m);
             
             const r = records.find(rec => rec.id === m);
             const paydayVal = r ? r.payday : 0;
@@ -628,6 +632,7 @@
                 if(r.fixed) r.fixed.forEach(i => addInput('fixed', i.name, i.amount, i.isPaid));
                 if(r.dynamic) r.dynamic.forEach(i => addInput('dynamic', i.name, i.amount, i.isPaid));
             }
+            isLoading = false;
             saveAndCalc();
             updateDashboard();
         }
