@@ -1706,10 +1706,15 @@
             return data;
         }
 
+        let isWlRefreshing = false;
+
         async function refreshWatchlist() {
+            if (isWlRefreshing) return;
+            isWlRefreshing = true;
+
             const key = getFinnhubKey();
-            if (!key) return;
-            if (watchlist.length === 0) { checkWlEmpty(); return; }
+            if (!key) { isWlRefreshing = false; return; }
+            if (watchlist.length === 0) { checkWlEmpty(); isWlRefreshing = false; return; }
 
             const icon = document.getElementById('wl-refresh-icon');
             icon.style.animation = 'spin 1s linear infinite';
@@ -1718,8 +1723,6 @@
             watchlist.forEach(s => {
                 if (!document.getElementById('wl-row-' + s)) renderWatchlistRow(s, null);
             });
-
-            const isNewRow = sym => !wlDataCache[sym];
 
             // Fetch all in parallel
             await Promise.all(watchlist.map(async (symbol) => {
@@ -1741,6 +1744,7 @@
             icon.style.animation = '';
             const now = new Date();
             document.getElementById('wl-last-update').innerText = `Updated ${now.toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'})}`;
+            isWlRefreshing = false;
         }
 
         function updateWatchlistPriceCells(symbol, data) {
