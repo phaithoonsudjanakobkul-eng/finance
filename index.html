@@ -210,7 +210,8 @@
             max-height: calc(100vh - 130px);
         }
         #wl-split-wrap.chart-open #qc-tv-container {
-            height: calc(100vh - 230px) !important;
+            height: calc(100vh - 400px) !important;
+            min-height: 320px;
         }
         #wl-split-wrap.chart-open #quick-chart-panel {
             flex: 1 1 auto;
@@ -537,7 +538,7 @@
         </div>
     </nav>
 
-    <main class="max-w-6xl mx-auto px-6 mt-8 pt-24">
+    <main class="max-w-6xl mx-auto px-6 mt-3 pt-24">
         
         <!-- DASHBOARD TAB -->
         <div id="tab-dashboard" class="space-y-5">
@@ -714,7 +715,7 @@
         </div>
 
         <!-- WATCHLIST TAB -->
-        <div id="tab-watchlist" class="hidden space-y-5 animate-in">
+        <div id="tab-watchlist" class="hidden space-y-3 animate-in">
 
             <!-- Finnhub Token Modal -->
             <div id="finnhub-modal" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4">
@@ -742,8 +743,15 @@
                 </div>
 
                 <!-- USD/THB FX Widget -->
-                <div id="fx-widget" class="flex items-center gap-3 px-4 py-2 rounded-2xl border"
-                    style="background:var(--bg-card2);border-color:var(--border);">
+                <div id="fx-widget" class="flex items-center gap-3 px-4 py-2 rounded-2xl border relative group/fx"
+                    style="background:var(--bg-card2);border-color:var(--border);cursor:default">
+
+                    <!-- Tooltip -->
+                    <div id="fx-tooltip" class="absolute left-1/2 -translate-x-1/2 top-full mt-2 z-50 hidden group-hover/fx:block">
+                        <div class="px-3 py-1.5 rounded-xl text-[10px] font-bold whitespace-nowrap shadow-lg" style="background:var(--bg-card);border:1px solid var(--border)">
+                            <span id="fx-note" style="color:var(--text-primary)">—</span>
+                        </div>
+                    </div>
 
                     <!-- 1 USD = X THB -->
                     <div class="flex flex-col">
@@ -753,7 +761,6 @@
                             <span class="text-[10px] font-bold" style="color:var(--text-dim)">THB</span>
                             <span id="fx-change" class="text-[10px] font-bold ml-1" style="font-family:var(--font-mono)"></span>
                         </div>
-                        <span id="fx-note" class="text-[9px] font-bold mt-0.5"></span>
                     </div>
 
                     <div class="w-px h-8 self-stretch" style="background:var(--border)"></div>
@@ -852,7 +859,7 @@
             </div><!-- /wl-table-panel -->
 
             <!-- Quick Chart Panel -->
-            <div id="quick-chart-panel" class="glass-card overflow-hidden">
+            <div id="quick-chart-panel" class="glass-card overflow-hidden flex flex-col">
                 <!-- Header -->
                 <div class="flex items-center justify-between px-5 pt-4 pb-3">
                     <div class="flex items-center gap-3">
@@ -883,7 +890,27 @@
                     </div>
                 </div>
                 <!-- TradingView Widget -->
-                <div id="qc-tv-container" style="height:600px;"></div>
+                <div id="qc-tv-container" style="height:480px;flex-shrink:0"></div>
+
+                <!-- News Panel -->
+                <div id="qc-news-panel" class="border-t flex flex-col" style="border-color:var(--border)">
+                    <!-- News Header -->
+                    <div class="flex items-center justify-between px-5 py-2.5" style="background:var(--bg-card2)">
+                        <div class="flex items-center gap-2">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:var(--text-dim)"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/></svg>
+                            <span class="text-[9px] font-black uppercase tracking-widest" style="color:var(--text-dim)">Latest News</span>
+                            <span id="qc-news-symbol" class="text-[9px] font-black uppercase tracking-widest text-teal-500"></span>
+                        </div>
+                        <span id="qc-news-status" class="text-[9px]" style="color:var(--text-dim)"></span>
+                    </div>
+                    <!-- News List -->
+                    <div id="qc-news-list" class="overflow-y-auto" style="max-height:220px">
+                        <div class="flex items-center justify-center py-8 gap-2" style="color:var(--text-dim)">
+                            <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                            <span class="text-xs">Loading news...</span>
+                        </div>
+                    </div>
+                </div>
             </div><!-- /quick-chart-panel -->
 
             </div><!-- /wl-split-wrap -->
@@ -1996,13 +2023,88 @@
                 height: '480',
             });
             container.appendChild(script);
+
+            // Fetch news for this symbol
+            fetchStockNews(symbol);
         }
 
         function closeQuickChart() {
             document.getElementById('wl-split-wrap').classList.remove('chart-open');
             document.getElementById('qc-tv-container').innerHTML = '';
+            document.getElementById('qc-news-list').innerHTML = '';
             if (qcChart) { qcChart.destroy(); qcChart = null; }
             qcCurrentSymbol = null;
+        }
+
+        let newsAbortController = null;
+        async function fetchStockNews(symbol) {
+            const listEl = document.getElementById('qc-news-list');
+            const statusEl = document.getElementById('qc-news-status');
+            const symEl = document.getElementById('qc-news-symbol');
+            if (!listEl) return;
+
+            symEl.textContent = symbol;
+            statusEl.textContent = '';
+            listEl.innerHTML = `<div class="flex items-center justify-center py-6 gap-2" style="color:var(--text-dim)">
+                <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                <span class="text-xs font-bold uppercase tracking-widest">Loading...</span>
+            </div>`;
+
+            if (newsAbortController) newsAbortController.abort();
+            newsAbortController = new AbortController();
+
+            try {
+                const key = getFinnhubKey();
+                if (!key) { listEl.innerHTML = `<p class="text-xs text-center py-6" style="color:var(--text-dim)">ต้องการ Finnhub API Key</p>`; return; }
+
+                // Date range: last 7 days
+                const to = new Date();
+                const from = new Date(to);
+                from.setDate(from.getDate() - 7);
+                const fmt = d => d.toISOString().split('T')[0];
+
+                const res = await fetch(
+                    `https://finnhub.io/api/v1/company-news?symbol=${symbol}&from=${fmt(from)}&to=${fmt(to)}&token=${key}`,
+                    { signal: newsAbortController.signal }
+                );
+                if (!res.ok) throw new Error('fetch failed');
+                const articles = await res.json();
+
+                if (!Array.isArray(articles) || articles.length === 0) {
+                    listEl.innerHTML = `<p class="text-xs text-center py-6" style="color:var(--text-dim)">ไม่มีข่าวในช่วง 7 วันที่ผ่านมา</p>`;
+                    return;
+                }
+
+                // Show max 15 most recent
+                const items = articles.slice(0, 15);
+                statusEl.textContent = `${items.length} articles · 7 days`;
+
+                listEl.innerHTML = items.map(a => {
+                    const date = new Date(a.datetime * 1000);
+                    const dateStr = date.toLocaleDateString('th-TH', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                    const source = a.source || '';
+                    const headline = a.headline || '';
+                    const summary = a.summary ? a.summary.slice(0, 120) + (a.summary.length > 120 ? '…' : '') : '';
+                    const img = a.image || '';
+                    return `
+                    <a href="${a.url}" target="_blank" rel="noopener"
+                       class="flex gap-3 px-4 py-3 border-b transition-colors hover:bg-opacity-50 group/news"
+                       style="border-color:var(--border);text-decoration:none">
+                        ${img ? `<img src="${img}" alt="" class="w-16 h-12 object-cover rounded-lg flex-shrink-0 mt-0.5" onerror="this.style.display='none'">` : ''}
+                        <div class="flex-1 min-w-0">
+                            <p class="text-xs font-bold leading-snug group-hover/news:text-teal-500 transition-colors line-clamp-2" style="color:var(--text-primary)">${headline}</p>
+                            ${summary ? `<p class="text-[10px] mt-0.5 line-clamp-2" style="color:var(--text-dim)">${summary}</p>` : ''}
+                            <div class="flex items-center gap-2 mt-1">
+                                <span class="text-[9px] font-bold uppercase tracking-widest text-teal-500">${source}</span>
+                                <span class="text-[9px]" style="color:var(--text-dim)">${dateStr}</span>
+                            </div>
+                        </div>
+                    </a>`;
+                }).join('');
+            } catch(e) {
+                if (e.name === 'AbortError') return;
+                listEl.innerHTML = `<p class="text-xs text-center py-6" style="color:var(--text-dim)">โหลดข่าวไม่สำเร็จ</p>`;
+            }
         }
 
         function setChartRange(range) {
