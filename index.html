@@ -7,11 +7,24 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&display=swap');
         @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&display=swap');
         @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap');
         
         :root {
-            --font-main: 'Roboto', 'Sarabun', sans-serif;
+            --font-main: 'IBM Plex Sans Thai', 'Sarabun', sans-serif;
+            --font-mono: 'IBM Plex Mono', monospace;
+            --bg-dark: #f0f4f8;
+            --bg-card: #ffffff;
+            --bg-card2: #e8eef5;
+            --border: #d0dce8;
+            --accent: #0d9488;
+            --accent2: #0f766e;
+            --danger: #e11d48;
+            --warning: #d97706;
+            --text-primary: #0f2030;
+            --text-secondary: #64748b;
+            --text-dim: #94a3b8;
         }
 
         body { 
@@ -20,7 +33,95 @@
             color: #1e293b;
             overflow-y: scroll;
         }
-        
+
+        #tab-dashboard {
+            background: #f0f4f8;
+            border-radius: 1.5rem;
+            padding: 1.5rem;
+            border: 1px solid #d0dce8;
+        }
+
+        .dash-card {
+            background: #ffffff;
+            border: 1px solid #d0dce8;
+            border-radius: 0.75rem;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 1px 4px rgba(13,148,136,0.06);
+        }
+
+        .dash-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, #0d9488, #14b8a6, #0d9488);
+            opacity: 0.5;
+        }
+
+        .dash-label {
+            font-family: var(--font-mono);
+            font-size: 9px;
+            font-weight: 600;
+            letter-spacing: 0.15em;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+
+        .dash-value {
+            font-family: var(--font-mono);
+            font-weight: 700;
+            color: var(--text-primary);
+            line-height: 1;
+        }
+
+        .dash-accent { color: #0d9488; }
+        .dash-green { color: #0d9488; }
+        .dash-red { color: #e11d48; }
+        .dash-yellow { color: #d97706; }
+
+        .dash-divider {
+            border-color: #d0dce8;
+        }
+
+        .dash-chart-card {
+            background: #ffffff;
+            border: 1px solid #d0dce8;
+            border-radius: 0.75rem;
+            box-shadow: 0 1px 4px rgba(13,148,136,0.06);
+        }
+
+        .dash-select {
+            background: #f0f4f8;
+            border: 1px solid #d0dce8;
+            color: #0d9488;
+            font-family: var(--font-mono);
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            padding: 4px 10px;
+            border-radius: 4px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .dash-section-title {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 0.15em;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+
+        .ticker-line {
+            height: 2px;
+            background: linear-gradient(90deg, #0d9488 0%, #14b8a6 50%, transparent 100%);
+            opacity: 0.4;
+            margin-bottom: 1.5rem;
+            border-radius: 2px;
+        }
+
         .glass-card { 
             background: white; 
             border-radius: 1.5rem; 
@@ -169,59 +270,73 @@
     <main class="max-w-6xl mx-auto px-6 mt-8">
         
         <!-- DASHBOARD TAB -->
-        <div id="tab-dashboard" class="space-y-6">
-            <div id="dash-content" class="hidden space-y-6">
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div id="surplus-card-main" class="glass-card p-6 bg-gradient-to-br from-blue-600 to-blue-700 text-white border-none shadow-blue-200">
-                        <p class="text-[10px] font-bold uppercase tracking-widest opacity-70 mb-1 text-white">Current Balance</p>
-                        <h2 id="dash-surplus" class="text-3xl font-black truncate">0.00</h2>
-                        <div class="mt-4 pt-4 border-t border-white/20 flex justify-between items-end">
-                             <p id="status-text" class="text-xs font-bold uppercase tracking-widest">Starting...</p>
-                             <p id="current-month-label" class="text-xs font-bold uppercase tracking-widest opacity-60">-</p>
+        <div id="tab-dashboard" class="space-y-5">
+            <div id="dash-content" class="hidden space-y-5">
+
+                <!-- Ticker line -->
+                <div class="ticker-line"></div>
+
+                <!-- 4 Summary Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <!-- Current Balance -->
+                    <div id="surplus-card-main" class="dash-card p-5">
+                        <div class="dash-label mb-2">Current Balance</div>
+                        <div id="dash-surplus" class="dash-value text-3xl dash-green mb-1">0.00</div>
+                        <div id="mom-change" class="hidden" style="font-family:var(--font-mono);font-size:10px;color:var(--text-secondary);margin-bottom:8px;"></div>
+                        <div class="border-t dash-divider pt-3 flex justify-between items-center">
+                            <span id="status-text" style="font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:0.1em;color:var(--accent2);">—</span>
+                            <span id="current-month-label" style="font-family:var(--font-mono);font-size:9px;color:var(--text-secondary);">—</span>
                         </div>
                     </div>
-                    <div class="glass-card p-6 flex flex-col justify-center border-l-4 border-emerald-500">
-                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">YTD Earnings</p>
-                        <h2 id="ytd-income" class="text-2xl font-black text-emerald-600 truncate">0.00</h2>
+                    <!-- YTD Income -->
+                    <div class="dash-card p-5">
+                        <div class="dash-label mb-1">YTD Earnings</div>
+                        <div id="ytd-year-income" style="font-family:var(--font-mono);font-size:9px;color:var(--text-dim);margin-bottom:6px;">—</div>
+                        <div id="ytd-income" class="dash-value text-2xl dash-green">0.00</div>
                     </div>
-                    <div class="glass-card p-6 flex flex-col justify-center border-l-4 border-rose-500">
-                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">YTD Expenses</p>
-                        <h2 id="ytd-expense" class="text-2xl font-black text-rose-500 truncate">0.00</h2>
+                    <!-- YTD Expense -->
+                    <div class="dash-card p-5">
+                        <div class="dash-label mb-1">YTD Expenses</div>
+                        <div id="ytd-year-expense" style="font-family:var(--font-mono);font-size:9px;color:var(--text-dim);margin-bottom:6px;">—</div>
+                        <div id="ytd-expense" class="dash-value text-2xl dash-red">0.00</div>
                     </div>
-                    <div class="glass-card p-6 flex flex-col justify-center border-l-4 border-amber-500">
-                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Savings Rate</p>
-                        <h2 id="ytd-savings-rate" class="text-2xl font-black text-amber-600">0%</h2>
+                    <!-- Savings Rate -->
+                    <div class="dash-card p-5">
+                        <div class="dash-label mb-1">Savings Rate</div>
+                        <div id="ytd-year-savings" style="font-family:var(--font-mono);font-size:9px;color:var(--text-dim);margin-bottom:6px;">—</div>
+                        <div id="ytd-savings-rate" class="dash-value text-2xl dash-yellow">0%</div>
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div class="glass-card p-6">
-                        <div class="flex justify-between items-center mb-6">
-                            <h4 class="font-bold text-sm uppercase tracking-widest text-gray-500">Trend Comparison</h4>
-                            <select id="compareRange" onchange="updateDashboard()" class="bg-gray-100 border-none rounded-lg px-4 py-1.5 text-xs font-bold outline-none text-blue-600">
-                                <option value="2" selected>Compare Last Mo</option>
+                <!-- Charts -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div class="dash-chart-card p-5">
+                        <div class="flex justify-between items-center mb-5">
+                            <span class="dash-section-title">Trend Comparison</span>
+                            <select id="compareRange" onchange="updateDashboard()" class="dash-select">
+                                <option value="2" selected>Last Month</option>
                                 <option value="6">Last 6 Months</option>
                                 <option value="12">Last 12 Months</option>
                             </select>
                         </div>
                         <div class="h-64"><canvas id="compareChart"></canvas></div>
                     </div>
-                    <div class="glass-card p-6">
-                        <h4 class="font-bold text-sm uppercase tracking-widest text-gray-500 mb-6 text-center">Distribution</h4>
+                    <div class="dash-chart-card p-5">
+                        <div class="dash-section-title mb-5 text-center">Distribution</div>
                         <div class="h-64 flex justify-center items-center"><canvas id="distChart"></canvas></div>
                     </div>
                 </div>
             </div>
 
-            <div class="glass-card p-12 text-center max-w-xl mx-auto" id="empty-state">
-                <div class="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+            <div class="dash-card p-12 text-center max-w-xl mx-auto" id="empty-state">
+                <div class="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style="background:rgba(13,148,136,0.1);border:1px solid #d0dce8;">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:#0d9488"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
                 </div>
-                <h3 class="text-gray-900 font-black text-lg mb-2">เริ่มวางแผนการเงินของคุณ</h3>
-                <p class="text-gray-400 text-sm mb-6">ยังไม่มีข้อมูลในระบบ คุณสามารถเริ่มกรอกที่เมนู RECORDS หรือ Import ไฟล์สำรองข้อมูลที่มีอยู่</p>
+                <h3 style="color:#0f2030;font-family:var(--font-mono);" class="font-bold text-lg mb-2">เริ่มวางแผนการเงินของคุณ</h3>
+                <p style="color:#64748b;" class="text-sm mb-6">ยังไม่มีข้อมูลในระบบ คุณสามารถเริ่มกรอกที่เมนู RECORDS หรือ Import ไฟล์สำรองข้อมูลที่มีอยู่</p>
                 <div class="flex flex-col sm:flex-row gap-2 justify-center">
-                    <button onclick="showTab('edit')" class="bg-blue-600 text-white px-8 py-3 rounded-2xl font-bold shadow-lg shadow-blue-100 transition-all active:scale-95">ไปหน้าบันทึก (Records)</button>
-                    <button onclick="document.getElementById('fileInput').click()" class="bg-gray-100 text-gray-600 px-8 py-3 rounded-2xl font-bold transition-all active:scale-95">Import Data</button>
+                    <button onclick="showTab('edit')" style="background:#0d9488;color:#fff;font-family:var(--font-mono);font-weight:700;" class="px-8 py-3 rounded-xl text-xs uppercase tracking-widest transition-all active:scale-95">ไปหน้าบันทึก</button>
+                    <button onclick="document.getElementById('fileInput').click()" style="background:#f0f4f8;color:#64748b;border:1px solid #d0dce8;font-family:var(--font-mono);" class="px-8 py-3 rounded-xl text-xs uppercase tracking-widest font-bold transition-all active:scale-95">Import Data</button>
                 </div>
             </div>
         </div>
@@ -594,14 +709,32 @@
 
             document.getElementById('dash-surplus').innerText = formatNumber(surplus);
             document.getElementById('current-month-label').innerText = latest.id;
+
+            // MoM change
+            const latestIdx = records.findIndex(r => r.id === latest.id);
+            const momEl = document.getElementById('mom-change');
+            if (latestIdx > 0) {
+                const prev = records[latestIdx - 1];
+                const prevSurplus = prev.payday - (sumArr(prev.fixed) + sumArr(prev.dynamic));
+                if (prevSurplus !== 0) {
+                    const pct = Math.round(((surplus - prevSurplus) / Math.abs(prevSurplus)) * 100);
+                    const arrow = pct >= 0 ? '↑' : '↓';
+                    momEl.innerText = `${arrow} ${Math.abs(pct)}% vs last month`;
+                    momEl.classList.remove('hidden');
+                }
+            } else {
+                momEl.classList.add('hidden');
+            }
             
             const mainCard = document.getElementById('surplus-card-main');
             if (surplus < 0) {
-                mainCard.className = "glass-card p-6 bg-gradient-to-br from-rose-600 to-rose-700 text-white border-none shadow-rose-200";
-                document.getElementById('status-text').innerText = "Overspent";
+                document.getElementById('dash-surplus').style.color = '#e11d48';
+                document.getElementById('status-text').style.color = '#e11d48';
+                document.getElementById('status-text').innerText = "OVERSPENT";
             } else {
-                mainCard.className = "glass-card p-6 bg-gradient-to-br from-emerald-600 to-emerald-700 text-white border-none shadow-emerald-200";
-                document.getElementById('status-text').innerText = "Healthy";
+                document.getElementById('dash-surplus').style.color = '#0d9488';
+                document.getElementById('status-text').style.color = '#0d9488';
+                document.getElementById('status-text').innerText = "HEALTHY";
             }
 
             const currentYear = latest.id.split('-')[0];
@@ -612,6 +745,9 @@
             document.getElementById('ytd-income').innerText = '฿ ' + formatNumber(ytdInc);
             document.getElementById('ytd-expense').innerText = '฿ ' + formatNumber(ytdExp);
             document.getElementById('ytd-savings-rate').innerText = (ytdInc > 0 ? Math.round(((ytdInc-ytdExp)/ytdInc)*100) : 0) + '%';
+            document.getElementById('ytd-year-income').innerText = `FY ${currentYear}`;
+            document.getElementById('ytd-year-expense').innerText = `FY ${currentYear}`;
+            document.getElementById('ytd-year-savings').innerText = `FY ${currentYear}`;
             updateCharts(latest, validRecords);
         }
 
@@ -620,18 +756,48 @@
             const fixedAmt = sumArr(latest.fixed);
             const dynAmt = sumArr(latest.dynamic);
             const savingsAmt = Math.max(0, latest.payday - (fixedAmt + dynAmt));
+            const total = fixedAmt + dynAmt + savingsAmt;
+            const pct = (val) => total > 0 ? Math.round((val / total) * 100) : 0;
             if (distChart) distChart.destroy();
             distChart = new Chart(ctxDist, {
                 type: 'doughnut',
                 data: {
-                    labels: ['Fixed', 'Variable', 'Savings'],
+                    labels: [
+                        `Fixed ${pct(fixedAmt)}%`,
+                        `Variable ${pct(dynAmt)}%`,
+                        `Savings ${pct(savingsAmt)}%`
+                    ],
                     datasets: [{
                         data: [fixedAmt, dynAmt, savingsAmt],
-                        backgroundColor: ['#2563eb', '#f97316', '#10b981'],
-                        borderWidth: 0
+                        backgroundColor: ['#0d9488', '#f97316', '#6366f1'],
+                        borderWidth: 0,
+                        hoverOffset: 6
                     }]
                 },
-                options: { cutout: '80%', maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { font: { weight: 'bold' } } } } }
+                options: {
+                    cutout: '75%',
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                font: { family: 'IBM Plex Mono', weight: '600', size: 10 },
+                                color: '#4a6080',
+                                padding: 16
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: '#ffffff',
+                            borderColor: '#d0dce8',
+                            borderWidth: 1,
+                            titleColor: '#64748b',
+                            bodyColor: '#0f2030',
+                            titleFont: { family: 'IBM Plex Mono', size: 10 },
+                            bodyFont: { family: 'IBM Plex Mono', size: 11 },
+                            callbacks: { label: (ctx) => ` ฿${formatNumber(ctx.raw)}  (${pct(ctx.raw)}%)` }
+                        }
+                    }
+                }
             });
 
             const rangeLimit = parseInt(document.getElementById('compareRange').value);
@@ -643,11 +809,30 @@
                 data: {
                     labels: displayData.map(r => r.id),
                     datasets: [
-                        { label: 'Income', data: displayData.map(r => r.payday), backgroundColor: '#10b981', borderRadius: 4 },
-                        { label: 'Expense', data: displayData.map(r => sumArr(r.fixed) + sumArr(r.dynamic)), backgroundColor: '#ef4444', borderRadius: 4 }
+                        { label: 'Income', data: displayData.map(r => r.payday), backgroundColor: '#0d9488', borderRadius: 3 },
+                        { label: 'Expense', data: displayData.map(r => sumArr(r.fixed) + sumArr(r.dynamic)), backgroundColor: '#e11d48', borderRadius: 3 }
                     ]
                 },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top', labels: { boxWidth: 10, font: { weight: 'bold', size: 10 } } } }, scales: { y: { beginAtZero: true }, x: { ticks: { font: { weight: 'bold', size: 10 } } } } }
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'top', labels: { boxWidth: 10, font: { family: 'IBM Plex Mono', weight: '600', size: 10 }, color: '#64748b', padding: 16 } },
+                        tooltip: {
+                            backgroundColor: '#ffffff',
+                            borderColor: '#d0dce8',
+                            borderWidth: 1,
+                            titleColor: '#64748b',
+                            bodyColor: '#0f2030',
+                            titleFont: { family: 'IBM Plex Mono', size: 10 },
+                            bodyFont: { family: 'IBM Plex Mono', size: 11 },
+                        }
+                    },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: '#e8eef5' }, ticks: { font: { family: 'IBM Plex Mono', size: 9 }, color: '#94a3b8' }, border: { color: '#d0dce8' } },
+                        x: { grid: { display: false }, ticks: { font: { family: 'IBM Plex Mono', weight: '600', size: 9 }, color: '#64748b' }, border: { color: '#d0dce8' } }
+                    }
+                }
             });
         }
 
@@ -777,21 +962,24 @@
             syncFromGist();
         }
 
+        let gistStatusTimer = null;
         function showGistStatus(msg, color = 'text-gray-400') {
             const el = document.getElementById('db-name-display');
-            const prev = el.innerText;
+            if (gistStatusTimer) clearTimeout(gistStatusTimer);
             el.className = `text-[10px] font-bold uppercase tracking-widest leading-none truncate max-w-[150px] ${color}`;
             el.innerText = msg;
-            setTimeout(() => {
-                el.className = 'text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none truncate max-w-[150px]';
-                el.innerText = prev;
-            }, 2500);
+            if (!msg.endsWith('...')) {
+                gistStatusTimer = setTimeout(() => {
+                    el.className = 'text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none truncate max-w-[150px]';
+                    el.innerText = localStorage.getItem('ps_dbname') || 'Ready to Start';
+                }, 2500);
+            }
         }
 
         async function syncToGist() {
             const token = getGistToken();
             if (!token) { document.getElementById('gist-modal').classList.remove('hidden'); return; }
-            showGistStatus('PUSHING...', 'text-blue-500');
+            showGistStatus('SAVING...', 'text-blue-500');
             try {
                 const exportData = { meta: { avatar: db.avatar }, records: records };
                 const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
@@ -799,20 +987,20 @@
                     headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ files: { [GIST_FILENAME]: { content: JSON.stringify(exportData, null, 2) } } })
                 });
-                if (res.ok) showGistStatus('PUSHED ✓', 'text-emerald-500');
-                else showGistStatus('PUSH FAILED ✗', 'text-rose-500');
+                if (res.ok) showGistStatus('SAVED ✓', 'text-emerald-500');
+                else showGistStatus('SAVE FAILED ✗', 'text-rose-500');
             } catch(e) { showGistStatus('ERROR ✗', 'text-rose-500'); }
         }
 
         async function syncFromGist() {
             const token = getGistToken();
             if (!token) { document.getElementById('gist-modal').classList.remove('hidden'); return; }
-            showGistStatus('PULLING...', 'text-blue-500');
+            showGistStatus('SYNCING...', 'text-blue-500');
             try {
                 const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
                     headers: { 'Authorization': `token ${token}` }
                 });
-                if (!res.ok) { showGistStatus('PULL FAILED ✗', 'text-rose-500'); return; }
+                if (!res.ok) { showGistStatus('SYNC FAILED ✗', 'text-rose-500'); return; }
                 const gist = await res.json();
                 const content = gist.files[GIST_FILENAME]?.content;
                 if (!content) { showGistStatus('NO DATA', 'text-gray-400'); return; }
@@ -824,10 +1012,9 @@
                     if (data.meta?.avatar) { db.avatar = data.meta.avatar; setAvatarImage(db.avatar); }
                 }
                 try { localStorage.setItem('ps_records', JSON.stringify(records)); } catch(e) {}
-                document.getElementById('db-name-display').innerText = GIST_FILENAME;
                 try { localStorage.setItem('ps_dbname', GIST_FILENAME); } catch(e) {}
                 loadMonth(curMonth);
-                showGistStatus('PULLED ✓', 'text-emerald-500');
+                showGistStatus('SYNCED ✓', 'text-emerald-500');
             } catch(e) { showGistStatus('ERROR ✗', 'text-rose-500'); }
         }
 
