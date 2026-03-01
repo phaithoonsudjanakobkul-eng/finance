@@ -824,9 +824,16 @@
                             <th class="px-3 py-2 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest wl-col-hide">Change</th>
                             <th class="px-3 py-2 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest">% Change</th>
                             <th class="px-3 py-2 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest wl-col-hide">Open</th>
-                            <th class="px-3 py-2 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest wl-col-hide">Prev</th>
+                            <th class="px-3 py-2 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest wl-col-hide">Prev Close</th>
                             <th class="px-3 py-2 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest wl-col-hide">High</th>
                             <th class="px-3 py-2 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest wl-col-hide">Low</th>
+                            <th class="px-3 py-2 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest wl-col-hide">52W High</th>
+                            <th class="px-3 py-2 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest wl-col-hide">52W Low</th>
+                            <th class="px-3 py-2 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest wl-col-hide">Mkt Cap</th>
+                            <th class="px-3 py-2 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest wl-col-hide">Avg Vol 10D</th>
+                            <th class="px-3 py-2 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest wl-col-hide">Beta</th>
+                            <th class="px-3 py-2 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest wl-col-hide">P/E</th>
+                            <th class="px-3 py-2 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest wl-col-hide">Div Yield</th>
                             <th class="px-2 py-2 w-8"></th>
                         </tr>
                     </thead>
@@ -1702,6 +1709,13 @@
                     <td class="px-3 py-1.5 text-right text-xs font-bold text-gray-500 wl-col-hide">${prevClose !== null ? '$' + fmt(prevClose) : '—'}</td>
                     <td class="px-3 py-1.5 text-right text-xs font-bold text-gray-500 wl-col-hide">${high      !== null ? '$' + fmt(high)      : '—'}</td>
                     <td class="px-3 py-1.5 text-right text-xs font-bold text-gray-500 wl-col-hide">${low       !== null ? '$' + fmt(low)       : '—'}</td>
+                    <td class="px-3 py-1.5 text-right text-xs font-bold text-emerald-600 wl-col-hide">${d?.week52High != null ? '$' + fmt(d.week52High) : '—'}</td>
+                    <td class="px-3 py-1.5 text-right text-xs font-bold text-rose-400 wl-col-hide">${d?.week52Low  != null ? '$' + fmt(d.week52Low)  : '—'}</td>
+                    <td class="px-3 py-1.5 text-right text-xs font-bold text-gray-500 wl-col-hide">${d?.marketCap  != null ? fmtCap(d.marketCap)     : '—'}</td>
+                    <td class="px-3 py-1.5 text-right text-xs font-bold text-gray-500 wl-col-hide">${d?.avgVol10d  != null ? fmtVol(d.avgVol10d)     : '—'}</td>
+                    <td class="px-3 py-1.5 text-right text-xs font-bold text-gray-500 wl-col-hide">${d?.beta       != null ? d.beta.toFixed(2)        : '—'}</td>
+                    <td class="px-3 py-1.5 text-right text-xs font-bold text-gray-500 wl-col-hide">${d?.pe         != null ? d.pe.toFixed(1)          : '—'}</td>
+                    <td class="px-3 py-1.5 text-right text-xs font-bold text-gray-500 wl-col-hide">${d?.divYield   != null ? d.divYield.toFixed(2)+'%': '—'}</td>
                     <td class="px-2 py-1.5 text-right">
                         <button onclick="removeTicker('${symbol}')" class="text-gray-200 hover:text-rose-400 transition-colors opacity-0 group-hover:opacity-100">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -1763,17 +1777,28 @@
 
         async function fetchQuote(symbol) {
             const key = getFinnhubKey();
-            const [quoteRes, profileRes] = await Promise.all([
+            const [quoteRes, profileRes, metricRes] = await Promise.all([
                 fetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${key}`),
-                fetch(`https://finnhub.io/api/v1/stock/profile2?symbol=${symbol}&token=${key}`)
+                fetch(`https://finnhub.io/api/v1/stock/profile2?symbol=${symbol}&token=${key}`),
+                fetch(`https://finnhub.io/api/v1/stock/metric?symbol=${symbol}&metric=all&token=${key}`)
             ]);
-            const quote = quoteRes.ok ? await quoteRes.json() : {};
+            const quote   = quoteRes.ok   ? await quoteRes.json()   : {};
             const profile = profileRes.ok ? await profileRes.json() : {};
+            const metric  = metricRes.ok  ? await metricRes.json()  : {};
+            const m = metric.metric ?? {};
             return {
                 ...quote,
-                name: profile.name ?? '',
-                logo: profile.logo ?? '',
-                type: profile.finnhubIndustry ? 'Stock' : (profile.name ? 'ETF' : '')
+                name:      profile.name ?? '',
+                logo:      profile.logo ?? '',
+                type:      profile.finnhubIndustry ? 'Stock' : (profile.name ? 'ETF' : ''),
+                marketCap: profile.marketCapitalization ?? null,  // in millions USD
+                week52High: m['52WeekHigh'] ?? null,
+                week52Low:  m['52WeekLow']  ?? null,
+                avgVol10d:  m['10DayAverageTradingVolume'] ?? null,   // in millions
+                avgVol3m:   m['3MonthAverageTradingVolume'] ?? null,  // in millions
+                beta:       m['beta'] ?? null,
+                pe:         m['peNormalizedAnnual'] ?? null,
+                divYield:   m['dividendYieldIndicatedAnnual'] ?? null,
             };
         }
 
@@ -1825,39 +1850,65 @@
             isWlRefreshing = false;
         }
 
+        const fmtCap = v => {
+            if (v >= 1000) return (v/1000).toFixed(1) + 'T';
+            if (v >= 1)    return v.toFixed(1) + 'B';
+            return (v*1000).toFixed(0) + 'M';
+        };
+        const fmtVol = v => {
+            if (v >= 1000) return (v/1000).toFixed(1) + 'B';
+            if (v >= 1)    return v.toFixed(1) + 'M';
+            return (v*1000).toFixed(0) + 'K';
+        };
+
         function updateWatchlistPriceCells(symbol, data) {
-            // Update cache
             if (data) wlDataCache[symbol] = data;
             const row = document.getElementById('wl-row-' + symbol);
             if (!row) return;
             const cells = row.querySelectorAll('td');
             if (cells.length < 10) return;
 
-            const price = data?.c ?? null;
-            const change = data?.d ?? null;
-            const changePct = data?.dp ?? null;
-            const open = data?.o ?? null;
-            const prevClose = data?.pc ?? null;
-            const high = data?.h ?? null;
-            const low = data?.l ?? null;
+            const price     = data?.c   ?? null;
+            const change    = data?.d   ?? null;
+            const changePct = data?.dp  ?? null;
+            const open      = data?.o   ?? null;
+            const prevClose = data?.pc  ?? null;
+            const high      = data?.h   ?? null;
+            const low       = data?.l   ?? null;
+            const week52H   = data?.week52High ?? null;
+            const week52L   = data?.week52Low  ?? null;
+            const marketCap = data?.marketCap  ?? null;
+            const avgVol    = data?.avgVol10d  ?? null;
+            const beta      = data?.beta       ?? null;
+            const pe        = data?.pe         ?? null;
+            const divYield  = data?.divYield   ?? null;
+
             const isUp = changePct >= 0;
-            const priceColor = price === null ? 'text-gray-300' : isUp ? 'text-emerald-600' : 'text-rose-500';
+            const priceColor  = price === null ? 'text-gray-300' : isUp ? 'text-emerald-600' : 'text-rose-500';
             const changeColor = change === null ? 'text-gray-300' : isUp ? 'text-emerald-600' : 'text-rose-500';
             const arrow = isUp ? '▲' : '▼';
             const fmt = v => v !== null ? v.toFixed(2) : '—';
 
-            // cells[3]=price, [4]=change, [5]=changePct, [6]=open, [7]=prevClose, [8]=high, [9]=low
-            cells[3].className = `px-3 py-3 text-right font-black text-sm ${priceColor}`;
+            // idx:0=#, 1=symbol, 2=name, 3=price, 4=change, 5=%change, 6=open, 7=prev, 8=high, 9=low
+            // 10=52wH, 11=52wL, 12=mktcap, 13=vol, 14=beta, 15=pe, 16=div, 17=delete
+            cells[3].className = `px-3 py-1.5 text-right font-black text-sm ${priceColor}`;
             cells[3].innerText = price !== null ? '$' + fmt(price) : '—';
-            cells[4].className = `px-3 py-3 text-right text-xs font-bold ${changeColor}`;
+            cells[4].className = `px-3 py-1.5 text-right text-xs font-bold ${changeColor} wl-col-hide`;
             cells[4].innerText = change !== null ? (isUp ? '+' : '') + fmt(change) : '—';
             cells[5].innerHTML = changePct !== null
                 ? `<span class="inline-block px-2 py-0.5 rounded text-xs font-black ${changeColor} ${isUp ? 'bg-emerald-50' : 'bg-rose-50'}">${arrow} ${Math.abs(changePct).toFixed(2)}%</span>`
                 : '<span class="text-gray-300 text-xs">—</span>';
-            cells[6].innerText = open !== null ? '$' + fmt(open) : '—';
-            cells[7].innerText = prevClose !== null ? '$' + fmt(prevClose) : '—';
-            cells[8].innerText = high !== null ? '$' + fmt(high) : '—';
-            cells[9].innerText = low !== null ? '$' + fmt(low) : '—';
+            cells[6].innerText  = open      !== null ? '$' + fmt(open)      : '—';
+            cells[7].innerText  = prevClose !== null ? '$' + fmt(prevClose) : '—';
+            cells[8].innerText  = high      !== null ? '$' + fmt(high)      : '—';
+            cells[9].innerText  = low       !== null ? '$' + fmt(low)       : '—';
+            if (cells[10]) cells[10].innerText = week52H   != null ? '$' + fmt(week52H)       : '—';
+            if (cells[11]) cells[11].innerText = week52L   != null ? '$' + fmt(week52L)       : '—';
+            if (cells[12]) cells[12].innerText = marketCap != null ? fmtCap(marketCap)        : '—';
+            if (cells[13]) cells[13].innerText = avgVol    != null ? fmtVol(avgVol)           : '—';
+            if (cells[14]) cells[14].innerText = beta      != null ? beta.toFixed(2)          : '—';
+            if (cells[15]) cells[15].innerText = pe        != null ? pe.toFixed(1)            : '—';
+            if (cells[16]) cells[16].innerText = divYield  != null ? divYield.toFixed(2) + '%': '—';
         }
 
         // --- Quick Chart ---
