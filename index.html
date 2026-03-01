@@ -1356,7 +1356,7 @@
                                 <circle cx="5" cy="8" r="1.2"/><circle cx="11" cy="8" r="1.2"/>
                                 <circle cx="5" cy="12" r="1.2"/><circle cx="11" cy="12" r="1.2"/>
                             </svg>
-                            <span class="text-[10px] font-bold text-gray-300 w-4 text-center">${idx}</span>
+                            <span class="wl-idx text-[10px] font-bold text-gray-300 w-4 text-center">${idx}</span>
                         </div>
                     </td>
                     <td class="px-3 py-3">
@@ -1423,9 +1423,20 @@
             watchlist.splice(si, 1);
             watchlist.splice(ti, 0, dragSrc);
             saveWatchlist();
-            // Re-render order using cache
-            document.getElementById('watchlist-rows').innerHTML = '<tr id="wl-empty" class="hidden"></tr>';
-            watchlist.forEach(sym => renderWatchlistRow(sym, null));
+            // Move DOM nodes directly — no re-render, no logo reload
+            const tbody = document.getElementById('watchlist-rows');
+            const srcRow = document.getElementById('wl-row-' + dragSrc);
+            const tgtRow = document.getElementById('wl-row-' + targetSymbol);
+            if (si > ti) tbody.insertBefore(srcRow, tgtRow);
+            else tbody.insertBefore(srcRow, tgtRow.nextSibling);
+            // Update index numbers only
+            watchlist.forEach((sym, i) => {
+                const row = document.getElementById('wl-row-' + sym);
+                if (row) {
+                    const numEl = row.querySelector('.wl-idx');
+                    if (numEl) numEl.innerText = i + 1;
+                }
+            });
         }
 
         async function fetchQuote(symbol) {
@@ -1587,9 +1598,11 @@
             else                     { interval = '1wk'; period = '1y';  }
 
             try {
-                const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=${interval}&range=${period}`;
-                const res = await fetch(url);
-                const json = await res.json();
+                const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=${interval}&range=${period}`;
+                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(yahooUrl)}`;
+                const res = await fetch(proxyUrl);
+                const wrapper = await res.json();
+                const json = JSON.parse(wrapper.contents);
                 const result = json?.chart?.result?.[0];
 
                 if (!result?.timestamp || !result?.indicators?.quote?.[0]?.close) {
