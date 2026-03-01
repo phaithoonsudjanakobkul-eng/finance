@@ -512,6 +512,8 @@
                 const idx = records.findIndex(r => r.id === month);
                 if (idx > -1) records[idx] = data; else records.push(data);
                 records.sort((a,b) => a.id.localeCompare(b.id));
+                // Auto-save to localStorage every change
+                localStorage.setItem('ps_records', JSON.stringify(records));
             }
 
             updateReferenceBadges();
@@ -682,8 +684,10 @@
                         if (data.meta && data.meta.avatar) {
                             db.avatar = data.meta.avatar;
                             setAvatarImage(db.avatar);
+                            localStorage.setItem('ps_avatar', db.avatar);
                         }
                     }
+                    localStorage.setItem('ps_records', JSON.stringify(records));
                     document.getElementById('db-name-display').innerText = file.name;
                     loadMonth(curMonth);
                     e.target.value = ''; // reset so same file can be re-imported
@@ -718,11 +722,19 @@
             reader.onload = (ev) => {
                 db.avatar = ev.target.result;
                 setAvatarImage(db.avatar);
+                localStorage.setItem('ps_avatar', db.avatar);
             };
             reader.readAsDataURL(file);
         }
 
         window.onload = () => {
+            // Restore from localStorage if available
+            try {
+                const saved = localStorage.getItem('ps_records');
+                if (saved) records = JSON.parse(saved);
+                const savedAvatar = localStorage.getItem('ps_avatar');
+                if (savedAvatar) { db.avatar = savedAvatar; setAvatarImage(savedAvatar); }
+            } catch(e) {}
             document.getElementById('monthInput').value = curMonth;
             loadMonth(curMonth);
         };
