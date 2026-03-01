@@ -1376,7 +1376,7 @@
             } catch(e) { showGistStatus('ERROR ✗', 'text-rose-500'); }
         }
 
-        async function syncFromGist() {
+        async function syncFromGist(isInitialLoad = false) {
             const token = getGistToken();
             if (!token) { document.getElementById('gist-modal').classList.remove('hidden'); return; }
             showGistStatus('SYNCING...', 'text-blue-500');
@@ -1408,12 +1408,14 @@
                 try { localStorage.setItem('ps_dbname', GIST_FILENAME); } catch(e) {}
                 loadMonth(curMonth);
                 showGistStatus('SYNCED ✓', 'text-emerald-500');
-                // If on watchlist tab, refresh prices now that watchlist array is populated
+                // If on watchlist tab (or initial load to watchlist), refresh prices
                 const wlVisible = !document.getElementById('tab-watchlist').classList.contains('hidden');
                 if (wlVisible && watchlist.length > 0) {
-                    isWlRefreshing = false; // reset lock so refresh can run
+                    isWlRefreshing = false;
                     refreshWatchlist();
                 }
+            } catch(e) { showGistStatus('ERROR ✗', 'text-rose-500'); }
+        }
             } catch(e) { showGistStatus('ERROR ✗', 'text-rose-500'); }
         }
 
@@ -1793,12 +1795,15 @@
         let qcCurrentSymbol = null;
         let qcCurrentRange = 'D';
 
-        function openQuickChart(symbol) {
+        function openQuickChart(symbol, scroll = true) {
             qcCurrentSymbol = symbol;
             const d = wlDataCache[symbol];
             const panel = document.getElementById('quick-chart-panel');
+            const isAlreadyOpen = !panel.classList.contains('hidden');
             panel.classList.remove('hidden');
-            panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            if (scroll && !isAlreadyOpen) {
+                panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
 
             // Header info
             document.getElementById('qc-symbol').innerText = symbol;
@@ -2044,7 +2049,7 @@
             localStorage.setItem('ps_dark', isDark ? '1' : '0');
             updateChartThemes(isDark);
             // Re-render TradingView widget with new theme if open
-            if (qcCurrentSymbol) openQuickChart(qcCurrentSymbol);
+            if (qcCurrentSymbol) openQuickChart(qcCurrentSymbol, false);
         }
 
         function applyDarkMode(isDark) {
@@ -2105,15 +2110,10 @@
             if (savedMonth) curMonth = savedMonth;
             document.getElementById('monthInput').value = curMonth;
             const savedTab = localStorage.getItem('ps_tab') || 'dashboard';
+            showTab(savedTab, false);
             loadMonth(curMonth);
-            // Auto pull from Gist first, THEN show tab (so watchlist has data before refresh)
-            if (getGistToken()) {
-                syncFromGist().then(() => {
-                    showTab(savedTab, false);
-                });
-            } else {
-                showTab(savedTab, false);
-            }
+            // Sync from Gist in background — does NOT change current tab
+            if (getGistToken()) syncFromGist();
 
             // Auto-refresh FX rate every 5 minutes when on watchlist tab
             setInterval(() => {
