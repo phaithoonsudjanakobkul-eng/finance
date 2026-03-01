@@ -255,7 +255,7 @@
                 <div class="flex gap-2">
                     <button onclick="syncFromGist()" title="โหลดข้อมูลจาก Gist" class="bg-gray-100 hover:bg-gray-200 text-gray-600 px-4 py-2.5 rounded-xl text-xs font-bold transition-all uppercase tracking-widest flex items-center gap-1.5">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                        Pull
+                        Sync
                     </button>
                     <button onclick="syncToGist()" title="บันทึกข้อมูลขึ้น Gist" class="bg-gray-900 text-white px-4 py-2.5 rounded-xl text-xs font-bold hover:bg-black transition-all uppercase tracking-widest flex items-center gap-1.5">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
@@ -424,10 +424,10 @@
                     <input type="checkbox" onchange="togglePaidStatus('${id}', this.checked)" ${isPaid ? 'checked' : ''} 
                         class="w-5 h-5 rounded-md border-gray-200 text-blue-600 focus:ring-blue-500 cursor-pointer">
                     <input type="text" value="${name}" oninput="saveAndCalc()" placeholder="รายการ..." 
-                        class="flex-grow bg-white border border-gray-100 rounded-xl px-4 py-3 text-sm font-medium outline-none shadow-sm focus:border-blue-300 transition-all">
+                        class="flex-grow bg-white border border-gray-100 rounded-xl px-4 py-2 text-sm font-medium outline-none shadow-sm focus:border-blue-300 transition-all">
                     <div class="relative w-40 flex-shrink-0">
                         <input type="text" value="${displayVal}" oninput="handleCurrencyInput(this, '${hiddenId}')" onpaste="handlePaste(event, this, '${hiddenId}')" onblur="handleBlur(this, '${hiddenId}')"
-                            placeholder="0.00" class="w-full bg-white border border-gray-100 rounded-xl px-4 py-3 text-sm font-black text-right outline-none shadow-sm focus:border-blue-300 transition-all">
+                            placeholder="0.00" class="w-full bg-white border border-gray-100 rounded-xl px-4 py-2 text-sm font-black text-right outline-none shadow-sm focus:border-blue-300 transition-all">
                         <input type="hidden" id="${hiddenId}" value="${val}">
                     </div>
                     <button onclick="document.getElementById('${id}').remove(); saveAndCalc();" class="text-gray-300 hover:text-red-500 transition-all opacity-0 group-hover:opacity-100 flex-shrink-0">
@@ -848,6 +848,22 @@
             loadMonth(curMonth);
             // Auto pull from Gist if token exists
             if (getGistToken()) syncFromGist();
+
+            // Auto push to Gist when tab/browser is closed
+            window.addEventListener('beforeunload', () => {
+                if (getGistToken() && records.length > 0) {
+                    const exportData = { meta: { avatar: db.avatar }, records: records };
+                    const token = getGistToken();
+                    navigator.sendBeacon
+                        ? fetch(`https://api.github.com/gists/${GIST_ID}`, {
+                            method: 'PATCH',
+                            headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ files: { [GIST_FILENAME]: { content: JSON.stringify(exportData, null, 2) } } }),
+                            keepalive: true
+                        })
+                        : null;
+                }
+            });
         };
     </script>
 </body>
