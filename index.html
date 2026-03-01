@@ -169,6 +169,38 @@
         html.dark .bg-gray-900 { background-color: #0f172a !important; }
         html.dark .row-paid { background-color: rgba(16,185,129,0.08) !important; }
 
+        /* Watchlist split-view */
+        #wl-split-wrap {
+            display: flex;
+            gap: 16px;
+            align-items: flex-start;
+        }
+        #wl-table-panel {
+            flex: 1 1 auto;
+            min-width: 0;
+            transition: flex-basis 0.35s cubic-bezier(0.4,0,0.2,1), max-width 0.35s cubic-bezier(0.4,0,0.2,1);
+        }
+        #quick-chart-panel {
+            flex: 0 0 0px;
+            max-width: 0;
+            overflow: hidden;
+            opacity: 0;
+            transition: flex-basis 0.35s cubic-bezier(0.4,0,0.2,1), max-width 0.35s cubic-bezier(0.4,0,0.2,1), opacity 0.2s ease;
+        }
+        #wl-split-wrap.chart-open #wl-table-panel {
+            flex: 0 0 320px;
+            max-width: 320px;
+        }
+        #wl-split-wrap.chart-open #quick-chart-panel {
+            flex: 1 1 auto;
+            max-width: 100%;
+            overflow: visible;
+            opacity: 1;
+        }
+        /* Hide less important columns when in compact mode */
+        #wl-split-wrap.chart-open .wl-col-hide { display: none !important; }
+        #wl-split-wrap.chart-open #watchlist-table { min-width: unset !important; }
+
         /* Consistent scrollbar for both modes — prevents layout shift */
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: #f1f5f9; }
@@ -755,21 +787,25 @@
                 </button>
             </div>
 
+            <!-- Watchlist Split Layout -->
+            <div id="wl-split-wrap">
+
             <!-- Watchlist Table -->
+            <div id="wl-table-panel">
             <div class="glass-card overflow-x-auto">
-                <table class="w-full min-w-[700px]">
+                <table id="watchlist-table" class="w-full min-w-[700px]">
                     <thead>
                         <tr class="border-b border-gray-100 bg-gray-50">
                             <th class="px-5 py-3 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest w-8">#</th>
                             <th class="px-3 py-3 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Symbol</th>
-                            <th class="px-3 py-3 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Name</th>
-                            <th class="px-3 py-3 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest">Last Price</th>
-                            <th class="px-3 py-3 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest">Change</th>
-                            <th class="px-3 py-3 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest">% Change</th>
-                            <th class="px-3 py-3 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest">Open</th>
-                            <th class="px-3 py-3 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest">Prev Close</th>
-                            <th class="px-3 py-3 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest">High</th>
-                            <th class="px-3 py-3 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest">Low</th>
+                            <th class="px-3 py-3 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest wl-col-hide">Name</th>
+                            <th class="px-3 py-3 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest">Price</th>
+                            <th class="px-3 py-3 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest wl-col-hide">Change</th>
+                            <th class="px-3 py-3 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest">%</th>
+                            <th class="px-3 py-3 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest wl-col-hide">Open</th>
+                            <th class="px-3 py-3 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest wl-col-hide">Prev</th>
+                            <th class="px-3 py-3 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest wl-col-hide">High</th>
+                            <th class="px-3 py-3 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest wl-col-hide">Low</th>
                             <th class="px-2 py-3 w-8"></th>
                         </tr>
                     </thead>
@@ -784,9 +820,10 @@
                     </tbody>
                 </table>
             </div>
+            </div><!-- /wl-table-panel -->
 
             <!-- Quick Chart Panel -->
-            <div id="quick-chart-panel" class="hidden glass-card overflow-hidden">
+            <div id="quick-chart-panel" class="glass-card overflow-hidden">
                 <!-- Header -->
                 <div class="flex items-center justify-between px-5 pt-4 pb-3">
                     <div class="flex items-center gap-3">
@@ -817,8 +854,10 @@
                     </div>
                 </div>
                 <!-- TradingView Widget -->
-                <div id="qc-tv-container" style="height:480px;"></div>
-            </div>
+                <div id="qc-tv-container" style="height:600px;"></div>
+            </div><!-- /quick-chart-panel -->
+
+            </div><!-- /wl-split-wrap -->
 
         </div>
 
@@ -1618,18 +1657,18 @@
                             </div>
                         </div>
                     </td>
-                    <td class="px-3 py-3 text-xs text-gray-400 max-w-[160px] truncate">${name}</td>
+                    <td class="px-3 py-3 text-xs text-gray-400 max-w-[160px] truncate wl-col-hide">${name}</td>
                     <td class="px-3 py-3 text-right font-black text-sm ${priceColor}">${price !== null ? '$' + fmt(price) : '—'}</td>
-                    <td class="px-3 py-3 text-right text-xs font-bold ${changeColor}">${change !== null ? (isUp ? '+' : '') + fmt(change) : '—'}</td>
+                    <td class="px-3 py-3 text-right text-xs font-bold ${changeColor} wl-col-hide">${change !== null ? (isUp ? '+' : '') + fmt(change) : '—'}</td>
                     <td class="px-3 py-3 text-right">
                         ${changePct !== null
                             ? `<span class="inline-block px-2 py-0.5 rounded text-xs font-black ${changeColor} ${isUp ? 'bg-emerald-50' : 'bg-rose-50'}">${arrow} ${Math.abs(changePct).toFixed(2)}%</span>`
                             : '<span class="text-gray-300 text-xs">—</span>'}
                     </td>
-                    <td class="px-3 py-3 text-right text-xs font-bold text-gray-500">${open      !== null ? '$' + fmt(open)      : '—'}</td>
-                    <td class="px-3 py-3 text-right text-xs font-bold text-gray-500">${prevClose !== null ? '$' + fmt(prevClose) : '—'}</td>
-                    <td class="px-3 py-3 text-right text-xs font-bold text-gray-500">${high      !== null ? '$' + fmt(high)      : '—'}</td>
-                    <td class="px-3 py-3 text-right text-xs font-bold text-gray-500">${low       !== null ? '$' + fmt(low)       : '—'}</td>
+                    <td class="px-3 py-3 text-right text-xs font-bold text-gray-500 wl-col-hide">${open      !== null ? '$' + fmt(open)      : '—'}</td>
+                    <td class="px-3 py-3 text-right text-xs font-bold text-gray-500 wl-col-hide">${prevClose !== null ? '$' + fmt(prevClose) : '—'}</td>
+                    <td class="px-3 py-3 text-right text-xs font-bold text-gray-500 wl-col-hide">${high      !== null ? '$' + fmt(high)      : '—'}</td>
+                    <td class="px-3 py-3 text-right text-xs font-bold text-gray-500 wl-col-hide">${low       !== null ? '$' + fmt(low)       : '—'}</td>
                     <td class="px-2 py-3 text-right">
                         <button onclick="removeTicker('${symbol}')" class="text-gray-200 hover:text-rose-400 transition-colors opacity-0 group-hover:opacity-100">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -1797,10 +1836,11 @@
             qcCurrentSymbol = symbol;
             const d = wlDataCache[symbol];
             const panel = document.getElementById('quick-chart-panel');
-            const isAlreadyOpen = !panel.classList.contains('hidden');
-            panel.classList.remove('hidden');
+            const wrap = document.getElementById('wl-split-wrap');
+            const isAlreadyOpen = wrap.classList.contains('chart-open');
+            wrap.classList.add('chart-open');
             if (scroll && !isAlreadyOpen) {
-                panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                setTimeout(() => panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
             }
 
             // Header info
@@ -1862,7 +1902,7 @@
         }
 
         function closeQuickChart() {
-            document.getElementById('quick-chart-panel').classList.add('hidden');
+            document.getElementById('wl-split-wrap').classList.remove('chart-open');
             document.getElementById('qc-tv-container').innerHTML = '';
             if (qcChart) { qcChart.destroy(); qcChart = null; }
             qcCurrentSymbol = null;
