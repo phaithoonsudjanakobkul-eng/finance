@@ -680,6 +680,27 @@
                     <h3 class="font-black text-gray-900 text-lg uppercase tracking-tight">Watchlist</h3>
                     <span id="wl-last-update" class="text-[10px] font-bold text-gray-300 uppercase tracking-widest"></span>
                 </div>
+
+                <!-- USD/THB FX Widget -->
+                <div id="fx-widget" class="flex items-center gap-2 px-4 py-2 rounded-2xl border"
+                    style="background:var(--bg-card2);border-color:var(--border);">
+                    <div class="flex flex-col items-end">
+                        <div class="flex items-center gap-1.5">
+                            <span class="text-[9px] font-bold uppercase tracking-widest" style="color:var(--text-dim)">USD / THB</span>
+                            <span id="fx-dot" class="w-1.5 h-1.5 rounded-full bg-gray-300"></span>
+                        </div>
+                        <div class="flex items-baseline gap-1.5 mt-0.5">
+                            <span id="fx-rate" class="font-black text-sm" style="font-family:var(--font-mono);color:var(--text-primary)">—</span>
+                            <span id="fx-change" class="text-[10px] font-bold" style="font-family:var(--font-mono)"></span>
+                        </div>
+                    </div>
+                    <div class="w-px h-8 self-stretch" style="background:var(--border)"></div>
+                    <div class="flex flex-col items-center gap-0.5">
+                        <span class="text-[8px] font-bold uppercase tracking-widest" style="color:var(--text-dim)">Updated</span>
+                        <span id="fx-time" class="text-[9px] font-bold" style="font-family:var(--font-mono);color:var(--text-secondary)">—</span>
+                    </div>
+                </div>
+
                 <div class="flex items-center gap-2">
                     <button onclick="refreshWatchlist()" class="bg-gray-100 hover:bg-gray-200 text-gray-600 px-4 py-2 rounded-xl text-xs font-bold transition-all uppercase tracking-widest flex items-center gap-1.5">
                         <svg id="wl-refresh-icon" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
@@ -839,7 +860,7 @@
             document.getElementById('btn-edit').className = t === 'edit' ? 'px-5 py-2 rounded-xl text-xs font-bold tab-active transition-all uppercase' : 'px-5 py-2 rounded-xl text-xs font-bold text-gray-400 transition-all uppercase';
             document.getElementById('btn-watchlist').className = t === 'watchlist' ? 'px-5 py-2 rounded-xl text-xs font-bold tab-active transition-all uppercase flex items-center gap-1.5' : 'px-5 py-2 rounded-xl text-xs font-bold text-gray-400 transition-all uppercase flex items-center gap-1.5';
             if (t === 'dashboard') updateDashboard();
-            if (t === 'watchlist') refreshWatchlist();
+            if (t === 'watchlist') { refreshWatchlist(); fetchFxRate(); }
             if (save) try { localStorage.setItem('ps_tab', t); } catch(e) {}
         }
 
@@ -1873,6 +1894,63 @@
             }
         }
 
+        // --- FX Rate (USD/THB) ---
+        let fxPrevRate = null;
+
+        async function fetchFxRate() {
+            const rateEl   = document.getElementById('fx-rate');
+            const changeEl = document.getElementById('fx-change');
+            const timeEl   = document.getElementById('fx-time');
+            const dotEl    = document.getElementById('fx-dot');
+            if (!rateEl) return;
+
+            try {
+                let rate = null;
+
+                // Primary: ExchangeRate-API (updates hourly, no key)
+                try {
+                    const r = await fetch('https://open.er-api.com/v6/latest/USD');
+                    const j = await r.json();
+                    if (j.rates?.THB) rate = j.rates.THB;
+                } catch(e) {}
+
+                // Fallback: Fawaz CDN (jsDelivr 99.9% uptime)
+                if (!rate) {
+                    const r = await fetch('https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json');
+                    const j = await r.json();
+                    if (j.usd?.thb) rate = j.usd.thb;
+                }
+
+                if (!rate) throw new Error('No rate');
+
+                const rounded = parseFloat(rate.toFixed(4));
+                rateEl.textContent = rounded.toFixed(4);
+
+                // Show change vs previous fetch
+                if (fxPrevRate !== null) {
+                    const diff = rounded - fxPrevRate;
+                    const isUp = diff > 0;
+                    const isFlat = Math.abs(diff) < 0.0001;
+                    changeEl.textContent = isFlat ? '' : (isUp ? '▲' : '▼') + Math.abs(diff).toFixed(4);
+                    changeEl.style.color  = isFlat ? '' : isUp ? '#059669' : '#e11d48';
+                }
+                fxPrevRate = rounded;
+
+                // Dot = green (live)
+                dotEl.classList.remove('bg-gray-300', 'bg-rose-400');
+                dotEl.classList.add('bg-emerald-400');
+
+                // Time
+                const now = new Date();
+                timeEl.textContent = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+
+            } catch(e) {
+                rateEl.textContent = 'Error';
+                dotEl.classList.remove('bg-emerald-400');
+                dotEl.classList.add('bg-rose-400');
+            }
+        }
+
         // --- Dark Mode ---
         function toggleDarkMode() {
             const isDark = document.documentElement.classList.toggle('dark');
@@ -1943,7 +2021,11 @@
             // Auto pull from Gist if token exists
             if (getGistToken()) syncFromGist();
 
-            // Auto push to Gist when tab/browser is closed
+            // Auto-refresh FX rate every 5 minutes when on watchlist tab
+            setInterval(() => {
+                const wlVisible = !document.getElementById('tab-watchlist').classList.contains('hidden');
+                if (wlVisible) fetchFxRate();
+            }, 5 * 60 * 1000);
             window.addEventListener('beforeunload', () => {
                 if (getGistToken() && records.length > 0) {
                     const exportData = { meta: { avatar: db.avatar, dark: document.documentElement.classList.contains('dark') }, records: records, watchlist: watchlist };
