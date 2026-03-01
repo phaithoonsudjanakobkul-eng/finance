@@ -1300,6 +1300,14 @@
 
         // data cache for drag&drop re-render
         const wlDataCache = {};
+        const logoCache = {}; // preloaded logo URLs
+
+        function preloadLogo(url) {
+            if (!url || logoCache[url]) return;
+            const img = new Image();
+            img.src = url;
+            logoCache[url] = true;
+        }
 
         function renderWatchlistRow(symbol, data, remove = false) {
             const existing = document.getElementById('wl-row-' + symbol);
@@ -1436,6 +1444,13 @@
             };
         }
 
+        // Preload logo into browser cache immediately after first fetch
+        async function fetchQuoteWithPreload(symbol) {
+            const data = await fetchQuote(symbol);
+            if (data?.logo) preloadLogo(data.logo);
+            return data;
+        }
+
         async function refreshWatchlist() {
             const key = getFinnhubKey();
             if (!key) return;
@@ -1455,8 +1470,8 @@
             await Promise.all(watchlist.map(async (symbol) => {
                 try {
                     if (isNewRow(symbol)) {
-                        // First time: fetch quote + profile together
-                        const data = await fetchQuote(symbol);
+                        // First time: fetch quote + profile together, preload logo
+                        const data = await fetchQuoteWithPreload(symbol);
                         renderWatchlistRow(symbol, data);
                     } else {
                         // Already loaded: only refresh price
