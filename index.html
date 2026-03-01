@@ -944,7 +944,7 @@
         const sumArr = (arr) => arr ? arr.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0) : 0;
         const sumPaidArr = (arr) => arr ? arr.reduce((s, i) => s + (i.isPaid ? (parseFloat(i.amount) || 0) : 0), 0) : 0;
 
-        function showTab(t, save = true) {
+        function showTab(t, save = true, skipWlRefresh = false) {
             document.getElementById('tab-dashboard').classList.toggle('hidden', t !== 'dashboard');
             document.getElementById('tab-edit').classList.toggle('hidden', t !== 'edit');
             document.getElementById('tab-watchlist').classList.toggle('hidden', t !== 'watchlist');
@@ -952,7 +952,7 @@
             document.getElementById('btn-edit').className = t === 'edit' ? 'px-5 py-2 rounded-xl text-xs font-bold tab-active transition-all uppercase' : 'px-5 py-2 rounded-xl text-xs font-bold text-gray-400 transition-all uppercase';
             document.getElementById('btn-watchlist').className = t === 'watchlist' ? 'px-5 py-2 rounded-xl text-xs font-bold tab-active transition-all uppercase flex items-center gap-1.5' : 'px-5 py-2 rounded-xl text-xs font-bold text-gray-400 transition-all uppercase flex items-center gap-1.5';
             if (t === 'dashboard') updateDashboard();
-            if (t === 'watchlist') { refreshWatchlist(); fetchFxRate(); }
+            if (t === 'watchlist' && !skipWlRefresh) { refreshWatchlist(); fetchFxRate(); }
             if (save) try { localStorage.setItem('ps_tab', t); } catch(e) {}
         }
 
@@ -1475,11 +1475,14 @@
                 try { localStorage.setItem('ps_dbname', GIST_FILENAME); } catch(e) {}
                 loadMonth(curMonth);
                 showGistStatus('SYNCED ✓', 'text-emerald-500');
-                // If on watchlist tab (or initial load to watchlist), refresh prices
+                // After sync: if on watchlist tab, refresh with fresh data
                 const wlVisible = !document.getElementById('tab-watchlist').classList.contains('hidden');
-                if (wlVisible && watchlist.length > 0) {
-                    isWlRefreshing = false;
-                    refreshWatchlist();
+                if (wlVisible) {
+                    fetchFxRate();
+                    if (watchlist.length > 0) {
+                        isWlRefreshing = false; // reset any stale lock
+                        refreshWatchlist();
+                    }
                 }
             } catch(e) { showGistStatus('ERROR ✗', 'text-rose-500'); }
         }
@@ -2232,10 +2235,16 @@
             if (savedMonth) curMonth = savedMonth;
             document.getElementById('monthInput').value = curMonth;
             const savedTab = localStorage.getItem('ps_tab') || 'dashboard';
-            showTab(savedTab, false);
+            // skipWlRefresh=true on initial load — syncFromGist will trigger refresh after data is ready
+            showTab(savedTab, false, true);
             loadMonth(curMonth);
-            // Sync from Gist in background — does NOT change current tab
-            if (getGistToken()) syncFromGist();
+            if (getGistToken()) {
+                // Has Gist token: sync first, THEN refresh watchlist with fresh data
+                syncFromGist();
+            } else {
+                // No Gist: use localStorage data directly, refresh immediately
+                if (savedTab === 'watchlist') { refreshWatchlist(); fetchFxRate(); }
+            }
 
             // Auto-refresh FX rate every 5 minutes when on watchlist tab
             setInterval(() => {
