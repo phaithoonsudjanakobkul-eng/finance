@@ -571,7 +571,7 @@
                     </div>
                     <div class="flex items-center gap-2">
                         <div class="bg-gray-100 p-0.5 rounded-lg flex gap-0.5">
-                            <button onclick="setChartRange('D')"  id="qc-btn-D"  class="qc-range-btn px-2.5 py-1 rounded text-[10px] font-bold tab-active transition-all">1W</button>
+                            <button onclick="setChartRange('D')"  id="qc-btn-D"  class="qc-range-btn px-2.5 py-1 rounded text-[10px] font-bold tab-active transition-all">5D</button>
                             <button onclick="setChartRange('W')"  id="qc-btn-W"  class="qc-range-btn px-2.5 py-1 rounded text-[10px] font-bold text-gray-400 transition-all">1M</button>
                             <button onclick="setChartRange('M')"  id="qc-btn-M"  class="qc-range-btn px-2.5 py-1 rounded text-[10px] font-bold text-gray-400 transition-all">3M</button>
                             <button onclick="setChartRange('3M')" id="qc-btn-3M" class="qc-range-btn px-2.5 py-1 rounded text-[10px] font-bold text-gray-400 transition-all">1Y</button>
@@ -1584,59 +1584,44 @@
         }
 
         async function fetchChartData(symbol, range) {
+            const key = getFinnhubKey();
             const loading = document.getElementById('qc-loading');
             const loadingMsg = loading.querySelector('div');
             loading.classList.remove('hidden');
             loadingMsg.innerText = 'Loading chart...';
             if (qcChart) { qcChart.destroy(); qcChart = null; }
 
-            // Yahoo Finance API - free, no key needed
-            let interval, period;
-            if      (range === 'D')  { interval = '1d';  period = '1wk'; }
-            else if (range === 'W')  { interval = '1d';  period = '1mo'; }
-            else if (range === 'M')  { interval = '1d';  period = '3mo'; }
-            else                     { interval = '1wk'; period = '1y';  }
+            const now = Math.floor(Date.now() / 1000);
+            let from, resolution;
+            if      (range === 'D')  { from = now - 7  * 86400;   resolution = 'D'; }
+            else if (range === 'W')  { from = now - 30 * 86400;   resolution = 'D'; }
+            else if (range === 'M')  { from = now - 90 * 86400;   resolution = 'D'; }
+            else                     { from = now - 365 * 86400;  resolution = 'W'; }
 
             try {
-                const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=${interval}&range=${period}`;
-                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(yahooUrl)}`;
-                const res = await fetch(proxyUrl);
-                const wrapper = await res.json();
-                const json = JSON.parse(wrapper.contents);
-                const result = json?.chart?.result?.[0];
+                const res = await fetch(
+                    `https://finnhub.io/api/v1/stock/candle?symbol=${symbol}&resolution=${resolution}&from=${from}&to=${now}&token=${key}`
+                );
+                const data = await res.json();
 
-                if (!result?.timestamp || !result?.indicators?.quote?.[0]?.close) {
+                if (!data.c || data.s !== 'ok' || data.c.length === 0) {
                     loading.classList.remove('hidden');
-                    loadingMsg.innerText = 'No data available';
-                    return;
-                }
-
-                const timestamps = result.timestamp;
-                const closes = result.indicators.quote[0].close;
-
-                // Filter out null values
-                const points = timestamps
-                    .map((t, i) => ({ t, c: closes[i] }))
-                    .filter(p => p.c !== null);
-
-                if (points.length === 0) {
-                    loading.classList.remove('hidden');
-                    loadingMsg.innerText = 'No data available';
+                    loadingMsg.innerText = 'No data — market may be closed';
                     return;
                 }
 
                 loading.classList.add('hidden');
 
-                const labels = points.map(p => {
-                    const d = new Date(p.t * 1000);
-                    return range === 'D'
-                        ? d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-                        : range === 'W'
-                        ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-                        : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                // For 1D range show last 5 trading days only
+                const slice = range === 'D' ? -5 : undefined;
+                const timestamps = slice ? data.t.slice(slice) : data.t;
+                const prices     = slice ? data.c.slice(slice) : data.c;
+
+                const labels = timestamps.map(t => {
+                    const d = new Date(t * 1000);
+                    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                 });
 
-                const prices = points.map(p => p.c);
                 const isUp = prices[prices.length - 1] >= prices[0];
                 const lineColor = isUp ? '#059669' : '#e11d48';
                 const fillColor = isUp ? 'rgba(5,150,105,0.08)' : 'rgba(225,29,72,0.08)';
@@ -1646,15 +1631,7 @@
                     type: 'line',
                     data: {
                         labels,
-                        datasets: [{
-                            data: prices,
-                            borderColor: lineColor,
-                            backgroundColor: fillColor,
-                            borderWidth: 2,
-                            fill: true,
-                            pointRadius: 0,
-                            tension: 0.3
-                        }]
+                        datasets: [{ data: prices, borderColor: lineColor, backgroundColor: fillColor, borderWidth: 2, fill: true, pointRadius: 2, pointHoverRadius: 4, tension: 0.3 }]
                     },
                     options: {
                         responsive: true,
@@ -1663,8 +1640,7 @@
                             legend: { display: false },
                             tooltip: {
                                 mode: 'index', intersect: false,
-                                backgroundColor: '#fff',
-                                borderColor: '#e5e7eb', borderWidth: 1,
+                                backgroundColor: '#fff', borderColor: '#e5e7eb', borderWidth: 1,
                                 titleColor: '#6b7280', bodyColor: '#111827',
                                 titleFont: { family: 'IBM Plex Mono', size: 10 },
                                 bodyFont: { family: 'IBM Plex Mono', size: 11, weight: 'bold' },
@@ -1672,7 +1648,7 @@
                             }
                         },
                         scales: {
-                            x: { grid: { display: false }, ticks: { maxTicksLimit: 6, font: { family: 'IBM Plex Mono', size: 9 }, color: '#9ca3af' }, border: { display: false } },
+                            x: { grid: { display: false }, ticks: { maxTicksLimit: 8, font: { family: 'IBM Plex Mono', size: 9 }, color: '#9ca3af' }, border: { display: false } },
                             y: { position: 'right', grid: { color: '#f3f4f6' }, ticks: { font: { family: 'IBM Plex Mono', size: 9 }, color: '#9ca3af', callback: v => '$' + v.toFixed(0) }, border: { display: false } }
                         },
                         interaction: { mode: 'index', intersect: false }
