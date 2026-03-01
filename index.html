@@ -699,6 +699,7 @@
                             <span class="text-[10px] font-bold" style="color:var(--text-dim)">THB</span>
                             <span id="fx-change" class="text-[10px] font-bold ml-1" style="font-family:var(--font-mono)"></span>
                         </div>
+                        <span id="fx-note" class="text-[9px] font-bold mt-0.5"></span>
                     </div>
 
                     <div class="w-px h-8 self-stretch" style="background:var(--border)"></div>
@@ -789,8 +790,11 @@
                 <!-- Header -->
                 <div class="flex items-center justify-between px-5 pt-4 pb-3">
                     <div class="flex items-center gap-3">
-                    <div class="w-8 h-8 flex-shrink-0 relative">
-                        <img id="qc-logo" src="" class="w-8 h-8 rounded-full object-contain bg-white border border-gray-100 absolute inset-0 transition-opacity duration-150" style="opacity:0" onerror="this.style.opacity='0'">
+                    <div class="w-10 h-10 flex-shrink-0 relative">
+                        <img id="qc-logo" src="" 
+                            class="w-10 h-10 rounded-full absolute inset-0 transition-opacity duration-150"
+                            style="opacity:0;object-fit:contain;background:white;padding:2px;border:1.5px solid #e2e8f0;"
+                            onerror="this.style.opacity='0'">
                     </div>
                         <div>
                             <div class="flex items-center gap-2">
@@ -1992,7 +1996,20 @@
                     const isUp = diff > 0;
                     const isFlat = Math.abs(diff) < 0.0001;
                     changeEl.textContent = isFlat ? '' : (isUp ? '▲' : '▼') + Math.abs(diff).toFixed(4);
-                    changeEl.style.color  = isFlat ? '' : isUp ? '#059669' : '#e11d48';
+                    changeEl.style.color  = isFlat ? '' : isUp ? '#e11d48' : '#059669';
+
+                    // Note: USD แข็ง = ต้องใช้บาทมากขึ้น (rate ขึ้น) = แย่สำหรับคนซื้อหุ้น USD
+                    const noteEl = document.getElementById('fx-note');
+                    if (isFlat) {
+                        noteEl.textContent = 'ค่าเงินทรงตัว';
+                        noteEl.style.color = 'var(--text-dim)';
+                    } else if (isUp) {
+                        noteEl.textContent = '฿ อ่อนค่า / $ แข็งค่า';
+                        noteEl.style.color = '#e11d48';
+                    } else {
+                        noteEl.textContent = '฿ แข็งค่า / $ อ่อนค่า';
+                        noteEl.style.color = '#059669';
+                    }
                 }
                 fxPrevRate = rounded;
 
