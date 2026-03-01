@@ -191,6 +191,21 @@
             flex: 0 0 420px;
             max-width: 420px;
         }
+        /* Table scrolls vertically when chart is open */
+        #wl-split-wrap.chart-open #wl-table-panel .glass-card {
+            max-height: calc(100vh - 180px);
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+        /* Chart fills remaining height */
+        #wl-split-wrap.chart-open #quick-chart-panel {
+            position: sticky;
+            top: 110px;
+            max-height: calc(100vh - 130px);
+        }
+        #wl-split-wrap.chart-open #qc-tv-container {
+            height: calc(100vh - 230px) !important;
+        }
         #wl-split-wrap.chart-open #quick-chart-panel {
             flex: 1 1 auto;
             max-width: 100%;
