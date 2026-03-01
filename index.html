@@ -1022,7 +1022,6 @@
             if (t === 'watchlist' && !skipWlRefresh) {
                 refreshWatchlist();
                 fetchFxRate();
-                loadMarketNews();
             }
             if (t !== 'watchlist') disconnectFinnhubWs(); // save API quota when not viewing
             if (save) try { localStorage.setItem('ps_tab', t); } catch(e) {}
@@ -1852,41 +1851,48 @@
             });
         }
 
+        // Permanent cache for profile+metric (doesn't change often) — only quote refreshes
+        const profileCache = {};
+
         async function fetchQuote(symbol) {
             const key = getFinnhubKey();
-            const [quoteRes, profileRes, metricRes] = await Promise.all([
-                fetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${key}`),
-                fetch(`https://finnhub.io/api/v1/stock/profile2?symbol=${symbol}&token=${key}`),
-                fetch(`https://finnhub.io/api/v1/stock/metric?symbol=${symbol}&metric=all&token=${key}`)
-            ]);
-            const quote   = quoteRes.ok   ? await quoteRes.json()   : {};
-            const profile = profileRes.ok ? await profileRes.json() : {};
-            const metric  = metricRes.ok  ? await metricRes.json()  : {};
-            const m = metric.metric ?? {};
-            return {
-                ...quote,
-                name:      profile.name ?? '',
-                logo:      profile.logo ?? '',
-                type:      profile.finnhubIndustry ? 'Stock' : (profile.name ? 'ETF' : ''),
-                marketCap: profile.marketCapitalization ?? null,  // in millions USD
-                week52High: m['52WeekHigh'] ?? null,
-                week52Low:  m['52WeekLow']  ?? null,
-                avgVol10d:  m['10DayAverageTradingVolume'] ?? null,   // in millions
-                avgVol3m:   m['3MonthAverageTradingVolume'] ?? null,  // in millions
-                beta:       m['beta'] ?? null,
-                pe:         m['peNormalizedAnnual'] ?? null,
-                divYield:   m['dividendYieldIndicatedAnnual'] ?? null,
-            };
+            // Quote always fresh; profile+metric from cache if available
+            const needsProfile = !profileCache[symbol];
+            const requests = [fetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${key}`)];
+            if (needsProfile) {
+                requests.push(fetch(`https://finnhub.io/api/v1/stock/profile2?symbol=${symbol}&token=${key}`));
+                requests.push(fetch(`https://finnhub.io/api/v1/stock/metric?symbol=${symbol}&metric=all&token=${key}`));
+            }
+            const results = await Promise.all(requests);
+            const quote = results[0].ok ? await results[0].json() : {};
+            let profile = {}, m = {};
+            if (needsProfile) {
+                profile = results[1].ok ? await results[1].json() : {};
+                const metricData = results[2].ok ? await results[2].json() : {};
+                m = metricData.metric ?? {};
+                profileCache[symbol] = {
+                    name:      profile.name ?? '',
+                    logo:      profile.logo ?? '',
+                    type:      profile.finnhubIndustry ? 'Stock' : (profile.name ? 'ETF' : ''),
+                    marketCap: profile.marketCapitalization ?? null,
+                    week52High: m['52WeekHigh'] ?? null,
+                    week52Low:  m['52WeekLow']  ?? null,
+                    avgVol10d:  m['10DayAverageTradingVolume'] ?? null,
+                    avgVol3m:   m['3MonthAverageTradingVolume'] ?? null,
+                    beta:       m['beta'] ?? null,
+                    pe:         m['peNormalizedAnnual'] ?? null,
+                    divYield:   m['dividendYieldIndicatedAnnual'] ?? null,
+                };
+            }
+            return { ...quote, ...profileCache[symbol] };
         }
 
-        // Preload logo into browser cache immediately after first fetch
-        async function fetchQuoteWithPreload(symbol) {
-            const data = await fetchQuote(symbol);
-            if (data?.logo) preloadLogo(data.logo);
-            return data;
+        // Batch helper — run async tasks in groups to avoid rate limits
+        async function batchRun(items, batchSize, fn) {
+            for (let i = 0; i < items.length; i += batchSize) {
+                await Promise.all(items.slice(i, i + batchSize).map(fn));
+            }
         }
-
-        let isWlRefreshing = false;
 
         async function refreshWatchlist() {
             if (isWlRefreshing) return;
@@ -1904,30 +1910,31 @@
                 if (!document.getElementById('wl-row-' + s)) renderWatchlistRow(s, null);
             });
 
-            // Fetch all in parallel
-            await Promise.all(watchlist.map(async (symbol) => {
+            // Batch fetch: 5 at a time to respect rate limits
+            await batchRun(watchlist, 5, async (symbol) => {
                 try {
                     const hasCache = !!wlDataCache[symbol];
                     if (!hasCache) {
-                        // First time only: fetch full profile + quote, render complete row
-                        const data = await fetchQuoteWithPreload(symbol);
+                        const data = await fetchQuote(symbol);
+                        if (data?.logo) preloadLogo(data.logo);
                         renderWatchlistRow(symbol, data);
                     } else {
-                        // Already rendered: only fetch price, update cells in-place (logo stays untouched)
+                        // Subsequent refresh: quote only (1 request per stock)
                         const quoteRes = await fetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${key}`);
                         const quote = quoteRes.ok ? await quoteRes.json() : {};
                         updateWatchlistPriceCells(symbol, { ...wlDataCache[symbol], ...quote });
                     }
                 } catch(e) {}
-            }));
+            });
 
             icon.style.animation = '';
             const now = new Date();
             document.getElementById('wl-last-update').innerText = `Updated ${now.toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'})}`;
             isWlRefreshing = false;
-            // Connect WebSocket for realtime after data is loaded
             if (isMarketOpen()) connectFinnhubWs();
             updateMarketStatus();
+            // Load market news after watchlist is done (avoid competing for rate limit)
+            loadMarketNews();
         }
 
         const fmtCap = v => {
