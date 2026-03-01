@@ -554,6 +554,41 @@
                     </tbody>
                 </table>
             </div>
+
+            <!-- Quick Chart Panel -->
+            <div id="quick-chart-panel" class="hidden glass-card p-5">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-3">
+                        <img id="qc-logo" src="" class="w-8 h-8 rounded-full object-contain bg-white border border-gray-100" onerror="this.style.display='none'">
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <span id="qc-symbol" class="font-black text-gray-900 text-lg"></span>
+                                <span id="qc-price" class="font-black text-lg"></span>
+                                <span id="qc-change" class="text-sm font-bold px-2 py-0.5 rounded"></span>
+                            </div>
+                            <div id="qc-name" class="text-xs text-gray-400 mt-0.5"></div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="bg-gray-100 p-0.5 rounded-lg flex gap-0.5">
+                            <button onclick="setChartRange('D')"  id="qc-btn-D"  class="qc-range-btn px-2.5 py-1 rounded text-[10px] font-bold tab-active transition-all">1D</button>
+                            <button onclick="setChartRange('W')"  id="qc-btn-W"  class="qc-range-btn px-2.5 py-1 rounded text-[10px] font-bold text-gray-400 transition-all">1W</button>
+                            <button onclick="setChartRange('M')"  id="qc-btn-M"  class="qc-range-btn px-2.5 py-1 rounded text-[10px] font-bold text-gray-400 transition-all">1M</button>
+                            <button onclick="setChartRange('3M')" id="qc-btn-3M" class="qc-range-btn px-2.5 py-1 rounded text-[10px] font-bold text-gray-400 transition-all">3M</button>
+                        </div>
+                        <button onclick="closeQuickChart()" class="text-gray-300 hover:text-gray-500 transition-colors ml-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="relative h-52">
+                    <canvas id="qc-chart"></canvas>
+                    <div id="qc-loading" class="absolute inset-0 flex items-center justify-center">
+                        <div class="text-gray-300 text-xs font-bold uppercase tracking-widest animate-pulse">Loading chart...</div>
+                    </div>
+                </div>
+            </div>
+
         </div>
 
     </main>
@@ -1256,53 +1291,81 @@
             renderWatchlistRow(symbol, null, true);
         }
 
+        // data cache for drag&drop re-render
+        const wlDataCache = {};
+
         function renderWatchlistRow(symbol, data, remove = false) {
             const existing = document.getElementById('wl-row-' + symbol);
-            if (remove) { if (existing) existing.remove(); checkWlEmpty(); return; }
+            if (remove) { if (existing) existing.remove(); delete wlDataCache[symbol]; checkWlEmpty(); return; }
+            if (data) wlDataCache[symbol] = data;
+            const d = data || wlDataCache[symbol] || null;
 
-            const price   = data?.c   ?? null;
-            const change  = data?.d   ?? null;
-            const changePct = data?.dp ?? null;
-            const open    = data?.o   ?? null;
-            const prevClose = data?.pc ?? null;
-            const high    = data?.h   ?? null;
-            const low     = data?.l   ?? null;
-            const name    = data?.name ?? '';
-            const type    = data?.type ?? '';
+            const price     = d?.c   ?? null;
+            const change    = d?.d   ?? null;
+            const changePct = d?.dp  ?? null;
+            const open      = d?.o   ?? null;
+            const prevClose = d?.pc  ?? null;
+            const high      = d?.h   ?? null;
+            const low       = d?.l   ?? null;
+            const name      = d?.name ?? '';
+            const type      = d?.type ?? '';
+            const logo      = d?.logo ?? '';
 
             const isUp = changePct >= 0;
-            const priceColor = price === null ? 'text-gray-300' : isUp ? 'text-emerald-600' : 'text-rose-500';
-            const changeColor = change === null ? 'text-gray-300' : isUp ? 'text-emerald-600' : 'text-rose-500';
+            const priceColor  = price === null   ? 'text-gray-300' : isUp ? 'text-emerald-600' : 'text-rose-500';
+            const changeColor = change === null   ? 'text-gray-300' : isUp ? 'text-emerald-600' : 'text-rose-500';
             const arrow = isUp ? '▲' : '▼';
             const idx = watchlist.indexOf(symbol) + 1;
-            const typeBadge = type === 'ETF' 
+            const typeBadge = type === 'ETF'
                 ? `<span class="text-[8px] font-black px-1.5 py-0.5 rounded bg-purple-50 text-purple-500 ml-1">ETF</span>`
                 : '';
-
+            const logoHtml = logo
+                ? `<img src="${logo}" class="w-6 h-6 rounded-full object-contain bg-white border border-gray-100 flex-shrink-0" onerror="this.style.display='none'">`
+                : `<div class="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0"><span class="text-[8px] font-black text-gray-300">${symbol[0]}</span></div>`;
             const fmt = (v) => v !== null ? v.toFixed(2) : '—';
 
             const html = `
-                <tr id="wl-row-${symbol}" class="border-b border-gray-50 hover:bg-gray-50 transition-colors group">
-                    <td class="px-5 py-3.5 text-[10px] font-bold text-gray-300">${idx}</td>
-                    <td class="px-3 py-3.5">
-                        <div class="flex items-center gap-1">
-                            <span class="font-black text-gray-900 text-sm tracking-tight">${symbol}</span>
-                            ${typeBadge}
+                <tr id="wl-row-${symbol}" draggable="true"
+                    ondragstart="onDragStart(event,'${symbol}')"
+                    ondragover="onDragOver(event)"
+                    ondragenter="onDragEnter(event)"
+                    ondragleave="onDragLeave(event)"
+                    ondrop="onDrop(event,'${symbol}')"
+                    ondragend="onDragEnd(event)"
+                    onclick="openQuickChart('${symbol}')"
+                    class="border-b border-gray-50 hover:bg-gray-50 transition-colors group cursor-grab active:cursor-grabbing select-none">
+                    <td class="px-3 py-3">
+                        <div class="flex items-center gap-1.5">
+                            <svg class="w-3 h-3 text-gray-200 group-hover:text-gray-400 transition-colors flex-shrink-0" fill="currentColor" viewBox="0 0 16 16">
+                                <circle cx="5" cy="4" r="1.2"/><circle cx="11" cy="4" r="1.2"/>
+                                <circle cx="5" cy="8" r="1.2"/><circle cx="11" cy="8" r="1.2"/>
+                                <circle cx="5" cy="12" r="1.2"/><circle cx="11" cy="12" r="1.2"/>
+                            </svg>
+                            <span class="text-[10px] font-bold text-gray-300 w-4 text-center">${idx}</span>
                         </div>
                     </td>
-                    <td class="px-3 py-3.5 text-xs text-gray-400 max-w-[160px] truncate">${name}</td>
-                    <td class="px-3 py-3.5 text-right font-black text-sm ${priceColor}">${price !== null ? '$' + fmt(price) : '—'}</td>
-                    <td class="px-3 py-3.5 text-right text-xs font-bold ${changeColor}">${change !== null ? (isUp ? '+' : '') + fmt(change) : '—'}</td>
-                    <td class="px-3 py-3.5 text-right">
-                        ${changePct !== null 
-                            ? `<span class="inline-block px-2 py-0.5 rounded text-xs font-black ${changeColor} ${isUp ? 'bg-emerald-50' : 'bg-rose-50'}">${arrow} ${Math.abs(changePct).toFixed(2)}%</span>` 
+                    <td class="px-3 py-3">
+                        <div class="flex items-center gap-2">
+                            ${logoHtml}
+                            <div class="flex items-center gap-1">
+                                <span class="font-black text-gray-900 text-sm tracking-tight">${symbol}</span>
+                                ${typeBadge}
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-3 py-3 text-xs text-gray-400 max-w-[160px] truncate">${name}</td>
+                    <td class="px-3 py-3 text-right font-black text-sm ${priceColor}">${price !== null ? '$' + fmt(price) : '—'}</td>
+                    <td class="px-3 py-3 text-right text-xs font-bold ${changeColor}">${change !== null ? (isUp ? '+' : '') + fmt(change) : '—'}</td>
+                    <td class="px-3 py-3 text-right">
+                        ${changePct !== null
+                            ? `<span class="inline-block px-2 py-0.5 rounded text-xs font-black ${changeColor} ${isUp ? 'bg-emerald-50' : 'bg-rose-50'}">${arrow} ${Math.abs(changePct).toFixed(2)}%</span>`
                             : '<span class="text-gray-300 text-xs">—</span>'}
                     </td>
-                    <td class="px-3 py-3.5 text-right text-xs font-bold text-gray-500">${open !== null ? '$' + fmt(open) : '—'}</td>
-                    <td class="px-3 py-3.5 text-right text-xs font-bold text-gray-500">${prevClose !== null ? '$' + fmt(prevClose) : '—'}</td>
-                    <td class="px-3 py-3.5 text-right text-xs font-bold text-gray-500">${high !== null ? '$' + fmt(high) : '—'}</td>
-                    <td class="px-3 py-3.5 text-right text-xs font-bold text-gray-500">${low !== null ? '$' + fmt(low) : '—'}</td>
-                    <td class="px-2 py-3.5 text-right">
+                    <td class="px-3 py-3 text-right text-xs font-bold text-gray-500">${open      !== null ? '$' + fmt(open)      : '—'}</td>
+                    <td class="px-3 py-3 text-right text-xs font-bold text-gray-500">${prevClose !== null ? '$' + fmt(prevClose) : '—'}</td>
+                    <td class="px-3 py-3 text-right text-xs font-bold text-gray-500">${high      !== null ? '$' + fmt(high)      : '—'}</td>
+                    <td class="px-3 py-3 text-right text-xs font-bold text-gray-500">${low       !== null ? '$' + fmt(low)       : '—'}</td>
+                    <td class="px-2 py-3 text-right">
                         <button onclick="removeTicker('${symbol}')" class="text-gray-200 hover:text-rose-400 transition-colors opacity-0 group-hover:opacity-100">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                         </button>
@@ -1317,9 +1380,37 @@
         }
 
         function checkWlEmpty() {
-            const rows = document.querySelectorAll('[id^="wl-row-"]');
-            const realRows = Array.from(rows).filter(r => r.id !== 'wl-empty');
+            const realRows = Array.from(document.querySelectorAll('[id^="wl-row-"]')).filter(r => r.id !== 'wl-empty');
             if (realRows.length === 0) document.getElementById('wl-empty').classList.remove('hidden');
+        }
+
+        // --- Drag & Drop ---
+        let dragSrc = null;
+
+        function onDragStart(e, symbol) {
+            dragSrc = symbol;
+            e.dataTransfer.effectAllowed = 'move';
+            setTimeout(() => e.currentTarget.style.opacity = '0.4', 0);
+        }
+        function onDragOver(e) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }
+        function onDragEnter(e) { e.currentTarget.classList.add('bg-teal-50'); }
+        function onDragLeave(e) { e.currentTarget.classList.remove('bg-teal-50'); }
+        function onDragEnd(e) {
+            e.currentTarget.style.opacity = '1';
+            document.querySelectorAll('[id^="wl-row-"]').forEach(r => r.classList.remove('bg-teal-50'));
+        }
+        function onDrop(e, targetSymbol) {
+            e.preventDefault();
+            e.currentTarget.classList.remove('bg-teal-50');
+            if (!dragSrc || dragSrc === targetSymbol) return;
+            const si = watchlist.indexOf(dragSrc);
+            const ti = watchlist.indexOf(targetSymbol);
+            watchlist.splice(si, 1);
+            watchlist.splice(ti, 0, dragSrc);
+            saveWatchlist();
+            // Re-render order using cache
+            document.getElementById('watchlist-rows').innerHTML = '<tr id="wl-empty" class="hidden"></tr>';
+            watchlist.forEach(sym => renderWatchlistRow(sym, null));
         }
 
         async function fetchQuote(symbol) {
@@ -1333,6 +1424,7 @@
             return {
                 ...quote,
                 name: profile.name ?? '',
+                logo: profile.logo ?? '',
                 type: profile.finnhubIndustry ? 'Stock' : (profile.name ? 'ETF' : '')
             };
         }
@@ -1361,6 +1453,135 @@
             icon.style.animation = '';
             const now = new Date();
             document.getElementById('wl-last-update').innerText = `Updated ${now.toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'})}`;
+        }
+
+        // --- Quick Chart ---
+        let qcChart = null;
+        let qcCurrentSymbol = null;
+        let qcCurrentRange = 'D';
+
+        function openQuickChart(symbol) {
+            qcCurrentSymbol = symbol;
+            const d = wlDataCache[symbol];
+            const panel = document.getElementById('quick-chart-panel');
+            panel.classList.remove('hidden');
+            panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+            // Header info
+            document.getElementById('qc-symbol').innerText = symbol;
+            document.getElementById('qc-name').innerText = d?.name ?? '';
+            const logo = d?.logo ?? '';
+            const logoEl = document.getElementById('qc-logo');
+            if (logo) { logoEl.src = logo; logoEl.style.display = 'block'; }
+            else logoEl.style.display = 'none';
+
+            const price = d?.c ?? null;
+            const changePct = d?.dp ?? null;
+            const isUp = changePct >= 0;
+            const priceEl = document.getElementById('qc-price');
+            const changeEl = document.getElementById('qc-change');
+            priceEl.innerText = price ? '$' + price.toFixed(2) : '';
+            priceEl.className = 'font-black text-lg ' + (price === null ? 'text-gray-400' : isUp ? 'text-emerald-600' : 'text-rose-500');
+            if (changePct !== null) {
+                changeEl.innerText = (isUp ? '▲ +' : '▼ ') + changePct.toFixed(2) + '%';
+                changeEl.className = 'text-sm font-bold px-2 py-0.5 rounded ' + (isUp ? 'text-emerald-600 bg-emerald-50' : 'text-rose-500 bg-rose-50');
+            }
+            setChartRange(qcCurrentRange);
+        }
+
+        function closeQuickChart() {
+            document.getElementById('quick-chart-panel').classList.add('hidden');
+            if (qcChart) { qcChart.destroy(); qcChart = null; }
+            qcCurrentSymbol = null;
+        }
+
+        function setChartRange(range) {
+            qcCurrentRange = range;
+            ['D','W','M','3M'].forEach(r => {
+                const btn = document.getElementById('qc-btn-' + r);
+                btn.className = 'qc-range-btn px-2.5 py-1 rounded text-[10px] font-bold transition-all ' + (r === range ? 'tab-active' : 'text-gray-400');
+            });
+            if (qcCurrentSymbol) fetchChartData(qcCurrentSymbol, range);
+        }
+
+        async function fetchChartData(symbol, range) {
+            const key = getFinnhubKey();
+            const loading = document.getElementById('qc-loading');
+            loading.classList.remove('hidden');
+            if (qcChart) { qcChart.destroy(); qcChart = null; }
+
+            const now = Math.floor(Date.now() / 1000);
+            let from, resolution;
+            if (range === 'D')  { from = now - 86400;       resolution = '15'; }
+            else if (range === 'W')  { from = now - 604800;  resolution = '60'; }
+            else if (range === 'M')  { from = now - 2592000; resolution = 'D'; }
+            else                     { from = now - 7776000; resolution = 'D'; }
+
+            try {
+                const res = await fetch(`https://finnhub.io/api/v1/stock/candle?symbol=${symbol}&resolution=${resolution}&from=${from}&to=${now}&token=${key}`);
+                const data = await res.json();
+                loading.classList.add('hidden');
+
+                if (!data.c || data.s !== 'ok') {
+                    loading.classList.remove('hidden');
+                    loading.querySelector('div').innerText = 'No data available';
+                    return;
+                }
+
+                const labels = data.t.map(t => {
+                    const d = new Date(t * 1000);
+                    return range === 'D'
+                        ? d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
+                        : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                });
+
+                const prices = data.c;
+                const startPrice = prices[0];
+                const isUp = prices[prices.length - 1] >= startPrice;
+                const lineColor = isUp ? '#059669' : '#e11d48';
+                const fillColor = isUp ? 'rgba(5,150,105,0.08)' : 'rgba(225,29,72,0.08)';
+
+                const ctx = document.getElementById('qc-chart').getContext('2d');
+                qcChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels,
+                        datasets: [{
+                            data: prices,
+                            borderColor: lineColor,
+                            backgroundColor: fillColor,
+                            borderWidth: 2,
+                            fill: true,
+                            pointRadius: 0,
+                            tension: 0.3
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                mode: 'index', intersect: false,
+                                backgroundColor: '#fff',
+                                borderColor: '#e5e7eb', borderWidth: 1,
+                                titleColor: '#6b7280', bodyColor: '#111827',
+                                titleFont: { family: 'IBM Plex Mono', size: 10 },
+                                bodyFont: { family: 'IBM Plex Mono', size: 11, weight: 'bold' },
+                                callbacks: { label: ctx => ' $' + ctx.raw.toFixed(2) }
+                            }
+                        },
+                        scales: {
+                            x: { grid: { display: false }, ticks: { maxTicksLimit: 6, font: { family: 'IBM Plex Mono', size: 9 }, color: '#9ca3af' }, border: { display: false } },
+                            y: { position: 'right', grid: { color: '#f3f4f6' }, ticks: { font: { family: 'IBM Plex Mono', size: 9 }, color: '#9ca3af', callback: v => '$' + v.toFixed(0) }, border: { display: false } }
+                        },
+                        interaction: { mode: 'index', intersect: false }
+                    }
+                });
+            } catch(e) {
+                loading.classList.remove('hidden');
+                loading.querySelector('div').innerText = 'Failed to load chart';
+            }
         }
 
         window.onload = () => {
