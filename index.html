@@ -1584,44 +1584,57 @@
         }
 
         async function fetchChartData(symbol, range) {
-            const key = getFinnhubKey();
             const loading = document.getElementById('qc-loading');
             const loadingMsg = loading.querySelector('div');
             loading.classList.remove('hidden');
             loadingMsg.innerText = 'Loading chart...';
             if (qcChart) { qcChart.destroy(); qcChart = null; }
 
-            const now = Math.floor(Date.now() / 1000);
-            let from, resolution;
-            if      (range === 'D')  { from = now - 7  * 86400;   resolution = 'D'; }
-            else if (range === 'W')  { from = now - 30 * 86400;   resolution = 'D'; }
-            else if (range === 'M')  { from = now - 90 * 86400;   resolution = 'D'; }
-            else                     { from = now - 365 * 86400;  resolution = 'W'; }
+            // Stooq API - free, no key, no CORS issues, daily data
+            let days;
+            if      (range === 'D')  days = 7;
+            else if (range === 'W')  days = 30;
+            else if (range === 'M')  days = 90;
+            else                     days = 365;
+
+            const endDate = new Date();
+            const startDate = new Date();
+            startDate.setDate(endDate.getDate() - days);
+            const fmt = d => d.toISOString().slice(0,10).replace(/-/g,'');
+            const d1 = fmt(startDate);
+            const d2 = fmt(endDate);
 
             try {
-                const res = await fetch(
-                    `https://finnhub.io/api/v1/stock/candle?symbol=${symbol}&resolution=${resolution}&from=${from}&to=${now}&token=${key}`
-                );
-                const data = await res.json();
+                const url = `https://stooq.com/q/d/l/?s=${symbol.toLowerCase()}.us&d1=${d1}&d2=${d2}&i=d`;
+                const res = await fetch(url);
+                const text = await res.text();
 
-                if (!data.c || data.s !== 'ok' || data.c.length === 0) {
+                // Parse CSV: Date,Open,High,Low,Close,Volume
+                const lines = text.trim().split('\n').slice(1).filter(l => l.trim());
+                if (lines.length === 0 || text.includes('No data')) {
                     loading.classList.remove('hidden');
-                    loadingMsg.innerText = 'No data — market may be closed';
+                    loadingMsg.innerText = 'No data available';
+                    return;
+                }
+
+                const points = lines.map(l => {
+                    const cols = l.split(',');
+                    return { date: cols[0], close: parseFloat(cols[4]) };
+                }).filter(p => !isNaN(p.close));
+
+                if (points.length === 0) {
+                    loading.classList.remove('hidden');
+                    loadingMsg.innerText = 'No data available';
                     return;
                 }
 
                 loading.classList.add('hidden');
 
-                // For 1D range show last 5 trading days only
-                const slice = range === 'D' ? -5 : undefined;
-                const timestamps = slice ? data.t.slice(slice) : data.t;
-                const prices     = slice ? data.c.slice(slice) : data.c;
-
-                const labels = timestamps.map(t => {
-                    const d = new Date(t * 1000);
+                const labels = points.map(p => {
+                    const d = new Date(p.date);
                     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                 });
-
+                const prices = points.map(p => p.close);
                 const isUp = prices[prices.length - 1] >= prices[0];
                 const lineColor = isUp ? '#059669' : '#e11d48';
                 const fillColor = isUp ? 'rgba(5,150,105,0.08)' : 'rgba(225,29,72,0.08)';
