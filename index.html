@@ -17,7 +17,8 @@
         body { 
             font-family: var(--font-main); 
             background-color: #f8fafc; 
-            color: #1e293b; 
+            color: #1e293b;
+            overflow-y: scroll;
         }
         
         .glass-card { 
@@ -72,7 +73,6 @@
             background-color: #f0fdf4 !important;
         }
         .row-paid input {
-            text-decoration: line-through;
             background-color: transparent !important;
         }
 
@@ -128,7 +128,7 @@
                 <div>
                     <div class="text-blue-600 font-black text-lg tracking-tighter leading-none uppercase">PS SMART FINANCE</div>
                     <div class="flex items-center gap-1.5 mt-1">
-                        <div class="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></div>
+                        <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
                         <div id="db-name-display" class="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none truncate max-w-[150px]">Ready to Start</div>
                     </div>
                 </div>
@@ -137,7 +137,10 @@
             <div class="bg-gray-100 p-1 rounded-2xl flex gap-1">
                 <button onclick="showTab('dashboard')" id="btn-dash" class="px-5 py-2 rounded-xl text-xs font-bold tab-active transition-all uppercase">Dashboard</button>
                 <button onclick="showTab('edit')" id="btn-edit" class="px-5 py-2 rounded-xl text-xs font-bold text-gray-400 transition-all uppercase">RECORDS</button>
-                <button onclick="document.getElementById('fileInput').click()" class="px-5 py-2 rounded-xl text-xs font-bold text-gray-400 hover:text-blue-600 transition-all uppercase">Import</button>
+                <button onclick="document.getElementById('fileInput').click()" class="px-5 py-2 rounded-xl text-xs font-bold text-gray-400 hover:text-blue-600 transition-all uppercase flex items-center gap-1.5">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                    Import
+                </button>
             </div>
         </div>
     </nav>
@@ -265,9 +268,14 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div class="space-y-4">
                     <div class="flex items-center justify-between px-2 min-h-[40px]">
-                        <div class="flex items-center">
-                            <h4 class="thai-label uppercase">รายจ่ายประจำ / เงินลงทุน</h4>
-                            <span id="last-fixed-ref" class="ref-badge">LAST MO: -</span>
+                        <div class="flex flex-col gap-0.5">
+                            <div class="flex items-center gap-2">
+                                <h4 class="thai-label uppercase">รายจ่ายประจำ / เงินลงทุน</h4>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span id="last-fixed-ref" class="ref-badge" style="margin-left:0">LAST MO: -</span>
+                                <button onclick="toggleCheckAll('fixed', this)" class="text-[9px] font-bold text-gray-300 hover:text-blue-500 transition-colors uppercase tracking-wide border border-gray-200 hover:border-blue-300 rounded px-1.5 py-0.5">Uncheck All</button>
+                            </div>
                         </div>
                         <div class="flex flex-col items-end gap-1">
                             <span id="sum-fixed" class="summary-badge text-blue-600 bg-blue-50 border border-blue-100">฿ 0.00</span>
@@ -280,9 +288,14 @@
 
                 <div class="space-y-4">
                     <div class="flex items-center justify-between px-2 min-h-[40px]">
-                        <div class="flex items-center">
-                            <h4 class="thai-label uppercase">รายจ่ายผันแปร</h4>
-                            <span id="last-dynamic-ref" class="ref-badge">LAST MO: -</span>
+                        <div class="flex flex-col gap-0.5">
+                            <div class="flex items-center gap-2">
+                                <h4 class="thai-label uppercase">รายจ่ายผันแปร</h4>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span id="last-dynamic-ref" class="ref-badge" style="margin-left:0">LAST MO: -</span>
+                                <button onclick="toggleCheckAll('dynamic', this)" class="text-[9px] font-bold text-gray-300 hover:text-orange-500 transition-colors uppercase tracking-wide border border-gray-200 hover:border-orange-300 rounded px-1.5 py-0.5">Uncheck All</button>
+                            </div>
                         </div>
                         <div class="flex flex-col items-end gap-1">
                             <span id="sum-dynamic" class="summary-badge text-orange-600 bg-orange-50 border border-orange-100">฿ 0.00</span>
@@ -671,6 +684,19 @@
                 } catch(err) { console.error(err); }
             };
             reader.readAsText(file);
+        }
+
+        function toggleCheckAll(type, btn) {
+            const list = document.getElementById(`${type}-list`);
+            const checkboxes = list.querySelectorAll('input[type="checkbox"]');
+            const anyChecked = Array.from(checkboxes).some(cb => cb.checked);
+            checkboxes.forEach(cb => {
+                cb.checked = !anyChecked;
+                const row = cb.closest('div[id^="row-"]');
+                if (row) row.classList.toggle('row-paid', !anyChecked);
+            });
+            btn.textContent = anyChecked ? 'Check All' : 'Uncheck All';
+            saveAndCalc();
         }
 
         function setAvatarImage(src) {
