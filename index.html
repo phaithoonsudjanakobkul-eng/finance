@@ -681,6 +681,7 @@
                     }
                     document.getElementById('db-name-display').innerText = file.name;
                     loadMonth(curMonth);
+                    e.target.value = ''; // reset so same file can be re-imported
                 } catch(err) { console.error(err); }
             };
             reader.readAsText(file);
