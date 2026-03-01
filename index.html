@@ -789,7 +789,9 @@
                 <!-- Header -->
                 <div class="flex items-center justify-between px-5 pt-4 pb-3">
                     <div class="flex items-center gap-3">
-                        <img id="qc-logo" src="" class="w-8 h-8 rounded-full object-contain bg-white border border-gray-100" onerror="this.style.display='none'">
+                    <div class="w-8 h-8 flex-shrink-0 relative">
+                        <img id="qc-logo" src="" class="w-8 h-8 rounded-full object-contain bg-white border border-gray-100 absolute inset-0 transition-opacity duration-150" style="opacity:0" onerror="this.style.opacity='0'">
+                    </div>
                         <div>
                             <div class="flex items-center gap-2">
                                 <span id="qc-symbol" class="font-black text-gray-900 text-lg"></span>
@@ -1790,13 +1792,13 @@
 
             const logo = d?.logo ?? '';
             const logoEl = document.getElementById('qc-logo');
-            logoEl.style.display = 'none';
+            logoEl.style.opacity = '0';
             logoEl.src = '';
             if (logo) {
-                logoEl.onload = () => { logoEl.style.display = 'block'; };
-                logoEl.onerror = () => { logoEl.style.display = 'none'; };
+                logoEl.onload  = () => { logoEl.style.opacity = '1'; };
+                logoEl.onerror = () => { logoEl.style.opacity = '0'; };
                 logoEl.src = logo;
-                if (logoEl.complete && logoEl.naturalWidth > 0) logoEl.style.display = 'block';
+                if (logoEl.complete && logoEl.naturalWidth > 0) logoEl.style.opacity = '1';
             }
 
             const price = d?.c ?? null;
