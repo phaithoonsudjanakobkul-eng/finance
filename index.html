@@ -417,7 +417,7 @@
     </div>
 
     <!-- Header & Navigation -->
-    <nav class="bg-white/90 backdrop-blur-md sticky top-0 z-50 border-b border-gray-100">
+    <nav class="bg-white/90 backdrop-blur-md fixed top-0 left-0 right-0 z-50 border-b border-gray-100">
         <div class="max-w-7xl mx-auto px-6 h-24 flex justify-between items-center gap-4">
             <!-- Left: Logo + name -->
             <div class="flex items-center gap-3 flex-shrink-0">
@@ -479,7 +479,7 @@
         </div>
     </nav>
 
-    <main class="max-w-6xl mx-auto px-6 mt-8">
+    <main class="max-w-6xl mx-auto px-6 mt-8 pt-24">
         
         <!-- DASHBOARD TAB -->
         <div id="tab-dashboard" class="space-y-5">
@@ -1788,8 +1788,14 @@
             document.getElementById('qc-name').innerText = d?.name ?? '';
             const logo = d?.logo ?? '';
             const logoEl = document.getElementById('qc-logo');
-            if (logo) { logoEl.src = logo; logoEl.style.display = 'block'; }
-            else logoEl.style.display = 'none';
+            // Clear immediately so old logo doesn't linger while new one loads
+            logoEl.style.display = 'none';
+            logoEl.src = '';
+            if (logo) {
+                logoEl.onload = () => { logoEl.style.display = 'block'; };
+                logoEl.onerror = () => { logoEl.style.display = 'none'; };
+                logoEl.src = logo;
+            }
 
             const price = d?.c ?? null;
             const changePct = d?.dp ?? null;
