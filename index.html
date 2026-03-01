@@ -571,10 +571,10 @@
                     </div>
                     <div class="flex items-center gap-2">
                         <div class="bg-gray-100 p-0.5 rounded-lg flex gap-0.5">
-                            <button onclick="setChartRange('D')"  id="qc-btn-D"  class="qc-range-btn px-2.5 py-1 rounded text-[10px] font-bold tab-active transition-all">1D</button>
-                            <button onclick="setChartRange('W')"  id="qc-btn-W"  class="qc-range-btn px-2.5 py-1 rounded text-[10px] font-bold text-gray-400 transition-all">1W</button>
-                            <button onclick="setChartRange('M')"  id="qc-btn-M"  class="qc-range-btn px-2.5 py-1 rounded text-[10px] font-bold text-gray-400 transition-all">1M</button>
-                            <button onclick="setChartRange('3M')" id="qc-btn-3M" class="qc-range-btn px-2.5 py-1 rounded text-[10px] font-bold text-gray-400 transition-all">3M</button>
+                            <button onclick="setChartRange('D')"  id="qc-btn-D"  class="qc-range-btn px-2.5 py-1 rounded text-[10px] font-bold tab-active transition-all">1W</button>
+                            <button onclick="setChartRange('W')"  id="qc-btn-W"  class="qc-range-btn px-2.5 py-1 rounded text-[10px] font-bold text-gray-400 transition-all">1M</button>
+                            <button onclick="setChartRange('M')"  id="qc-btn-M"  class="qc-range-btn px-2.5 py-1 rounded text-[10px] font-bold text-gray-400 transition-all">3M</button>
+                            <button onclick="setChartRange('3M')" id="qc-btn-3M" class="qc-range-btn px-2.5 py-1 rounded text-[10px] font-bold text-gray-400 transition-all">1Y</button>
                         </div>
                         <button onclick="closeQuickChart()" class="text-gray-300 hover:text-gray-500 transition-colors ml-2">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -1022,7 +1022,7 @@
         }
 
         function exportJSON() {
-            const exportData = { meta: { avatar: db.avatar }, records: records };
+            const exportData = { meta: { avatar: db.avatar }, records: records, watchlist: watchlist };
             const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
@@ -1037,7 +1037,6 @@
             reader.onload = (ev) => {
                 try {
                     const data = JSON.parse(ev.target.result);
-                    // Support new format { meta, records } and legacy array format
                     if (Array.isArray(data)) {
                         records = data;
                     } else if (data.records && Array.isArray(data.records)) {
@@ -1047,13 +1046,17 @@
                             setAvatarImage(db.avatar);
                             localStorage.setItem('ps_avatar', db.avatar);
                         }
+                        if (data.watchlist && Array.isArray(data.watchlist)) {
+                            watchlist = data.watchlist;
+                            localStorage.setItem('ps_watchlist', JSON.stringify(watchlist));
+                        }
                     }
                     localStorage.setItem('ps_records', JSON.stringify(records));
                     try { localStorage.setItem('ps_avatar', db.avatar || ''); } catch(e) {}
                     document.getElementById('db-name-display').innerText = file.name;
                     try { localStorage.setItem('ps_dbname', file.name); } catch(e) {}
                     loadMonth(curMonth);
-                    e.target.value = ''; // reset so same file can be re-imported
+                    e.target.value = '';
                 } catch(err) { console.error(err); }
             };
             reader.readAsText(file);
@@ -1123,7 +1126,7 @@
             if (!token) { document.getElementById('gist-modal').classList.remove('hidden'); return; }
             showGistStatus('UPLOADING...', 'text-blue-500');
             try {
-                const exportData = { meta: { avatar: db.avatar }, records: records };
+                const exportData = { meta: { avatar: db.avatar }, records: records, watchlist: watchlist };
                 const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
                     method: 'PATCH',
                     headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
@@ -1152,6 +1155,10 @@
                 } else if (data.records) {
                     records = data.records;
                     if (data.meta?.avatar) { db.avatar = data.meta.avatar; setAvatarImage(db.avatar); }
+                    if (data.watchlist && Array.isArray(data.watchlist)) {
+                        watchlist = data.watchlist;
+                        try { localStorage.setItem('ps_watchlist', JSON.stringify(watchlist)); } catch(e) {}
+                    }
                 }
                 try { localStorage.setItem('ps_records', JSON.stringify(records)); } catch(e) {}
                 try { localStorage.setItem('ps_dbname', GIST_FILENAME); } catch(e) {}
@@ -1437,22 +1444,64 @@
             const icon = document.getElementById('wl-refresh-icon');
             icon.style.animation = 'spin 1s linear infinite';
 
-            // Render skeleton first
-            watchlist.forEach(s => {
-                if (!document.getElementById('wl-row-' + s)) renderWatchlistRow(s, null);
-            });
-
-            // Fetch each sequentially to avoid rate limit
             for (const symbol of watchlist) {
-                try {
-                    const data = await fetchQuote(symbol);
-                    renderWatchlistRow(symbol, data);
-                } catch(e) { renderWatchlistRow(symbol, null); }
+                // First load: full render including profile (logo, name)
+                const isNewRow = !document.getElementById('wl-row-' + symbol);
+                if (isNewRow) {
+                    try {
+                        const data = await fetchQuote(symbol); // includes profile
+                        renderWatchlistRow(symbol, data);
+                    } catch(e) { renderWatchlistRow(symbol, null); }
+                } else {
+                    // Subsequent refresh: only fetch quote (price data), preserve logo/name from cache
+                    try {
+                        const quoteRes = await fetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${key}`);
+                        const quote = quoteRes.ok ? await quoteRes.json() : {};
+                        // Merge with cached profile data
+                        const merged = { ...wlDataCache[symbol], ...quote };
+                        updateWatchlistPriceCells(symbol, merged);
+                    } catch(e) {}
+                }
             }
 
             icon.style.animation = '';
             const now = new Date();
             document.getElementById('wl-last-update').innerText = `Updated ${now.toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'})}`;
+        }
+
+        function updateWatchlistPriceCells(symbol, data) {
+            // Update cache
+            if (data) wlDataCache[symbol] = data;
+            const row = document.getElementById('wl-row-' + symbol);
+            if (!row) return;
+            const cells = row.querySelectorAll('td');
+            if (cells.length < 10) return;
+
+            const price = data?.c ?? null;
+            const change = data?.d ?? null;
+            const changePct = data?.dp ?? null;
+            const open = data?.o ?? null;
+            const prevClose = data?.pc ?? null;
+            const high = data?.h ?? null;
+            const low = data?.l ?? null;
+            const isUp = changePct >= 0;
+            const priceColor = price === null ? 'text-gray-300' : isUp ? 'text-emerald-600' : 'text-rose-500';
+            const changeColor = change === null ? 'text-gray-300' : isUp ? 'text-emerald-600' : 'text-rose-500';
+            const arrow = isUp ? '▲' : '▼';
+            const fmt = v => v !== null ? v.toFixed(2) : '—';
+
+            // cells[3]=price, [4]=change, [5]=changePct, [6]=open, [7]=prevClose, [8]=high, [9]=low
+            cells[3].className = `px-3 py-3 text-right font-black text-sm ${priceColor}`;
+            cells[3].innerText = price !== null ? '$' + fmt(price) : '—';
+            cells[4].className = `px-3 py-3 text-right text-xs font-bold ${changeColor}`;
+            cells[4].innerText = change !== null ? (isUp ? '+' : '') + fmt(change) : '—';
+            cells[5].innerHTML = changePct !== null
+                ? `<span class="inline-block px-2 py-0.5 rounded text-xs font-black ${changeColor} ${isUp ? 'bg-emerald-50' : 'bg-rose-50'}">${arrow} ${Math.abs(changePct).toFixed(2)}%</span>`
+                : '<span class="text-gray-300 text-xs">—</span>';
+            cells[6].innerText = open !== null ? '$' + fmt(open) : '—';
+            cells[7].innerText = prevClose !== null ? '$' + fmt(prevClose) : '—';
+            cells[8].innerText = high !== null ? '$' + fmt(high) : '—';
+            cells[9].innerText = low !== null ? '$' + fmt(low) : '—';
         }
 
         // --- Quick Chart ---
@@ -1512,10 +1561,10 @@
 
             const now = Math.floor(Date.now() / 1000);
             let from, resolution;
-            if (range === 'D')  { from = now - 86400;       resolution = '15'; }
-            else if (range === 'W')  { from = now - 604800;  resolution = '60'; }
-            else if (range === 'M')  { from = now - 2592000; resolution = 'D'; }
-            else                     { from = now - 7776000; resolution = 'D'; }
+            if (range === 'D')       { from = now - 7 * 86400;   resolution = 'D'; }
+            else if (range === 'W')  { from = now - 30 * 86400;  resolution = 'D'; }
+            else if (range === 'M')  { from = now - 90 * 86400;  resolution = 'D'; }
+            else                     { from = now - 365 * 86400; resolution = 'W'; }
 
             try {
                 const res = await fetch(`https://finnhub.io/api/v1/stock/candle?symbol=${symbol}&resolution=${resolution}&from=${from}&to=${now}&token=${key}`);
@@ -1607,16 +1656,14 @@
             // Auto push to Gist when tab/browser is closed
             window.addEventListener('beforeunload', () => {
                 if (getGistToken() && records.length > 0) {
-                    const exportData = { meta: { avatar: db.avatar }, records: records };
+                    const exportData = { meta: { avatar: db.avatar }, records: records, watchlist: watchlist };
                     const token = getGistToken();
-                    navigator.sendBeacon
-                        ? fetch(`https://api.github.com/gists/${GIST_ID}`, {
-                            method: 'PATCH',
-                            headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ files: { [GIST_FILENAME]: { content: JSON.stringify(exportData, null, 2) } } }),
-                            keepalive: true
-                        })
-                        : null;
+                    fetch(`https://api.github.com/gists/${GIST_ID}`, {
+                        method: 'PATCH',
+                        headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ files: { [GIST_FILENAME]: { content: JSON.stringify(exportData, null, 2) } } }),
+                        keepalive: true
+                    });
                 }
             });
         };
