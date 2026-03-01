@@ -1818,6 +1818,14 @@
                 const lineColor = isUp ? '#059669' : '#e11d48';
                 const fillColor = isUp ? 'rgba(5,150,105,0.08)' : 'rgba(225,29,72,0.08)';
 
+                const isDark = document.documentElement.classList.contains('dark');
+                const gridColor  = isDark ? 'rgba(255,255,255,0.04)' : '#f1f5f9';
+                const tickColor  = isDark ? '#334155' : '#9ca3af';
+                const tooltipBg  = isDark ? '#1e293b' : '#ffffff';
+                const tooltipBdr = isDark ? '#334155' : '#e5e7eb';
+                const tooltipTtl = isDark ? '#64748b' : '#6b7280';
+                const tooltipBdy = isDark ? '#f1f5f9' : '#111827';
+
                 const ctx = document.getElementById('qc-chart').getContext('2d');
                 qcChart = new Chart(ctx, {
                     type: 'line',
@@ -1832,16 +1840,16 @@
                             legend: { display: false },
                             tooltip: {
                                 mode: 'index', intersect: false,
-                                backgroundColor: '#fff', borderColor: '#e5e7eb', borderWidth: 1,
-                                titleColor: '#6b7280', bodyColor: '#111827',
+                                backgroundColor: tooltipBg, borderColor: tooltipBdr, borderWidth: 1,
+                                titleColor: tooltipTtl, bodyColor: tooltipBdy,
                                 titleFont: { family: 'IBM Plex Mono', size: 10 },
                                 bodyFont: { family: 'IBM Plex Mono', size: 11, weight: 'bold' },
                                 callbacks: { label: ctx => ' $' + ctx.raw.toFixed(2) }
                             }
                         },
                         scales: {
-                            x: { grid: { display: false }, ticks: { maxTicksLimit: 8, font: { family: 'IBM Plex Mono', size: 9 }, color: '#9ca3af' }, border: { display: false } },
-                            y: { position: 'right', grid: { color: '#f3f4f6' }, ticks: { font: { family: 'IBM Plex Mono', size: 9 }, color: '#9ca3af', callback: v => '$' + v.toFixed(0) }, border: { display: false } }
+                            x: { grid: { display: false }, ticks: { maxTicksLimit: 8, font: { family: 'IBM Plex Mono', size: 9 }, color: tickColor }, border: { display: false } },
+                            y: { position: 'right', grid: { color: gridColor, lineWidth: 1 }, ticks: { font: { family: 'IBM Plex Mono', size: 9 }, color: tickColor, callback: v => '$' + v.toFixed(0) }, border: { display: false } }
                         },
                         interaction: { mode: 'index', intersect: false }
                     }
@@ -1865,12 +1873,12 @@
         }
 
         function updateChartThemes(isDark) {
-            const gridColor = isDark ? '#1e293b' : '#f3f4f6';
-            const tickColor = isDark ? '#475569' : '#9ca3af';
-            const tooltipBg = isDark ? '#1e293b' : '#fff';
+            const gridColor  = isDark ? 'rgba(255,255,255,0.04)' : '#f1f5f9';
+            const tickColor  = isDark ? '#334155' : '#9ca3af';
+            const tooltipBg  = isDark ? '#1e293b' : '#fff';
             const tooltipBorder = isDark ? '#334155' : '#e5e7eb';
-            const tooltipTitle = isDark ? '#94a3b8' : '#6b7280';
-            const tooltipBody = isDark ? '#f1f5f9' : '#111827';
+            const tooltipTitle  = isDark ? '#64748b' : '#6b7280';
+            const tooltipBody   = isDark ? '#f1f5f9' : '#111827';
             [compareChart, distChart].forEach(chart => {
                 if (!chart) return;
                 if (chart.options.scales) {
