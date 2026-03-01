@@ -953,7 +953,11 @@
             document.getElementById('btn-edit').className = t === 'edit' ? 'px-5 py-2 rounded-xl text-xs font-bold tab-active transition-all uppercase' : 'px-5 py-2 rounded-xl text-xs font-bold text-gray-400 transition-all uppercase';
             document.getElementById('btn-watchlist').className = t === 'watchlist' ? 'px-5 py-2 rounded-xl text-xs font-bold tab-active transition-all uppercase flex items-center gap-1.5' : 'px-5 py-2 rounded-xl text-xs font-bold text-gray-400 transition-all uppercase flex items-center gap-1.5';
             if (t === 'dashboard') updateDashboard();
-            if (t === 'watchlist' && !skipWlRefresh) { refreshWatchlist(); fetchFxRate(); }
+            if (t === 'watchlist' && !skipWlRefresh) {
+                refreshWatchlist();
+                fetchFxRate();
+            }
+            if (t !== 'watchlist') disconnectFinnhubWs(); // save API quota when not viewing
             if (save) try { localStorage.setItem('ps_tab', t); } catch(e) {}
         }
 
@@ -1623,12 +1627,14 @@
             saveWatchlist();
             closeAddTicker();
             refreshWatchlist();
+            subscribeWs(symbol); // realtime stream for new symbol
         }
 
         function removeTicker(symbol) {
             watchlist = watchlist.filter(s => s !== symbol);
             saveWatchlist();
             renderWatchlistRow(symbol, null, true);
+            unsubscribeWs(symbol); // stop streaming removed symbol
         }
 
         // data cache for drag&drop re-render
@@ -1852,6 +1858,9 @@
             const now = new Date();
             document.getElementById('wl-last-update').innerText = `Updated ${now.toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'})}`;
             isWlRefreshing = false;
+            // Connect WebSocket for realtime after data is loaded
+            if (isMarketOpen()) connectFinnhubWs();
+            updateMarketStatus();
         }
 
         const fmtCap = v => {
@@ -2100,20 +2109,112 @@
         // --- FX Rate (USD/THB) ---
         let fxPrevRate = null;
 
-        function updateMarketStatus(isRefreshing = false) {
+        // ── Finnhub WebSocket realtime ──────────────────────────────────────
+        let fhWs = null;
+        let fhWsReconnectTimer = null;
+        let fhWsSubscribed = new Set();
+
+        function connectFinnhubWs() {
+            const key = getFinnhubKey();
+            if (!key || watchlist.length === 0) return;
+            if (fhWs && fhWs.readyState <= 1) return; // already open/connecting
+
+            fhWs = new WebSocket(`wss://ws.finnhub.io?token=${key}`);
+
+            fhWs.onopen = () => {
+                fhWsSubscribed.clear();
+                watchlist.forEach(sym => subscribeWs(sym));
+                updateMarketStatus();
+            };
+
+            fhWs.onmessage = (e) => {
+                try {
+                    const msg = JSON.parse(e.data);
+                    if (msg.type !== 'trade') return;
+                    // Group latest trade per symbol
+                    const latest = {};
+                    msg.data.forEach(t => {
+                        if (!latest[t.s] || t.t > latest[t.s].t) latest[t.s] = t;
+                    });
+                    Object.entries(latest).forEach(([sym, trade]) => {
+                        const cached = wlDataCache[sym];
+                        if (!cached) return;
+                        const newPrice = trade.p;
+                        const prevClose = cached.pc ?? cached.c ?? newPrice;
+                        const change = newPrice - prevClose;
+                        const changePct = prevClose ? (change / prevClose) * 100 : 0;
+                        const updated = { ...cached, c: newPrice, d: change, dp: changePct };
+                        updateWatchlistPriceCells(sym, updated);
+                        // Flash row green/red on price update
+                        const row = document.getElementById('wl-row-' + sym);
+                        if (row) {
+                            row.style.transition = 'background 0.1s';
+                            row.style.background = change >= 0 ? 'rgba(5,150,105,0.08)' : 'rgba(225,29,72,0.08)';
+                            setTimeout(() => { row.style.background = ''; }, 600);
+                        }
+                        // Update quick chart header if open
+                        if (qcCurrentSymbol === sym) {
+                            document.getElementById('qc-price').textContent = '$' + newPrice.toFixed(2);
+                            const pct = Math.abs(changePct).toFixed(2);
+                            const el = document.getElementById('qc-change');
+                            el.textContent = `${change >= 0 ? '▲' : '▼'} ${pct}%`;
+                            el.className = `text-sm font-bold px-2 py-0.5 rounded ${change >= 0 ? 'text-emerald-600 bg-emerald-50' : 'text-rose-500 bg-rose-50'}`;
+                        }
+                    });
+                    updateMarketStatus(true);
+                } catch(err) {}
+            };
+
+            fhWs.onclose = () => {
+                fhWs = null;
+                fhWsSubscribed.clear();
+                // Reconnect after 5s if market still open
+                clearTimeout(fhWsReconnectTimer);
+                fhWsReconnectTimer = setTimeout(() => {
+                    if (isMarketOpen()) connectFinnhubWs();
+                }, 5000);
+            };
+
+            fhWs.onerror = () => { fhWs?.close(); };
+        }
+
+        function subscribeWs(sym) {
+            if (!fhWs || fhWs.readyState !== 1 || fhWsSubscribed.has(sym)) return;
+            fhWs.send(JSON.stringify({ type: 'subscribe', symbol: sym }));
+            fhWsSubscribed.add(sym);
+        }
+
+        function unsubscribeWs(sym) {
+            if (!fhWs || fhWs.readyState !== 1) return;
+            fhWs.send(JSON.stringify({ type: 'unsubscribe', symbol: sym }));
+            fhWsSubscribed.delete(sym);
+        }
+
+        function disconnectFinnhubWs() {
+            clearTimeout(fhWsReconnectTimer);
+            if (fhWs) { fhWs.close(); fhWs = null; }
+            fhWsSubscribed.clear();
+        }
+
+        function isMarketOpen() {
+            const now = new Date();
+            const bkkTotal = ((now.getUTCHours() + 7) % 24) * 60 + now.getUTCMinutes();
+            return bkkTotal >= 21 * 60 + 30 || bkkTotal < 3 * 60;
+        }
+
+        function updateMarketStatus(isLive = false) {
             const el = document.getElementById('wl-market-status');
             if (!el) return;
-            const now = new Date();
-            const bkkHour  = now.getUTCHours() + 7;
-            const bkkMin   = now.getUTCMinutes();
-            const bkkTotal = (bkkHour % 24) * 60 + bkkMin;
-            const marketOpen  = 21 * 60 + 30; // 21:30 BKK
-            const marketClose = 3  * 60 + 0;  // 03:00 BKK
-            const isOpen = bkkTotal >= marketOpen || bkkTotal < marketClose;
-            if (isOpen) {
-                el.textContent = isRefreshing ? '● LIVE · AUTO' : '● MARKET OPEN';
+            const open = isMarketOpen();
+            const wsConnected = fhWs && fhWs.readyState === 1;
+            if (open && wsConnected) {
+                el.textContent = '● LIVE';
                 el.style.background = 'rgba(5,150,105,0.15)';
                 el.style.color = '#059669';
+            } else if (open) {
+                el.textContent = '● MARKET OPEN';
+                el.style.background = 'rgba(234,179,8,0.15)';
+                el.style.color = '#ca8a04';
             } else {
                 el.textContent = '● MARKET CLOSED';
                 el.style.background = 'rgba(100,116,139,0.15)';
@@ -2274,26 +2375,16 @@
                 if (wlVisible) fetchFxRate();
             }, 5 * 60 * 1000);
 
-            // Auto-refresh prices every 1 min — only during US market hours (9:30–16:00 ET = 20:30–03:00 Bangkok)
+            // Fallback polling every 1 min — only when WebSocket is NOT connected and market is open
             setInterval(() => {
                 const wlVisible = !document.getElementById('tab-watchlist').classList.contains('hidden');
                 if (!wlVisible || watchlist.length === 0) return;
-                // Check if US market is open (Bangkok time UTC+7)
-                const now = new Date();
-                const bkkHour = now.getUTCHours() + 7; // UTC+7
-                const bkkMin  = now.getUTCMinutes();
-                const bkkTotal = (bkkHour % 24) * 60 + bkkMin; // minutes since midnight BKK
-                // NYSE: 9:30–16:00 ET = UTC-5 (EST) → 21:30–03:00 BKK (next day)
-                // In BKK minutes: 21:30 = 1290, midnight wrap: 03:00 = 180
-                const marketOpen  = 21 * 60 + 30; // 21:30 BKK
-                const marketClose = 3  * 60 + 0;  // 03:00 BKK (next day)
-                const isMarketOpen = bkkTotal >= marketOpen || bkkTotal < marketClose;
-                if (!isMarketOpen) return;
+                if (!isMarketOpen()) return;
+                const wsOk = fhWs && fhWs.readyState === 1;
+                if (wsOk) return; // WS is running, no need to poll
                 refreshWatchlist();
-                updateMarketStatus(true);
             }, 60 * 1000);
 
-            // Show market open/closed status on load
             updateMarketStatus();
             // Auto-save to Gist every 30 seconds if there's data and token
             setInterval(() => {
