@@ -512,8 +512,14 @@
                 const idx = records.findIndex(r => r.id === month);
                 if (idx > -1) records[idx] = data; else records.push(data);
                 records.sort((a,b) => a.id.localeCompare(b.id));
-                // Auto-save to localStorage every change
-                localStorage.setItem('ps_records', JSON.stringify(records));
+                // Auto-save to localStorage (records only, no avatar to avoid size limit)
+                try {
+                    localStorage.setItem('ps_records', JSON.stringify(records));
+                    const el = document.getElementById('db-name-display');
+                    const prev = el.innerText;
+                    el.innerText = 'AUTO-SAVED ✓';
+                    setTimeout(() => el.innerText = prev, 1200);
+                } catch(e) {}
             }
 
             updateReferenceBadges();
@@ -688,6 +694,7 @@
                         }
                     }
                     localStorage.setItem('ps_records', JSON.stringify(records));
+                    try { localStorage.setItem('ps_avatar', db.avatar || ''); } catch(e) {}
                     document.getElementById('db-name-display').innerText = file.name;
                     loadMonth(curMonth);
                     e.target.value = ''; // reset so same file can be re-imported
