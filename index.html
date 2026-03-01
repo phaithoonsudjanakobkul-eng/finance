@@ -279,6 +279,16 @@
                         Export
                     </button>
                 </div>
+                <div class="flex gap-1.5">
+                    <button onclick="syncFromGist()" title="Sync ข้อมูลจาก Gist" class="bg-gray-100 hover:bg-gray-200 text-gray-600 px-4 py-2 rounded-xl text-xs font-bold transition-all uppercase tracking-widest flex items-center gap-1.5">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                        Sync
+                    </button>
+                    <button onclick="syncToGist()" title="Upload ข้อมูลขึ้น Gist" class="bg-gray-900 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-black transition-all uppercase tracking-widest flex items-center gap-1.5">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                        Upload
+                    </button>
+                </div>
             </div>
         </div>
     </nav>
@@ -382,16 +392,6 @@
                             <div id="lock-tooltip" class="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[8px] py-1 px-2 rounded opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity whitespace-nowrap">เดือนเก่าถูกล็อคเพื่อความปลอดภัย</div>
                         </div>
                     </div>
-                </div>
-                <div class="flex gap-2">
-                    <button onclick="syncFromGist()" title="โหลดข้อมูลจาก Gist" class="bg-gray-100 hover:bg-gray-200 text-gray-600 px-4 py-2.5 rounded-xl text-xs font-bold transition-all uppercase tracking-widest flex items-center gap-1.5">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                        Sync
-                    </button>
-                    <button onclick="syncToGist()" title="อัพโหลดข้อมูลขึ้น Gist" class="bg-gray-900 text-white px-4 py-2.5 rounded-xl text-xs font-bold hover:bg-black transition-all uppercase tracking-widest flex items-center gap-1.5">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
-                        Upload
-                    </button>
                 </div>
             </div>
 
@@ -1444,25 +1444,28 @@
             const icon = document.getElementById('wl-refresh-icon');
             icon.style.animation = 'spin 1s linear infinite';
 
-            for (const symbol of watchlist) {
-                // First load: full render including profile (logo, name)
-                const isNewRow = !document.getElementById('wl-row-' + symbol);
-                if (isNewRow) {
-                    try {
-                        const data = await fetchQuote(symbol); // includes profile
+            // Render skeleton rows first for new symbols
+            watchlist.forEach(s => {
+                if (!document.getElementById('wl-row-' + s)) renderWatchlistRow(s, null);
+            });
+
+            const isNewRow = sym => !wlDataCache[sym];
+
+            // Fetch all in parallel
+            await Promise.all(watchlist.map(async (symbol) => {
+                try {
+                    if (isNewRow(symbol)) {
+                        // First time: fetch quote + profile together
+                        const data = await fetchQuote(symbol);
                         renderWatchlistRow(symbol, data);
-                    } catch(e) { renderWatchlistRow(symbol, null); }
-                } else {
-                    // Subsequent refresh: only fetch quote (price data), preserve logo/name from cache
-                    try {
+                    } else {
+                        // Already loaded: only refresh price
                         const quoteRes = await fetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${key}`);
                         const quote = quoteRes.ok ? await quoteRes.json() : {};
-                        // Merge with cached profile data
-                        const merged = { ...wlDataCache[symbol], ...quote };
-                        updateWatchlistPriceCells(symbol, merged);
-                    } catch(e) {}
-                }
-            }
+                        updateWatchlistPriceCells(symbol, { ...wlDataCache[symbol], ...quote });
+                    }
+                } catch(e) {}
+            }));
 
             icon.style.animation = '';
             const now = new Date();
