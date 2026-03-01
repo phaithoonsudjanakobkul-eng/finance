@@ -150,6 +150,10 @@
             from { opacity: 0; transform: translateY(4px); }
             to { opacity: 1; transform: translateY(0); }
         }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
 
         input::-webkit-outer-spin-button,
         input::-webkit-inner-spin-button {
@@ -260,6 +264,10 @@
                 <div class="bg-gray-100 p-1 rounded-2xl flex gap-1">
                     <button onclick="showTab('dashboard')" id="btn-dash" class="px-5 py-2 rounded-xl text-xs font-bold tab-active transition-all uppercase">Dashboard</button>
                     <button onclick="showTab('edit')" id="btn-edit" class="px-5 py-2 rounded-xl text-xs font-bold text-gray-400 transition-all uppercase">RECORDS</button>
+                    <button onclick="showTab('watchlist')" id="btn-watchlist" class="px-5 py-2 rounded-xl text-xs font-bold text-gray-400 transition-all uppercase flex items-center gap-1.5">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+                        Watchlist
+                    </button>
                 </div>
                 <div class="bg-gray-100 p-1 rounded-2xl flex gap-1">
                     <button onclick="document.getElementById('fileInput').click()" class="px-4 py-2 rounded-xl text-xs font-bold text-gray-400 hover:text-blue-600 transition-all uppercase flex items-center gap-1.5">
@@ -460,6 +468,81 @@
                 </div>
             </div>
         </div>
+
+        <!-- WATCHLIST TAB -->
+        <div id="tab-watchlist" class="hidden space-y-5 animate-in">
+
+            <!-- Finnhub Token Modal -->
+            <div id="finnhub-modal" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4">
+                <div style="background-color:rgba(15,23,42,0.6);backdrop-filter:blur(4px)" class="fixed inset-0"></div>
+                <div class="bg-white rounded-[2rem] max-w-sm w-full p-8 shadow-2xl animate-in relative z-10">
+                    <div class="w-16 h-16 bg-teal-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <svg class="w-8 h-8 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+                    </div>
+                    <h3 class="text-xl font-black text-gray-900 text-center mb-1">เชื่อมต่อ Finnhub</h3>
+                    <p class="text-gray-400 text-center text-xs mb-6 leading-relaxed">ใส่ Finnhub API Key เพื่อดูราคาหุ้นสหรัฐ<br>Key จะเก็บใน browser ของคุณเท่านั้น</p>
+                    <input type="password" id="finnhub-key-input" placeholder="xxxxxxxxxxxxxxxxxxxxxxxx" class="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm font-medium outline-none focus:border-teal-400 transition-all mb-4">
+                    <div class="flex flex-col gap-2">
+                        <button onclick="saveFinnhubKey()" class="w-full py-4 bg-teal-600 hover:bg-teal-700 text-white rounded-2xl font-bold transition-all active:scale-95 uppercase text-xs tracking-widest">บันทึกและเชื่อมต่อ</button>
+                        <button onclick="document.getElementById('finnhub-modal').classList.add('hidden')" class="w-full py-4 bg-gray-100 hover:bg-gray-200 text-gray-500 rounded-2xl font-bold transition-all uppercase text-xs tracking-widest">ยกเลิก</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Header -->
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <h3 class="font-black text-gray-900 text-lg uppercase tracking-tight">Watchlist</h3>
+                    <span id="wl-last-update" class="text-[10px] font-bold text-gray-300 uppercase tracking-widest"></span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="refreshWatchlist()" class="bg-gray-100 hover:bg-gray-200 text-gray-600 px-4 py-2 rounded-xl text-xs font-bold transition-all uppercase tracking-widest flex items-center gap-1.5">
+                        <svg id="wl-refresh-icon" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                        Refresh
+                    </button>
+                    <button onclick="showAddTickerInput()" class="bg-gray-900 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-black transition-all uppercase tracking-widest flex items-center gap-1.5">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                        Add
+                    </button>
+                </div>
+            </div>
+
+            <!-- Add ticker input -->
+            <div id="add-ticker-bar" class="hidden glass-card p-4 flex items-center gap-3 relative">
+                <div class="flex-grow relative">
+                    <input type="text" id="ticker-input" placeholder="ค้นหา เช่น NVDA, QQQ, SPY" 
+                        class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm font-bold outline-none focus:border-teal-400 transition-all"
+                        style="text-transform:uppercase"
+                        oninput="onTickerInput(this.value)"
+                        onkeydown="onTickerKeydown(event)"
+                        autocomplete="off">
+                    <!-- Dropdown -->
+                    <div id="ticker-dropdown" class="hidden absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden max-h-64 overflow-y-auto"></div>
+                </div>
+                <button onclick="addTicker()" class="bg-teal-600 text-white px-5 py-2.5 rounded-xl text-xs font-bold hover:bg-teal-700 transition-all uppercase tracking-widest flex-shrink-0">Add</button>
+                <button onclick="closeAddTicker()" class="text-gray-300 hover:text-gray-500 transition-colors flex-shrink-0">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+
+            <!-- Watchlist Table -->
+            <div class="glass-card overflow-hidden">
+                <div class="grid grid-cols-12 px-5 py-3 border-b border-gray-100 bg-gray-50">
+                    <div class="col-span-3 text-[9px] font-black text-gray-400 uppercase tracking-widest">Symbol</div>
+                    <div class="col-span-4 text-[9px] font-black text-gray-400 uppercase tracking-widest text-right">Price (USD)</div>
+                    <div class="col-span-3 text-[9px] font-black text-gray-400 uppercase tracking-widest text-right">Change %</div>
+                    <div class="col-span-2"></div>
+                </div>
+                <div id="watchlist-rows">
+                    <div id="wl-empty" class="py-16 text-center">
+                        <svg class="w-10 h-10 text-gray-200 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+                        <p class="text-gray-300 text-sm font-bold uppercase tracking-widest">No stocks added yet</p>
+                        <p class="text-gray-300 text-xs mt-1">กด Add เพื่อเพิ่มหุ้น</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </main>
 
     <input type="file" id="fileInput" class="hidden" accept=".json" onchange="importJSON(event)">
@@ -518,9 +601,12 @@
         function showTab(t, save = true) {
             document.getElementById('tab-dashboard').classList.toggle('hidden', t !== 'dashboard');
             document.getElementById('tab-edit').classList.toggle('hidden', t !== 'edit');
+            document.getElementById('tab-watchlist').classList.toggle('hidden', t !== 'watchlist');
             document.getElementById('btn-dash').className = t === 'dashboard' ? 'px-5 py-2 rounded-xl text-xs font-bold tab-active transition-all uppercase' : 'px-5 py-2 rounded-xl text-xs font-bold text-gray-400 transition-all uppercase';
             document.getElementById('btn-edit').className = t === 'edit' ? 'px-5 py-2 rounded-xl text-xs font-bold tab-active transition-all uppercase' : 'px-5 py-2 rounded-xl text-xs font-bold text-gray-400 transition-all uppercase';
+            document.getElementById('btn-watchlist').className = t === 'watchlist' ? 'px-5 py-2 rounded-xl text-xs font-bold tab-active transition-all uppercase flex items-center gap-1.5' : 'px-5 py-2 rounded-xl text-xs font-bold text-gray-400 transition-all uppercase flex items-center gap-1.5';
             if (t === 'dashboard') updateDashboard();
+            if (t === 'watchlist') refreshWatchlist();
             if (save) try { localStorage.setItem('ps_tab', t); } catch(e) {}
         }
 
@@ -1026,6 +1112,212 @@
             } catch(e) { showGistStatus('ERROR ✗', 'text-rose-500'); }
         }
 
+        // --- Watchlist ---
+        let watchlist = [];
+        let tickerSearchTimeout = null;
+        let dropdownSelectedIdx = -1;
+        let dropdownResults = [];
+
+        function getFinnhubKey() { return localStorage.getItem('ps_finnhub_key') || ''; }
+
+        function saveFinnhubKey() {
+            const key = document.getElementById('finnhub-key-input').value.trim();
+            if (!key) return;
+            localStorage.setItem('ps_finnhub_key', key);
+            document.getElementById('finnhub-modal').classList.add('hidden');
+            refreshWatchlist();
+        }
+
+        function saveWatchlist() {
+            try { localStorage.setItem('ps_watchlist', JSON.stringify(watchlist)); } catch(e) {}
+        }
+
+        function showAddTickerInput() {
+            if (!getFinnhubKey()) {
+                document.getElementById('finnhub-modal').classList.remove('hidden');
+                return;
+            }
+            const bar = document.getElementById('add-ticker-bar');
+            bar.classList.remove('hidden');
+            document.getElementById('ticker-input').value = '';
+            document.getElementById('ticker-dropdown').classList.add('hidden');
+            dropdownSelectedIdx = -1;
+            document.getElementById('ticker-input').focus();
+        }
+
+        function closeAddTicker() {
+            document.getElementById('add-ticker-bar').classList.add('hidden');
+            document.getElementById('ticker-dropdown').classList.add('hidden');
+        }
+
+        async function onTickerInput(val) {
+            const q = val.trim().toUpperCase();
+            clearTimeout(tickerSearchTimeout);
+            const dd = document.getElementById('ticker-dropdown');
+            if (q.length < 1) { dd.classList.add('hidden'); return; }
+
+            tickerSearchTimeout = setTimeout(async () => {
+                try {
+                    const key = getFinnhubKey();
+                    const res = await fetch(`https://finnhub.io/api/v1/search?q=${q}&token=${key}`);
+                    const data = await res.json();
+                    // Filter US stocks and ETFs only
+                    dropdownResults = (data.result || [])
+                        .filter(r => r.type === 'Common Stock' || r.type === 'ETP')
+                        .slice(0, 8);
+                    renderDropdown(q);
+                } catch(e) { dd.classList.add('hidden'); }
+            }, 300);
+        }
+
+        function renderDropdown(q) {
+            const dd = document.getElementById('ticker-dropdown');
+            if (dropdownResults.length === 0) { dd.classList.add('hidden'); return; }
+            dropdownSelectedIdx = -1;
+            dd.innerHTML = dropdownResults.map((r, i) => `
+                <div class="dropdown-item px-4 py-3 cursor-pointer hover:bg-teal-50 transition-colors border-b border-gray-50 last:border-0 flex items-center justify-between"
+                    onmousedown="selectDropdownItem(${i})">
+                    <div>
+                        <span class="font-black text-gray-900 text-sm">${r.symbol}</span>
+                        <span class="text-gray-400 text-xs ml-2 truncate max-w-[200px] inline-block align-middle">${r.description}</span>
+                    </div>
+                    <span class="text-[9px] font-bold px-2 py-0.5 rounded ${r.type === 'ETP' ? 'bg-purple-50 text-purple-500' : 'bg-blue-50 text-blue-500'} uppercase tracking-widest flex-shrink-0 ml-2">${r.type === 'ETP' ? 'ETF' : 'Stock'}</span>
+                </div>
+            `).join('');
+            dd.classList.remove('hidden');
+        }
+
+        function selectDropdownItem(idx) {
+            const item = dropdownResults[idx];
+            if (!item) return;
+            document.getElementById('ticker-input').value = item.symbol;
+            document.getElementById('ticker-dropdown').classList.add('hidden');
+            addTickerBySymbol(item.symbol);
+        }
+
+        function onTickerKeydown(e) {
+            const dd = document.getElementById('ticker-dropdown');
+            const items = dd.querySelectorAll('.dropdown-item');
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                dropdownSelectedIdx = Math.min(dropdownSelectedIdx + 1, items.length - 1);
+                updateDropdownHighlight(items);
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                dropdownSelectedIdx = Math.max(dropdownSelectedIdx - 1, -1);
+                updateDropdownHighlight(items);
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (dropdownSelectedIdx >= 0 && dropdownResults[dropdownSelectedIdx]) {
+                    selectDropdownItem(dropdownSelectedIdx);
+                } else {
+                    addTicker();
+                }
+            } else if (e.key === 'Escape') {
+                closeAddTicker();
+            }
+        }
+
+        function updateDropdownHighlight(items) {
+            items.forEach((el, i) => {
+                el.classList.toggle('bg-teal-50', i === dropdownSelectedIdx);
+            });
+        }
+
+        function addTicker() {
+            const symbol = document.getElementById('ticker-input').value.trim().toUpperCase();
+            if (symbol) addTickerBySymbol(symbol);
+        }
+
+        function addTickerBySymbol(symbol) {
+            if (!symbol || watchlist.includes(symbol)) { closeAddTicker(); return; }
+            watchlist.push(symbol);
+            saveWatchlist();
+            closeAddTicker();
+            refreshWatchlist();
+        }
+
+        function removeTicker(symbol) {
+            watchlist = watchlist.filter(s => s !== symbol);
+            saveWatchlist();
+            renderWatchlistRow(symbol, null, true);
+        }
+
+        function renderWatchlistRow(symbol, data, remove = false) {
+            const existing = document.getElementById('wl-row-' + symbol);
+            if (remove) { if (existing) existing.remove(); checkWlEmpty(); return; }
+
+            const price = data?.c ?? null;
+            const change = data?.d ?? null;
+            const changePct = data?.dp ?? null;
+            const isUp = changePct >= 0;
+            const color = price === null ? 'text-gray-300' : isUp ? 'text-emerald-500' : 'text-rose-500';
+            const bg = price === null ? '' : isUp ? 'bg-emerald-50' : 'bg-rose-50';
+            const arrow = isUp ? '▲' : '▼';
+
+            const html = `
+                <div id="wl-row-${symbol}" class="grid grid-cols-12 px-5 py-4 border-b border-gray-50 hover:bg-gray-50 transition-colors items-center group">
+                    <div class="col-span-3">
+                        <div class="font-black text-gray-900 text-sm tracking-tight">${symbol}</div>
+                    </div>
+                    <div class="col-span-4 text-right">
+                        <div class="font-black text-gray-900 text-base">${price !== null ? '$' + price.toFixed(2) : '—'}</div>
+                    </div>
+                    <div class="col-span-3 text-right">
+                        ${price !== null ? `<span class="inline-block px-2 py-0.5 rounded-lg text-xs font-black ${color} ${bg}">${arrow} ${Math.abs(changePct).toFixed(2)}%</span>` : '<span class="text-gray-300 text-xs">—</span>'}
+                    </div>
+                    <div class="col-span-2 text-right">
+                        <button onclick="removeTicker('${symbol}')" class="text-gray-200 hover:text-rose-400 transition-colors opacity-0 group-hover:opacity-100">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
+                    </div>
+                </div>`;
+
+            if (existing) { existing.outerHTML = html; }
+            else {
+                document.getElementById('wl-empty').classList.add('hidden');
+                document.getElementById('watchlist-rows').insertAdjacentHTML('beforeend', html);
+            }
+        }
+
+        function checkWlEmpty() {
+            const rows = document.querySelectorAll('[id^="wl-row-"]');
+            if (rows.length === 0) document.getElementById('wl-empty').classList.remove('hidden');
+        }
+
+        async function fetchQuote(symbol) {
+            const key = getFinnhubKey();
+            const res = await fetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${key}`);
+            if (!res.ok) return null;
+            return await res.json();
+        }
+
+        async function refreshWatchlist() {
+            const key = getFinnhubKey();
+            if (!key) return;
+            if (watchlist.length === 0) { checkWlEmpty(); return; }
+
+            const icon = document.getElementById('wl-refresh-icon');
+            icon.style.animation = 'spin 1s linear infinite';
+
+            // Render skeleton first
+            watchlist.forEach(s => {
+                if (!document.getElementById('wl-row-' + s)) renderWatchlistRow(s, null);
+            });
+
+            // Fetch each sequentially to avoid rate limit
+            for (const symbol of watchlist) {
+                try {
+                    const data = await fetchQuote(symbol);
+                    renderWatchlistRow(symbol, data);
+                } catch(e) { renderWatchlistRow(symbol, null); }
+            }
+
+            icon.style.animation = '';
+            const now = new Date();
+            document.getElementById('wl-last-update').innerText = `Updated ${now.toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'})}`;
+        }
+
         window.onload = () => {
             try {
                 const saved = localStorage.getItem('ps_records');
@@ -1034,6 +1326,8 @@
                 if (savedAvatar) { db.avatar = savedAvatar; setAvatarImage(savedAvatar); }
                 const savedName = localStorage.getItem('ps_dbname');
                 if (savedName) document.getElementById('db-name-display').innerText = savedName;
+                const savedWl = localStorage.getItem('ps_watchlist');
+                if (savedWl) watchlist = JSON.parse(savedWl);
             } catch(e) {}
             const savedMonth = localStorage.getItem('ps_month');
             if (savedMonth) curMonth = savedMonth;
