@@ -273,12 +273,12 @@
                                 <h4 class="thai-label uppercase">รายจ่ายประจำ / เงินลงทุน</h4>
                             </div>
                             <div class="flex items-center gap-2">
-                                <span id="last-fixed-ref" class="ref-badge" style="margin-left:0">LAST MO: -</span>
+                                <span id="last-fixed-ref" class="ref-badge" style="margin-left:0">LAST MONTH: -</span>
                                 <button onclick="toggleCheckAll('fixed', this)" class="text-[9px] font-bold text-gray-300 hover:text-blue-500 transition-colors uppercase tracking-wide border border-gray-200 hover:border-blue-300 rounded px-1.5 py-0.5">Uncheck All</button>
                             </div>
                         </div>
                         <div class="flex flex-col items-end gap-1">
-                            <span id="sum-fixed" class="summary-badge text-blue-600 bg-blue-50 border border-blue-100">฿ 0.00</span>
+                            <span id="sum-fixed" class="summary-badge text-rose-500 bg-rose-50 border border-rose-100">฿ 0.00</span>
                             <div id="paid-fixed-badge" class="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 hidden">PAID: ฿ 0.00</div>
                         </div>
                     </div>
@@ -293,12 +293,12 @@
                                 <h4 class="thai-label uppercase">รายจ่ายผันแปร</h4>
                             </div>
                             <div class="flex items-center gap-2">
-                                <span id="last-dynamic-ref" class="ref-badge" style="margin-left:0">LAST MO: -</span>
+                                <span id="last-dynamic-ref" class="ref-badge" style="margin-left:0">LAST MONTH: -</span>
                                 <button onclick="toggleCheckAll('dynamic', this)" class="text-[9px] font-bold text-gray-300 hover:text-orange-500 transition-colors uppercase tracking-wide border border-gray-200 hover:border-orange-300 rounded px-1.5 py-0.5">Uncheck All</button>
                             </div>
                         </div>
                         <div class="flex flex-col items-end gap-1">
-                            <span id="sum-dynamic" class="summary-badge text-orange-600 bg-orange-50 border border-orange-100">฿ 0.00</span>
+                            <span id="sum-dynamic" class="summary-badge text-rose-500 bg-rose-50 border border-rose-100">฿ 0.00</span>
                             <div id="paid-dynamic-badge" class="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 hidden">PAID: ฿ 0.00</div>
                         </div>
                     </div>
@@ -540,11 +540,11 @@
             if (prevData) {
                 const lastFixed = sumArr(prevData.fixed);
                 const lastDyn = sumArr(prevData.dynamic);
-                fixedRef.innerText = `LAST MO: ฿ ${formatNumber(lastFixed)}`;
-                dynRef.innerText = `LAST MO: ฿ ${formatNumber(lastDyn)}`;
+                fixedRef.innerText = `LAST MONTH: ฿ ${formatNumber(lastFixed)}`;
+                dynRef.innerText = `LAST MONTH: ฿ ${formatNumber(lastDyn)}`;
             } else {
-                fixedRef.innerText = "LAST MO: -";
-                dynRef.innerText = "LAST MO: -";
+                fixedRef.innerText = "LAST MONTH: -";
+                dynRef.innerText = "LAST MONTH: -";
             }
         }
 
