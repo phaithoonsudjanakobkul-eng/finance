@@ -2251,9 +2251,24 @@
                 const wlVisible = !document.getElementById('tab-watchlist').classList.contains('hidden');
                 if (wlVisible) fetchFxRate();
             }, 5 * 60 * 1000);
+            // Auto-save to Gist every 30 seconds if there's data and token
+            setInterval(() => {
+                if (getGistToken() && (records.length > 0 || watchlist.length > 0)) {
+                    const exportData = { meta: { avatar: db.avatar, dark: document.documentElement.classList.contains('dark') }, records, watchlist };
+                    const token = getGistToken();
+                    fetch(`https://api.github.com/gists/${GIST_ID}`, {
+                        method: 'PATCH',
+                        headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ files: { [GIST_FILENAME]: { content: JSON.stringify(exportData, null, 2) } } })
+                    }).then(() => showGistStatus('AUTO SAVED ✓', 'text-emerald-400'))
+                      .catch(() => {});
+                }
+            }, 30 * 1000);
+
+            // Save on tab close / navigate away
             window.addEventListener('beforeunload', () => {
-                if (getGistToken() && records.length > 0) {
-                    const exportData = { meta: { avatar: db.avatar, dark: document.documentElement.classList.contains('dark') }, records: records, watchlist: watchlist };
+                if (getGistToken() && (records.length > 0 || watchlist.length > 0)) {
+                    const exportData = { meta: { avatar: db.avatar, dark: document.documentElement.classList.contains('dark') }, records, watchlist };
                     const token = getGistToken();
                     fetch(`https://api.github.com/gists/${GIST_ID}`, {
                         method: 'PATCH',
