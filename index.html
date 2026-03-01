@@ -1210,7 +1210,7 @@
         }
 
         function exportJSON() {
-            const exportData = { meta: { avatar: db.avatar }, records: records, watchlist: watchlist };
+            const exportData = { meta: { avatar: db.avatar, dark: document.documentElement.classList.contains('dark') }, records: records, watchlist: watchlist };
             const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
@@ -1237,6 +1237,11 @@
                         if (data.watchlist && Array.isArray(data.watchlist)) {
                             watchlist = data.watchlist;
                             localStorage.setItem('ps_watchlist', JSON.stringify(watchlist));
+                        }
+                        if (typeof data.meta?.dark === 'boolean') {
+                            applyDarkMode(data.meta.dark);
+                            localStorage.setItem('ps_dark', data.meta.dark ? '1' : '0');
+                            updateChartThemes(data.meta.dark);
                         }
                     }
                     localStorage.setItem('ps_records', JSON.stringify(records));
@@ -1314,7 +1319,7 @@
             if (!token) { document.getElementById('gist-modal').classList.remove('hidden'); return; }
             showGistStatus('UPLOADING...', 'text-blue-500');
             try {
-                const exportData = { meta: { avatar: db.avatar }, records: records, watchlist: watchlist };
+                const exportData = { meta: { avatar: db.avatar, dark: document.documentElement.classList.contains('dark') }, records: records, watchlist: watchlist };
                 const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
                     method: 'PATCH',
                     headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
@@ -1346,6 +1351,11 @@
                     if (data.watchlist && Array.isArray(data.watchlist)) {
                         watchlist = data.watchlist;
                         try { localStorage.setItem('ps_watchlist', JSON.stringify(watchlist)); } catch(e) {}
+                    }
+                    if (typeof data.meta?.dark === 'boolean') {
+                        applyDarkMode(data.meta.dark);
+                        localStorage.setItem('ps_dark', data.meta.dark ? '1' : '0');
+                        updateChartThemes(data.meta.dark);
                     }
                 }
                 try { localStorage.setItem('ps_records', JSON.stringify(records)); } catch(e) {}
@@ -1936,7 +1946,7 @@
             // Auto push to Gist when tab/browser is closed
             window.addEventListener('beforeunload', () => {
                 if (getGistToken() && records.length > 0) {
-                    const exportData = { meta: { avatar: db.avatar }, records: records, watchlist: watchlist };
+                    const exportData = { meta: { avatar: db.avatar, dark: document.documentElement.classList.contains('dark') }, records: records, watchlist: watchlist };
                     const token = getGistToken();
                     fetch(`https://api.github.com/gists/${GIST_ID}`, {
                         method: 'PATCH',
