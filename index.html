@@ -1408,6 +1408,12 @@
                 try { localStorage.setItem('ps_dbname', GIST_FILENAME); } catch(e) {}
                 loadMonth(curMonth);
                 showGistStatus('SYNCED ✓', 'text-emerald-500');
+                // If on watchlist tab, refresh prices now that watchlist array is populated
+                const wlVisible = !document.getElementById('tab-watchlist').classList.contains('hidden');
+                if (wlVisible && watchlist.length > 0) {
+                    isWlRefreshing = false; // reset lock so refresh can run
+                    refreshWatchlist();
+                }
             } catch(e) { showGistStatus('ERROR ✗', 'text-rose-500'); }
         }
 
@@ -2099,10 +2105,15 @@
             if (savedMonth) curMonth = savedMonth;
             document.getElementById('monthInput').value = curMonth;
             const savedTab = localStorage.getItem('ps_tab') || 'dashboard';
-            showTab(savedTab, false);
             loadMonth(curMonth);
-            // Auto pull from Gist if token exists
-            if (getGistToken()) syncFromGist();
+            // Auto pull from Gist first, THEN show tab (so watchlist has data before refresh)
+            if (getGistToken()) {
+                syncFromGist().then(() => {
+                    showTab(savedTab, false);
+                });
+            } else {
+                showTab(savedTab, false);
+            }
 
             // Auto-refresh FX rate every 5 minutes when on watchlist tab
             setInterval(() => {
