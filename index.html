@@ -368,6 +368,7 @@
             document.getElementById('btn-dash').className = t === 'dashboard' ? 'px-5 py-2 rounded-xl text-xs font-bold tab-active transition-all uppercase' : 'px-5 py-2 rounded-xl text-xs font-bold text-gray-400 transition-all uppercase';
             document.getElementById('btn-edit').className = t === 'edit' ? 'px-5 py-2 rounded-xl text-xs font-bold tab-active transition-all uppercase' : 'px-5 py-2 rounded-xl text-xs font-bold text-gray-400 transition-all uppercase';
             if (t === 'dashboard') updateDashboard();
+            try { localStorage.setItem('ps_tab', t); } catch(e) {}
         }
 
         function stepMonth(delta) {
@@ -515,11 +516,8 @@
                 // Auto-save to localStorage (records only, no avatar to avoid size limit)
                 try {
                     localStorage.setItem('ps_records', JSON.stringify(records));
-                    const el = document.getElementById('db-name-display');
-                    const prev = el.innerText;
-                    el.innerText = 'AUTO-SAVED ✓';
-                    setTimeout(() => el.innerText = prev, 1200);
                 } catch(e) {}
+                try { localStorage.setItem('ps_tab', document.getElementById('tab-edit').classList.contains('hidden') ? 'dashboard' : 'edit'); } catch(e) {}
             }
 
             updateReferenceBadges();
@@ -696,6 +694,7 @@
                     localStorage.setItem('ps_records', JSON.stringify(records));
                     try { localStorage.setItem('ps_avatar', db.avatar || ''); } catch(e) {}
                     document.getElementById('db-name-display').innerText = file.name;
+                    try { localStorage.setItem('ps_dbname', file.name); } catch(e) {}
                     loadMonth(curMonth);
                     e.target.value = ''; // reset so same file can be re-imported
                 } catch(err) { console.error(err); }
@@ -735,15 +734,18 @@
         }
 
         window.onload = () => {
-            // Restore from localStorage if available
             try {
                 const saved = localStorage.getItem('ps_records');
                 if (saved) records = JSON.parse(saved);
                 const savedAvatar = localStorage.getItem('ps_avatar');
                 if (savedAvatar) { db.avatar = savedAvatar; setAvatarImage(savedAvatar); }
+                const savedName = localStorage.getItem('ps_dbname');
+                if (savedName) document.getElementById('db-name-display').innerText = savedName;
             } catch(e) {}
             document.getElementById('monthInput').value = curMonth;
             loadMonth(curMonth);
+            const savedTab = localStorage.getItem('ps_tab') || 'dashboard';
+            showTab(savedTab);
         };
     </script>
 </body>
