@@ -526,20 +526,33 @@
             </div>
 
             <!-- Watchlist Table -->
-            <div class="glass-card overflow-hidden">
-                <div class="grid grid-cols-12 px-5 py-3 border-b border-gray-100 bg-gray-50">
-                    <div class="col-span-3 text-[9px] font-black text-gray-400 uppercase tracking-widest">Symbol</div>
-                    <div class="col-span-4 text-[9px] font-black text-gray-400 uppercase tracking-widest text-right">Price (USD)</div>
-                    <div class="col-span-3 text-[9px] font-black text-gray-400 uppercase tracking-widest text-right">Change %</div>
-                    <div class="col-span-2"></div>
-                </div>
-                <div id="watchlist-rows">
-                    <div id="wl-empty" class="py-16 text-center">
-                        <svg class="w-10 h-10 text-gray-200 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
-                        <p class="text-gray-300 text-sm font-bold uppercase tracking-widest">No stocks added yet</p>
-                        <p class="text-gray-300 text-xs mt-1">กด Add เพื่อเพิ่มหุ้น</p>
-                    </div>
-                </div>
+            <div class="glass-card overflow-x-auto">
+                <table class="w-full min-w-[700px]">
+                    <thead>
+                        <tr class="border-b border-gray-100 bg-gray-50">
+                            <th class="px-5 py-3 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest w-8">#</th>
+                            <th class="px-3 py-3 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Symbol</th>
+                            <th class="px-3 py-3 text-left text-[9px] font-black text-gray-400 uppercase tracking-widest">Name</th>
+                            <th class="px-3 py-3 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest">Last Price</th>
+                            <th class="px-3 py-3 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest">Change</th>
+                            <th class="px-3 py-3 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest">% Change</th>
+                            <th class="px-3 py-3 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest">Open</th>
+                            <th class="px-3 py-3 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest">Prev Close</th>
+                            <th class="px-3 py-3 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest">High</th>
+                            <th class="px-3 py-3 text-right text-[9px] font-black text-gray-400 uppercase tracking-widest">Low</th>
+                            <th class="px-2 py-3 w-8"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="watchlist-rows">
+                        <tr id="wl-empty">
+                            <td colspan="11" class="py-16 text-center">
+                                <svg class="w-10 h-10 text-gray-200 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+                                <p class="text-gray-300 text-sm font-bold uppercase tracking-widest">No stocks added yet</p>
+                                <p class="text-gray-300 text-xs mt-1">กด Add เพื่อเพิ่มหุ้น</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
 
@@ -1247,31 +1260,54 @@
             const existing = document.getElementById('wl-row-' + symbol);
             if (remove) { if (existing) existing.remove(); checkWlEmpty(); return; }
 
-            const price = data?.c ?? null;
-            const change = data?.d ?? null;
+            const price   = data?.c   ?? null;
+            const change  = data?.d   ?? null;
             const changePct = data?.dp ?? null;
+            const open    = data?.o   ?? null;
+            const prevClose = data?.pc ?? null;
+            const high    = data?.h   ?? null;
+            const low     = data?.l   ?? null;
+            const name    = data?.name ?? '';
+            const type    = data?.type ?? '';
+
             const isUp = changePct >= 0;
-            const color = price === null ? 'text-gray-300' : isUp ? 'text-emerald-500' : 'text-rose-500';
-            const bg = price === null ? '' : isUp ? 'bg-emerald-50' : 'bg-rose-50';
+            const priceColor = price === null ? 'text-gray-300' : isUp ? 'text-emerald-600' : 'text-rose-500';
+            const changeColor = change === null ? 'text-gray-300' : isUp ? 'text-emerald-600' : 'text-rose-500';
             const arrow = isUp ? '▲' : '▼';
+            const idx = watchlist.indexOf(symbol) + 1;
+            const typeBadge = type === 'ETF' 
+                ? `<span class="text-[8px] font-black px-1.5 py-0.5 rounded bg-purple-50 text-purple-500 ml-1">ETF</span>`
+                : '';
+
+            const fmt = (v) => v !== null ? v.toFixed(2) : '—';
 
             const html = `
-                <div id="wl-row-${symbol}" class="grid grid-cols-12 px-5 py-4 border-b border-gray-50 hover:bg-gray-50 transition-colors items-center group">
-                    <div class="col-span-3">
-                        <div class="font-black text-gray-900 text-sm tracking-tight">${symbol}</div>
-                    </div>
-                    <div class="col-span-4 text-right">
-                        <div class="font-black text-gray-900 text-base">${price !== null ? '$' + price.toFixed(2) : '—'}</div>
-                    </div>
-                    <div class="col-span-3 text-right">
-                        ${price !== null ? `<span class="inline-block px-2 py-0.5 rounded-lg text-xs font-black ${color} ${bg}">${arrow} ${Math.abs(changePct).toFixed(2)}%</span>` : '<span class="text-gray-300 text-xs">—</span>'}
-                    </div>
-                    <div class="col-span-2 text-right">
+                <tr id="wl-row-${symbol}" class="border-b border-gray-50 hover:bg-gray-50 transition-colors group">
+                    <td class="px-5 py-3.5 text-[10px] font-bold text-gray-300">${idx}</td>
+                    <td class="px-3 py-3.5">
+                        <div class="flex items-center gap-1">
+                            <span class="font-black text-gray-900 text-sm tracking-tight">${symbol}</span>
+                            ${typeBadge}
+                        </div>
+                    </td>
+                    <td class="px-3 py-3.5 text-xs text-gray-400 max-w-[160px] truncate">${name}</td>
+                    <td class="px-3 py-3.5 text-right font-black text-sm ${priceColor}">${price !== null ? '$' + fmt(price) : '—'}</td>
+                    <td class="px-3 py-3.5 text-right text-xs font-bold ${changeColor}">${change !== null ? (isUp ? '+' : '') + fmt(change) : '—'}</td>
+                    <td class="px-3 py-3.5 text-right">
+                        ${changePct !== null 
+                            ? `<span class="inline-block px-2 py-0.5 rounded text-xs font-black ${changeColor} ${isUp ? 'bg-emerald-50' : 'bg-rose-50'}">${arrow} ${Math.abs(changePct).toFixed(2)}%</span>` 
+                            : '<span class="text-gray-300 text-xs">—</span>'}
+                    </td>
+                    <td class="px-3 py-3.5 text-right text-xs font-bold text-gray-500">${open !== null ? '$' + fmt(open) : '—'}</td>
+                    <td class="px-3 py-3.5 text-right text-xs font-bold text-gray-500">${prevClose !== null ? '$' + fmt(prevClose) : '—'}</td>
+                    <td class="px-3 py-3.5 text-right text-xs font-bold text-gray-500">${high !== null ? '$' + fmt(high) : '—'}</td>
+                    <td class="px-3 py-3.5 text-right text-xs font-bold text-gray-500">${low !== null ? '$' + fmt(low) : '—'}</td>
+                    <td class="px-2 py-3.5 text-right">
                         <button onclick="removeTicker('${symbol}')" class="text-gray-200 hover:text-rose-400 transition-colors opacity-0 group-hover:opacity-100">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                         </button>
-                    </div>
-                </div>`;
+                    </td>
+                </tr>`;
 
             if (existing) { existing.outerHTML = html; }
             else {
@@ -1282,14 +1318,23 @@
 
         function checkWlEmpty() {
             const rows = document.querySelectorAll('[id^="wl-row-"]');
-            if (rows.length === 0) document.getElementById('wl-empty').classList.remove('hidden');
+            const realRows = Array.from(rows).filter(r => r.id !== 'wl-empty');
+            if (realRows.length === 0) document.getElementById('wl-empty').classList.remove('hidden');
         }
 
         async function fetchQuote(symbol) {
             const key = getFinnhubKey();
-            const res = await fetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${key}`);
-            if (!res.ok) return null;
-            return await res.json();
+            const [quoteRes, profileRes] = await Promise.all([
+                fetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${key}`),
+                fetch(`https://finnhub.io/api/v1/stock/profile2?symbol=${symbol}&token=${key}`)
+            ]);
+            const quote = quoteRes.ok ? await quoteRes.json() : {};
+            const profile = profileRes.ok ? await profileRes.json() : {};
+            return {
+                ...quote,
+                name: profile.name ?? '',
+                type: profile.finnhubIndustry ? 'Stock' : (profile.name ? 'ETF' : '')
+            };
         }
 
         async function refreshWatchlist() {
