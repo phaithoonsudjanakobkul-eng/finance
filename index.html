@@ -61,9 +61,9 @@
 
         .dash-label {
             font-family: var(--font-mono);
-            font-size: 9px;
+            font-size: 11px;
             font-weight: 600;
-            letter-spacing: 0.15em;
+            letter-spacing: 0.12em;
             color: var(--text-secondary);
             text-transform: uppercase;
         }
@@ -107,9 +107,9 @@
 
         .dash-section-title {
             font-family: var(--font-mono);
-            font-size: 10px;
+            font-size: 11px;
             font-weight: 600;
-            letter-spacing: 0.15em;
+            letter-spacing: 0.12em;
             color: var(--text-secondary);
             text-transform: uppercase;
         }
@@ -284,26 +284,26 @@
                         <div id="dash-surplus" class="dash-value text-3xl dash-green mb-1">0.00</div>
                         <div id="mom-change" class="hidden" style="font-family:var(--font-mono);font-size:10px;color:var(--text-secondary);margin-bottom:8px;"></div>
                         <div class="border-t dash-divider pt-3 flex justify-between items-center">
-                            <span id="status-text" style="font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:0.1em;color:var(--accent2);">—</span>
-                            <span id="current-month-label" style="font-family:var(--font-mono);font-size:9px;color:var(--text-secondary);">—</span>
+                            <span id="status-text" style="font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:0.08em;color:var(--accent2);">—</span>
+                            <span id="current-month-label" style="font-family:var(--font-mono);font-size:10px;color:var(--text-secondary);">—</span>
                         </div>
                     </div>
                     <!-- YTD Income -->
                     <div class="dash-card p-5">
                         <div class="dash-label mb-1">YTD Earnings</div>
-                        <div id="ytd-year-income" style="font-family:var(--font-mono);font-size:9px;color:var(--text-dim);margin-bottom:6px;">—</div>
+                        <div id="ytd-year-income" style="font-family:var(--font-mono);font-size:10px;color:var(--text-dim);margin-bottom:6px;">—</div>
                         <div id="ytd-income" class="dash-value text-2xl dash-green">0.00</div>
                     </div>
                     <!-- YTD Expense -->
                     <div class="dash-card p-5">
                         <div class="dash-label mb-1">YTD Expenses</div>
-                        <div id="ytd-year-expense" style="font-family:var(--font-mono);font-size:9px;color:var(--text-dim);margin-bottom:6px;">—</div>
+                        <div id="ytd-year-expense" style="font-family:var(--font-mono);font-size:10px;color:var(--text-dim);margin-bottom:6px;">—</div>
                         <div id="ytd-expense" class="dash-value text-2xl dash-red">0.00</div>
                     </div>
                     <!-- Savings Rate -->
                     <div class="dash-card p-5">
                         <div class="dash-label mb-1">Savings Rate</div>
-                        <div id="ytd-year-savings" style="font-family:var(--font-mono);font-size:9px;color:var(--text-dim);margin-bottom:6px;">—</div>
+                        <div id="ytd-year-savings" style="font-family:var(--font-mono);font-size:10px;color:var(--text-dim);margin-bottom:6px;">—</div>
                         <div id="ytd-savings-rate" class="dash-value text-2xl dash-yellow">0%</div>
                     </div>
                 </div>
@@ -373,8 +373,8 @@
                         Sync
                     </button>
                     <button onclick="syncToGist()" title="บันทึกข้อมูลขึ้น Gist" class="bg-gray-900 text-white px-4 py-2.5 rounded-xl text-xs font-bold hover:bg-black transition-all uppercase tracking-widest flex items-center gap-1.5">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
-                        Push
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>
+                        Save
                     </button>
                 </div>
             </div>
