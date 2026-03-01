@@ -1793,13 +1793,16 @@
             document.getElementById('qc-name').innerText = d?.name ?? '';
             const logo = d?.logo ?? '';
             const logoEl = document.getElementById('qc-logo');
-            // Clear immediately so old logo doesn't linger while new one loads
             logoEl.style.display = 'none';
             logoEl.src = '';
             if (logo) {
                 logoEl.onload = () => { logoEl.style.display = 'block'; };
                 logoEl.onerror = () => { logoEl.style.display = 'none'; };
                 logoEl.src = logo;
+                // If already in browser cache, complete fires synchronously — show instantly
+                if (logoEl.complete && logoEl.naturalWidth > 0) {
+                    logoEl.style.display = 'block';
+                }
             }
 
             const price = d?.c ?? null;
