@@ -193,44 +193,50 @@
             opacity: 0;
             transition: flex-basis 0.35s cubic-bezier(0.4,0,0.2,1), max-width 0.35s cubic-bezier(0.4,0,0.2,1), opacity 0.2s ease;
         }
+
+        /* ── Chart open state ───────────────────────────── */
         #wl-split-wrap.chart-open #wl-table-panel {
             flex: 0 0 420px;
             max-width: 420px;
         }
-        /* Table scrolls vertically when chart is open */
         #wl-split-wrap.chart-open #wl-table-panel .glass-card {
             max-height: calc(100vh - 180px);
             overflow-y: auto;
             overflow-x: hidden;
         }
-        /* Chart panel: sticky, full height, internal scroll */
         #wl-split-wrap.chart-open #quick-chart-panel {
             flex: 1 1 auto;
             max-width: 100%;
-            overflow: hidden;
             opacity: 1;
+            /* Sticky so it stays in view while scrolling the left panel */
             position: sticky;
             top: 110px;
-            max-height: calc(100vh - 125px);
+            /* Total height = viewport minus navbar; split between chart and news */
+            height: calc(100vh - 125px);
             display: flex;
             flex-direction: column;
+            overflow: hidden;
         }
+        /* Chart gets fixed portion of height */
         #wl-split-wrap.chart-open #qc-tv-container {
-            height: calc(100vh - 460px) !important;
-            min-height: 280px;
+            height: 55% !important;
+            min-height: 260px;
+            max-height: 520px;
             flex-shrink: 0;
         }
+        /* News panel fills remaining space and scrolls internally */
         #wl-split-wrap.chart-open #qc-news-panel {
-            flex: 1 1 auto;
-            overflow: hidden;
+            flex: 1 1 0;
+            min-height: 0;
             display: flex;
             flex-direction: column;
-            min-height: 0;
+            overflow: hidden;
+            border-top: 1px solid var(--border);
         }
         #wl-split-wrap.chart-open #qc-news-list {
-            flex: 1 1 auto;
+            flex: 1 1 0;
+            min-height: 0;
             overflow-y: auto;
-            max-height: none !important;
         }
         /* Hide less important columns when in compact mode */
         #wl-split-wrap.chart-open .wl-col-hide { display: none !important; }
@@ -906,22 +912,17 @@
                 <div id="qc-tv-container" style="height:480px;flex-shrink:0"></div>
 
                 <!-- News Panel -->
-                <div id="qc-news-panel" class="border-t flex flex-col" style="border-color:var(--border)">
+                <div id="qc-news-panel" class="flex flex-col" style="background:var(--bg-card)">
                     <!-- News Header -->
-                    <div class="flex items-center justify-between px-5 py-2.5" style="background:var(--bg-card2)">
+                    <div class="flex items-center justify-between px-4 py-2 flex-shrink-0" style="background:var(--bg-card2);border-bottom:1px solid var(--border)">
                         <div class="flex items-center gap-2">
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:var(--text-dim)"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/></svg>
-                            <span class="text-[9px] font-black uppercase tracking-widest" style="color:var(--text-dim)">Latest News</span>
-                            <span id="qc-news-symbol" class="text-[9px] font-black uppercase tracking-widest text-teal-500"></span>
+                            <span class="text-[9px] font-black uppercase tracking-widest" style="color:var(--text-dim)">News</span>
+                            <span id="qc-news-symbol" class="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded" style="background:rgba(20,184,166,0.12);color:#14b8a6"></span>
                         </div>
                         <span id="qc-news-status" class="text-[9px]" style="color:var(--text-dim)"></span>
                     </div>
                     <!-- News List -->
-                    <div id="qc-news-list" class="overflow-y-auto" style="max-height:220px">
-                        <div class="flex items-center justify-center py-8 gap-2" style="color:var(--text-dim)">
-                            <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-                            <span class="text-xs">Loading news...</span>
-                        </div>
+                    <div id="qc-news-list"></div>
                     </div>
                 </div>
             </div><!-- /quick-chart-panel -->
@@ -2183,28 +2184,47 @@
                     return;
                 }
 
-                // Show max 15 most recent
-                const items = articles.slice(0, 15);
-                statusEl.textContent = `${items.length} articles · 7 days`;
+                // Show max 20 most recent
+                const items = articles.slice(0, 20);
+                statusEl.textContent = `${items.length} stories`;
 
-                listEl.innerHTML = items.map(a => {
+                listEl.innerHTML = items.map((a, i) => {
                     const date = new Date(a.datetime * 1000);
-                    const dateStr = date.toLocaleDateString('th-TH', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-                    const source = a.source || '';
+                    const now = new Date();
+                    const diffMs = now - date;
+                    const diffH = Math.floor(diffMs / 3600000);
+                    const diffM = Math.floor(diffMs / 60000);
+                    const timeStr = diffM < 60 ? `${diffM}m ago` : diffH < 24 ? `${diffH}h ago` : date.toLocaleDateString('en-US', {month:'short', day:'numeric'});
+                    const source = (a.source || '').toUpperCase();
                     const headline = a.headline || '';
-                    const summary = a.summary ? a.summary.slice(0, 120) + (a.summary.length > 120 ? '…' : '') : '';
                     const img = a.image || '';
-                    return `
-                    <a href="${a.url}" target="_blank" rel="noopener"
-                       class="flex gap-3 px-4 py-3 border-b transition-colors hover:bg-opacity-50 group/news"
-                       style="border-color:var(--border);text-decoration:none">
-                        ${img ? `<img src="${img}" alt="" class="w-16 h-12 object-cover rounded-lg flex-shrink-0 mt-0.5" onerror="this.style.display='none'">` : ''}
+                    const isFirst = i === 0;
+                    if (isFirst && img) {
+                        // Featured top story with image
+                        return `<a href="${a.url}" target="_blank" rel="noopener" class="block group/news" style="text-decoration:none">
+                            <div class="relative overflow-hidden" style="height:140px">
+                                <img src="${img}" alt="" class="w-full h-full object-cover" onerror="this.parentElement.style.display='none'">
+                                <div class="absolute inset-0" style="background:linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.2) 60%, transparent 100%)"></div>
+                                <div class="absolute bottom-0 left-0 right-0 p-3">
+                                    <span class="text-[9px] font-black text-teal-400 uppercase tracking-widest">${source}</span>
+                                    <p class="text-xs font-bold text-white leading-snug mt-0.5 group-hover/news:text-teal-300 transition-colors">${headline}</p>
+                                    <span class="text-[9px] text-white/50 mt-0.5 block">${timeStr}</span>
+                                </div>
+                            </div>
+                        </a>`;
+                    }
+                    // Compact row
+                    return `<a href="${a.url}" target="_blank" rel="noopener"
+                        class="flex items-start gap-3 px-4 py-2.5 group/news transition-colors"
+                        style="border-bottom:1px solid var(--border);text-decoration:none;background:transparent"
+                        onmouseover="this.style.background='var(--bg-card2)'" onmouseout="this.style.background='transparent'">
+                        ${img ? `<img src="${img}" alt="" class="w-14 h-10 object-cover rounded-lg flex-shrink-0 mt-0.5" onerror="this.style.display='none'">` : `<div class="w-14 h-10 rounded-lg flex-shrink-0 flex items-center justify-center" style="background:var(--bg-card2)"><svg class='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24' style='color:var(--text-dim)'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z'/></svg></div>`}
                         <div class="flex-1 min-w-0">
-                            <p class="text-xs font-bold leading-snug group-hover/news:text-teal-500 transition-colors line-clamp-2" style="color:var(--text-primary)">${headline}</p>
-                            ${summary ? `<p class="text-[10px] mt-0.5 line-clamp-2" style="color:var(--text-dim)">${summary}</p>` : ''}
-                            <div class="flex items-center gap-2 mt-1">
-                                <span class="text-[9px] font-bold uppercase tracking-widest text-teal-500">${source}</span>
-                                <span class="text-[9px]" style="color:var(--text-dim)">${dateStr}</span>
+                            <p class="text-[11px] font-bold leading-snug group-hover/news:text-teal-400 transition-colors line-clamp-2" style="color:var(--text-primary)">${headline}</p>
+                            <div class="flex items-center gap-1.5 mt-1">
+                                <span class="text-[9px] font-black text-teal-500 uppercase tracking-wider">${source}</span>
+                                <span style="color:var(--border)">·</span>
+                                <span class="text-[9px]" style="color:var(--text-dim)">${timeStr}</span>
                             </div>
                         </div>
                     </a>`;
