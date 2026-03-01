@@ -117,9 +117,14 @@
     <nav class="bg-white/90 backdrop-blur-md sticky top-0 z-50 border-b border-gray-100">
         <div class="max-w-6xl mx-auto px-6 h-20 flex justify-between items-center">
             <div class="flex items-center gap-3">
-                <div class="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm border-2 border-blue-600">
-                    <span class="text-blue-600 font-black text-xl leading-none">฿</span>
+                <div onclick="document.getElementById('avatarInput').click()" title="Click to change profile picture"
+                    style="width:65px;height:65px;border-radius:50%;border:2px solid #2563eb;overflow:hidden;cursor:pointer;flex-shrink:0;background:#eff6ff;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(37,99,235,0.15);">
+                    <img id="avatarImg" src="" alt="avatar" style="width:100%;height:100%;object-fit:cover;display:none;">
+                    <svg id="avatarPlaceholder" xmlns="http://www.w3.org/2000/svg" style="width:36px;height:36px;color:#93c5fd;" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
+                    </svg>
                 </div>
+                <input type="file" id="avatarInput" accept="image/*" style="display:none;" onchange="handleAvatar(event)">
                 <div>
                     <div class="text-blue-600 font-black text-lg tracking-tighter leading-none uppercase">PS SMART FINANCE</div>
                     <div class="flex items-center gap-1.5 mt-1">
@@ -659,7 +664,26 @@
             reader.readAsText(file);
         }
 
+        function handleAvatar(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                document.getElementById('avatarImg').src = ev.target.result;
+                document.getElementById('avatarImg').style.display = 'block';
+                document.getElementById('avatarPlaceholder').style.display = 'none';
+                localStorage.setItem('ps_avatar', ev.target.result);
+            };
+            reader.readAsDataURL(file);
+        }
+
         window.onload = () => {
+            const savedAvatar = localStorage.getItem('ps_avatar');
+            if (savedAvatar) {
+                document.getElementById('avatarImg').src = savedAvatar;
+                document.getElementById('avatarImg').style.display = 'block';
+                document.getElementById('avatarPlaceholder').style.display = 'none';
+            }
             document.getElementById('monthInput').value = curMonth;
             loadMonth(curMonth);
         };
