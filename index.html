@@ -1335,7 +1335,7 @@
                 ? `<span class="text-[8px] font-black px-1.5 py-0.5 rounded bg-purple-50 text-purple-500 ml-1">ETF</span>`
                 : '';
             const logoHtml = logo
-                ? `<img src="${logo}" class="w-6 h-6 rounded-full object-contain bg-white border border-gray-100 flex-shrink-0" onerror="this.style.display='none'">`
+                ? `<img src="${logo}" loading="eager" decoding="sync" class="w-6 h-6 rounded-full object-contain bg-white border border-gray-100 flex-shrink-0" onerror="this.style.display='none'">`
                 : `<div class="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0"><span class="text-[8px] font-black text-gray-300">${symbol[0]}</span></div>`;
             const fmt = (v) => v !== null ? v.toFixed(2) : '—';
 
@@ -1469,12 +1469,13 @@
             // Fetch all in parallel
             await Promise.all(watchlist.map(async (symbol) => {
                 try {
-                    if (isNewRow(symbol)) {
-                        // First time: fetch quote + profile together, preload logo
+                    const hasCache = !!wlDataCache[symbol];
+                    if (!hasCache) {
+                        // First time only: fetch full profile + quote, render complete row
                         const data = await fetchQuoteWithPreload(symbol);
                         renderWatchlistRow(symbol, data);
                     } else {
-                        // Already loaded: only refresh price
+                        // Already rendered: only fetch price, update cells in-place (logo stays untouched)
                         const quoteRes = await fetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${key}`);
                         const quote = quoteRes.ok ? await quoteRes.json() : {};
                         updateWatchlistPriceCells(symbol, { ...wlDataCache[symbol], ...quote });
@@ -1572,39 +1573,58 @@
         }
 
         async function fetchChartData(symbol, range) {
-            const key = getFinnhubKey();
             const loading = document.getElementById('qc-loading');
+            const loadingMsg = loading.querySelector('div');
             loading.classList.remove('hidden');
+            loadingMsg.innerText = 'Loading chart...';
             if (qcChart) { qcChart.destroy(); qcChart = null; }
 
-            const now = Math.floor(Date.now() / 1000);
-            let from, resolution;
-            if (range === 'D')       { from = now - 7 * 86400;   resolution = 'D'; }
-            else if (range === 'W')  { from = now - 30 * 86400;  resolution = 'D'; }
-            else if (range === 'M')  { from = now - 90 * 86400;  resolution = 'D'; }
-            else                     { from = now - 365 * 86400; resolution = 'W'; }
+            // Yahoo Finance API - free, no key needed
+            let interval, period;
+            if      (range === 'D')  { interval = '1d';  period = '1wk'; }
+            else if (range === 'W')  { interval = '1d';  period = '1mo'; }
+            else if (range === 'M')  { interval = '1d';  period = '3mo'; }
+            else                     { interval = '1wk'; period = '1y';  }
 
             try {
-                const res = await fetch(`https://finnhub.io/api/v1/stock/candle?symbol=${symbol}&resolution=${resolution}&from=${from}&to=${now}&token=${key}`);
-                const data = await res.json();
-                loading.classList.add('hidden');
+                const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=${interval}&range=${period}`;
+                const res = await fetch(url);
+                const json = await res.json();
+                const result = json?.chart?.result?.[0];
 
-                if (!data.c || data.s !== 'ok') {
+                if (!result?.timestamp || !result?.indicators?.quote?.[0]?.close) {
                     loading.classList.remove('hidden');
-                    loading.querySelector('div').innerText = 'No data available';
+                    loadingMsg.innerText = 'No data available';
                     return;
                 }
 
-                const labels = data.t.map(t => {
-                    const d = new Date(t * 1000);
+                const timestamps = result.timestamp;
+                const closes = result.indicators.quote[0].close;
+
+                // Filter out null values
+                const points = timestamps
+                    .map((t, i) => ({ t, c: closes[i] }))
+                    .filter(p => p.c !== null);
+
+                if (points.length === 0) {
+                    loading.classList.remove('hidden');
+                    loadingMsg.innerText = 'No data available';
+                    return;
+                }
+
+                loading.classList.add('hidden');
+
+                const labels = points.map(p => {
+                    const d = new Date(p.t * 1000);
                     return range === 'D'
-                        ? d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
+                        ? d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+                        : range === 'W'
+                        ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
                         : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                 });
 
-                const prices = data.c;
-                const startPrice = prices[0];
-                const isUp = prices[prices.length - 1] >= startPrice;
+                const prices = points.map(p => p.c);
+                const isUp = prices[prices.length - 1] >= prices[0];
                 const lineColor = isUp ? '#059669' : '#e11d48';
                 const fillColor = isUp ? 'rgba(5,150,105,0.08)' : 'rgba(225,29,72,0.08)';
 
@@ -1647,7 +1667,7 @@
                 });
             } catch(e) {
                 loading.classList.remove('hidden');
-                loading.querySelector('div').innerText = 'Failed to load chart';
+                loadingMsg.innerText = 'Failed to load chart';
             }
         }
 
