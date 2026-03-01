@@ -6,6 +6,12 @@
     <title>PS Smart Finance - Secured</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // Apply dark mode before paint to prevent flash
+        if (localStorage.getItem('ps_dark') === '1') {
+            document.documentElement.classList.add('dark');
+        }
+    </script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&display=swap');
         @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&display=swap');
@@ -25,6 +31,161 @@
             --text-primary: #0f2030;
             --text-secondary: #64748b;
             --text-dim: #94a3b8;
+        }
+
+        html.dark {
+            --bg-dark: #0f172a;
+            --bg-card: #1e293b;
+            --bg-card2: #162032;
+            --border: #334155;
+            --accent: #14b8a6;
+            --accent2: #0d9488;
+            --danger: #f43f5e;
+            --warning: #f59e0b;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-dim: #475569;
+        }
+
+        html.dark body {
+            background-color: #0b1120;
+            color: #e2e8f0;
+        }
+
+        /* NAV */
+        html.dark nav {
+            background: rgba(15,23,42,0.95) !important;
+            border-color: #1e293b !important;
+        }
+        html.dark nav .bg-white\/90 { background: rgba(15,23,42,0.95) !important; }
+
+        /* GLASS CARDS */
+        html.dark .glass-card {
+            background: #1e293b !important;
+            border-color: #334155 !important;
+        }
+
+        /* TAB BUTTONS */
+        html.dark .bg-gray-100 { background-color: #1e293b !important; }
+        html.dark .tab-active {
+            background: #0f172a !important;
+            color: #38bdf8 !important;
+        }
+
+        /* DASHBOARD */
+        html.dark #tab-dashboard {
+            background: #111827 !important;
+            border-color: #1e293b !important;
+        }
+        html.dark .dash-card {
+            background: #1e293b !important;
+            border-color: #334155 !important;
+        }
+        html.dark .dash-chart-card {
+            background: #1e293b !important;
+            border-color: #334155 !important;
+        }
+        html.dark .dash-select {
+            background: #0f172a !important;
+            border-color: #334155 !important;
+            color: #14b8a6 !important;
+        }
+        html.dark .dash-label { color: var(--text-secondary) !important; }
+        html.dark .dash-value { color: var(--text-primary) !important; }
+        html.dark .dash-section-title { color: var(--text-secondary) !important; }
+        html.dark .dash-divider { border-color: #334155 !important; }
+
+        /* RECORDS */
+        html.dark .bg-white {
+            background-color: #1e293b !important;
+        }
+        html.dark .bg-gray-50 {
+            background-color: #162032 !important;
+        }
+        html.dark .border-gray-100 { border-color: #334155 !important; }
+        html.dark .border-gray-200 { border-color: #334155 !important; }
+        html.dark .text-gray-900 { color: #f1f5f9 !important; }
+        html.dark .text-gray-700 { color: #cbd5e1 !important; }
+        html.dark .text-gray-600 { color: #94a3b8 !important; }
+        html.dark .text-gray-500 { color: #64748b !important; }
+        html.dark .text-gray-400 { color: #475569 !important; }
+        html.dark .text-gray-300 { color: #334155 !important; }
+
+        /* INPUTS */
+        html.dark input[type="text"],
+        html.dark input[type="number"],
+        html.dark input[type="month"],
+        html.dark input[type="password"],
+        html.dark select {
+            background-color: #0f172a !important;
+            border-color: #334155 !important;
+            color: #f1f5f9 !important;
+        }
+        html.dark input::placeholder { color: #475569 !important; }
+
+        /* WATCHLIST TABLE */
+        html.dark table thead tr {
+            background-color: #162032 !important;
+        }
+        html.dark .hover\:bg-gray-50:hover {
+            background-color: #1e293b !important;
+        }
+        html.dark .border-gray-50 { border-color: #1e293b !important; }
+
+        /* QUICK CHART */
+        html.dark #quick-chart-panel {
+            background: #1e293b !important;
+        }
+        html.dark .bg-gray-100.p-0\.5 {
+            background-color: #0f172a !important;
+        }
+
+        /* MODALS */
+        html.dark .bg-white.rounded-\[2rem\] {
+            background-color: #1e293b !important;
+        }
+
+        /* BADGES */
+        html.dark .bg-blue-50 { background-color: rgba(59,130,246,0.15) !important; }
+        html.dark .bg-rose-50 { background-color: rgba(244,63,94,0.15) !important; }
+        html.dark .bg-emerald-50 { background-color: rgba(16,185,129,0.12) !important; }
+        html.dark .bg-purple-50 { background-color: rgba(168,85,247,0.15) !important; }
+        html.dark .bg-teal-50 { background-color: rgba(20,184,166,0.12) !important; }
+        html.dark .bg-gray-900 { background-color: #0f172a !important; }
+        html.dark .row-paid { background-color: rgba(16,185,129,0.08) !important; }
+
+        /* SCROLLBAR */
+        html.dark ::-webkit-scrollbar { width: 6px; height: 6px; }
+        html.dark ::-webkit-scrollbar-track { background: #0f172a; }
+        html.dark ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+
+        /* DARK TOGGLE BUTTON */
+        .dark-toggle {
+            width: 40px; height: 22px;
+            background: #e2e8f0;
+            border-radius: 11px;
+            position: relative;
+            cursor: pointer;
+            transition: background 0.3s;
+            border: none;
+            outline: none;
+            flex-shrink: 0;
+        }
+        .dark-toggle::after {
+            content: '';
+            position: absolute;
+            width: 16px; height: 16px;
+            background: white;
+            border-radius: 50%;
+            top: 3px; left: 3px;
+            transition: transform 0.3s;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+        html.dark .dark-toggle {
+            background: #0d9488;
+        }
+        html.dark .dark-toggle::after {
+            transform: translateX(18px);
         }
 
         body { 
@@ -279,7 +440,7 @@
                         Export
                     </button>
                 </div>
-                <div class="flex gap-1.5">
+                <div class="flex gap-1.5 items-center">
                     <button onclick="syncFromGist()" title="Sync ข้อมูลจาก Gist" class="bg-gray-100 hover:bg-gray-200 text-gray-600 px-4 py-2 rounded-xl text-xs font-bold transition-all uppercase tracking-widest flex items-center gap-1.5">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
                         Sync
@@ -288,6 +449,12 @@
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
                         Upload
                     </button>
+                    <!-- Dark Mode Toggle -->
+                    <div class="flex items-center gap-2 ml-1" title="Dark Mode">
+                        <svg id="icon-sun" class="w-3.5 h-3.5 text-amber-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm0 16a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zm8-8a1 1 0 110 2h-1a1 1 0 110-2h1zM4 12a1 1 0 110 2H3a1 1 0 110-2h1zm13.66-5.66a1 1 0 010 1.41l-.71.71a1 1 0 11-1.41-1.41l.71-.71a1 1 0 011.41 0zM7.05 16.95a1 1 0 010 1.41l-.71.71a1 1 0 01-1.41-1.41l.71-.71a1 1 0 011.41 0zM17.66 16.95a1 1 0 00-1.41 0l-.71.71a1 1 0 001.41 1.41l.71-.71a1 1 0 000-1.41zM7.05 7.05a1 1 0 00-1.41 0l-.71.71a1 1 0 001.41 1.41l.71-.71a1 1 0 000-1.41zM12 7a5 5 0 100 10A5 5 0 0012 7z"/></svg>
+                        <button id="dark-toggle-btn" onclick="toggleDarkMode()" class="dark-toggle"></button>
+                        <svg id="icon-moon" class="w-3.5 h-3.5 text-slate-400" fill="currentColor" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1667,7 +1834,57 @@
             }
         }
 
+        // --- Dark Mode ---
+        function toggleDarkMode() {
+            const isDark = document.documentElement.classList.toggle('dark');
+            localStorage.setItem('ps_dark', isDark ? '1' : '0');
+            updateChartThemes(isDark);
+        }
+
+        function applyDarkMode(isDark) {
+            if (isDark) document.documentElement.classList.add('dark');
+            else document.documentElement.classList.remove('dark');
+        }
+
+        function updateChartThemes(isDark) {
+            const gridColor = isDark ? '#1e293b' : '#f3f4f6';
+            const tickColor = isDark ? '#475569' : '#9ca3af';
+            const tooltipBg = isDark ? '#1e293b' : '#fff';
+            const tooltipBorder = isDark ? '#334155' : '#e5e7eb';
+            const tooltipTitle = isDark ? '#94a3b8' : '#6b7280';
+            const tooltipBody = isDark ? '#f1f5f9' : '#111827';
+            [compareChart, distChart].forEach(chart => {
+                if (!chart) return;
+                if (chart.options.scales) {
+                    Object.values(chart.options.scales).forEach(scale => {
+                        if (scale.grid) scale.grid.color = gridColor;
+                        if (scale.ticks) scale.ticks.color = tickColor;
+                    });
+                }
+                if (chart.options.plugins?.tooltip) {
+                    chart.options.plugins.tooltip.backgroundColor = tooltipBg;
+                    chart.options.plugins.tooltip.borderColor = tooltipBorder;
+                    chart.options.plugins.tooltip.titleColor = tooltipTitle;
+                    chart.options.plugins.tooltip.bodyColor = tooltipBody;
+                }
+                chart.update('none');
+            });
+            if (qcChart) {
+                if (qcChart.options.scales) {
+                    Object.values(qcChart.options.scales).forEach(scale => {
+                        if (scale.grid) scale.grid.color = gridColor;
+                        if (scale.ticks) scale.ticks.color = tickColor;
+                    });
+                }
+                qcChart.update('none');
+            }
+        }
+
         window.onload = () => {
+            // Apply dark mode immediately before render
+            const savedDark = localStorage.getItem('ps_dark');
+            applyDarkMode(savedDark === '1');
+
             try {
                 const saved = localStorage.getItem('ps_records');
                 if (saved) records = JSON.parse(saved);
