@@ -933,9 +933,11 @@
 
             </div><!-- /wl-split-wrap -->
 
-            <!-- ── Market News ──────────────────────────────── -->
-            <div class="glass-card overflow-hidden" style="margin-top:8px">
-                <!-- Header -->
+            <!-- ── Bottom Section: 2-column ────────────────── -->
+            <div class="grid grid-cols-2 gap-4" style="margin-top:8px">
+
+            <!-- Market News (left) -->
+            <div class="glass-card overflow-hidden">
                 <div class="flex items-center justify-between px-5 py-3 border-b" style="border-color:var(--border);background:var(--bg-card2)">
                     <div class="flex items-center gap-3">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:var(--text-dim)"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/></svg>
@@ -944,13 +946,12 @@
                     </div>
                     <div class="flex items-center gap-2">
                         <span id="market-news-status" class="text-[9px]" style="color:var(--text-dim)"></span>
-                        <button onclick="loadMarketNews()" class="flex items-center gap-1 px-3 py-1.5 rounded-xl text-[10px] font-bold transition-all uppercase tracking-widest" style="background:var(--bg-card2);color:var(--text-secondary)">
+                        <button onclick="loadMarketNews()" class="flex items-center gap-1 px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-widest" style="background:var(--bg-card2);color:var(--text-secondary)">
                             <svg id="market-news-icon" class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
                             Refresh
                         </button>
                     </div>
                 </div>
-                <!-- News List — same compact row style as stock news -->
                 <div id="market-news-grid">
                     <div class="flex items-center justify-center py-8 gap-2" style="color:var(--text-dim)">
                         <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
@@ -959,35 +960,52 @@
                 </div>
             </div>
 
+            <!-- Right panel placeholder -->
+            <div class="glass-card flex flex-col items-center justify-center gap-3 py-16" style="border:2px dashed var(--border)">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:var(--text-dim)"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                <p class="text-xs font-bold uppercase tracking-widest" style="color:var(--text-dim)">Coming Soon</p>
+                <p class="text-[10px]" style="color:var(--text-dim)">เครื่องมือใหม่</p>
+            </div>
+
+            </div><!-- /bottom grid -->
+
         </div>
 
     </main>
 
     <!-- ── News Reader Modal ─────────────────────────────── -->
-    <div id="news-modal" class="fixed inset-0 z-50 hidden" style="background:rgba(0,0,0,0.6);backdrop-filter:blur(4px)" onclick="if(event.target===this)closeNewsModal()">
-        <div class="absolute right-0 top-0 bottom-0 w-full max-w-xl flex flex-col shadow-2xl" style="background:var(--bg-card)">
-            <!-- Modal Header -->
-            <div class="flex items-start justify-between p-5 border-b flex-shrink-0" style="border-color:var(--border)">
-                <div class="flex-1 pr-4">
-                    <div class="flex items-center gap-2 mb-1">
+    <div id="news-modal" class="fixed inset-0 z-50 hidden" onclick="if(event.target===this)closeNewsModal()">
+        <div id="nm-pane" class="absolute right-0 top-0 bottom-0 w-full max-w-lg flex flex-col shadow-2xl" style="background:var(--bg-card);transform:translateX(100%)">
+            <!-- Header -->
+            <div class="flex items-start justify-between p-4 border-b flex-shrink-0" style="border-color:var(--border)">
+                <div class="flex-1 pr-3">
+                    <div class="flex items-center gap-2 mb-1.5">
                         <span id="nm-source" class="text-[9px] font-black uppercase tracking-widest text-teal-500"></span>
+                        <span class="text-[9px]" style="color:var(--border)">·</span>
                         <span id="nm-time" class="text-[9px]" style="color:var(--text-dim)"></span>
                     </div>
                     <h2 id="nm-headline" class="text-sm font-black leading-snug" style="color:var(--text-primary)"></h2>
                 </div>
-                <button onclick="closeNewsModal()" class="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full transition-colors" style="background:var(--bg-card2);color:var(--text-dim)">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                <button onclick="closeNewsModal()" class="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full transition-colors mt-0.5" style="background:var(--bg-card2);color:var(--text-dim)">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
             </div>
-            <!-- Modal Image -->
+            <!-- Image -->
             <div id="nm-img-wrap" class="flex-shrink-0 hidden">
-                <img id="nm-img" src="" alt="" class="w-full object-cover" style="max-height:200px" onerror="document.getElementById('nm-img-wrap').classList.add('hidden')">
+                <img id="nm-img" src="" alt="" class="w-full object-cover" style="max-height:180px" onerror="document.getElementById('nm-img-wrap').classList.add('hidden')">
             </div>
-            <!-- Modal Summary -->
-            <div class="flex-1 overflow-y-auto p-5">
+            <!-- Body -->
+            <div class="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
+                <!-- Summary -->
                 <p id="nm-summary" class="text-sm leading-relaxed" style="color:var(--text-secondary)"></p>
+                <!-- Related Symbols -->
+                <div>
+                    <p class="text-[9px] font-black uppercase tracking-widest mb-2" style="color:var(--text-dim)">Related Stocks</p>
+                    <div id="nm-related" class="flex flex-wrap gap-1.5"></div>
+                </div>
+                <!-- Read More -->
                 <a id="nm-link" href="#" target="_blank" rel="noopener"
-                   class="inline-flex items-center gap-2 mt-5 px-4 py-2.5 rounded-xl text-xs font-bold transition-all"
+                   class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold self-start"
                    style="background:rgba(20,184,166,0.12);color:#14b8a6">
                     <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M10 6v2H5v11h11v-5h2v7H3V6h7zm11-3v8l-3-3-7 7-1.5-1.5 7-7-3-3h8z"/></svg>
                     Read full article
@@ -2122,65 +2140,95 @@
         }
 
         let newsAbortController = null;
-        // ── News Modal ───────────────────────────────────────
-        function openNewsModal(url, headline, source, summary, img, datetime) {
-            document.getElementById('nm-headline').textContent = headline || '';
-            document.getElementById('nm-source').textContent = (source || '').toUpperCase();
-            document.getElementById('nm-summary').textContent = summary || 'No summary available.';
-            document.getElementById('nm-link').href = url || '#';
-            // Time
-            const d = datetime ? new Date(datetime * 1000) : null;
-            const now = new Date();
-            const diffM = d ? Math.floor((now - d) / 60000) : null;
-            document.getElementById('nm-time').textContent = diffM === null ? '' :
-                diffM < 60 ? `${diffM}m ago` :
-                diffM < 1440 ? `${Math.floor(diffM/60)}h ago` :
-                d.toLocaleDateString('en-US', {month:'short', day:'numeric'});
-            // Image
-            const imgWrap = document.getElementById('nm-img-wrap');
-            const imgEl = document.getElementById('nm-img');
-            if (img) { imgEl.src = img; imgWrap.classList.remove('hidden'); }
-            else { imgWrap.classList.add('hidden'); }
-            document.getElementById('news-modal').classList.remove('hidden');
-            document.body.style.overflow = 'hidden';
-        }
-        function closeNewsModal() {
-            document.getElementById('news-modal').classList.add('hidden');
-            document.body.style.overflow = '';
-        }
-        document.addEventListener('keydown', e => { if (e.key === 'Escape') closeNewsModal(); });
+        // ── News Store (avoids inline string escaping) ────────
+        const _newsStore = [];
+        function clearNewsStore() { _newsStore.length = 0; }
 
-        // Shared compact news row renderer
         function renderNewsRow(a) {
+            const idx = _newsStore.push(a) - 1;
             const date = new Date(a.datetime * 1000);
-            const now = new Date();
-            const diffM = Math.floor((now - date) / 60000);
+            const diffM = Math.floor((new Date() - date) / 60000);
             const timeStr = diffM < 60 ? `${diffM}m ago` : diffM < 1440 ? `${Math.floor(diffM/60)}h ago` : date.toLocaleDateString('en-US', {month:'short', day:'numeric'});
             const source = (a.source || '').toUpperCase();
-            const headline = (a.headline || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-            const summary = (a.summary || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
             const img = a.image || '';
-            const escapedImg = img.replace(/"/g, '&quot;');
-            const url = (a.url || '').replace(/"/g, '&quot;');
-            return `<button onclick="openNewsModal('${url}','${headline}','${source}','${summary}','${escapedImg}',${a.datetime||0})"
+            const symbols = (a.related || '').split(',').map(s => s.trim()).filter(Boolean).slice(0, 4);
+            const badges = symbols.map(s =>
+                `<span class="text-[8px] font-black px-1.5 py-0.5 rounded" style="background:rgba(20,184,166,0.12);color:#14b8a6">${s}</span>`
+            ).join('');
+            return `<button data-news-idx="${idx}" onclick="openNewsModal(${idx})"
                 class="w-full text-left flex items-start gap-3 px-4 py-2.5 transition-colors group/news"
                 style="border-bottom:1px solid var(--border);background:transparent"
                 onmouseover="this.style.background='var(--bg-card2)'" onmouseout="this.style.background='transparent'">
                 ${img
-                    ? `<img src="${escapedImg}" alt="" class="w-16 h-11 object-cover rounded-lg flex-shrink-0 mt-0.5" onerror="this.style.display='none'">`
-                    : `<div class="w-16 h-11 rounded-lg flex-shrink-0 flex items-center justify-center flex-shrink-0" style="background:var(--bg-card2)">
+                    ? `<img src="${img}" alt="" class="w-16 h-11 object-cover rounded-lg flex-shrink-0 mt-0.5" onerror="this.style.display='none'">`
+                    : `<div class="w-16 h-11 rounded-lg flex-shrink-0 flex items-center justify-center" style="background:var(--bg-card2)">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:var(--text-dim)"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/></svg>
                        </div>`}
                 <div class="flex-1 min-w-0">
                     <p class="text-[11px] font-bold leading-snug group-hover/news:text-teal-400 transition-colors line-clamp-2" style="color:var(--text-primary)">${a.headline || ''}</p>
-                    <div class="flex items-center gap-1.5 mt-1">
+                    <div class="flex items-center gap-1.5 mt-1 flex-wrap">
                         <span class="text-[9px] font-black text-teal-500 uppercase tracking-wider">${source}</span>
                         <span style="color:var(--border)">·</span>
                         <span class="text-[9px]" style="color:var(--text-dim)">${timeStr}</span>
+                        ${badges ? `<span style="color:var(--border)">·</span>${badges}` : ''}
                     </div>
                 </div>
             </button>`;
         }
+
+        // ── News Modal ────────────────────────────────────────
+        function openNewsModal(idx) {
+            const a = _newsStore[idx];
+            if (!a) return;
+            document.getElementById('nm-headline').textContent = a.headline || '';
+            document.getElementById('nm-source').textContent = (a.source || '').toUpperCase();
+            document.getElementById('nm-summary').textContent = a.summary || 'No summary available for this article.';
+            document.getElementById('nm-link').href = a.url || '#';
+            // Time
+            const d = a.datetime ? new Date(a.datetime * 1000) : null;
+            const diffM = d ? Math.floor((new Date() - d) / 60000) : null;
+            document.getElementById('nm-time').textContent = !d ? '' :
+                diffM < 60 ? `${diffM}m ago` : diffM < 1440 ? `${Math.floor(diffM/60)}h ago` :
+                d.toLocaleDateString('en-US', {month:'long', day:'numeric', year:'numeric'});
+            // Image
+            const imgWrap = document.getElementById('nm-img-wrap');
+            const imgEl = document.getElementById('nm-img');
+            if (a.image) { imgEl.src = a.image; imgWrap.classList.remove('hidden'); }
+            else { imgWrap.classList.add('hidden'); }
+            // Related symbols — clickable, jump to chart
+            const relatedEl = document.getElementById('nm-related');
+            const symbols = (a.related || '').split(',').map(s => s.trim()).filter(Boolean).slice(0, 8);
+            relatedEl.innerHTML = symbols.length
+                ? symbols.map(s =>
+                    `<button onclick="closeNewsModal();if(watchlist.includes('${s}'))openQuickChart('${s}')"
+                     class="text-[9px] font-black px-2 py-1 rounded-lg transition-colors"
+                     style="background:rgba(20,184,166,0.12);color:#14b8a6"
+                     onmouseover="this.style.background='rgba(20,184,166,0.25)'" onmouseout="this.style.background='rgba(20,184,166,0.12)'">${s}</button>`
+                ).join('')
+                : '<span class="text-[9px]" style="color:var(--text-dim)">—</span>';
+            // Show with slide-in
+            const modal = document.getElementById('news-modal');
+            const pane  = document.getElementById('nm-pane');
+            modal.classList.remove('hidden');
+            pane.style.transition = 'none';
+            pane.style.transform = 'translateX(100%)';
+            requestAnimationFrame(() => {
+                pane.style.transition = 'transform 0.28s cubic-bezier(0.4,0,0.2,1)';
+                pane.style.transform = 'translateX(0)';
+            });
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeNewsModal() {
+            const pane = document.getElementById('nm-pane');
+            pane.style.transition = 'transform 0.25s cubic-bezier(0.4,0,0.2,1)';
+            pane.style.transform = 'translateX(100%)';
+            setTimeout(() => {
+                document.getElementById('news-modal').classList.add('hidden');
+                document.body.style.overflow = '';
+            }, 250);
+        }
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') closeNewsModal(); });
 
         async function loadMarketNews() {
             const grid = document.getElementById('market-news-grid');
@@ -2193,8 +2241,8 @@
                 return;
             }
             icon.style.animation = 'spin 1s linear infinite';
+            clearNewsStore();
             try {
-                const res = await fetch(`https://finnhub.io/api/v1/news?category=general&token=${key}`);
                 if (!res.ok) throw new Error();
                 const articles = await res.json();
                 const items = (articles || []).slice(0, 20);
