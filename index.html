@@ -181,6 +181,10 @@
             gap: 16px;
             align-items: flex-start;
         }
+        /* When chart open: make split wrap tall enough so market news isn't hidden behind sticky chart */
+        #wl-split-wrap.chart-open {
+            min-height: calc(100vh - 125px);
+        }
         #wl-table-panel {
             flex: 1 1 auto;
             min-width: 0;
@@ -2188,7 +2192,7 @@
                 const items = articles.slice(0, 20);
                 statusEl.textContent = `${items.length} stories`;
 
-                listEl.innerHTML = items.map((a, i) => {
+                listEl.innerHTML = items.map((a) => {
                     const date = new Date(a.datetime * 1000);
                     const now = new Date();
                     const diffMs = now - date;
@@ -2198,27 +2202,15 @@
                     const source = (a.source || '').toUpperCase();
                     const headline = a.headline || '';
                     const img = a.image || '';
-                    const isFirst = i === 0;
-                    if (isFirst && img) {
-                        // Featured top story with image
-                        return `<a href="${a.url}" target="_blank" rel="noopener" class="block group/news" style="text-decoration:none">
-                            <div class="relative overflow-hidden" style="height:140px">
-                                <img src="${img}" alt="" class="w-full h-full object-cover" onerror="this.parentElement.style.display='none'">
-                                <div class="absolute inset-0" style="background:linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.2) 60%, transparent 100%)"></div>
-                                <div class="absolute bottom-0 left-0 right-0 p-3">
-                                    <span class="text-[9px] font-black text-teal-400 uppercase tracking-widest">${source}</span>
-                                    <p class="text-xs font-bold text-white leading-snug mt-0.5 group-hover/news:text-teal-300 transition-colors">${headline}</p>
-                                    <span class="text-[9px] text-white/50 mt-0.5 block">${timeStr}</span>
-                                </div>
-                            </div>
-                        </a>`;
-                    }
-                    // Compact row
                     return `<a href="${a.url}" target="_blank" rel="noopener"
                         class="flex items-start gap-3 px-4 py-2.5 group/news transition-colors"
                         style="border-bottom:1px solid var(--border);text-decoration:none;background:transparent"
                         onmouseover="this.style.background='var(--bg-card2)'" onmouseout="this.style.background='transparent'">
-                        ${img ? `<img src="${img}" alt="" class="w-14 h-10 object-cover rounded-lg flex-shrink-0 mt-0.5" onerror="this.style.display='none'">` : `<div class="w-14 h-10 rounded-lg flex-shrink-0 flex items-center justify-center" style="background:var(--bg-card2)"><svg class='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24' style='color:var(--text-dim)'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z'/></svg></div>`}
+                        ${img
+                            ? `<img src="${img}" alt="" class="w-16 h-11 object-cover rounded-lg flex-shrink-0 mt-0.5" onerror="this.style.display='none'">`
+                            : `<div class="w-16 h-11 rounded-lg flex-shrink-0 flex items-center justify-center" style="background:var(--bg-card2)">
+                                <svg class='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24' style='color:var(--text-dim)'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z'/></svg>
+                               </div>`}
                         <div class="flex-1 min-w-0">
                             <p class="text-[11px] font-bold leading-snug group-hover/news:text-teal-400 transition-colors line-clamp-2" style="color:var(--text-primary)">${headline}</p>
                             <div class="flex items-center gap-1.5 mt-1">
