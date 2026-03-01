@@ -98,7 +98,28 @@
 </head>
 <body class="min-h-screen pb-20">
 
-    <!-- Confirmation Modal -->
+    <!-- Gist Token Modal -->
+    <div id="gist-modal" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4">
+        <div style="background-color:rgba(15,23,42,0.6);backdrop-filter:blur(4px)" class="fixed inset-0"></div>
+        <div class="bg-white rounded-[2rem] max-w-sm w-full p-8 shadow-2xl animate-in relative z-10">
+            <div class="w-16 h-16 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center mx-auto mb-6">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
+            </div>
+            <h3 class="text-xl font-black text-gray-900 text-center mb-1">เชื่อมต่อ GitHub Gist</h3>
+            <p class="text-gray-400 text-center text-xs mb-6 leading-relaxed">ใส่ GitHub Token เพื่อ sync ข้อมูลข้ามอุปกรณ์<br>Token จะเก็บใน browser ของคุณเท่านั้น</p>
+            <div class="space-y-3">
+                <div>
+                    <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">GitHub Token</label>
+                    <input type="password" id="gist-token-input" placeholder="ghp_xxxxxxxxxxxx" class="w-full mt-1 px-4 py-3 border border-gray-200 rounded-xl text-sm font-medium outline-none focus:border-blue-400 transition-all">
+                </div>
+            </div>
+            <div class="flex flex-col gap-2 mt-6">
+                <button onclick="saveGistToken()" class="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold transition-all active:scale-95 uppercase text-xs tracking-widest">บันทึกและเชื่อมต่อ</button>
+                <button onclick="document.getElementById('gist-modal').classList.add('hidden')" class="w-full py-4 bg-gray-100 hover:bg-gray-200 text-gray-500 rounded-2xl font-bold transition-all uppercase text-xs tracking-widest">ยกเลิก</button>
+            </div>
+        </div>
+    </div>
+
     <div id="confirm-modal" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4">
         <div class="bg-white rounded-[2rem] max-w-sm w-full p-8 shadow-2xl animate-in">
             <div class="w-16 h-16 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -231,7 +252,16 @@
                         </div>
                     </div>
                 </div>
-                <button onclick="exportJSON()" class="bg-gray-900 text-white px-6 py-2.5 rounded-xl text-xs font-bold hover:bg-black transition-all uppercase tracking-widest">Save File</button>
+                <div class="flex gap-2">
+                    <button onclick="syncFromGist()" title="โหลดข้อมูลจาก Gist" class="bg-gray-100 hover:bg-gray-200 text-gray-600 px-4 py-2.5 rounded-xl text-xs font-bold transition-all uppercase tracking-widest flex items-center gap-1.5">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                        Pull
+                    </button>
+                    <button onclick="syncToGist()" title="บันทึกข้อมูลขึ้น Gist" class="bg-gray-900 text-white px-4 py-2.5 rounded-xl text-xs font-bold hover:bg-black transition-all uppercase tracking-widest flex items-center gap-1.5">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                        Push
+                    </button>
+                </div>
             </div>
 
             <!-- FINANCIAL BAR -->
@@ -733,6 +763,74 @@
             reader.readAsDataURL(file);
         }
 
+        // --- GitHub Gist Sync ---
+        const GIST_ID = '5f913baf7d6636bf42da5e5d07a1570c';
+        const GIST_FILENAME = 'PS-Smart-Finance.json';
+
+        function getGistToken() { return localStorage.getItem('ps_gist_token') || ''; }
+
+        function saveGistToken() {
+            const token = document.getElementById('gist-token-input').value.trim();
+            if (!token) return;
+            localStorage.setItem('ps_gist_token', token);
+            document.getElementById('gist-modal').classList.add('hidden');
+            syncFromGist();
+        }
+
+        function showGistStatus(msg, color = 'text-gray-400') {
+            const el = document.getElementById('db-name-display');
+            const prev = el.innerText;
+            el.className = `text-[10px] font-bold uppercase tracking-widest leading-none truncate max-w-[150px] ${color}`;
+            el.innerText = msg;
+            setTimeout(() => {
+                el.className = 'text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none truncate max-w-[150px]';
+                el.innerText = prev;
+            }, 2500);
+        }
+
+        async function syncToGist() {
+            const token = getGistToken();
+            if (!token) { document.getElementById('gist-modal').classList.remove('hidden'); return; }
+            showGistStatus('PUSHING...', 'text-blue-500');
+            try {
+                const exportData = { meta: { avatar: db.avatar }, records: records };
+                const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+                    method: 'PATCH',
+                    headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ files: { [GIST_FILENAME]: { content: JSON.stringify(exportData, null, 2) } } })
+                });
+                if (res.ok) showGistStatus('PUSHED ✓', 'text-emerald-500');
+                else showGistStatus('PUSH FAILED ✗', 'text-rose-500');
+            } catch(e) { showGistStatus('ERROR ✗', 'text-rose-500'); }
+        }
+
+        async function syncFromGist() {
+            const token = getGistToken();
+            if (!token) { document.getElementById('gist-modal').classList.remove('hidden'); return; }
+            showGistStatus('PULLING...', 'text-blue-500');
+            try {
+                const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+                    headers: { 'Authorization': `token ${token}` }
+                });
+                if (!res.ok) { showGistStatus('PULL FAILED ✗', 'text-rose-500'); return; }
+                const gist = await res.json();
+                const content = gist.files[GIST_FILENAME]?.content;
+                if (!content) { showGistStatus('NO DATA', 'text-gray-400'); return; }
+                const data = JSON.parse(content);
+                if (Array.isArray(data)) {
+                    records = data;
+                } else if (data.records) {
+                    records = data.records;
+                    if (data.meta?.avatar) { db.avatar = data.meta.avatar; setAvatarImage(db.avatar); }
+                }
+                try { localStorage.setItem('ps_records', JSON.stringify(records)); } catch(e) {}
+                document.getElementById('db-name-display').innerText = GIST_FILENAME;
+                try { localStorage.setItem('ps_dbname', GIST_FILENAME); } catch(e) {}
+                loadMonth(curMonth);
+                showGistStatus('PULLED ✓', 'text-emerald-500');
+            } catch(e) { showGistStatus('ERROR ✗', 'text-rose-500'); }
+        }
+
         window.onload = () => {
             try {
                 const saved = localStorage.getItem('ps_records');
@@ -748,6 +846,8 @@
             const savedTab = localStorage.getItem('ps_tab') || 'dashboard';
             showTab(savedTab, false);
             loadMonth(curMonth);
+            // Auto pull from Gist if token exists
+            if (getGistToken()) syncFromGist();
         };
     </script>
 </body>
