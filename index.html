@@ -1590,37 +1590,29 @@
             loadingMsg.innerText = 'Loading chart...';
             if (qcChart) { qcChart.destroy(); qcChart = null; }
 
-            // Stooq API - free, no key, no CORS issues, daily data
-            let days;
-            if      (range === 'D')  days = 7;
-            else if (range === 'W')  days = 30;
-            else if (range === 'M')  days = 90;
-            else                     days = 365;
-
-            const endDate = new Date();
-            const startDate = new Date();
-            startDate.setDate(endDate.getDate() - days);
-            const fmt = d => d.toISOString().slice(0,10).replace(/-/g,'');
-            const d1 = fmt(startDate);
-            const d2 = fmt(endDate);
+            let interval, period;
+            if      (range === 'D')  { interval = '1d';  period = '5d';  }
+            else if (range === 'W')  { interval = '1d';  period = '1mo'; }
+            else if (range === 'M')  { interval = '1d';  period = '3mo'; }
+            else                     { interval = '1wk'; period = '1y';  }
 
             try {
-                const url = `https://stooq.com/q/d/l/?s=${symbol.toLowerCase()}.us&d1=${d1}&d2=${d2}&i=d`;
-                const res = await fetch(url);
-                const text = await res.text();
+                const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=${interval}&range=${period}`;
+                const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(yahooUrl)}`);
+                const json = await res.json();
+                const result = json?.chart?.result?.[0];
 
-                // Parse CSV: Date,Open,High,Low,Close,Volume
-                const lines = text.trim().split('\n').slice(1).filter(l => l.trim());
-                if (lines.length === 0 || text.includes('No data')) {
+                if (!result?.timestamp || !result?.indicators?.quote?.[0]?.close) {
                     loading.classList.remove('hidden');
                     loadingMsg.innerText = 'No data available';
                     return;
                 }
 
-                const points = lines.map(l => {
-                    const cols = l.split(',');
-                    return { date: cols[0], close: parseFloat(cols[4]) };
-                }).filter(p => !isNaN(p.close));
+                const timestamps = result.timestamp;
+                const closes = result.indicators.quote[0].close;
+                const points = timestamps
+                    .map((t, i) => ({ t, c: closes[i] }))
+                    .filter(p => p.c !== null && p.c !== undefined);
 
                 if (points.length === 0) {
                     loading.classList.remove('hidden');
@@ -1631,10 +1623,12 @@
                 loading.classList.add('hidden');
 
                 const labels = points.map(p => {
-                    const d = new Date(p.date);
-                    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                    const d = new Date(p.t * 1000);
+                    return range === 'D'
+                        ? d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+                        : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                 });
-                const prices = points.map(p => p.close);
+                const prices = points.map(p => p.c);
                 const isUp = prices[prices.length - 1] >= prices[0];
                 const lineColor = isUp ? '#059669' : '#e11d48';
                 const fillColor = isUp ? 'rgba(5,150,105,0.08)' : 'rgba(225,29,72,0.08)';
