@@ -546,14 +546,14 @@
             </div>
 
             <div class="dash-card p-12 text-center max-w-xl mx-auto" id="empty-state">
-                <div class="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style="background:rgba(13,148,136,0.1);border:1px solid #d0dce8;">
+                <div class="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style="background:rgba(13,148,136,0.12);border:1px solid var(--border);">
                     <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:#0d9488"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
                 </div>
-                <h3 style="color:#0f2030;font-family:var(--font-mono);" class="font-bold text-lg mb-2">เริ่มวางแผนการเงินของคุณ</h3>
-                <p style="color:#64748b;" class="text-sm mb-6">ยังไม่มีข้อมูลในระบบ คุณสามารถเริ่มกรอกที่เมนู RECORDS หรือ Import ไฟล์สำรองข้อมูลที่มีอยู่</p>
+                <h3 style="color:var(--text-primary);font-family:var(--font-mono);" class="font-bold text-lg mb-2">เริ่มวางแผนการเงินของคุณ</h3>
+                <p style="color:var(--text-secondary);" class="text-sm mb-6">ยังไม่มีข้อมูลในระบบ คุณสามารถเริ่มกรอกที่เมนู RECORDS หรือ Import ไฟล์สำรองข้อมูลที่มีอยู่</p>
                 <div class="flex flex-col sm:flex-row gap-2 justify-center">
                     <button onclick="showTab('edit')" style="background:#0d9488;color:#fff;font-family:var(--font-mono);font-weight:700;" class="px-8 py-3 rounded-xl text-xs uppercase tracking-widest transition-all active:scale-95">ไปหน้าบันทึก</button>
-                    <button onclick="document.getElementById('fileInput').click()" style="background:#f0f4f8;color:#64748b;border:1px solid #d0dce8;font-family:var(--font-mono);" class="px-8 py-3 rounded-xl text-xs uppercase tracking-widest font-bold transition-all active:scale-95">Import Data</button>
+                    <button onclick="document.getElementById('fileInput').click()" style="background:var(--bg-card2);color:var(--text-secondary);border:1px solid var(--border);font-family:var(--font-mono);" class="px-8 py-3 rounded-xl text-xs uppercase tracking-widest font-bold transition-all active:scale-95">Import Data</button>
                 </div>
             </div>
         </div>
@@ -1414,8 +1414,6 @@
                     isWlRefreshing = false;
                     refreshWatchlist();
                 }
-            } catch(e) { showGistStatus('ERROR ✗', 'text-rose-500'); }
-        }
             } catch(e) { showGistStatus('ERROR ✗', 'text-rose-500'); }
         }
 
