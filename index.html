@@ -785,8 +785,9 @@
             </div>
 
             <!-- Quick Chart Panel -->
-            <div id="quick-chart-panel" class="hidden glass-card p-5">
-                <div class="flex items-center justify-between mb-4">
+            <div id="quick-chart-panel" class="hidden glass-card overflow-hidden">
+                <!-- Header -->
+                <div class="flex items-center justify-between px-5 pt-4 pb-3">
                     <div class="flex items-center gap-3">
                         <img id="qc-logo" src="" class="w-8 h-8 rounded-full object-contain bg-white border border-gray-100" onerror="this.style.display='none'">
                         <div>
@@ -799,23 +800,18 @@
                         </div>
                     </div>
                     <div class="flex items-center gap-2">
-                        <div class="bg-gray-100 p-0.5 rounded-lg flex gap-0.5">
-                            <button onclick="setChartRange('D')"  id="qc-btn-D"  class="qc-range-btn px-2.5 py-1 rounded text-[10px] font-bold tab-active transition-all">5D</button>
-                            <button onclick="setChartRange('W')"  id="qc-btn-W"  class="qc-range-btn px-2.5 py-1 rounded text-[10px] font-bold text-gray-400 transition-all">1M</button>
-                            <button onclick="setChartRange('M')"  id="qc-btn-M"  class="qc-range-btn px-2.5 py-1 rounded text-[10px] font-bold text-gray-400 transition-all">3M</button>
-                            <button onclick="setChartRange('3M')" id="qc-btn-3M" class="qc-range-btn px-2.5 py-1 rounded text-[10px] font-bold text-gray-400 transition-all">1Y</button>
-                        </div>
-                        <button onclick="closeQuickChart()" class="text-gray-300 hover:text-gray-500 transition-colors ml-2">
+                        <a id="qc-tv-link" href="#" target="_blank"
+                           class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all bg-blue-50 text-blue-600 hover:bg-blue-100">
+                            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M10 6v2H5v11h11v-5h2v7H3V6h7zm11-3v8l-3-3-7 7-1.5-1.5 7-7-3-3h8z"/></svg>
+                            TradingView
+                        </a>
+                        <button onclick="closeQuickChart()" class="text-gray-300 hover:text-gray-500 transition-colors">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                         </button>
                     </div>
                 </div>
-                <div class="relative h-52">
-                    <canvas id="qc-chart"></canvas>
-                    <div id="qc-loading" class="absolute inset-0 flex items-center justify-center">
-                        <div class="text-gray-300 text-xs font-bold uppercase tracking-widest animate-pulse">Loading chart...</div>
-                    </div>
-                </div>
+                <!-- TradingView Widget -->
+                <div id="qc-tv-container" style="height:480px;"></div>
             </div>
 
         </div>
@@ -1791,6 +1787,7 @@
             // Header info
             document.getElementById('qc-symbol').innerText = symbol;
             document.getElementById('qc-name').innerText = d?.name ?? '';
+
             const logo = d?.logo ?? '';
             const logoEl = document.getElementById('qc-logo');
             logoEl.style.display = 'none';
@@ -1799,15 +1796,12 @@
                 logoEl.onload = () => { logoEl.style.display = 'block'; };
                 logoEl.onerror = () => { logoEl.style.display = 'none'; };
                 logoEl.src = logo;
-                // If already in browser cache, complete fires synchronously — show instantly
-                if (logoEl.complete && logoEl.naturalWidth > 0) {
-                    logoEl.style.display = 'block';
-                }
+                if (logoEl.complete && logoEl.naturalWidth > 0) logoEl.style.display = 'block';
             }
 
             const price = d?.c ?? null;
             const changePct = d?.dp ?? null;
-            const isUp = changePct >= 0;
+            const isUp = (changePct ?? 0) >= 0;
             const priceEl = document.getElementById('qc-price');
             const changeEl = document.getElementById('qc-change');
             priceEl.innerText = price ? '$' + price.toFixed(2) : '';
@@ -1816,11 +1810,41 @@
                 changeEl.innerText = (isUp ? '▲ +' : '▼ ') + changePct.toFixed(2) + '%';
                 changeEl.className = 'text-sm font-bold px-2 py-0.5 rounded ' + (isUp ? 'text-emerald-600 bg-emerald-50' : 'text-rose-500 bg-rose-50');
             }
-            setChartRange(qcCurrentRange);
+
+            // TradingView link
+            document.getElementById('qc-tv-link').href = `https://www.tradingview.com/symbols/${symbol}/`;
+
+            // Render TradingView Advanced Chart Widget
+            const isDark = document.documentElement.classList.contains('dark');
+            const container = document.getElementById('qc-tv-container');
+            container.innerHTML = '';
+            const script = document.createElement('script');
+            script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
+            script.async = true;
+            script.innerHTML = JSON.stringify({
+                symbol: symbol,
+                interval: 'D',
+                timezone: 'Asia/Bangkok',
+                theme: isDark ? 'dark' : 'light',
+                style: '1',
+                locale: 'en',
+                backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                gridColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)',
+                hide_top_toolbar: false,
+                hide_legend: false,
+                save_image: false,
+                calendar: false,
+                hide_volume: false,
+                support_host: 'https://www.tradingview.com',
+                width: '100%',
+                height: '480',
+            });
+            container.appendChild(script);
         }
 
         function closeQuickChart() {
             document.getElementById('quick-chart-panel').classList.add('hidden');
+            document.getElementById('qc-tv-container').innerHTML = '';
             if (qcChart) { qcChart.destroy(); qcChart = null; }
             qcCurrentSymbol = null;
         }
@@ -1990,6 +2014,8 @@
             const isDark = document.documentElement.classList.toggle('dark');
             localStorage.setItem('ps_dark', isDark ? '1' : '0');
             updateChartThemes(isDark);
+            // Re-render TradingView widget with new theme if open
+            if (qcCurrentSymbol) openQuickChart(qcCurrentSymbol);
         }
 
         function applyDarkMode(isDark) {
