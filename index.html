@@ -1085,6 +1085,19 @@
             const savingsAmt = Math.max(0, latest.payday - (fixedAmt + dynAmt));
             const total = fixedAmt + dynAmt + savingsAmt;
             const pct = (val) => total > 0 ? Math.round((val / total) * 100) : 0;
+
+            // Theme-aware colors
+            const isDark = document.documentElement.classList.contains('dark');
+            const gridCol    = isDark ? 'rgba(255,255,255,0.04)' : '#e8eef5';
+            const borderCol  = isDark ? '#1e293b' : '#d0dce8';
+            const tickCol    = isDark ? '#334155' : '#94a3b8';
+            const tickColX   = isDark ? '#334155' : '#64748b';
+            const legendCol  = isDark ? '#475569' : '#64748b';
+            const tooltipBg  = isDark ? '#1e293b' : '#ffffff';
+            const tooltipBdr = isDark ? '#334155' : '#d0dce8';
+            const tooltipTtl = isDark ? '#64748b' : '#64748b';
+            const tooltipBdy = isDark ? '#f1f5f9' : '#0f2030';
+
             if (distChart) distChart.destroy();
             distChart = new Chart(ctxDist, {
                 type: 'doughnut',
@@ -1107,18 +1120,11 @@
                     plugins: {
                         legend: {
                             position: 'bottom',
-                            labels: {
-                                font: { family: 'IBM Plex Mono', weight: '600', size: 10 },
-                                color: '#4a6080',
-                                padding: 16
-                            }
+                            labels: { font: { family: 'IBM Plex Mono', weight: '600', size: 10 }, color: legendCol, padding: 16 }
                         },
                         tooltip: {
-                            backgroundColor: '#ffffff',
-                            borderColor: '#d0dce8',
-                            borderWidth: 1,
-                            titleColor: '#64748b',
-                            bodyColor: '#0f2030',
+                            backgroundColor: tooltipBg, borderColor: tooltipBdr, borderWidth: 1,
+                            titleColor: tooltipTtl, bodyColor: tooltipBdy,
                             titleFont: { family: 'IBM Plex Mono', size: 10 },
                             bodyFont: { family: 'IBM Plex Mono', size: 11 },
                             callbacks: { label: (ctx) => ` ฿${formatNumber(ctx.raw)}  (${pct(ctx.raw)}%)` }
@@ -1136,7 +1142,7 @@
                 data: {
                     labels: displayData.map(r => r.id),
                     datasets: [
-                        { label: 'Income', data: displayData.map(r => r.payday), backgroundColor: '#0d9488', borderRadius: 3 },
+                        { label: 'Income',  data: displayData.map(r => r.payday), backgroundColor: '#0d9488', borderRadius: 3 },
                         { label: 'Expense', data: displayData.map(r => sumArr(r.fixed) + sumArr(r.dynamic)), backgroundColor: '#e11d48', borderRadius: 3 }
                     ]
                 },
@@ -1144,20 +1150,17 @@
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: {
-                        legend: { position: 'top', labels: { boxWidth: 10, font: { family: 'IBM Plex Mono', weight: '600', size: 10 }, color: '#64748b', padding: 16 } },
+                        legend: { position: 'top', labels: { boxWidth: 10, font: { family: 'IBM Plex Mono', weight: '600', size: 10 }, color: legendCol, padding: 16 } },
                         tooltip: {
-                            backgroundColor: '#ffffff',
-                            borderColor: '#d0dce8',
-                            borderWidth: 1,
-                            titleColor: '#64748b',
-                            bodyColor: '#0f2030',
+                            backgroundColor: tooltipBg, borderColor: tooltipBdr, borderWidth: 1,
+                            titleColor: tooltipTtl, bodyColor: tooltipBdy,
                             titleFont: { family: 'IBM Plex Mono', size: 10 },
                             bodyFont: { family: 'IBM Plex Mono', size: 11 },
                         }
                     },
                     scales: {
-                        y: { beginAtZero: true, grid: { color: '#e8eef5' }, ticks: { font: { family: 'IBM Plex Mono', size: 9 }, color: '#94a3b8' }, border: { color: '#d0dce8' } },
-                        x: { grid: { display: false }, ticks: { font: { family: 'IBM Plex Mono', weight: '600', size: 9 }, color: '#64748b' }, border: { color: '#d0dce8' } }
+                        y: { beginAtZero: true, grid: { color: gridCol, lineWidth: 1 }, ticks: { font: { family: 'IBM Plex Mono', size: 9 }, color: tickCol }, border: { color: borderCol } },
+                        x: { grid: { display: false }, ticks: { font: { family: 'IBM Plex Mono', weight: '600', size: 9 }, color: tickColX }, border: { color: borderCol } }
                     }
                 }
             });
