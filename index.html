@@ -919,8 +919,8 @@
                         <tr class="border-b" style="border-color:var(--border);background:var(--bg-card2)">
                             <th class="px-3 py-2 text-left text-[9px] font-medium uppercase tracking-widest" style="color:var(--text-secondary) w-8">#</th>
                             <th class="px-3 py-2 text-left text-[9px] font-medium uppercase tracking-widest" style="color:var(--text-secondary)">Symbol</th>
-                            <th class="px-3 py-2 text-left text-[9px] font-medium uppercase tracking-widest" style="color:var(--text-secondary)">Name</th>
-                            <th class="px-3 py-2 text-right text-[9px] font-medium uppercase tracking-widest" style="color:var(--text-secondary)">Price</th>
+                            <th id="wl-th-name" class="px-3 py-2 text-left text-[9px] font-medium uppercase tracking-widest" style="color:var(--text-secondary)">Name</th>
+                            <th id="wl-th-price" class="px-3 py-2 text-right text-[9px] font-medium uppercase tracking-widest" style="color:var(--text-secondary)">Price</th>
                             <th class="px-3 py-2 text-right text-[9px] font-medium uppercase tracking-widest" style="color:var(--text-secondary) wl-col-hide">Change</th>
                             <th class="px-3 py-2 text-right text-[9px] font-medium uppercase tracking-widest" style="color:var(--text-secondary)">% Change</th>
                             <th class="px-3 py-2 text-right text-[9px] font-medium uppercase tracking-widest" style="color:var(--text-secondary) wl-col-hide">Open</th>
@@ -2204,6 +2204,19 @@
         let qcCurrentSymbol = null;
         let qcCurrentRange = 'D';
 
+        function setCompactHeaders(compact) {
+            const thName  = document.getElementById('wl-th-name');
+            const thPrice = document.getElementById('wl-th-price');
+            if (!thName || !thPrice) return;
+            if (compact) {
+                thName.textContent  = 'Price';
+                thPrice.textContent = '% Chg';
+            } else {
+                thName.textContent  = 'Name';
+                thPrice.textContent = 'Price';
+            }
+        }
+
         function openQuickChart(symbol, scroll = true) {
             qcCurrentSymbol = symbol;
             const d = wlDataCache[symbol];
@@ -2211,6 +2224,7 @@
             const wrap = document.getElementById('wl-split-wrap');
             const isAlreadyOpen = wrap.classList.contains('chart-open');
             wrap.classList.add('chart-open');
+            setCompactHeaders(true);
             if (scroll && !isAlreadyOpen) {
                 setTimeout(() => panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
             }
@@ -2279,6 +2293,7 @@
 
         function closeQuickChart() {
             document.getElementById('wl-split-wrap').classList.remove('chart-open');
+            setCompactHeaders(false);
             document.getElementById('qc-tv-container').innerHTML = '';
             document.getElementById('qc-news-list').innerHTML = '';
             if (qcChart) { qcChart.destroy(); qcChart = null; }
@@ -2847,11 +2862,20 @@
                 }
             }
 
-            // Auto-refresh FX rate every 5 minutes when on watchlist tab
+            // FX rate: refresh every 30s (API updates ~every 60s, 30s keeps it feeling live)
             setInterval(() => {
                 const wlVisible = !document.getElementById('tab-watchlist').classList.contains('hidden');
                 if (wlVisible) fetchFxRate();
-            }, 5 * 60 * 1000);
+            }, 30 * 1000);
+
+            // Clock tick every second — updates the LIVE time display without a network call
+            setInterval(() => {
+                const timeEl = document.getElementById('fx-time');
+                if (timeEl) {
+                    const now = new Date();
+                    timeEl.textContent = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+                }
+            }, 1000);
 
             // Fallback polling every 1 min — only when WebSocket is NOT connected and market is open
             setInterval(() => {
