@@ -622,7 +622,7 @@
                         <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
                         <div id="db-name-display" class="text-[10px] font-bold uppercase tracking-widest leading-none" style="color:var(--text-dim);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ready</div>
                     </div>
-                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.02-r29</div>
+                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.02-r30</div>
                 </div>
             </div>
             
@@ -3425,95 +3425,138 @@ Analysis guidelines:
             const changeInvEl = document.getElementById('fx-change-inv');
             if (!rateEl) return;
 
-            // USD/THB mid rate must be in range 28–45
-            const valid = v => typeof v === 'number' && v > 28 && v < 45;
+            // USD/THB must be 28–45 to be plausible
+            const sane = v => typeof v === 'number' && isFinite(v) && v > 28 && v < 45;
 
-            try {
-                let usdThbMid = null; // e.g. 33.50 — "1 USD = 33.50 THB" (sell side)
-                let src = '';
+            // ─── Try all sources, race to first valid answer ─────────────────
+            const tryFetch = async (url, extract) => {
+                try {
+                    const r = await fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(4000) });
+                    if (!r.ok) return null;
+                    const j = await r.json();
+                    const v = extract(j);
+                    return sane(v) ? v : null;
+                } catch(e) { return null; }
+            };
 
-                // SOURCE 1: Finnhub OANDA:USD_THB (realtime forex quote, j.c = current)
-                const fKey = getFinnhubKey();
-                if (fKey) {
-                    try {
-                        const r = await fetch(`https://finnhub.io/api/v1/quote?symbol=OANDA:USD_THB&token=${fKey}`);
+            // Run all sources in parallel — take whichever resolves first with a valid value
+            const fKey = getFinnhubKey();
+
+            // For % change: try to get prev close from Finnhub (j.pc = previous close)
+            let prevCloseRate = null;
+            if (fKey) {
+                try {
+                    const r = await fetch(`https://finnhub.io/api/v1/quote?symbol=OANDA:USD_THB&token=${fKey}`, { cache: 'no-store', signal: AbortSignal.timeout(4000) });
+                    if (r.ok) {
                         const j = await r.json();
-                        if (valid(j.c)) { usdThbMid = j.c; src = 'Finnhub'; }
-                    } catch(e) {}
-                }
-
-                // SOURCE 2: Frankfurter ECB (daily, very accurate, no key needed)
-                if (!usdThbMid) {
-                    try {
-                        const r = await fetch('https://api.frankfurter.app/latest?from=USD&to=THB');
-                        const j = await r.json();
-                        if (valid(j.rates?.THB)) { usdThbMid = j.rates.THB; src = 'ECB'; }
-                    } catch(e) {}
-                }
-
-                // SOURCE 3: open.er-api (hourly)
-                if (!usdThbMid) {
-                    try {
-                        const r = await fetch('https://open.er-api.com/v6/latest/USD');
-                        const j = await r.json();
-                        if (valid(j.rates?.THB)) { usdThbMid = j.rates.THB; src = 'ER-API'; }
-                    } catch(e) {}
-                }
-
-                // SOURCE 4: Fawaz CDN (daily fallback)
-                if (!usdThbMid) {
-                    try {
-                        const r = await fetch('https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json');
-                        const j = await r.json();
-                        if (valid(j.usd?.thb)) { usdThbMid = j.usd.thb; src = 'CDN'; }
-                    } catch(e) {}
-                }
-
-                if (!usdThbMid) throw new Error('No valid FX rate');
-
-                // ─── USD → THB ────────────────────────────────────────────────
-                // "ขาย 1 USD ได้กี่บาท" — mid rate, e.g. 33.50 THB
-                const usdToThb = parseFloat(usdThbMid.toFixed(2));
-
-                // ─── THB → USD ────────────────────────────────────────────────
-                // "ซื้อ 1 USD ต้องใช้กี่บาท" — inverse mid, always slightly higher than usdToThb
-                // Dime shows e.g. USD→THB=31.38, THB→USD=31.50 (spread ~0.3%)
-                // We simulate real-world spread: buy rate = mid * 1.004 (0.4% spread, typical retail FX)
-                const thbToUsd = parseFloat((usdThbMid * 1.004).toFixed(2));
-
-                // Update display
-                rateEl.textContent    = usdToThb.toFixed(2) + ' THB';
-                rateInvEl.textContent = thbToUsd.toFixed(2) + ' THB';
-                rateEl.title = `1 USD = ${usdToThb} THB (Source: ${src})`;
-                rateInvEl.title = `ซื้อ 1 USD ต้องใช้ ${thbToUsd} THB (spread ~0.4%)`;
-
-                // ─── % Change: USD→THB vs previous ───────────────────────────
-                const fmtChange = (curr, prev, el) => {
-                    if (prev === null || prev <= 0) {
-                        el.textContent = '↑ 0.00%';
-                        el.style.color = '#22c55e';
-                        return;
+                        if (sane(j.c))  { /* will be picked up in racers below */ }
+                        if (sane(j.pc)) { prevCloseRate = parseFloat(j.pc.toFixed(2)); }
                     }
-                    const diff = curr - prev;
-                    const pct  = Math.abs((diff / prev) * 100);
-                    const isUp = diff > 0.005;
-                    const isDn = diff < -0.005;
-                    // For USD→THB: rate UP = USD stronger = bad for Thai buying USD assets (red)
-                    // For THB→USD: same direction — if USD strengthens, both rates rise
-                    el.textContent = `${isUp ? '↑' : isDn ? '↓' : '—'} ${pct.toFixed(2)}%`;
-                    el.style.color = isUp ? '#f43f5e' : isDn ? '#22c55e' : '#94a3b8';
-                };
-
-                fmtChange(usdToThb, fxPrevRate,    changeEl);
-                fmtChange(thbToUsd, fxPrevRateInv, changeInvEl);
-
-                // Save for next comparison
-                fxPrevRate    = usdToThb;
-                fxPrevRateInv = thbToUsd;
-
-            } catch(e) {
-                if (rateEl) { rateEl.textContent = '—'; }
+                } catch(e) {}
             }
+
+            const racers = [
+                // S1: BOT (Bank of Thailand) official daily rate — closest to what banks use in TH
+                tryFetch(
+                    'https://apigw1.bot.or.th/bot/public/Stat-ExchangeRate/v2/daily-avg-exrt?currency=USD',
+                    j => {
+                        const d = j?.result?.data?.[0];
+                        // BOT gives selling_rate (what bank sells USD to you) and buying_rate
+                        const sell = parseFloat(d?.selling_rate);
+                        const buy  = parseFloat(d?.buying_rate);
+                        // Use selling_rate as USD→THB (you sell USD to get THB)
+                        return sane(sell) ? sell : (sane(buy) ? buy : null);
+                    }
+                ),
+                // S2: Wise (TransferWise) - very close to mid-market, updated frequently
+                tryFetch(
+                    'https://wise.com/rates/history+live?source=USD&target=THB&length=1&resolution=hourly&unit=day',
+                    j => {
+                        const v = j?.[j.length - 1]?.value;
+                        return parseFloat(v);
+                    }
+                ),
+                // S3: Finnhub OANDA realtime quote
+                fKey ? tryFetch(
+                    `https://finnhub.io/api/v1/quote?symbol=OANDA:USD_THB&token=${fKey}`,
+                    j => parseFloat(j?.c)
+                ) : Promise.resolve(null),
+                // S4: exchangerate.host (free, updated intraday)
+                tryFetch(
+                    'https://api.exchangerate.host/live?access_key=free&currencies=THB&source=USD',
+                    j => parseFloat(j?.quotes?.USDTHB)
+                ),
+                // S5: Open ER-API (hourly)
+                tryFetch(
+                    'https://open.er-api.com/v6/latest/USD',
+                    j => parseFloat(j?.rates?.THB)
+                ),
+                // S6: Frankfurter ECB daily
+                tryFetch(
+                    'https://api.frankfurter.app/latest?from=USD&to=THB',
+                    j => parseFloat(j?.rates?.THB)
+                ),
+            ];
+
+            // Race: take first non-null result
+            let usdThbSell = null;
+            let src = '?';
+            const srcNames = ['BOT','Wise','Finnhub','ER.host','ER-API','ECB'];
+            const results = await Promise.allSettled(racers);
+            for (let i = 0; i < results.length; i++) {
+                const v = results[i].status === 'fulfilled' ? results[i].value : null;
+                if (sane(v)) { usdThbSell = v; src = srcNames[i]; break; }
+            }
+
+            if (!sane(usdThbSell)) {
+                rateEl.textContent = '— THB';
+                rateInvEl.textContent = '— THB';
+                return;
+            }
+
+            // ─── Compute both rates ──────────────────────────────────────────
+            //
+            //  USD → THB  (sell rate):  "ขาย 1 USD ได้กี่บาท"
+            //    = usdThbSell   e.g. 31.38
+            //
+            //  THB → USD  (buy rate):   "ซื้อ 1 USD ต้องใช้กี่บาท"
+            //    In real banks: buy_rate > sell_rate (spread ~0.2–0.5 THB)
+            //    Dime shows USD→THB=31.38, THB→USD=31.50 → spread ≈ +0.38%
+            //    We add 0.4% spread which gives ~0.12–0.15 THB difference
+            //
+            const sellRate = parseFloat(usdThbSell.toFixed(2));           // e.g. 31.38
+            const buyRate  = parseFloat((usdThbSell * 1.004).toFixed(2)); // e.g. 31.50
+
+            // Update DOM
+            rateEl.textContent    = sellRate.toFixed(2) + ' THB';
+            rateInvEl.textContent = buyRate.toFixed(2)  + ' THB';
+            rateEl.title    = `ขาย 1 USD ได้ ${sellRate} THB [${src}]`;
+            rateInvEl.title = `ซื้อ 1 USD ใช้ ${buyRate} THB [spread ~0.4%]`;
+
+            // ─── % Change vs session start ───────────────────────────────────
+            // fxPrevRate tracks the sell rate from the PREVIOUS fetch in this session
+            // On first load it's null → show change vs approx yesterday using BOT prev data
+            // Simple heuristic: if no prev, show 0.00% in green (neutral)
+            const fmtChg = (curr, prev, el) => {
+                if (prev === null) {
+                    el.textContent = '↗ 0.00%';
+                    el.style.color = '#94a3b8';
+                    return;
+                }
+                const diff = curr - prev;
+                const pct  = Math.abs((diff / prev) * 100);
+                const isUp = diff > 0.005;
+                const isDn = diff < -0.005;
+                // USD stronger (rate up) → shown as up arrow (green like Dime — Dime shows ↑ in green even when USD rises)
+                el.textContent = `${isUp ? '↗' : isDn ? '↘' : '—'} ${pct.toFixed(2)}%`;
+                el.style.color = (isUp || (!isUp && !isDn)) ? '#22c55e' : '#f43f5e';
+            };
+
+            fmtChg(sellRate, fxPrevRate    ?? prevCloseRate, changeEl);
+            fmtChg(buyRate,  fxPrevRateInv ?? (prevCloseRate ? parseFloat((prevCloseRate * 1.004).toFixed(2)) : null), changeInvEl);
+
+            fxPrevRate    = sellRate;
+            fxPrevRateInv = buyRate;
         }
 
         // --- Dark Mode ---
