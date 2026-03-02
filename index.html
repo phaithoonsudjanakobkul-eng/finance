@@ -2858,22 +2858,31 @@
             const userAbort = new AbortController();
             window._aiAbort = userAbort;
 
-            const doFetch = (timeoutMs) => {
-                const ctrl = new AbortController();
-                const tid = setTimeout(() => ctrl.abort(), timeoutMs);
-                userAbort.signal.addEventListener('abort', () => ctrl.abort());
+            // AbortController — single one for entire request lifecycle
+            const ctrl = new AbortController();
+            window._aiAbort = ctrl;
+            const timeoutId = setTimeout(() => {
+                if (!ctrl.signal.aborted) ctrl.abort('timeout');
+            }, 90000); // 90s hard timeout
 
-                const sysPrompt = `You are a professional stock analyst specializing in technical analysis. Answer in Thai if the user writes Thai, English if English. Always give specific support/resistance price levels as exact numbers (e.g. แนวรับ $165, แนวต้าน $185). User's watchlist: ${watchlist.slice(0,20).join(', ') || 'not specified'}. Be concise and actionable.`;
+            try {
+                if (ctrl.signal.aborted) throw new DOMException('stopped', 'AbortError');
+
+                const sysPrompt = `You are a professional stock analyst. Answer in Thai if the user writes Thai, English if English. Give specific support/resistance as numbers. Watchlist: ${watchlist.slice(0,20).join(', ') || 'none'}.`;
 
                 const msgs = [
                     { role: 'system', content: sysPrompt },
                     ...aiChatHistory.slice(-6).map(m => ({
-                        role: m.role === 'model' ? 'assistant' : m.role,
+                        role: m.role === 'model' ? 'assistant' : (m.role || 'user'),
                         content: typeof m.content === 'string' ? m.content : (m.parts?.[0]?.text || '')
                     }))
                 ];
 
-                return fetch('https://openrouter.ai/api/v1/chat/completions', {
+                // Show connecting status
+                const loadEl = document.getElementById(loadingId);
+                if (loadEl) loadEl.querySelector('.ai-msg-body').innerHTML = '<span style="color:var(--text-dim)">🔗 กำลังเชื่อมต่อ OpenRouter...</span>';
+
+                const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -2886,63 +2895,66 @@
                         max_tokens: 800,
                         temperature: 0.2
                     })
-                }).finally(() => clearTimeout(tid));
-            };
+                });
 
-            try {
-                // Check user stopped before even starting
-                if (userAbort.signal.aborted) throw new DOMException('', 'AbortError');
-
-                let res = await doFetch(60000); // 60s timeout
-
-                // Handle 429 — wait then retry once
-                if (res.status === 429) {
-                    const errData = await res.json().catch(() => ({}));
-                    const retryMsg = errData.error?.message || '';
-                    const waitSec = Math.min(parseFloat(retryMsg.match(/(\d+\.?\d*)\s*s/)?.[1] || '15'), 30);
-                    const el = document.getElementById(loadingId);
-                    if (el) el.querySelector('.ai-msg-body').innerHTML = `<span style="color:var(--text-dim)">⏳ รอ ${Math.ceil(waitSec)}s แล้วลองใหม่...</span>`;
-
-                    // Wait — but allow user to stop during wait
-                    await new Promise((resolve, reject) => {
-                        const t = setTimeout(resolve, waitSec * 1000);
-                        userAbort.signal.addEventListener('abort', () => { clearTimeout(t); reject(new DOMException('', 'AbortError')); });
-                    });
-
-                    res = await doFetch(60000);
-                }
-
-                if (userAbort.signal.aborted) throw new DOMException('', 'AbortError');
+                // Update status while reading response
+                if (loadEl) loadEl.querySelector('.ai-msg-body').innerHTML = '<span style="color:var(--text-dim)">📊 กำลังวิเคราะห์...</span>';
 
                 const data = await res.json();
-                if (!res.ok) throw new Error(data.error?.message || `HTTP ${res.status}`);
+
+                if (!res.ok) {
+                    // 429 — show wait time and retry automatically
+                    if (res.status === 429) {
+                        const waitMatch = (data.error?.message||'').match(/try again in (\d+)/i);
+                        const waitSec = waitMatch ? parseInt(waitMatch[1]) : 10;
+                        if (loadEl) loadEl.querySelector('.ai-msg-body').innerHTML = `<span style="color:var(--text-dim)">⏳ รอ ${waitSec}s แล้วลองใหม่อัตโนมัติ...</span>`;
+                        await new Promise((r, rej) => {
+                            const t = setTimeout(r, waitSec * 1000);
+                            ctrl.signal.addEventListener('abort', () => { clearTimeout(t); rej(new DOMException('stopped','AbortError')); }, {once:true});
+                        });
+                        // Retry
+                        const res2 = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${cleanKey}` },
+                            signal: ctrl.signal,
+                            body: JSON.stringify({ model: 'meta-llama/llama-3.3-70b-instruct:free', messages: msgs, max_tokens: 800, temperature: 0.2 })
+                        });
+                        const data2 = await res2.json();
+                        if (!res2.ok) throw new Error(data2.error?.message || `HTTP ${res2.status}`);
+                        const reply2 = data2.choices?.[0]?.message?.content || '(ไม่มีคำตอบ)';
+                        aiChatHistory.push({ role: 'assistant', content: reply2 });
+                        if (aiChatHistory.length > 10) aiChatHistory = aiChatHistory.slice(-10);
+                        if (loadEl) loadEl.querySelector('.ai-msg-body').innerHTML = escHtml(reply2).replace(/\n/g,'<br>');
+                        return;
+                    }
+                    throw new Error(data.error?.message || `HTTP ${res.status}: ${JSON.stringify(data).slice(0,200)}`);
+                }
 
                 const reply = data.choices?.[0]?.message?.content || '(ไม่มีคำตอบ)';
-
                 aiChatHistory.push({ role: 'assistant', content: reply });
                 if (aiChatHistory.length > 10) aiChatHistory = aiChatHistory.slice(-10);
-
-                const el = document.getElementById(loadingId);
-                if (el) el.querySelector('.ai-msg-body').innerHTML = escHtml(reply).replace(/\n/g, '<br>');
+                if (loadEl) loadEl.querySelector('.ai-msg-body').innerHTML = escHtml(reply).replace(/\n/g,'<br>');
 
             } catch(e) {
-                const el = document.getElementById(loadingId);
-                const isStop = userAbort.signal.aborted;
-                const isTimeout = !isStop && e.name === 'AbortError';
+                const loadEl = document.getElementById(loadingId);
+                const stopped = ctrl.signal.aborted && window._aiAbort === null; // user pressed stop
+                const timedOut = ctrl.signal.aborted && !stopped;
                 let msg;
-                if (isStop) {
+                if (e.name === 'AbortError' && e.message === 'stopped') {
                     msg = '<span style="color:var(--text-dim)">⏹ หยุดแล้ว</span>';
-                } else if (isTimeout) {
-                    msg = '<span style="color:#f43f5e">❌ หมดเวลา (60s) — ลองใหม่อีกครั้งครับ</span>';
+                } else if (ctrl.signal.aborted) {
+                    msg = '<span style="color:#f43f5e">❌ หมดเวลา 90s — OpenRouter อาจ overload ลองใหม่สักครู่</span>';
                 } else {
-                    msg = `<span style="color:#f43f5e">❌ ${escHtml(e.message || e.toString())}</span>`;
+                    msg = `<span style="color:#f43f5e">❌ ${escHtml(e.message || String(e))}</span>`;
                 }
-                if (el) el.querySelector('.ai-msg-body').innerHTML = msg;
+                if (loadEl) loadEl.querySelector('.ai-msg-body').innerHTML = msg;
             } finally {
+                clearTimeout(timeoutId);
                 window._aiAbort = null;
                 document.getElementById('ai-popup-send-btn').classList.remove('hidden');
                 document.getElementById('ai-popup-stop-btn').classList.add('hidden');
-                document.getElementById('ai-popup-messages').scrollTop = 999999;
+                const msgContainer = document.getElementById('ai-popup-messages');
+                if (msgContainer) msgContainer.scrollTop = msgContainer.scrollHeight;
             }
         }
 
