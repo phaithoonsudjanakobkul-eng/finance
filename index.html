@@ -644,7 +644,7 @@
                         <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
                         <div id="db-name-display" class="text-[10px] font-bold uppercase tracking-widest leading-none" style="color:var(--text-dim);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ready</div>
                     </div>
-                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.02-r39</div>
+                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.02-r40</div>
                 </div>
             </div>
             
@@ -907,83 +907,111 @@
                 </div>
             </div>
 
-            <!-- Header -->
-            <div class="flex items-center gap-3" style="min-height:40px">
-                <!-- Left: title + status — fixed width group -->
-                <div class="flex items-center gap-2 flex-shrink-0" style="min-width:220px">
-                    <h3 class="font-black text-base uppercase tracking-tight flex-shrink-0" style="color:var(--text-primary);font-family:var(--font-main)">Watchlist</h3>
-                    <span id="wl-last-update" class="text-[9px] font-bold uppercase tracking-widest flex-shrink-0" style="color:var(--text-dim);min-width:72px"></span>
-                    <span id="wl-market-status" class="text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-widest flex-shrink-0" style="min-width:48px;text-align:center"></span>
-                </div>
+            <!-- Header — 2-row responsive layout -->
+            <div class="flex flex-col gap-2">
 
-                <!-- USD/THB FX Widget — compact Dime style -->
-                <div id="fx-widget" class="flex items-center gap-1.5 flex-shrink-0">
-                    <!-- USD→THB: ขาย 1 USD ได้ XX THB -->
-                    <div class="flex flex-col justify-center px-2.5 py-1.5 rounded-xl border" style="background:var(--bg-card2);border-color:var(--border);height:36px;width:130px;flex-shrink:0;overflow:hidden">
-                        <div class="flex items-center gap-1">
-                            <span class="text-[8px] font-semibold leading-none" style="color:var(--text-dim)">🇺🇸→🇹🇭 USD→THB</span>
-                            <span id="fx-src-badge" class="text-[7px] font-bold px-1 rounded" style="background:rgba(16,185,129,0.15);color:#10b981;display:none"></span>
+                <!-- Row 1: Title + FX + Action buttons -->
+                <div class="flex items-center gap-2 flex-wrap">
+
+                    <!-- Title + Status — fixed, no shrink -->
+                    <div class="flex items-center gap-2 flex-shrink-0">
+                        <h3 class="font-black text-sm uppercase tracking-tight" style="color:var(--text-primary);font-family:var(--font-main)">Watchlist</h3>
+                        <span id="wl-last-update" class="text-[9px] font-bold uppercase tracking-widest" style="color:var(--text-dim);min-width:68px;display:inline-block"></span>
+                        <span id="wl-market-status" class="text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-widest" style="min-width:44px;text-align:center"></span>
+                    </div>
+
+                    <!-- FX Widget — fixed size cards, no flex-grow -->
+                    <div id="fx-widget" class="flex items-center gap-1.5 flex-shrink-0">
+                        <!-- USD→THB -->
+                        <div class="flex flex-col justify-center px-2.5 py-1 rounded-xl border"
+                            style="background:var(--bg-card2);border-color:var(--border);height:34px;width:126px;overflow:hidden;flex-shrink:0">
+                            <div class="flex items-center gap-1">
+                                <span class="text-[8px] font-semibold leading-none" style="color:var(--text-dim)">🇺🇸→🇹🇭 USD→THB</span>
+                                <span id="fx-src-badge" class="text-[7px] font-bold px-1 rounded" style="background:rgba(16,185,129,0.15);color:#10b981;display:none"></span>
+                            </div>
+                            <div class="flex items-baseline gap-1 mt-0.5">
+                                <span id="fx-change" class="text-[9px] font-bold" style="color:#22c55e;font-family:var(--font-mono);min-width:44px">↑ 0.00%</span>
+                                <span id="fx-rate" class="text-[11px] font-black leading-none" style="color:var(--text-primary);font-family:var(--font-mono);font-variant-numeric:tabular-nums">—</span>
+                                <span class="text-[8px] font-semibold" style="color:var(--text-dim)">THB</span>
+                            </div>
                         </div>
-                        <div class="flex items-baseline gap-1.5 mt-0.5">
-                            <span id="fx-change" class="text-[9px] font-bold" style="color:#22c55e;font-family:var(--font-mono)">↑ 0.00%</span>
-                            <span id="fx-rate" class="text-[11px] font-black leading-none" style="color:var(--text-primary);font-family:var(--font-mono);font-variant-numeric:tabular-nums;letter-spacing:-0.02em">—</span>
-                            <span class="text-[8px] font-semibold" style="color:var(--text-dim)">THB</span>
+                        <!-- THB→USD -->
+                        <div class="flex flex-col justify-center px-2.5 py-1 rounded-xl border"
+                            style="background:var(--bg-card2);border-color:var(--border);height:34px;width:126px;overflow:hidden;flex-shrink:0">
+                            <div class="flex items-center gap-1">
+                                <span class="text-[8px] font-semibold leading-none" style="color:var(--text-dim)">🇹🇭→🇺🇸 THB→USD</span>
+                            </div>
+                            <div class="flex items-baseline gap-1 mt-0.5">
+                                <span id="fx-change-inv" class="text-[9px] font-bold" style="color:#22c55e;font-family:var(--font-mono);min-width:44px">↑ 0.00%</span>
+                                <span id="fx-rate-inv" class="text-[11px] font-black leading-none" style="color:var(--text-primary);font-family:var(--font-mono);font-variant-numeric:tabular-nums">—</span>
+                                <span class="text-[8px] font-semibold" style="color:var(--text-dim)">THB</span>
+                            </div>
                         </div>
                     </div>
-                    <!-- THB→USD: ซื้อ 1 USD ต้องใช้ XX THB (always slightly higher = spread) -->
-                    <div class="flex flex-col justify-center px-2.5 py-1.5 rounded-xl border" style="background:var(--bg-card2);border-color:var(--border);height:36px;width:130px;flex-shrink:0;overflow:hidden">
-                        <div class="flex items-center gap-1">
-                            <span class="text-[8px] font-semibold leading-none" style="color:var(--text-dim)">🇹🇭→🇺🇸 THB→USD</span>
-                        </div>
-                        <div class="flex items-baseline gap-1.5 mt-0.5">
-                            <span id="fx-change-inv" class="text-[9px] font-bold" style="color:#22c55e;font-family:var(--font-mono)">↑ 0.00%</span>
-                            <span id="fx-rate-inv" class="text-[11px] font-black leading-none" style="color:var(--text-primary);font-family:var(--font-mono);font-variant-numeric:tabular-nums;letter-spacing:-0.02em">—</span>
-                            <span class="text-[8px] font-semibold" style="color:var(--text-dim)">THB</span>
-                        </div>
+
+                    <!-- ExchangeRate-API key prompt (hidden when key set) -->
+                    <div id="erapi-prompt" class="flex items-center gap-1.5 flex-shrink-0" style="display:none!important">
+                        <input id="erapi-inline-input" type="text" placeholder="ExchangeRate-API key..."
+                            class="text-[10px] px-2.5 py-1.5 rounded-lg outline-none"
+                            style="background:var(--bg-card2);border:1px solid var(--border);color:var(--text-primary);width:160px;font-family:var(--font-mono)"
+                            onkeydown="if(event.key==='Enter')saveErapiKey()">
+                        <button onclick="saveErapiKey()" class="text-[9px] font-bold px-2.5 py-1.5 rounded-lg uppercase tracking-wide"
+                            style="background:linear-gradient(135deg,#1a73e8,#34a853);color:white">บันทึก</button>
+                    </div>
+
+                    <!-- Spacer — pushes buttons to right -->
+                    <div class="flex-1"></div>
+
+                    <!-- Action buttons — always right-aligned, never shrink -->
+                    <div class="flex items-center gap-2 flex-shrink-0">
+                        <button onclick="refreshWatchlist()"
+                            class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all uppercase tracking-wider"
+                            style="background:var(--bg-card2);color:var(--text-secondary);border:1px solid var(--border);font-family:var(--font-main)">
+                            <svg id="wl-refresh-icon" class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                            </svg>
+                            Refresh
+                        </button>
+                        <button onclick="showAddTickerInput()"
+                            class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all uppercase tracking-wider"
+                            style="background:#14b8a6;color:#fff;font-family:var(--font-main)">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                            </svg>
+                            Add
+                        </button>
                     </div>
                 </div>
-                <!-- ExchangeRate-API key prompt — shows only when key not set -->
-                <div id="erapi-prompt" class="flex items-center gap-1.5 flex-shrink-0" style="display:none!important">
-                    <input id="erapi-inline-input" type="text" placeholder="ExchangeRate-API key..."
-                        class="text-[10px] px-2.5 py-1.5 rounded-lg outline-none"
-                        style="background:var(--bg-card2);border:1px solid var(--border);color:var(--text-primary);width:180px;font-family:var(--font-mono)"
-                        onkeydown="if(event.key==='Enter')saveErapiKey()">
-                    <button onclick="saveErapiKey()" class="text-[9px] font-bold px-2.5 py-1.5 rounded-lg uppercase tracking-wide"
-                        style="background:linear-gradient(135deg,#1a73e8,#34a853);color:white">บันทึก</button>
-                    <a href="https://app.exchangerate-api.com" target="_blank" class="text-[8px] underline" style="color:var(--text-dim)">สมัครฟรี</a>
-                </div>
 
-                <!-- AI Chat input — stretches to fill remaining space -->
-                <div class="flex items-center gap-2 flex-1 min-w-0 rounded-xl px-3 py-1.5 border" style="background:var(--bg-card2);border-color:var(--border)">
-                    <div class="w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0" style="background:linear-gradient(135deg,#6366f1,#8b5cf6)">
-                        <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.347.347a3.5 3.5 0 01-4.95 0l-.347-.347z"/></svg>
+                <!-- Row 2: AI chatbox — full width, never competes with FX -->
+                <div class="flex items-center gap-2 w-full">
+                    <div class="flex items-center gap-2 flex-1 min-w-0 rounded-xl px-3 py-1.5 border"
+                        style="background:var(--bg-card2);border-color:var(--border)">
+                        <div class="w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0"
+                            style="background:linear-gradient(135deg,#6366f1,#8b5cf6)">
+                            <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.347.347a3.5 3.5 0 01-4.95 0l-.347-.347z"/>
+                            </svg>
+                        </div>
+                        <input id="ai-input" type="text"
+                            placeholder="ถาม AI นักวิเคราะห์... เช่น แนวรับ NVDA, outlook TSLA สัปดาห์นี้"
+                            class="flex-1 min-w-0 text-xs outline-none bg-transparent"
+                            style="color:var(--text-primary);font-family:var(--font-main)"
+                            onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendAiMessage()}">
+                        <button onclick="sendAiMessage()" id="ai-send-btn"
+                            class="flex items-center gap-1 px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider flex-shrink-0 transition-all"
+                            style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+                            </svg>
+                            ส่ง
+                        </button>
                     </div>
-                    <input id="ai-input" type="text" placeholder="ถาม AI นักวิเคราะห์... เช่น แนวรับ NVDA, outlook TSLA สัปดาห์นี้"
-                        class="flex-1 min-w-0 text-xs outline-none bg-transparent"
-                        style="color:var(--text-primary);font-family:var(--font-main)"
-                        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendAiMessage()}">
-                    <button onclick="sendAiMessage()" id="ai-send-btn"
-                        class="flex items-center gap-1 px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider flex-shrink-0 transition-all"
-                        style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white">
-                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
-                        ส่ง
-                    </button>
                 </div>
 
-                <!-- Right: Refresh + Add -->
-                <div class="flex items-center gap-2 flex-shrink-0">
-                    <button onclick="refreshWatchlist()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all uppercase tracking-wider" style="background:var(--bg-card2);color:var(--text-secondary);border:1px solid var(--border);font-family:var(--font-main)">
-                        <svg id="wl-refresh-icon" class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-                        Refresh
-                    </button>
-                    <button onclick="showAddTickerInput()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all uppercase tracking-wider" style="background:#14b8a6;color:#fff;font-family:var(--font-main)">
-                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                        Add
-                    </button>
-                </div>
             </div>
 
-            <!-- Add ticker input — Webull style -->
+<!-- Add ticker input — Webull style -->
             <div id="add-ticker-bar" class="hidden rounded-xl p-3 flex items-center gap-2 relative" style="background:var(--bg-card2);border:1px solid var(--border)">
                 <div class="flex-grow relative">
                     <div class="absolute left-3 top-1/2 -translate-y-1/2" style="color:var(--text-dim)">
