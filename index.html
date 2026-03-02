@@ -608,7 +608,7 @@
                         <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
                         <div id="db-name-display" class="text-[10px] font-bold uppercase tracking-widest leading-none" style="color:var(--text-dim);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ready</div>
                     </div>
-                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.02-r16</div>
+                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.02-r17</div>
                 </div>
             </div>
             
@@ -2871,10 +2871,10 @@
             const tid = setTimeout(() => ctrl.abort(), 90000);
 
             const MODELS = [
-                'meta-llama/llama-3.3-70b-instruct:free',
-                'mistralai/mistral-7b-instruct:free',
-                'google/gemma-3-27b-it:free',
-                'microsoft/phi-4-reasoning-plus:free',
+                'openrouter/free',                          // auto-picks best available free model
+                'meta-llama/llama-3.3-70b-instruct:free',  // fallback 1
+                'mistralai/mistral-7b-instruct:free',       // fallback 2
+                'deepseek/deepseek-r1-0528:free',           // fallback 3
             ];
 
             const sysPrompt = `You are a professional stock analyst. Answer in Thai if user writes Thai, English if English. Always give support/resistance as exact dollar numbers. Watchlist: ${watchlist.slice(0,20).join(', ')||'none'}. Be concise.`;
