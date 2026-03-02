@@ -1031,13 +1031,13 @@
                 <!-- Header -->
                 <div class="flex items-center justify-between px-5 py-3 border-b" style="border-color:var(--border);background:var(--bg-card2)">
                     <div class="flex items-center gap-3">
-                        <div class="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0" style="background:linear-gradient(135deg,#6366f1,#8b5cf6)">
+                        <div class="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0" style="background:linear-gradient(135deg,#1a73e8,#34a853)">
                             <svg class="w-3.5 h-3.5 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
                         </div>
                         <span class="text-xs font-bold uppercase tracking-widest" style="color:var(--text-primary);font-family:var(--font-main)">AI Stock Analyst</span>
-                        <span class="text-[9px] font-medium px-2 py-0.5 rounded-full" style="background:rgba(99,102,241,0.12);color:#818cf8">Claude</span>
+                        <span class="text-[9px] font-medium px-2 py-0.5 rounded-full" style="background:rgba(26,115,232,0.12);color:#4285f4">Gemini</span>
                         <span id="ai-status-dot" class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
-                        <span id="ai-status-text" class="text-[9px]" style="color:var(--text-dim)">ไม่ได้เชื่อมต่อ</span>
+                        <span id="ai-status-text" class="text-[9px]" style="color:var(--text-dim)">ยังไม่มี API Key</span>
                     </div>
                     <button onclick="toggleAiKeyPanel()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all" style="background:var(--bg-card);border:1px solid var(--border);color:var(--text-secondary)">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
@@ -1045,38 +1045,26 @@
                     </button>
                 </div>
 
-                <!-- API Key panel (hidden by default) -->
+                <!-- API Key panel -->
                 <div id="ai-key-panel" class="hidden px-5 py-3 border-b" style="border-color:var(--border);background:var(--bg-card)">
                     <div class="flex items-center gap-2">
-                        <input id="ai-key-input" type="password" placeholder="sk-ant-api03-xxxxxxxx" 
+                        <input id="ai-key-input" type="password" placeholder="AIzaSy..."
                             class="flex-1 text-xs px-3 py-2 rounded-lg outline-none"
-                            style="background:var(--bg-card2);border:1px solid var(--border);color:var(--text-primary);font-family:var(--font-mono)">
-                        <button onclick="saveAiKey()" class="px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider" style="background:#6366f1;color:white">บันทึก</button>
+                            style="background:var(--bg-card2);border:1px solid var(--border);color:var(--text-primary);font-family:var(--font-mono)"
+                            onkeydown="if(event.key==='Enter') saveAiKey()">
+                        <button onclick="saveAiKey()" class="px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider" style="background:#1a73e8;color:white">บันทึก</button>
                         <button onclick="clearAiKey()" class="px-3 py-2 rounded-lg text-xs font-bold" style="background:var(--bg-card2);border:1px solid var(--border);color:var(--text-dim)">ลบ</button>
                     </div>
-                    <p class="text-[9px] mt-1.5" style="color:var(--text-dim)">API Key เก็บไว้ใน localStorage ของ browser เท่านั้น · สมัครได้ที่ console.anthropic.com</p>
-                </div>
-
-                <!-- Messages -->
-                <div id="ai-messages" class="flex flex-col gap-3 px-5 py-4 overflow-y-auto" style="max-height:380px;min-height:120px">
-                    <div id="ai-welcome" class="flex items-start gap-3">
-                        <div class="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5" style="background:linear-gradient(135deg,#6366f1,#8b5cf6)">
-                            <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.347.347a3.5 3.5 0 01-4.95 0l-.347-.347z"/></svg>
-                        </div>
-                        <div class="flex-1">
-                            <div class="text-[10px] font-bold mb-1" style="color:#818cf8">AI ANALYST</div>
-                            <div class="text-xs leading-relaxed" style="color:var(--text-secondary)">สวัสดีครับ ผมคือ AI นักวิเคราะห์หุ้น ถามได้เลยครับเกี่ยวกับ แนวรับ/แนวต้าน, ข่าวล่าสุด, หรือ outlook ของหุ้นตัวไหนก็ได้ในพอร์ตคุณ</div>
-                        </div>
-                    </div>
+                    <p class="text-[9px] mt-1.5" style="color:var(--text-dim)">ฟรี ไม่มีหมดอายุ · สมัครได้ที่ <strong>aistudio.google.com/apikey</strong> · Key เก็บใน browser เท่านั้น</p>
                 </div>
 
                 <!-- Quick prompts -->
-                <div id="ai-quick-prompts" class="flex flex-wrap gap-2 px-5 pb-4 pt-1">
+                <div class="flex flex-wrap gap-2 px-5 py-3">
                     <span class="text-[9px] font-bold uppercase tracking-widest self-center mr-1" style="color:var(--text-dim)">Quick:</span>
-                    <button onclick="aiQuickAsk(this)" class="ai-quick-btn text-[9px] font-bold px-2.5 py-1 rounded-full transition-all" style="background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.2);color:#818cf8">📊 แนวรับแนวต้าน NVDA</button>
-                    <button onclick="aiQuickAsk(this)" class="ai-quick-btn text-[9px] font-bold px-2.5 py-1 rounded-full transition-all" style="background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.2);color:#818cf8">📰 ข่าวล่าสุดที่กระทบพอร์ต</button>
-                    <button onclick="aiQuickAsk(this)" class="ai-quick-btn text-[9px] font-bold px-2.5 py-1 rounded-full transition-all" style="background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.2);color:#818cf8">🎯 หุ้นน่าสนใจสัปดาห์นี้</button>
-                    <button onclick="aiQuickAsk(this)" class="ai-quick-btn text-[9px] font-bold px-2.5 py-1 rounded-full transition-all" style="background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.2);color:#818cf8">⚠️ ความเสี่ยงตลาดตอนนี้</button>
+                    <button onclick="aiQuickAsk(this)" class="ai-quick-btn text-[9px] font-bold px-2.5 py-1 rounded-full transition-all" style="background:rgba(26,115,232,0.1);border:1px solid rgba(26,115,232,0.2);color:#4285f4">📊 แนวรับแนวต้าน NVDA</button>
+                    <button onclick="aiQuickAsk(this)" class="ai-quick-btn text-[9px] font-bold px-2.5 py-1 rounded-full transition-all" style="background:rgba(26,115,232,0.1);border:1px solid rgba(26,115,232,0.2);color:#4285f4">📰 ข่าวล่าสุดที่กระทบพอร์ต</button>
+                    <button onclick="aiQuickAsk(this)" class="ai-quick-btn text-[9px] font-bold px-2.5 py-1 rounded-full transition-all" style="background:rgba(26,115,232,0.1);border:1px solid rgba(26,115,232,0.2);color:#4285f4">🎯 หุ้นน่าสนใจสัปดาห์นี้</button>
+                    <button onclick="aiQuickAsk(this)" class="ai-quick-btn text-[9px] font-bold px-2.5 py-1 rounded-full transition-all" style="background:rgba(26,115,232,0.1);border:1px solid rgba(26,115,232,0.2);color:#4285f4">⚠️ ความเสี่ยงตลาดตอนนี้</button>
                 </div>
             </div><!-- /ai-chat-card -->
 
@@ -2665,21 +2653,21 @@
             }
         }
 
-        // ── AI Stock Analyst (Perplexity) ─────────────────────────────────────
+        // ── AI Stock Analyst (Gemini) ──────────────────────────────────────────
         let aiChatHistory = [];
 
-        function getAiKey() { return localStorage.getItem('ps_claude_key') || ''; }
+        function getAiKey() { return localStorage.getItem('ps_gemini_key') || ''; }
 
         function saveAiKey() {
             const k = document.getElementById('ai-key-input').value.trim();
             if (!k) return;
-            localStorage.setItem('ps_claude_key', k);
+            localStorage.setItem('ps_gemini_key', k);
             document.getElementById('ai-key-panel').classList.add('hidden');
             updateAiStatus();
         }
 
         function clearAiKey() {
-            localStorage.removeItem('ps_claude_key');
+            localStorage.removeItem('ps_gemini_key');
             document.getElementById('ai-key-input').value = '';
             updateAiStatus();
         }
@@ -2698,52 +2686,74 @@
             const dot  = document.getElementById('ai-status-dot');
             const text = document.getElementById('ai-status-text');
             if (getAiKey()) {
-                dot.className  = 'w-1.5 h-1.5 rounded-full bg-emerald-400';
+                dot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-400';
                 text.textContent = 'พร้อมใช้งาน';
             } else {
-                dot.className  = 'w-1.5 h-1.5 rounded-full bg-gray-400';
+                dot.className = 'w-1.5 h-1.5 rounded-full bg-gray-400';
                 text.textContent = 'ยังไม่มี API Key';
             }
         }
 
-        function aiQuickAsk(btn) {
-            const text = btn.textContent.replace(/^[^\s]+\s/, '');
-            document.getElementById('ai-input').value = text;
-            sendAiMessage();
+        function escHtml(s) {
+            return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
         }
 
-        function appendAiMessage(role, text, isLoading = false) {
-            const container = document.getElementById('ai-messages');
-            const welcome   = document.getElementById('ai-welcome');
-            if (welcome) welcome.style.display = 'none';
+        // ── Chat Popup ──────────────────────────────────────────────────────────
+        function openAiPopup() {
+            document.getElementById('ai-popup').classList.remove('hidden');
+            document.getElementById('ai-popup-input').focus();
+        }
 
-            const isUser = role === 'user';
-            const id = 'ai-msg-' + Date.now();
-            const html = isUser ? `
-                <div id="${id}" class="flex justify-end">
-                    <div class="max-w-[75%] px-3.5 py-2.5 rounded-2xl rounded-tr-sm text-xs leading-relaxed" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white">${escHtml(text)}</div>
-                </div>` : `
-                <div id="${id}" class="flex items-start gap-3">
-                    <div class="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5" style="background:linear-gradient(135deg,#6366f1,#8b5cf6)">
-                        <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.347.347a3.5 3.5 0 01-4.95 0l-.347-.347z"/></svg>
+        function closeAiPopup() {
+            document.getElementById('ai-popup').classList.add('hidden');
+        }
+
+        function clearAiChat() {
+            aiChatHistory = [];
+            document.getElementById('ai-popup-messages').innerHTML = `
+                <div class="flex items-start gap-3">
+                    <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style="background:linear-gradient(135deg,#1a73e8,#34a853)">
+                        <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.347.347a3.5 3.5 0 01-4.95 0l-.347-.347z"/></svg>
                     </div>
                     <div class="flex-1">
-                        <div class="text-[10px] font-bold mb-1" style="color:#818cf8">AI ANALYST</div>
-                        <div class="text-xs leading-relaxed ai-msg-body" style="color:var(--text-secondary);white-space:pre-wrap">${isLoading ? '<span class="ai-typing">กำลังคิด<span class="dots">...</span></span>' : escHtml(text)}</div>
+                        <div class="text-[10px] font-bold mb-1.5" style="color:#4285f4">GEMINI ANALYST</div>
+                        <div class="text-sm leading-relaxed" style="color:var(--text-secondary)">สวัสดีครับ ถามได้เลยเรื่องแนวรับ/แนวต้าน, ข่าวล่าสุด หรือ outlook ของหุ้นใดก็ได้ครับ</div>
                     </div>
                 </div>`;
+        }
+
+        function appendPopupMessage(role, text, isLoading = false) {
+            const container = document.getElementById('ai-popup-messages');
+            const id = 'pmsg-' + Date.now();
+            const isUser = role === 'user';
+            const html = isUser
+                ? `<div id="${id}" class="flex justify-end">
+                    <div class="max-w-[80%] px-4 py-2.5 rounded-2xl rounded-tr-sm text-sm leading-relaxed" style="background:linear-gradient(135deg,#1a73e8,#0d47a1);color:white">${escHtml(text)}</div>
+                   </div>`
+                : `<div id="${id}" class="flex items-start gap-3">
+                    <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5" style="background:linear-gradient(135deg,#1a73e8,#34a853)">
+                        <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.347.347a3.5 3.5 0 01-4.95 0l-.347-.347z"/></svg>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="text-[10px] font-bold mb-1.5" style="color:#4285f4">GEMINI ANALYST</div>
+                        <div class="ai-msg-body text-sm leading-relaxed" style="color:var(--text-secondary);white-space:pre-wrap">${isLoading ? '<span class="ai-typing">กำลังวิเคราะห์<span class="dots">...</span></span>' : escHtml(text)}</div>
+                    </div>
+                   </div>`;
             container.insertAdjacentHTML('beforeend', html);
             container.scrollTop = container.scrollHeight;
             return id;
         }
 
-        function escHtml(s) {
-            return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        function aiQuickAsk(btn) {
+            const text = btn.textContent.replace(/^[\S]+\s/, '').trim();
+            document.getElementById('ai-input').value = text;
+            sendAiMessage();
         }
 
         async function sendAiMessage() {
-            const input = document.getElementById('ai-input');
-            const text  = input.value.trim();
+            const inputBar = document.getElementById('ai-input');
+            const inputPopup = document.getElementById('ai-popup-input');
+            const text = (inputBar.value || inputPopup.value).trim();
             if (!text) return;
 
             const key = getAiKey();
@@ -2753,59 +2763,54 @@
                 return;
             }
 
-            input.value = '';
-            appendAiMessage('user', text);
+            // Clear both inputs + open popup
+            inputBar.value = '';
+            inputPopup.value = '';
+            openAiPopup();
+            appendPopupMessage('user', text);
 
-            // Build context from watchlist
-            const wlSymbols = watchlist.slice(0, 15).join(', ');
-            const systemPrompt = `คุณคือนักวิเคราะห์หุ้นมืออาชีพที่เชี่ยวชาญด้านเทคนิคและปัจจัยพื้นฐาน ตอบเป็นภาษาไทยหรืออังกฤษตามที่ผู้ใช้ถาม ให้ข้อมูลแนวรับ/แนวต้านที่ชัดเจน พร้อม levels เป็นตัวเลข ใช้ข้อมูล real-time ล่าสุด ผู้ใช้มีหุ้นในพอร์ต: ${wlSymbols || 'ไม่ระบุ'}`;
+            const wlSymbols = watchlist.slice(0, 20).join(', ');
+            const systemPrompt = `You are a professional stock analyst specializing in technical and fundamental analysis. Answer in Thai or English based on what the user writes. Always provide specific support/resistance levels as numbers. Use the most current data available. The user's watchlist: ${wlSymbols || 'not specified'}. Be concise but thorough.`;
 
-            aiChatHistory.push({ role: 'user', content: [{ type: 'text', text: text }] });
-            const loadingId = appendAiMessage('assistant', '', true);
+            aiChatHistory.push({ role: 'user', parts: [{ text }] });
+            const loadingId = appendPopupMessage('assistant', '', true);
             document.getElementById('ai-send-btn').disabled = true;
 
             try {
-                const res = await fetch('https://api.anthropic.com/v1/messages', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'x-api-key': key,
-                        'anthropic-version': '2023-06-01',
-                        'anthropic-dangerous-direct-browser-access': 'true'
-                    },
-                    body: JSON.stringify({
-                        model: 'claude-haiku-4-5-20251001',
-                        max_tokens: 1024,
-                        system: systemPrompt,
-                        tools: [{
-                            type: 'web_search_20250305',
-                            name: 'web_search'
-                        }],
-                        messages: aiChatHistory.slice(-8)
-                    })
-                });
+                const contents = aiChatHistory.slice(-10);
+                const res = await fetch(
+                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            system_instruction: { parts: [{ text: systemPrompt }] },
+                            contents,
+                            tools: [{ google_search: {} }],
+                            generationConfig: { temperature: 0.3, maxOutputTokens: 1024 }
+                        })
+                    }
+                );
 
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error?.message || `HTTP ${res.status}`);
 
-                // Extract text from content blocks (may include tool_use blocks)
-                const reply = data.content
-                    .filter(b => b.type === 'text')
-                    .map(b => b.text)
-                    .join('\n') || '(ไม่มีคำตอบ)';
+                const reply = data.candidates?.[0]?.content?.parts
+                    ?.filter(p => p.text)
+                    ?.map(p => p.text)
+                    ?.join('\n') || '(ไม่มีคำตอบ)';
 
-                aiChatHistory.push({ role: 'assistant', content: data.content });
+                aiChatHistory.push({ role: 'model', parts: [{ text: reply }] });
 
-                // Replace loading bubble with real answer
                 const el = document.getElementById(loadingId);
-                if (el) el.querySelector('.ai-msg-body').innerHTML = escHtml(reply).replace(/\n/g,'<br>');
+                if (el) el.querySelector('.ai-msg-body').innerHTML = escHtml(reply).replace(/\n/g, '<br>');
 
             } catch(e) {
                 const el = document.getElementById(loadingId);
-                if (el) el.querySelector('.ai-msg-body').innerHTML = `<span style="color:#f43f5e">เกิดข้อผิดพลาด: ${escHtml(e.message)}</span>`;
+                if (el) el.querySelector('.ai-msg-body').innerHTML = `<span style="color:#f43f5e">❌ ${escHtml(e.message)}</span>`;
             } finally {
                 document.getElementById('ai-send-btn').disabled = false;
-                document.getElementById('ai-messages').scrollTop = 999999;
+                document.getElementById('ai-popup-messages').scrollTop = 999999;
             }
         }
 
@@ -3161,5 +3166,55 @@
             });
         };
     </script>
+    <!-- ── AI Chat Popup ───────────────────────────────────────────────────── -->
+    <div id="ai-popup" class="hidden fixed inset-0 z-[200] flex items-center justify-center p-4" style="background:rgba(0,0,0,0.5);backdrop-filter:blur(6px)" onclick="if(event.target===this)closeAiPopup()">
+        <div class="flex flex-col rounded-2xl shadow-2xl overflow-hidden" style="width:min(680px,95vw);height:min(600px,85vh);background:var(--bg-card);border:1px solid var(--border)">
+
+            <!-- Popup Header -->
+            <div class="flex items-center justify-between px-5 py-3 flex-shrink-0 border-b" style="background:var(--bg-card2);border-color:var(--border)">
+                <div class="flex items-center gap-3">
+                    <div class="w-7 h-7 rounded-xl flex items-center justify-center" style="background:linear-gradient(135deg,#1a73e8,#34a853)">
+                        <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.347.347a3.5 3.5 0 01-4.95 0l-.347-.347z"/></svg>
+                    </div>
+                    <span class="font-black text-sm uppercase tracking-widest" style="color:var(--text-primary)">AI Stock Analyst</span>
+                    <span class="text-[9px] font-bold px-2 py-0.5 rounded-full" style="background:rgba(26,115,232,0.12);color:#4285f4">Gemini 2.0 Flash</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="clearAiChat()" class="text-[10px] font-bold px-3 py-1.5 rounded-lg uppercase tracking-wide transition-all" style="background:var(--bg-card2) ;border:1px solid var(--border);color:var(--text-dim)">ล้างแชท</button>
+                    <button onclick="closeAiPopup()" class="w-7 h-7 flex items-center justify-center rounded-lg transition-all hover:scale-110" style="background:var(--bg-card2);border:1px solid var(--border);color:var(--text-secondary)">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Messages -->
+            <div id="ai-popup-messages" class="flex-1 overflow-y-auto flex flex-col gap-4 p-5">
+                <div class="flex items-start gap-3">
+                    <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style="background:linear-gradient(135deg,#1a73e8,#34a853)">
+                        <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.347.347a3.5 3.5 0 01-4.95 0l-.347-.347z"/></svg>
+                    </div>
+                    <div class="flex-1">
+                        <div class="text-[10px] font-bold mb-1.5" style="color:#4285f4">GEMINI ANALYST</div>
+                        <div class="text-sm leading-relaxed" style="color:var(--text-secondary)">สวัสดีครับ ถามได้เลยเรื่องแนวรับ/แนวต้าน, ข่าวล่าสุด หรือ outlook ของหุ้นใดก็ได้ครับ</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Popup Input -->
+            <div class="flex items-center gap-2 px-4 py-3 flex-shrink-0 border-t" style="border-color:var(--border);background:var(--bg-card2)">
+                <input id="ai-popup-input" type="text" placeholder="ถามต่อได้เลย..."
+                    class="flex-1 text-sm px-4 py-2.5 rounded-xl outline-none"
+                    style="background:var(--bg-card);border:1px solid var(--border);color:var(--text-primary)"
+                    onkeydown="if(event.key==='Enter')sendAiMessage()">
+                <button onclick="sendAiMessage()"
+                    class="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider flex-shrink-0"
+                    style="background:linear-gradient(135deg,#1a73e8,#34a853);color:white">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+                    ส่ง
+                </button>
+            </div>
+        </div>
+    </div>
+
 </body>
 </html>
