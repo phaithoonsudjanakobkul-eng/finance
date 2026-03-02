@@ -186,7 +186,7 @@
         }
         /* Push Market News below sticky chart when open */
         #wl-split-wrap.chart-open {
-            min-height: calc(100vh - 74px);
+            min-height: calc(100vh - 98px);
         }
         #wl-table-panel {
             flex: 1 1 auto;
@@ -211,7 +211,7 @@
         /* Table card fills left panel height */
         #wl-split-wrap.chart-open #wl-table-panel .glass-card {
             flex: 1 1 auto;
-            max-height: calc(100vh - 130px);
+            max-height: calc(100vh - 146px);
             overflow-y: auto;
             overflow-x: hidden;
         }
@@ -221,8 +221,8 @@
             max-width: 100%;
             opacity: 1;
             position: sticky;
-            top: 66px;
-            height: calc(100vh - 74px);
+            top: 98px;
+            height: calc(100vh - 98px);
             display: flex;
             flex-direction: column;
             overflow: hidden;
@@ -299,21 +299,30 @@
             scrollbar-gutter: stable;
         }
 
-        /* ── Watchlist table font (Inter/Webull style) ── */
+        /* ── Watchlist table font — uniform Inter weight 500 ── */
         #watchlist-table th {
             font-family: var(--font-main);
-            font-weight: 600;
+            font-weight: 500;
             font-size: 9px;
             letter-spacing: 0.08em;
             text-transform: uppercase;
+            color: var(--text-dim);
         }
         #watchlist-table td {
             font-family: var(--font-main);
+            font-weight: 500;
+            font-size: 12px;
         }
-        /* Price cells — mono for alignment */
-        #watchlist-table .price-cell {
+        /* Symbol — slightly bolder for quick scan */
+        #watchlist-table .sym-cell {
+            font-weight: 600;
+            letter-spacing: 0.02em;
+        }
+        /* Price/numbers — mono font for alignment */
+        #watchlist-table .price-cell,
+        #watchlist-table .num-cell {
             font-family: var(--font-mono);
-            font-weight: 700;
+            font-weight: 500;
         }
 
         #tab-dashboard {
@@ -523,23 +532,23 @@
 
     <!-- Header & Navigation -->
     <nav class="fixed top-0 left-0 right-0 z-50 border-b" style="background:var(--bg-card);border-color:var(--border);backdrop-filter:blur(12px)">
-        <div class="w-full px-4 h-16 flex items-center justify-between gap-3">
+        <div class="w-full px-4 h-24 flex items-center justify-between gap-3">
             <!-- Left: Avatar + brand -->
-            <div class="flex items-center gap-2.5 flex-shrink-0">
+            <div class="flex items-center gap-3 flex-shrink-0">
                 <div onclick="document.getElementById('avatarInput').click()" title="Click to change profile picture"
-                    style="width:40px;height:40px;border-radius:50%;border:2px solid #14b8a6;overflow:hidden;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;"
-                    onmouseover="this.style.borderColor='#0d9488'" onmouseout="this.style.borderColor='#14b8a6'">
+                    style="width:88px;height:88px;border-radius:50%;border:2.5px solid #2563eb;overflow:hidden;cursor:pointer;flex-shrink:0;background:#eff6ff;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 12px rgba(37,99,235,0.2);"
+                    onmouseover="this.style.borderColor='#1d4ed8'" onmouseout="this.style.borderColor='#2563eb'">
                     <img id="avatarImg" src="" alt="avatar" style="width:100%;height:100%;object-fit:cover;display:none;">
-                    <svg id="avatarPlaceholder" xmlns="http://www.w3.org/2000/svg" style="width:22px;height:22px;color:#14b8a6;" fill="currentColor" viewBox="0 0 24 24">
+                    <svg id="avatarPlaceholder" xmlns="http://www.w3.org/2000/svg" style="width:44px;height:44px;color:#93c5fd;" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
                     </svg>
                 </div>
                 <input type="file" id="avatarInput" accept="image/*" style="display:none;" onchange="handleAvatar(event)">
                 <div>
-                    <div class="font-black text-sm tracking-tight leading-none uppercase" style="color:var(--text-primary);font-family:var(--font-main)">PS Smart Finance</div>
-                    <div class="flex items-center gap-1 mt-0.5">
+                    <div class="font-black text-base tracking-tight leading-none uppercase" style="color:#2563eb;font-family:var(--font-main)">PS SMART FINANCE</div>
+                    <div class="flex items-center gap-1.5 mt-1">
                         <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
-                        <div id="db-name-display" class="text-[9px] font-bold uppercase tracking-widest leading-none truncate max-w-[130px]" style="color:var(--text-dim)">Ready</div>
+                        <div id="db-name-display" class="text-[10px] font-bold uppercase tracking-widest leading-none truncate max-w-[180px]" style="color:var(--text-dim)">Ready</div>
                     </div>
                 </div>
             </div>
@@ -591,10 +600,10 @@
         </div>
     </nav>
 
-    <main class="w-full px-2 mt-1 pt-16">
+    <main class="w-full px-4 pt-24">
         
         <!-- DASHBOARD TAB -->
-        <div id="tab-dashboard" class="space-y-5">
+        <div id="tab-dashboard" class="space-y-5 pt-3">
             <div id="dash-content" class="hidden space-y-5">
 
                 <!-- Ticker line -->
@@ -666,7 +675,7 @@
         </div>
 
         <!-- RECORDS TAB -->
-        <div id="tab-edit" class="hidden space-y-4 animate-in">
+        <div id="tab-edit" class="hidden space-y-4 animate-in pt-3">
             <div class="flex flex-wrap gap-4 items-center justify-between bg-white p-4 rounded-3xl border border-gray-100" id="records-toolbar">
                 <div class="flex items-center gap-4">
                     <div class="flex items-center bg-gray-50 rounded-xl px-2" id="month-picker-wrap">
@@ -768,7 +777,7 @@
         </div>
 
         <!-- WATCHLIST TAB -->
-        <div id="tab-watchlist" class="hidden space-y-3 animate-in">
+        <div id="tab-watchlist" class="hidden space-y-3 animate-in pt-3">
 
             <!-- Finnhub Token Modal -->
             <div id="finnhub-modal" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4">
@@ -956,41 +965,35 @@
 
             </div><!-- /wl-split-wrap -->
 
-            <!-- ── Bottom Section: 2-column ────────────────── -->
-            <div class="grid grid-cols-2 gap-4" style="margin-top:8px">
+            <!-- ── Bottom Section: Market News full-width ──── -->
+            <div class="space-y-3">
 
-            <!-- Market News (left) -->
+            <!-- Market News -->
             <div class="glass-card overflow-hidden">
                 <div class="flex items-center justify-between px-5 py-3 border-b" style="border-color:var(--border);background:var(--bg-card2)">
                     <div class="flex items-center gap-3">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:var(--text-dim)"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/></svg>
-                        <span class="text-xs font-black uppercase tracking-widest" style="color:var(--text-primary)">Market News</span>
-                        <span class="text-[9px] font-bold px-2 py-0.5 rounded-full" style="background:rgba(20,184,166,0.12);color:#14b8a6">US Markets</span>
+                        <span class="text-xs font-bold uppercase tracking-widest" style="color:var(--text-primary);font-family:var(--font-main)">Market News</span>
+                        <span class="text-[9px] font-medium px-2 py-0.5 rounded-full" style="background:rgba(20,184,166,0.12);color:#14b8a6">US Markets</span>
                     </div>
                     <div class="flex items-center gap-2">
                         <span id="market-news-status" class="text-[9px]" style="color:var(--text-dim)"></span>
-                        <button onclick="loadMarketNews()" class="flex items-center gap-1 px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-widest" style="background:var(--bg-card2);color:var(--text-secondary)">
+                        <button onclick="loadMarketNews()" class="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[10px] font-medium uppercase tracking-widest" style="background:var(--bg-card2);color:var(--text-secondary);border:1px solid var(--border)">
                             <svg id="market-news-icon" class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
                             Refresh
                         </button>
                     </div>
                 </div>
-                <div id="market-news-grid">
-                    <div class="flex items-center justify-center py-8 gap-2" style="color:var(--text-dim)">
+                <!-- 2-col news grid for market news -->
+                <div id="market-news-grid" class="grid grid-cols-2">
+                    <div class="col-span-2 flex items-center justify-center py-8 gap-2" style="color:var(--text-dim)">
                         <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-                        <span class="text-xs font-bold uppercase tracking-widest">Loading...</span>
+                        <span class="text-xs font-medium">Loading...</span>
                     </div>
                 </div>
             </div>
 
-            <!-- Right panel placeholder -->
-            <div class="glass-card flex flex-col items-center justify-center gap-3 py-16" style="border:2px dashed var(--border)">
-                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:var(--text-dim)"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
-                <p class="text-xs font-bold uppercase tracking-widest" style="color:var(--text-dim)">Coming Soon</p>
-                <p class="text-[10px]" style="color:var(--text-dim)">เครื่องมือใหม่</p>
-            </div>
-
-            </div><!-- /bottom grid -->
+            </div><!-- /bottom section -->
 
         </div>
 
@@ -1855,37 +1858,37 @@
                                 <circle cx="5" cy="8" r="1.2"/><circle cx="11" cy="8" r="1.2"/>
                                 <circle cx="5" cy="12" r="1.2"/><circle cx="11" cy="12" r="1.2"/>
                             </svg>
-                            <span class="wl-idx text-[10px] font-bold text-gray-300 w-4 text-center">${idx}</span>
+                            <span class="wl-idx text-[10px] font-medium w-4 text-center" style="color:var(--text-dim)">${idx}</span>
                         </div>
                     </td>
                     <td class="px-3 py-1.5">
                         <div class="flex items-center gap-2">
                             ${logoHtml}
                             <div class="flex items-center gap-1">
-                                <span class="font-black text-sm tracking-tight" style="color:var(--text-primary)">${symbol}</span>
+                                <span class="sym-cell text-sm" style="color:var(--text-primary)">${symbol}</span>
                                 ${typeBadge}
                             </div>
                         </div>
                     </td>
-                    <td class="px-3 py-1.5 text-xs text-gray-400 max-w-[160px] truncate wl-col-hide">${name}</td>
-                    <td class="px-3 py-1.5 text-right font-black text-sm ${priceColor}">${price !== null ? '$' + fmt(price) : '—'}</td>
-                    <td class="px-3 py-1.5 text-right text-xs font-bold ${changeColor} wl-col-hide">${change !== null ? (isUp ? '+' : '') + fmt(change) : '—'}</td>
+                    <td class="px-3 py-1.5 text-xs wl-col-hide" style="color:var(--text-dim)">${name}</td>
+                    <td class="px-3 py-1.5 text-right price-cell text-sm ${priceColor}">${price !== null ? '$' + fmt(price) : '—'}</td>
+                    <td class="px-3 py-1.5 text-right text-xs num-cell ${changeColor} wl-col-hide">${change !== null ? (isUp ? '+' : '') + fmt(change) : '—'}</td>
                     <td class="px-3 py-1.5 text-right">
                         ${changePct !== null
-                            ? `<span class="inline-block px-2 py-0.5 rounded text-xs font-black ${changeColor} ${isUp ? 'bg-emerald-50' : 'bg-rose-50'}">${arrow} ${Math.abs(changePct).toFixed(2)}%</span>`
+                            ? `<span class="inline-block px-2 py-0.5 rounded text-xs num-cell ${changeColor} ${isUp ? 'bg-emerald-50' : 'bg-rose-50'}">${arrow} ${Math.abs(changePct).toFixed(2)}%</span>`
                             : '<span class="text-gray-300 text-xs">—</span>'}
                     </td>
-                    <td class="px-3 py-1.5 text-right text-xs font-bold text-gray-500 wl-col-hide">${open      !== null ? '$' + fmt(open)      : '—'}</td>
-                    <td class="px-3 py-1.5 text-right text-xs font-bold text-gray-500 wl-col-hide">${prevClose !== null ? '$' + fmt(prevClose) : '—'}</td>
-                    <td class="px-3 py-1.5 text-right text-xs font-bold text-gray-500 wl-col-hide">${high      !== null ? '$' + fmt(high)      : '—'}</td>
-                    <td class="px-3 py-1.5 text-right text-xs font-bold text-gray-500 wl-col-hide">${low       !== null ? '$' + fmt(low)       : '—'}</td>
-                    <td class="px-3 py-1.5 text-right text-xs font-bold text-emerald-600 wl-col-hide">${d?.week52High != null ? '$' + fmt(d.week52High) : '—'}</td>
-                    <td class="px-3 py-1.5 text-right text-xs font-bold text-rose-400 wl-col-hide">${d?.week52Low  != null ? '$' + fmt(d.week52Low)  : '—'}</td>
-                    <td class="px-3 py-1.5 text-right text-xs font-bold text-gray-500 wl-col-hide">${d?.marketCap  != null ? fmtCap(d.marketCap)     : '—'}</td>
-                    <td class="px-3 py-1.5 text-right text-xs font-bold text-gray-500 wl-col-hide">${d?.avgVol10d  != null ? fmtVol(d.avgVol10d)     : '—'}</td>
-                    <td class="px-3 py-1.5 text-right text-xs font-bold text-gray-500 wl-col-hide">${d?.beta       != null ? d.beta.toFixed(2)        : '—'}</td>
-                    <td class="px-3 py-1.5 text-right text-xs font-bold text-gray-500 wl-col-hide">${d?.pe         != null ? d.pe.toFixed(1)          : '—'}</td>
-                    <td class="px-3 py-1.5 text-right text-xs font-bold text-gray-500 wl-col-hide">${d?.divYield   != null ? d.divYield.toFixed(2)+'%': '—'}</td>
+                    <td class="px-3 py-1.5 text-right text-xs num-cell wl-col-hide" style="color:var(--text-secondary)">${open      !== null ? '$' + fmt(open)      : '—'}</td>
+                    <td class="px-3 py-1.5 text-right text-xs num-cell wl-col-hide" style="color:var(--text-secondary)">${prevClose !== null ? '$' + fmt(prevClose) : '—'}</td>
+                    <td class="px-3 py-1.5 text-right text-xs num-cell wl-col-hide" style="color:var(--text-secondary)">${high      !== null ? '$' + fmt(high)      : '—'}</td>
+                    <td class="px-3 py-1.5 text-right text-xs num-cell wl-col-hide" style="color:var(--text-secondary)">${low       !== null ? '$' + fmt(low)       : '—'}</td>
+                    <td class="px-3 py-1.5 text-right text-xs num-cell wl-col-hide" style="color:#10b981">${d?.week52High != null ? '$' + fmt(d.week52High) : '—'}</td>
+                    <td class="px-3 py-1.5 text-right text-xs num-cell wl-col-hide" style="color:#f43f5e">${d?.week52Low  != null ? '$' + fmt(d.week52Low)  : '—'}</td>
+                    <td class="px-3 py-1.5 text-right text-xs num-cell wl-col-hide" style="color:var(--text-secondary)">${d?.marketCap  != null ? fmtCap(d.marketCap)     : '—'}</td>
+                    <td class="px-3 py-1.5 text-right text-xs num-cell wl-col-hide" style="color:var(--text-secondary)">${d?.avgVol10d  != null ? fmtVol(d.avgVol10d)     : '—'}</td>
+                    <td class="px-3 py-1.5 text-right text-xs num-cell wl-col-hide" style="color:var(--text-secondary)">${d?.beta       != null ? d.beta.toFixed(2)        : '—'}</td>
+                    <td class="px-3 py-1.5 text-right text-xs num-cell wl-col-hide" style="color:var(--text-secondary)">${d?.pe         != null ? d.pe.toFixed(1)          : '—'}</td>
+                    <td class="px-3 py-1.5 text-right text-xs num-cell wl-col-hide" style="color:var(--text-secondary)">${d?.divYield   != null ? d.divYield.toFixed(2)+'%': '—'}</td>
                     <td class="px-2 py-1.5 text-right">
                         <button onclick="removeTicker('${symbol}')" class="text-gray-200 hover:text-rose-400 transition-colors opacity-0 group-hover:opacity-100">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -2284,7 +2287,8 @@
             icon.style.animation = 'spin 1s linear infinite';
             clearNewsStore();
             try {
-                if (!res.ok) throw new Error();
+                const res = await fetch(`https://finnhub.io/api/v1/news?category=general&token=${key}`);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 const articles = await res.json();
                 const items = (articles || []).slice(0, 20);
                 statusEl.textContent = `Updated ${new Date().toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'})}`;
@@ -2292,9 +2296,13 @@
                     grid.innerHTML = `<p class="text-xs text-center py-6" style="color:var(--text-dim)">ไม่มีข่าว</p>`;
                     return;
                 }
+                grid.className = 'grid grid-cols-2';
                 grid.innerHTML = items.map(a => renderNewsRow(a)).join('');
             } catch(e) {
-                grid.innerHTML = `<p class="text-xs text-center py-6" style="color:var(--text-dim)">โหลดข่าวไม่สำเร็จ</p>`;
+                grid.innerHTML = `<div class="flex flex-col items-center py-6 gap-2">
+                    <p class="text-xs" style="color:var(--text-dim)">โหลดข่าวไม่สำเร็จ</p>
+                    <button onclick="loadMarketNews()" class="text-[10px] font-bold px-3 py-1.5 rounded-lg" style="background:var(--bg-card2);color:var(--text-secondary)">Retry</button>
+                </div>`;
             } finally {
                 icon.style.animation = '';
             }
