@@ -1070,7 +1070,7 @@
                         <button onclick="saveAiKey()" class="px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider" style="background:#1a73e8;color:white">บันทึก</button>
                         <button onclick="clearAiKey()" class="px-3 py-2 rounded-lg text-xs font-bold" style="background:var(--bg-card2);border:1px solid var(--border);color:var(--text-dim)">ลบ</button>
                     </div>
-                    <p class="text-[9px] mt-1.5" style="color:var(--text-dim)">ฟรี ไม่มีหมดอายุ · สมัครได้ที่ <strong>openrouter.ai → API Keys</strong> · Key เก็บใน browser เท่านั้น</p>
+                    <p class="text-[9px] mt-1.5" style="color:var(--text-dim)">ฟรี ไม่ต้องผูกบัตร · สมัคร <strong>openrouter.ai</strong> → API Keys → Create Key · ใส่ key ที่ขึ้นต้น <strong>sk-or-v1-</strong></p>
                 </div>
 
                 <!-- Quick prompts -->
@@ -2773,7 +2773,7 @@
                         <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.347.347a3.5 3.5 0 01-4.95 0l-.347-.347z"/></svg>
                     </div>
                     <div class="flex-1">
-                        <div class="text-[10px] font-bold mb-1.5" style="color:#4285f4">GEMINI ANALYST</div>
+                        <div class="text-[10px] font-bold mb-1.5" style="color:#4285f4">AI ANALYST</div>
                         <div class="text-sm leading-relaxed" style="color:var(--text-secondary)">สวัสดีครับ ถามได้เลยเรื่องแนวรับ/แนวต้าน, ข่าวล่าสุด หรือ outlook ของหุ้นใดก็ได้ครับ</div>
                     </div>
                 </div>`;
@@ -2792,7 +2792,7 @@
                         <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.347.347a3.5 3.5 0 01-4.95 0l-.347-.347z"/></svg>
                     </div>
                     <div class="flex-1 min-w-0">
-                        <div class="text-[10px] font-bold mb-1.5" style="color:#4285f4">GEMINI ANALYST</div>
+                        <div class="text-[10px] font-bold mb-1.5" style="color:#4285f4">AI ANALYST</div>
                         <div class="ai-msg-body text-sm leading-relaxed" style="color:var(--text-secondary);white-space:pre-wrap">${isLoading ? '<span class="ai-typing">กำลังวิเคราะห์<span class="dots">...</span></span>' : escHtml(text)}</div>
                     </div>
                    </div>`;
@@ -2820,14 +2820,19 @@
                 return;
             }
 
-            // Detect wrong key format (old Claude/Perplexity keys)
-            if (key.startsWith('sk-ant') || key.startsWith('pplx-')) {
+            // Validate key format — must be OpenRouter key starting with sk-or-
+            // Strip any whitespace or non-ASCII that would break HTTP headers
+            const cleanKey = key.replace(/[^\x20-\x7E]/g, '').trim();
+            if (!cleanKey.startsWith('sk-or-')) {
                 localStorage.removeItem('ps_openrouter_key');
                 updateAiStatus();
                 document.getElementById('ai-key-panel').classList.remove('hidden');
-                document.getElementById('ai-key-input').value = '';
-                document.getElementById('ai-key-input').placeholder = 'sk-or-v1-... (OpenRouter key เท่านั้น)';
-                document.getElementById('ai-key-input').focus();
+                const inp = document.getElementById('ai-key-input');
+                inp.value = '';
+                inp.placeholder = 'sk-or-v1-... (OpenRouter key)';
+                inp.focus();
+                inp.style.borderColor = '#ef4444';
+                setTimeout(() => inp.style.borderColor = '', 2000);
                 return;
             }
 
@@ -2860,7 +2865,6 @@
 
                 const sysPrompt = `You are a professional stock analyst specializing in technical analysis. Answer in Thai if the user writes Thai, English if English. Always give specific support/resistance price levels as exact numbers (e.g. แนวรับ $165, แนวต้าน $185). User's watchlist: ${watchlist.slice(0,20).join(', ') || 'not specified'}. Be concise and actionable.`;
 
-                // Build OpenAI-compatible messages array
                 const msgs = [
                     { role: 'system', content: sysPrompt },
                     ...aiChatHistory.slice(-6).map(m => ({
@@ -2873,9 +2877,7 @@
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${key}`,
-                        'HTTP-Referer': 'https://ps-smart-finance',
-                        'X-Title': 'PS Smart Finance'
+                        'Authorization': `Bearer ${cleanKey}`
                     },
                     signal: ctrl.signal,
                     body: JSON.stringify({
@@ -3252,14 +3254,15 @@
 
             updateMarketStatus();
 
-            // Migrate old AI keys → ps_openrouter_key (runs once)
+            // Clear old incompatible AI keys — never migrate them to OpenRouter
             ['ps_claude_key','ps_perplexity_key','ps_gemini_key'].forEach(old => {
-                const v = localStorage.getItem(old);
-                if (v) {
-                    if (!localStorage.getItem('ps_openrouter_key')) localStorage.setItem('ps_openrouter_key', v);
-                    localStorage.removeItem(old);
-                }
+                localStorage.removeItem(old);
             });
+            // Also clear ps_openrouter_key if it contains a non-OpenRouter key
+            const storedAiKey = localStorage.getItem('ps_openrouter_key') || '';
+            if (storedAiKey && !storedAiKey.startsWith('sk-or-')) {
+                localStorage.removeItem('ps_openrouter_key');
+            }
             updateAiStatus();
 
             // ── Debounced auto-save: saves 5s after last change, not blindly every 30s
@@ -3340,7 +3343,7 @@
                         <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.347.347a3.5 3.5 0 01-4.95 0l-.347-.347z"/></svg>
                     </div>
                     <div class="flex-1">
-                        <div class="text-[10px] font-bold mb-1.5" style="color:#4285f4">GEMINI ANALYST</div>
+                        <div class="text-[10px] font-bold mb-1.5" style="color:#4285f4">AI ANALYST</div>
                         <div class="text-sm leading-relaxed" style="color:var(--text-secondary)">สวัสดีครับ ถามได้เลยเรื่องแนวรับ/แนวต้าน, ข่าวล่าสุด หรือ outlook ของหุ้นใดก็ได้ครับ</div>
                     </div>
                 </div>
