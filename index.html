@@ -658,7 +658,7 @@
                         <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
                         <div id="db-name-display" class="text-[10px] font-bold uppercase tracking-widest leading-none" style="color:var(--text-dim);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ready</div>
                     </div>
-                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.03-r56</div>
+                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.03-r57</div>
                 </div>
             </div>
             
@@ -3682,9 +3682,11 @@ Analysis guidelines:
                 });
                 checkWlEmpty();
 
-                // Fetch fresh prices if on watchlist tab
+                // Fetch fresh prices — single refreshWatchlist() call
+                // isInitialLoad: called from window.onload, rows just rendered above — refresh immediately
+                // manual sync: called by user pressing SYNC — refresh after short delay so UI settles
                 if (watchlist.length > 0 && getFinnhubKey()) {
-                    setTimeout(() => refreshWatchlist(), 300);
+                    setTimeout(() => refreshWatchlist(), isInitialLoad ? 100 : 300);
                     fetchFxRate();
                 }
 
@@ -3858,14 +3860,9 @@ Analysis guidelines:
             loadMonth(curMonth);
 
             if (getGistToken()) {
-                if (savedTab === 'watchlist' && watchlist.length > 0) {
-                    watchlist.forEach(s => {
-                        if (!document.getElementById('wl-row-' + s))
-                            renderWatchlistRow(s, wlDataCache[s] || null);
-                    });
-                    fetchFxRate();
-                }
-                syncFromGist();
+                // Don't pre-render here — syncFromGist() will render rows and call refreshWatchlist()
+                // Pre-rendering then clearing in syncFromGist causes a visible double-refresh
+                syncFromGist(true); // isInitialLoad=true
             } else {
                 if (savedTab === 'watchlist' && watchlist.length > 0) {
                     watchlist.forEach(s => {
