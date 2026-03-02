@@ -946,33 +946,34 @@
             <!-- Quick Chart Panel -->
             <div id="quick-chart-panel" class="glass-card overflow-hidden flex flex-col">
                 <!-- Header -->
-                <div class="flex items-center justify-between px-5 pt-4 pb-3">
-                    <div class="flex items-center gap-3">
+                <div class="flex items-center gap-3 px-4 pt-4 pb-3">
+                    <!-- Close button on LEFT — nearest to watchlist panel -->
+                    <button onclick="closeQuickChart()" 
+                        class="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg transition-all hover:scale-110"
+                        style="background:var(--bg-card2);border:1px solid var(--border);color:var(--text-secondary)"
+                        title="Close chart">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg>
+                    </button>
                     <div class="w-10 h-10 flex-shrink-0 relative">
                         <img id="qc-logo" src="" 
                             class="w-10 h-10 rounded-full absolute inset-0 transition-opacity duration-150"
                             style="opacity:0;object-fit:contain;background:white;padding:2px;border:1.5px solid #e2e8f0;"
                             onerror="this.style.opacity='0'">
                     </div>
-                        <div>
-                            <div class="flex items-center gap-2">
-                                <span id="qc-symbol" class="font-black text-gray-900 text-lg"></span>
-                                <span id="qc-price" class="font-black text-lg"></span>
-                                <span id="qc-change" class="text-sm font-bold px-2 py-0.5 rounded"></span>
-                            </div>
-                            <div id="qc-name" class="text-xs text-gray-400 mt-0.5"></div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2">
+                            <span id="qc-symbol" class="font-black text-lg" style="color:var(--text-primary)"></span>
+                            <span id="qc-price" class="font-black text-lg"></span>
+                            <span id="qc-change" class="text-sm font-bold px-2 py-0.5 rounded"></span>
                         </div>
+                        <div id="qc-name" class="text-xs mt-0.5" style="color:var(--text-dim)"></div>
                     </div>
-                    <div class="flex items-center gap-2">
-                        <a id="qc-tv-link" href="#" target="_blank"
-                           class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all bg-blue-50 text-blue-600 hover:bg-blue-100">
-                            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M10 6v2H5v11h11v-5h2v7H3V6h7zm11-3v8l-3-3-7 7-1.5-1.5 7-7-3-3h8z"/></svg>
-                            TradingView
-                        </a>
-                        <button onclick="closeQuickChart()" class="text-gray-300 hover:text-gray-500 transition-colors">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                        </button>
-                    </div>
+                    <a id="qc-tv-link" href="#" target="_blank"
+                       class="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all"
+                       style="background:rgba(37,99,235,0.1);color:#3b82f6">
+                        <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M10 6v2H5v11h11v-5h2v7H3V6h7zm11-3v8l-3-3-7 7-1.5-1.5 7-7-3-3h8z"/></svg>
+                        TradingView
+                    </a>
                 </div>
                 <!-- TradingView Widget -->
                 <div id="qc-tv-container" style="height:480px;flex-shrink:0"></div>
