@@ -608,7 +608,7 @@
                         <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
                         <div id="db-name-display" class="text-[10px] font-bold uppercase tracking-widest leading-none" style="color:var(--text-dim);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ready</div>
                     </div>
-                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.02-r17</div>
+                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.02-r18</div>
                 </div>
             </div>
             
@@ -2868,13 +2868,14 @@
 
             const ctrl = new AbortController();
             window._aiAbort = ctrl;
-            const tid = setTimeout(() => ctrl.abort(), 90000);
+            const tid = setTimeout(() => ctrl.abort(), 120000);
 
             const MODELS = [
-                'openrouter/free',                          // auto-picks best available free model
-                'meta-llama/llama-3.3-70b-instruct:free',  // fallback 1
-                'mistralai/mistral-7b-instruct:free',       // fallback 2
-                'deepseek/deepseek-r1-0528:free',           // fallback 3
+                'openrouter/free',
+                'meta-llama/llama-3.3-70b-instruct:free',
+                'mistralai/mistral-7b-instruct:free',
+                'deepseek/deepseek-r1-0528:free',
+                'google/gemma-3-27b-it:free',
             ];
 
             const sysPrompt = `You are a professional stock analyst. Answer in Thai if user writes Thai, English if English. Always give support/resistance as exact dollar numbers. Watchlist: ${watchlist.slice(0,20).join(', ')||'none'}. Be concise.`;
@@ -2886,13 +2887,35 @@
                 }))
             ];
 
+            // Animate text streaming word-by-word
+            async function streamText(text) {
+                const words = text.split(' ');
+                let out = '';
+                for (const word of words) {
+                    if (ctrl.signal.aborted) break;
+                    out += (out ? ' ' : '') + word;
+                    msgBody.innerHTML = escHtml(out).replace(/\n/g,'<br>');
+                    msgContainer.scrollTop = msgContainer.scrollHeight;
+                    await new Promise(r => setTimeout(r, 18));
+                }
+                // Ensure final full text is set
+                msgBody.innerHTML = escHtml(text).replace(/\n/g,'<br>');
+            }
+
+            // Update badge in popup header
+            function updateBadge(modelName) {
+                const badge = document.getElementById('ai-popup-badge');
+                if (badge) badge.textContent = modelName;
+            }
+
             try {
                 let replied = false;
-                for (let i = 0; i < MODELS.length && !replied; i++) {
-                    if (ctrl.signal.aborted) break;
-                    const model = MODELS[i];
-                    const name  = model.split('/')[1]?.replace(':free','') || model;
-                    setInfo(`🔗 กำลังเชื่อมต่อ ${name}${i>0?` (${i+1}/${MODELS.length})`:''}...`);
+                let attempt = 0;
+                while (!replied && !ctrl.signal.aborted) {
+                    const model = MODELS[attempt % MODELS.length];
+                    const name  = model === 'openrouter/free' ? 'Auto Free' :
+                                  (model.split('/')[1]?.replace(':free','') || model);
+                    setInfo(`🔗 กำลังเชื่อมต่อ${attempt > 0 ? ` (ครั้งที่ ${attempt+1})` : ''}...`);
 
                     let res, data;
                     try {
@@ -2905,37 +2928,47 @@
                         data = await res.json();
                     } catch(fetchErr) {
                         if (fetchErr.name === 'AbortError') throw fetchErr;
-                        setInfo(`⚠️ ${name} ไม่ตอบสนอง ลอง model ถัดไป...`);
-                        await new Promise(r => setTimeout(r, 1000));
+                        attempt++;
+                        if (attempt >= MODELS.length * 2) { setErr('ไม่สามารถเชื่อมต่อ OpenRouter ได้ กรุณาตรวจสอบอินเทอร์เน็ต'); break; }
+                        setInfo(`⚠️ เชื่อมต่อไม่ได้ ลองใหม่...`);
+                        await new Promise(r => setTimeout(r, 1500));
                         continue;
                     }
 
                     if (res.status === 429) {
-                        setInfo(`⏳ ${name} เต็ม ลอง model ถัดไป...`);
+                        setInfo(`⏳ Server เต็ม กำลังลองใหม่...`);
                         await new Promise((r,rej) => {
-                            const t = setTimeout(r, 3000);
+                            const t = setTimeout(r, 4000);
                             ctrl.signal.addEventListener('abort', ()=>{ clearTimeout(t); rej(new DOMException('','AbortError')); },{once:true});
                         });
+                        attempt++;
                         continue;
                     }
 
                     if (!res.ok || data.error) {
-                        setInfo(`⚠️ ${name}: ${data.error?.message||`HTTP ${res.status}`} — ลอง model ถัดไป...`);
+                        attempt++;
+                        if (attempt >= MODELS.length * 2) { setErr(`ไม่มี model ใดพร้อมใช้งาน กรุณาลองใหม่อีกสักครู่`); break; }
+                        setInfo(`⚠️ ลอง model อื่น...`);
                         await new Promise(r => setTimeout(r, 500));
                         continue;
                     }
 
                     const reply = data.choices?.[0]?.message?.content;
-                    if (!reply) { setInfo(`⚠️ ${name} ตอบว่างเปล่า ลอง model ถัดไป...`); continue; }
+                    if (!reply) {
+                        attempt++;
+                        continue;
+                    }
+
+                    // Show which model actually answered
+                    const usedModel = data.model || model;
+                    const usedName = usedModel === 'openrouter/free' ? 'Auto Free' :
+                                     usedModel.split('/')[1]?.replace(':free','').replace(/-instruct$/,'') || usedModel;
+                    updateBadge(usedName);
 
                     aiChatHistory.push({ role:'assistant', content:reply });
                     if (aiChatHistory.length > 10) aiChatHistory = aiChatHistory.slice(-10);
-                    setTxt(reply);
+                    await streamText(reply);
                     replied = true;
-                }
-
-                if (!replied && !ctrl.signal.aborted) {
-                    setErr('ทุก model ไม่ตอบสนองในขณะนี้ ลองใหม่ในอีกสักครู่ครับ');
                 }
 
             } catch(e) {
@@ -3329,7 +3362,7 @@
                         <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.347.347a3.5 3.5 0 01-4.95 0l-.347-.347z"/></svg>
                     </div>
                     <span class="font-black text-sm uppercase tracking-widest" style="color:var(--text-primary)">AI Stock Analyst</span>
-                    <span class="text-[9px] font-bold px-2 py-0.5 rounded-full" style="background:rgba(26,115,232,0.12);color:#4285f4">Llama 3.3 70B</span>
+                    <span id="ai-popup-badge" class="text-[9px] font-bold px-2 py-0.5 rounded-full" style="background:rgba(26,115,232,0.12);color:#4285f4">Llama 3.3 70B</span>
                 </div>
                 <div class="flex items-center gap-2">
                     <button onclick="clearAiChat()" class="text-[10px] font-bold px-3 py-1.5 rounded-lg uppercase tracking-wide transition-all" style="background:var(--bg-card2) ;border:1px solid var(--border);color:var(--text-dim)">ล้างแชท</button>
