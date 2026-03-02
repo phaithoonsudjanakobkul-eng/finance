@@ -2834,52 +2834,56 @@
             sendBtn.classList.add('hidden');
             stopBtn.classList.remove('hidden');
 
-            // AbortController for stop + 20s timeout
-            let abortCtrl = new AbortController();
-            const timeoutId = setTimeout(() => abortCtrl.abort('timeout'), 20000);
-            window._aiAbort = abortCtrl;
+            // Separate: userAbort (Stop button) vs fetch timeout
+            const userAbort = new AbortController();
+            window._aiAbort = userAbort;
+
+            const doFetch = (timeoutMs) => {
+                const ctrl = new AbortController();
+                const tid = setTimeout(() => ctrl.abort(), timeoutMs);
+                // If user hits stop, also abort this fetch
+                userAbort.signal.addEventListener('abort', () => ctrl.abort());
+                return fetch(
+                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        signal: ctrl.signal,
+                        body: JSON.stringify({
+                            system_instruction: { parts: [{ text:
+                                `You are a professional stock analyst. Answer in Thai if the user writes Thai, English if English. Give specific support/resistance price levels as numbers. User's watchlist: ${watchlist.slice(0,20).join(', ') || 'not specified'}. Be concise.`
+                            }] },
+                            contents: aiChatHistory.slice(-6),
+                            generationConfig: { temperature: 0.2, maxOutputTokens: 800 }
+                        })
+                    }
+                ).finally(() => clearTimeout(tid));
+            };
 
             try {
-                const wlSymbols = watchlist.slice(0, 20).join(', ');
-                const sysText = `You are a professional stock analyst. Answer in Thai if the user writes Thai, English if English. Give specific support/resistance price levels as numbers. User's watchlist: ${wlSymbols || 'not specified'}. Be concise.`;
+                // Check user stopped before even starting
+                if (userAbort.signal.aborted) throw new DOMException('', 'AbortError');
 
-                const contents = aiChatHistory.slice(-6);
+                let res = await doFetch(60000); // 60s timeout
 
-                const callGemini = async (signal) => {
-                    return fetch(
-                        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
-                        {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            signal,
-                            body: JSON.stringify({
-                                system_instruction: { parts: [{ text: sysText }] },
-                                contents,
-                                generationConfig: { temperature: 0.2, maxOutputTokens: 800 }
-                            })
-                        }
-                    );
-                };
-
-                let res = await callGemini(abortCtrl.signal);
-
-                // Auto-retry once on 429
+                // Handle 429 — wait then retry once
                 if (res.status === 429) {
-                    const errData = await res.json();
+                    const errData = await res.json().catch(() => ({}));
                     const retryMsg = errData.error?.message || '';
-                    const seconds = parseFloat(retryMsg.match(/(\d+\.?\d*)\s*s/)?.[1] || '15');
+                    const waitSec = Math.min(parseFloat(retryMsg.match(/(\d+\.?\d*)\s*s/)?.[1] || '15'), 30);
                     const el = document.getElementById(loadingId);
-                    if (el) el.querySelector('.ai-msg-body').innerHTML = `<span style="color:var(--text-dim)">⏳ รอ ${Math.ceil(seconds)}s แล้วลองใหม่...</span>`;
-                    await new Promise((r, rej) => {
-                        const t = setTimeout(r, seconds * 1000);
-                        abortCtrl.signal.addEventListener('abort', () => { clearTimeout(t); rej(new Error('หยุดแล้ว')); });
+                    if (el) el.querySelector('.ai-msg-body').innerHTML = `<span style="color:var(--text-dim)">⏳ รอ ${Math.ceil(waitSec)}s แล้วลองใหม่...</span>`;
+
+                    // Wait — but allow user to stop during wait
+                    await new Promise((resolve, reject) => {
+                        const t = setTimeout(resolve, waitSec * 1000);
+                        userAbort.signal.addEventListener('abort', () => { clearTimeout(t); reject(new DOMException('', 'AbortError')); });
                     });
-                    abortCtrl = new AbortController();
-                    window._aiAbort = abortCtrl;
-                    clearTimeout(timeoutId);
-                    setTimeout(() => abortCtrl.abort('timeout'), 45000);
-                    res = await callGemini(abortCtrl.signal);
+
+                    res = await doFetch(60000);
                 }
+
+                if (userAbort.signal.aborted) throw new DOMException('', 'AbortError');
 
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error?.message || `HTTP ${res.status}`);
@@ -2894,14 +2898,12 @@
                 if (el) el.querySelector('.ai-msg-body').innerHTML = escHtml(reply).replace(/\n/g, '<br>');
 
             } catch(e) {
-                clearTimeout(timeoutId);
                 const el = document.getElementById(loadingId);
-                const msg = e.name === 'AbortError' || e.message === 'หยุดแล้ว'
+                const isStop = e.name === 'AbortError' || userAbort.signal.aborted;
+                if (el) el.querySelector('.ai-msg-body').innerHTML = isStop
                     ? '<span style="color:var(--text-dim)">⏹ หยุดแล้ว</span>'
                     : `<span style="color:#f43f5e">❌ ${escHtml(e.message)}</span>`;
-                if (el) el.querySelector('.ai-msg-body').innerHTML = msg;
             } finally {
-                clearTimeout(timeoutId);
                 window._aiAbort = null;
                 document.getElementById('ai-popup-send-btn').classList.remove('hidden');
                 document.getElementById('ai-popup-stop-btn').classList.add('hidden');
