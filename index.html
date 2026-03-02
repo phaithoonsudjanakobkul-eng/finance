@@ -609,7 +609,7 @@
                         <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
                         <div id="db-name-display" class="text-[10px] font-bold uppercase tracking-widest leading-none" style="color:var(--text-dim);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ready</div>
                     </div>
-                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.02-r23</div>
+                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.02-r24</div>
                 </div>
             </div>
             
@@ -862,19 +862,23 @@
                     <span id="wl-market-status" class="text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-widest"></span>
                 </div>
 
-                <!-- USD/THB FX Widget — Dime style -->
-                <div id="fx-widget" class="flex items-center gap-2 flex-shrink-0">
+                <!-- USD/THB FX Widget — compact Dime style -->
+                <div id="fx-widget" class="flex items-center gap-1.5 flex-shrink-0">
                     <!-- USD→THB card -->
-                    <div class="flex flex-col px-3 py-2 rounded-xl border" style="background:var(--bg-card2);border-color:var(--border);min-width:90px">
-                        <span class="text-[9px] font-bold mb-1" style="color:var(--text-dim)">🇺🇸 → 🇹🇭 USD→THB</span>
-                        <span id="fx-change" class="text-[11px] font-black" style="color:#22c55e;font-family:var(--font-mono)">—</span>
-                        <span id="fx-rate" class="text-[13px] font-black" style="color:var(--text-primary);font-family:var(--font-mono);font-variant-numeric:tabular-nums">— THB</span>
+                    <div class="flex flex-col justify-center px-2.5 py-1.5 rounded-xl border" style="background:var(--bg-card2);border-color:var(--border);height:36px;min-width:100px">
+                        <div class="flex items-center gap-1 mb-0.5">
+                            <span class="text-[8px] font-semibold" style="color:var(--text-dim)">🇺🇸→🇹🇭 USD→THB</span>
+                            <span id="fx-change" class="text-[8px] font-bold" style="color:#22c55e;font-family:var(--font-mono)">—</span>
+                        </div>
+                        <span id="fx-rate" class="text-[12px] font-black leading-none" style="color:var(--text-primary);font-family:var(--font-mono);font-variant-numeric:tabular-nums">— THB</span>
                     </div>
                     <!-- THB→USD card -->
-                    <div class="flex flex-col px-3 py-2 rounded-xl border" style="background:var(--bg-card2);border-color:var(--border);min-width:90px">
-                        <span class="text-[9px] font-bold mb-1" style="color:var(--text-dim)">🇹🇭 → 🇺🇸 THB→USD</span>
-                        <span id="fx-change-inv" class="text-[11px] font-black" style="color:#22c55e;font-family:var(--font-mono)">—</span>
-                        <span id="fx-rate-inv" class="text-[13px] font-black" style="color:var(--text-primary);font-family:var(--font-mono);font-variant-numeric:tabular-nums">— THB</span>
+                    <div class="flex flex-col justify-center px-2.5 py-1.5 rounded-xl border" style="background:var(--bg-card2);border-color:var(--border);height:36px;min-width:100px">
+                        <div class="flex items-center gap-1 mb-0.5">
+                            <span class="text-[8px] font-semibold" style="color:var(--text-dim)">🇹🇭→🇺🇸 THB→USD</span>
+                            <span id="fx-change-inv" class="text-[8px] font-bold" style="color:#22c55e;font-family:var(--font-mono)">—</span>
+                        </div>
+                        <span id="fx-rate-inv" class="text-[12px] font-black leading-none" style="color:var(--text-primary);font-family:var(--font-mono);font-variant-numeric:tabular-nums">— USD</span>
                     </div>
                 </div>
 
@@ -2288,10 +2292,10 @@
             // 10=52wH, 11=52wL, 12=mktcap, 13=vol, 14=beta, 15=pe, 16=div, 17=delete
             cells[3].className = `px-3 py-1.5 text-right font-black text-sm ${priceColor}`;
             cells[3].innerText = price !== null ? '$' + fmt(price) : '—';
-            cells[4].className = `px-3 py-1.5 text-right text-xs font-bold ${changeColor} wl-col-hide`;
+            cells[4].className = `px-3 py-1.5 text-right text-xs ${changeColor} wl-col-hide`;
             cells[4].innerText = change !== null ? (isUp ? '+' : '') + fmt(change) : '—';
             cells[5].innerHTML = changePct !== null
-                ? `<span class="inline-block px-2 py-0.5 rounded text-xs font-black ${changeColor} ${isUp ? 'bg-emerald-50' : 'bg-rose-50'}">${arrow} ${Math.abs(changePct).toFixed(2)}%</span>`
+                ? `<span class="inline-block px-2 py-0.5 rounded text-xs ${changeColor} ${isUp ? 'bg-emerald-50' : 'bg-rose-50'}">${arrow} ${Math.abs(changePct).toFixed(2)}%</span>`
                 : '<span class="text-gray-300 text-xs">—</span>';
             cells[6].innerText  = open      !== null ? '$' + fmt(open)      : '—';
             cells[7].innerText  = prevClose !== null ? '$' + fmt(prevClose) : '—';
@@ -2742,8 +2746,14 @@
 
         // ── Chat Popup ──────────────────────────────────────────────────────────
         function openAiPopup() {
-            document.getElementById('ai-popup').classList.remove('hidden');
+            const popup = document.getElementById('ai-popup');
+            popup.classList.remove('hidden');
             document.getElementById('ai-popup-input').focus();
+            // Block wheel from bubbling to background regardless of scroll content height
+            if (!popup._wheelBlocked) {
+                popup.addEventListener('wheel', e => e.stopPropagation(), { passive: false });
+                popup._wheelBlocked = true;
+            }
         }
 
         function closeAiPopup() {
@@ -3339,42 +3349,31 @@ Analysis guidelines:
 
                 if (!rate) throw new Error('No rate');
 
-                const rounded = parseFloat(rate.toFixed(2));
-                const invRate = parseFloat((1 / rate * 100).toFixed(2)); // how many THB per 100 USD inverse
+                const rounded    = parseFloat(rate.toFixed(2));         // 1 USD = X THB  e.g. 33.50
+                const invRounded = parseFloat((1 / rate).toFixed(4));   // 1 THB = X USD  e.g. 0.0299
 
-                // USD→THB card
+                // USD→THB card: 1 USD = X THB
                 rateEl.textContent = rounded.toFixed(2) + ' THB';
+                // THB→USD card: 1 THB = X USD
+                rateInvEl.textContent = invRounded.toFixed(4) + ' USD';
 
-                // THB→USD card (show how many THB to get 1 USD, same number different framing)
-                rateInvEl.textContent = rounded.toFixed(2) + ' THB';
-
-                // Show change % vs previous fetch
-                const formatChange = (diff, el) => {
-                    if (fxPrevRate === null) { el.textContent = ''; return; }
-                    const pct = ((diff / fxPrevRate) * 100);
-                    const isUp = diff > 0.001;
-                    const isDn = diff < -0.001;
-                    el.textContent = isDn ? `↗ ${Math.abs(pct).toFixed(2)}%` : isUp ? `↗ ${pct.toFixed(2)}%` : '';
-                    el.style.color = isDn ? '#22c55e' : isUp ? '#f43f5e' : '#22c55e';
-                    if (!isDn && !isUp) el.textContent = '➖ 0.00%';
-                };
-
-                if (fxPrevRate !== null) {
+                // Show % change vs previous fetch
+                if (fxPrevRate !== null && fxPrevRate > 0) {
                     const diff = rounded - fxPrevRate;
-                    // USD→THB: rate up = USD stronger (baht weaker), THB→USD: inverse
-                    const pct = ((Math.abs(diff) / fxPrevRate) * 100).toFixed(2);
-                    const isUp = diff > 0.001, isDn = diff < -0.001;
+                    const pct  = Math.abs((diff / fxPrevRate) * 100).toFixed(2);
+                    const isUp = diff > 0.005;   // USD stronger, baht weaker
+                    const isDn = diff < -0.005;  // USD weaker, baht stronger
+                    const sign = isUp ? '+' : isDn ? '-' : '';
 
-                    // USD→THB: up arrow green if baht cheaper (rate rises) — Dime shows change %
-                    changeEl.textContent = (isDn ? '↗ ' : isUp ? '↗ ' : '➖ ') + pct + '%';
-                    changeEl.style.color = isDn ? '#22c55e' : isUp ? '#f43f5e' : '#94a3b8';
+                    // USD→THB: rate up = baht weaker = red for Thai investor
+                    changeEl.textContent = `${isUp?'↑':isDn?'↓':'—'} ${sign}${pct}%`;
+                    changeEl.style.color = isUp ? '#f43f5e' : isDn ? '#22c55e' : '#94a3b8';
 
-                    // THB→USD: inverse direction
-                    changeInvEl.textContent = (isUp ? '↗ ' : isDn ? '↗ ' : '➖ ') + pct + '%';
-                    changeInvEl.style.color = isUp ? '#22c55e' : isDn ? '#f43f5e' : '#94a3b8';
+                    // THB→USD: inverse — if baht weakens, 1 THB buys fewer USD = red
+                    changeInvEl.textContent = `${isUp?'↓':isDn?'↑':'—'} ${sign}${pct}%`;
+                    changeInvEl.style.color = isUp ? '#f43f5e' : isDn ? '#22c55e' : '#94a3b8';
                 } else {
-                    changeEl.textContent    = '➖ 0.00%';
-                    changeInvEl.textContent = '➖ 0.00%';
+                    changeEl.textContent = changeInvEl.textContent = '— 0.00%';
                     changeEl.style.color = changeInvEl.style.color = '#94a3b8';
                 }
 
