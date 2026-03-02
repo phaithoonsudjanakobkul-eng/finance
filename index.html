@@ -644,7 +644,7 @@
                         <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
                         <div id="db-name-display" class="text-[10px] font-bold uppercase tracking-widest leading-none" style="color:var(--text-dim);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ready</div>
                     </div>
-                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.02-r34</div>
+                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.02-r35</div>
                 </div>
             </div>
             
@@ -1282,17 +1282,24 @@
             document.getElementById('btn-watchlist').className = t === 'watchlist' ? 'px-5 py-2 rounded-xl text-xs font-bold tab-active transition-all uppercase flex items-center gap-1.5' : 'px-5 py-2 rounded-xl text-xs font-bold text-gray-400 transition-all uppercase flex items-center gap-1.5';
             if (t === 'dashboard') updateDashboard();
             if (t === 'watchlist' && !skipWlRefresh) {
-                // Render from cache instantly — skip symbols that already have rows with data
+                // Step 1: Render from cache INSTANTLY — no waiting
                 watchlist.forEach(s => {
                     const row = document.getElementById('wl-row-' + s);
                     if (!row) renderWatchlistRow(s, wlDataCache[s] || null);
-                    // If row exists but is skeleton, replace with cached data if available
-                    else if (row.classList.contains('is-skeleton') && wlDataCache[s]) {
-                        renderWatchlistRow(s, wlDataCache[s]);
-                    }
+                    else if (wlDataCache[s]) renderWatchlistRow(s, wlDataCache[s]);
                 });
-                refreshWatchlist();
+
+                // Step 2: Reconnect WS immediately (so LIVE status shows fast)
+                if (isMarketOpen()) {
+                    connectFinnhubWs();
+                }
+                updateMarketStatus();
+
+                // Step 3: FX rate update (non-blocking)
                 fetchFxRate();
+
+                // Step 4: Background refresh for fresh data (delayed 300ms so UI renders first)
+                setTimeout(() => refreshWatchlist(), 300);
             }
             if (t !== 'watchlist') disconnectFinnhubWs(); // save API quota when not viewing
             if (save) try { localStorage.setItem('ps_tab', t); } catch(e) {}
@@ -3562,22 +3569,31 @@ Analysis guidelines:
             let prevRate = null; // yesterday close for real % change
             let src = '';
 
+            // Show loading state
+            rateEl.textContent    = '... THB';
+            rateInvEl.textContent = '... THB';
+
             // ── Source 1: ExchangeRate-API (hourly, most accurate free tier) ──
             const ERAPI_KEY = getErapiKey();
             if (ERAPI_KEY) {
                 try {
-                    const r = await fetch(
-                        `https://v6.exchangerate-api.com/v6/${ERAPI_KEY}/latest/USD`,
-                        { cache: 'no-store' }
-                    );
+                    const url = `https://v6.exchangerate-api.com/v6/${ERAPI_KEY}/latest/USD`;
+                    const r = await fetch(url, { cache: 'no-store' });
                     if (r.ok) {
                         const j = await r.json();
-                        if (sane(j.conversion_rates?.THB)) {
+                        if (j.result === 'error') {
+                            // Show API error in tooltip for debugging
+                            rateEl.title = `ERAPI error: ${j['error-type']}`;
+                        } else if (sane(j.conversion_rates?.THB)) {
                             usdThb = j.conversion_rates.THB;
                             src = 'ExchangeRate-API';
                         }
+                    } else {
+                        rateEl.title = `ERAPI HTTP ${r.status}`;
                     }
-                } catch(e) {}
+                } catch(e) {
+                    rateEl.title = `ERAPI fetch error: ${e.message}`;
+                }
 
                 // Fetch yesterday for real % change
                 if (usdThb) {
@@ -3638,8 +3654,9 @@ Analysis guidelines:
 
             rateEl.textContent    = sellRate.toFixed(2) + ' THB';
             rateInvEl.textContent = buyRate.toFixed(2)  + ' THB';
-            rateEl.title    = `ขาย 1 USD ได้ ${sellRate} THB [${src}]`;
-            rateInvEl.title = `ซื้อ 1 USD ใช้ ${buyRate} THB [spread 0.4%]`;
+            const ts = new Date().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});
+            rateEl.title    = `ขาย 1 USD ได้ ${sellRate} THB · [${src}] อัปเดต ${ts}`;
+            rateInvEl.title = `ซื้อ 1 USD ใช้ ${buyRate} THB · spread 0.4% · [${src}] อัปเดต ${ts}`;
 
             // ── % Change vs yesterday ─────────────────────────────────────
             const baseSell = prevRate ?? fxPrevRate;
@@ -3721,10 +3738,11 @@ Analysis guidelines:
             // Trigger refresh with new keys
             const hasNewFinnhub = !!localStorage.getItem('ps_finnhub_key');
             if (hasNewFinnhub) {
-                refreshWatchlist();
+                setTimeout(() => refreshWatchlist(), 100);
                 updateAiStatus();
             }
-            fetchFxRate();
+            // Small delay so localStorage is flushed before fetch reads it
+            setTimeout(() => fetchFxRate(), 200);
         }
 
         function clearAllSettings() {
@@ -3837,7 +3855,7 @@ Analysis guidelines:
             setInterval(() => {
                 const wlVisible = !document.getElementById('tab-watchlist').classList.contains('hidden');
                 if (wlVisible) fetchFxRate();
-            }, 30 * 1000);
+            }, 60 * 1000);
 
             // Fallback polling every 1 min — only when WebSocket is NOT connected and market is open
             setInterval(() => {
