@@ -644,7 +644,7 @@
                         <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
                         <div id="db-name-display" class="text-[10px] font-bold uppercase tracking-widest leading-none" style="color:var(--text-dim);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ready</div>
                     </div>
-                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.02-r32</div>
+                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.02-r33</div>
                 </div>
             </div>
             
@@ -1839,9 +1839,13 @@
         function openFinnhubModal() {
             const modal = document.getElementById('finnhub-modal');
             modal.classList.remove('hidden');
-            const stored = localStorage.getItem('ps_erapi_key') || '';
-            const el = document.getElementById('erapi-key-input');
-            if (el && stored) el.value = stored;
+            const fKey = localStorage.getItem('ps_finnhub_key') || '';
+            const fEl  = document.getElementById('finnhub-key-input');
+            if (fEl && fKey) fEl.value = fKey;
+            const eKey = localStorage.getItem('ps_erapi_key') || '';
+            const eEl  = document.getElementById('erapi-key-input');
+            if (eEl && eKey) eEl.value = eKey;
+        
         }
         function getErapiKey() { return localStorage.getItem('ps_erapi_key') || ''; }
         function saveErapiKey() {
@@ -2299,13 +2303,42 @@
                 const p = profileCache[s];
                 return !p || (now - p._ts > PROFILE_TTL);
             });
+            const failedSymbols = [];
             await throttledAll(needsProfile, 3, async (symbol) => {
                 try {
                     const data = await fetchQuote(symbol);
                     if (data?.logo) preloadLogo(data.logo);
                     renderWatchlistRow(symbol, data);
-                } catch(e) { /* keep skeleton — retry on next refresh */ }
+                } catch(e) {
+                    failedSymbols.push(symbol); // track for retry
+                }
             });
+
+            // Auto-retry failed symbols once after 3s (handles Finnhub 429 rate limit)
+            if (failedSymbols.length > 0) {
+                setTimeout(async () => {
+                    await throttledAll(failedSymbols, 2, async (symbol) => {
+                        try {
+                            const data = await fetchQuote(symbol);
+                            if (data?.logo) preloadLogo(data.logo);
+                            renderWatchlistRow(symbol, data);
+                        } catch(e) {
+                            // If still fails, mark row as error state (not blank skeleton)
+                            const row = document.getElementById('wl-row-' + symbol);
+                            if (row) {
+                                const cells = row.querySelectorAll('.is-skeleton');
+                                cells.forEach(c => {
+                                    c.classList.remove('is-skeleton');
+                                    c.style.background = '';
+                                    c.style.borderRadius = '';
+                                    c.style.color = 'var(--text-dim)';
+                                    c.innerText = '—';
+                                });
+                            }
+                        }
+                    });
+                }, 3000);
+            };
 
             // Phase B: symbols with cached profile → quote-only refresh
             // Skip if WebSocket is live (already streaming real-time)
@@ -3499,12 +3532,13 @@ Analysis guidelines:
             if (!rateEl) return;
 
             const sane = v => typeof v === 'number' && isFinite(v) && v > 28 && v < 45;
+
+            let usdThb   = null;
+            let prevRate = null; // yesterday close for real % change
+            let src = '';
+
+            // ── Source 1: ExchangeRate-API (hourly, most accurate free tier) ──
             const ERAPI_KEY = getErapiKey();
-
-            let usdThb   = null;  // current mid rate
-            let prevRate = null;  // yesterday close for real % change
-
-            // ── Source 1: exchangerate-api.com (hourly, most accurate free tier) ──
             if (ERAPI_KEY) {
                 try {
                     const r = await fetch(
@@ -3513,28 +3547,32 @@ Analysis guidelines:
                     );
                     if (r.ok) {
                         const j = await r.json();
-                        if (sane(j.conversion_rates?.THB)) usdThb = j.conversion_rates.THB;
+                        if (sane(j.conversion_rates?.THB)) {
+                            usdThb = j.conversion_rates.THB;
+                            src = 'ExchangeRate-API';
+                        }
                     }
                 } catch(e) {}
 
-                // Yesterday rate for real % change
+                // Fetch yesterday for real % change
                 if (usdThb) {
                     try {
-                        const d = new Date(); d.setDate(d.getDate() - 1);
-                        const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), dd = String(d.getDate()).padStart(2,'0');
-                        const r = await fetch(
-                            `https://v6.exchangerate-api.com/v6/${ERAPI_KEY}/history/USD/${y}/${d.getMonth()+1}/${d.getDate()}`,
+                        const d  = new Date();
+                        d.setDate(d.getDate() - 1);
+                        const yr = d.getFullYear(), mo = d.getMonth()+1, dy = d.getDate();
+                        const r2 = await fetch(
+                            `https://v6.exchangerate-api.com/v6/${ERAPI_KEY}/history/USD/${yr}/${mo}/${dy}`,
                             { cache: 'no-store' }
                         );
-                        if (r.ok) {
-                            const j = await r.json();
-                            if (sane(j.conversion_rates?.THB)) prevRate = j.conversion_rates.THB;
+                        if (r2.ok) {
+                            const j2 = await r2.json();
+                            if (sane(j2.conversion_rates?.THB)) prevRate = j2.conversion_rates.THB;
                         }
                     } catch(e) {}
                 }
             }
 
-            // ── Source 2: Finnhub OANDA (realtime interbank, has prev_close) ──
+            // ── Source 2: Finnhub OANDA (realtime interbank + prev_close) ──
             if (!usdThb) {
                 const fKey = getFinnhubKey();
                 if (fKey) {
@@ -3545,37 +3583,40 @@ Analysis guidelines:
                         );
                         if (r.ok) {
                             const j = await r.json();
-                            if (sane(j.c))  usdThb   = j.c;
-                            if (sane(j.pc)) prevRate = j.pc;
+                            if (sane(j.c))  { usdThb   = j.c;  src = 'Finnhub OANDA'; }
+                            if (sane(j.pc)) { prevRate  = j.pc; }
                         }
                     } catch(e) {}
                 }
             }
 
-            // ── Source 3: Frankfurter ECB daily fallback ──
+            // ── Source 3: Frankfurter ECB (daily fallback) ──
             if (!usdThb) {
                 try {
                     const r = await fetch('https://api.frankfurter.app/latest?from=USD&to=THB', { cache: 'no-store' });
-                    if (r.ok) { const j = await r.json(); if (sane(j.rates?.THB)) usdThb = j.rates.THB; }
+                    if (r.ok) {
+                        const j = await r.json();
+                        if (sane(j.rates?.THB)) { usdThb = j.rates.THB; src = 'ECB'; }
+                    }
                 } catch(e) {}
             }
 
-            if (!sane(usdThb)) {
+            if (!usdThb) {
                 rateEl.textContent = '— THB'; rateInvEl.textContent = '— THB'; return;
             }
 
-            // ── Compute rates ────────────────────────────────────────────────
-            // USD→THB sell rate: ขาย 1 USD ได้กี่บาท  (mid rate)
-            // THB→USD buy rate:  ซื้อ 1 USD ต้องใช้กี่บาท (mid + 0.4% spread ≈ Dime)
+            // ── Calculate both display rates ──────────────────────────────
+            // USD→THB sell: ขาย 1 USD ได้กี่บาท
+            // THB→USD buy:  ซื้อ 1 USD ต้องใช้กี่บาท (+0.4% spread ≈ Dime)
             const sellRate = parseFloat(usdThb.toFixed(2));
             const buyRate  = parseFloat((usdThb * 1.004).toFixed(2));
 
             rateEl.textContent    = sellRate.toFixed(2) + ' THB';
             rateInvEl.textContent = buyRate.toFixed(2)  + ' THB';
-            rateEl.title    = `ขาย 1 USD ได้ ${sellRate} THB • อัตราอ้างอิง interbank • อัตราจริงธนาคารไทยสูงกว่าเล็กน้อย`;
-            rateInvEl.title = `ซื้อ 1 USD ใช้ ${buyRate} THB • รวม spread ~0.4%`;
+            rateEl.title    = `ขาย 1 USD ได้ ${sellRate} THB [${src}]`;
+            rateInvEl.title = `ซื้อ 1 USD ใช้ ${buyRate} THB [spread 0.4%]`;
 
-            // ── % Change vs yesterday ────────────────────────────────────────
+            // ── % Change vs yesterday ─────────────────────────────────────
             const baseSell = prevRate ?? fxPrevRate;
             const baseBuy  = prevRate ? parseFloat((prevRate * 1.004).toFixed(2)) : fxPrevRateInv;
 
