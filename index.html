@@ -608,7 +608,7 @@
                         <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
                         <div id="db-name-display" class="text-[10px] font-bold uppercase tracking-widest leading-none" style="color:var(--text-dim);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ready</div>
                     </div>
-                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.02-r14</div>
+                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.02-r15</div>
                 </div>
             </div>
             
@@ -1628,7 +1628,8 @@
                             watchlist = data.watchlist;
                             localStorage.setItem('ps_watchlist', JSON.stringify(watchlist));
                         }
-                        if (typeof data.meta?.dark === 'boolean') {
+                        // Only apply dark mode from Gist if user hasn't set local preference
+                        if (typeof data.meta?.dark === 'boolean' && localStorage.getItem('ps_dark') === null) {
                             applyDarkMode(data.meta.dark);
                             localStorage.setItem('ps_dark', data.meta.dark ? '1' : '0');
                             updateChartThemes(data.meta.dark);
@@ -1756,7 +1757,7 @@
                         watchlist = data.watchlist;
                         try { localStorage.setItem('ps_watchlist', JSON.stringify(watchlist)); } catch(e) {}
                     }
-                    if (typeof data.meta?.dark === 'boolean') {
+                    if (typeof data.meta?.dark === 'boolean' && localStorage.getItem('ps_dark') === null) {
                         applyDarkMode(data.meta.dark);
                         localStorage.setItem('ps_dark', data.meta.dark ? '1' : '0');
                         updateChartThemes(data.meta.dark);
@@ -2897,16 +2898,16 @@
 
                     const data = await res.json();
 
-                    // 429 — wait and retry same model once
+                    // 429 — wait briefly then try next model
                     if (res.status === 429) {
-                        const w = Math.min(parseInt((data.error?.message||'').match(/\d+/)?.[0]||'10'), 20);
-                        if (loadEl) loadEl.querySelector('.ai-msg-body').innerHTML = `<span style="color:var(--text-dim)">⏳ รอ ${w}s...</span>`;
+                        const w = Math.min(parseInt((data.error?.message||'').match(/\d+/)?.[0]||'5'), 10);
+                        if (loadEl) loadEl.querySelector('.ai-msg-body').innerHTML = `<span style="color:var(--text-dim)">⏳ ${modelShort} busy รอ ${w}s แล้วลอง model ถัดไป...</span>`;
                         await new Promise((r,rej) => {
                             const t = setTimeout(r, w*1000);
                             ctrl.signal.addEventListener('abort', ()=>{ clearTimeout(t); rej(new DOMException('','AbortError')); }, {once:true});
                         });
-                        i--; // retry same model
-                        continue;
+                        lastError = '429 too many requests';
+                        continue; // move to next model
                     }
 
                     // Provider error — try next model
