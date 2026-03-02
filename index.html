@@ -847,35 +847,35 @@
 
                 <!-- USD/THB FX Widget -->
                 <div id="fx-widget" class="flex items-center gap-3 px-3 py-1.5 rounded-xl border relative group/fx flex-shrink-0"
-                    style="background:var(--bg-card2);border-color:var(--border);cursor:default">
+                    style="background:var(--bg-card2);border-color:var(--border);cursor:default;min-width:260px">
                     <div id="fx-tooltip" class="absolute left-1/2 -translate-x-1/2 top-full mt-2 z-50 hidden group-hover/fx:block">
                         <div class="px-3 py-1.5 rounded-xl text-[10px] font-bold whitespace-nowrap shadow-lg" style="background:var(--bg-card);border:1px solid var(--border)">
                             <span id="fx-note" style="color:var(--text-primary)">—</span>
                         </div>
                     </div>
-                    <div class="flex flex-col">
+                    <div class="flex flex-col" style="min-width:72px">
                         <span class="text-[8px] font-bold uppercase tracking-widest" style="color:var(--text-dim)">1 USD =</span>
                         <div class="flex items-baseline gap-1">
-                            <span id="fx-rate" class="font-black text-xs" style="font-family:var(--font-mono);color:var(--text-primary)">—</span>
+                            <span id="fx-rate" class="font-black text-xs" style="font-family:var(--font-mono);color:var(--text-primary);font-variant-numeric:tabular-nums;min-width:52px;display:inline-block">—</span>
                             <span class="text-[9px] font-bold" style="color:var(--text-dim)">THB</span>
-                            <span id="fx-change" class="text-[9px] font-bold ml-0.5" style="font-family:var(--font-mono)"></span>
+                            <span id="fx-change" class="text-[9px] font-bold ml-0.5" style="font-family:var(--font-mono);min-width:16px;display:inline-block"></span>
                         </div>
                     </div>
                     <div class="w-px h-6 self-stretch" style="background:var(--border)"></div>
-                    <div class="flex flex-col">
+                    <div class="flex flex-col" style="min-width:52px">
                         <span class="text-[8px] font-bold uppercase tracking-widest" style="color:var(--text-dim)">ซื้อ 1 USD</span>
                         <div class="flex items-baseline gap-1">
-                            <span id="fx-rate-inv" class="font-black text-xs" style="font-family:var(--font-mono);color:var(--text-primary)">—</span>
+                            <span id="fx-rate-inv" class="font-black text-xs" style="font-family:var(--font-mono);color:var(--text-primary);font-variant-numeric:tabular-nums;min-width:40px;display:inline-block">—</span>
                             <span class="text-[9px] font-bold" style="color:var(--text-dim)">฿</span>
                         </div>
                     </div>
                     <div class="w-px h-6 self-stretch" style="background:var(--border)"></div>
-                    <div class="flex flex-col items-center gap-0.5">
+                    <div class="flex flex-col items-center gap-0.5" style="min-width:44px">
                         <div class="flex items-center gap-1">
                             <span id="fx-dot" class="w-1.5 h-1.5 rounded-full bg-gray-300"></span>
                             <span class="text-[7px] font-bold uppercase tracking-widest" style="color:var(--text-dim)">Live</span>
                         </div>
-                        <span id="fx-time" class="text-[8px] font-bold" style="font-family:var(--font-mono);color:var(--text-secondary)">—</span>
+                        <span id="fx-time" class="text-[8px] font-bold" style="font-family:var(--font-mono);color:var(--text-secondary);font-variant-numeric:tabular-nums;min-width:44px;text-align:center">—</span>
                     </div>
                 </div>
 
@@ -2164,7 +2164,7 @@
                 const p = profileCache[s];
                 return !p || (now - p._ts > PROFILE_TTL);
             });
-            await throttledAll(needsProfile, 2, async (symbol) => {
+            await throttledAll(needsProfile, 3, async (symbol) => {
                 try {
                     const data = await fetchQuote(symbol);
                     if (data?.logo) preloadLogo(data.logo);
@@ -2795,7 +2795,7 @@
                 const contents = aiChatHistory.slice(-10);
 
                 const res = await fetch(
-                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-04-17:generateContent?key=${key}`,
+                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
                     {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -3202,7 +3202,7 @@
                         <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.347.347a3.5 3.5 0 01-4.95 0l-.347-.347z"/></svg>
                     </div>
                     <span class="font-black text-sm uppercase tracking-widest" style="color:var(--text-primary)">AI Stock Analyst</span>
-                    <span class="text-[9px] font-bold px-2 py-0.5 rounded-full" style="background:rgba(26,115,232,0.12);color:#4285f4">Gemini 2.5 Flash</span>
+                    <span class="text-[9px] font-bold px-2 py-0.5 rounded-full" style="background:rgba(26,115,232,0.12);color:#4285f4">Gemini 2.0 Flash</span>
                 </div>
                 <div class="flex items-center gap-2">
                     <button onclick="clearAiChat()" class="text-[10px] font-bold px-3 py-1.5 rounded-lg uppercase tracking-wide transition-all" style="background:var(--bg-card2) ;border:1px solid var(--border);color:var(--text-dim)">ล้างแชท</button>
