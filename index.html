@@ -644,7 +644,7 @@
                         <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
                         <div id="db-name-display" class="text-[10px] font-bold uppercase tracking-widest leading-none" style="color:var(--text-dim);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ready</div>
                     </div>
-                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.02-r38</div>
+                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.02-r39</div>
                 </div>
             </div>
             
@@ -908,36 +908,36 @@
             </div>
 
             <!-- Header -->
-            <div class="flex items-center gap-3">
-                <!-- Left: title + status -->
-                <div class="flex items-center gap-3 flex-shrink-0">
-                    <h3 class="font-black text-base uppercase tracking-tight" style="color:var(--text-primary);font-family:var(--font-main)">Watchlist</h3>
-                    <span id="wl-last-update" class="text-[9px] font-bold uppercase tracking-widest" style="color:var(--text-dim)"></span>
-                    <span id="wl-market-status" class="text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-widest"></span>
+            <div class="flex items-center gap-3" style="min-height:40px">
+                <!-- Left: title + status — fixed width group -->
+                <div class="flex items-center gap-2 flex-shrink-0" style="min-width:220px">
+                    <h3 class="font-black text-base uppercase tracking-tight flex-shrink-0" style="color:var(--text-primary);font-family:var(--font-main)">Watchlist</h3>
+                    <span id="wl-last-update" class="text-[9px] font-bold uppercase tracking-widest flex-shrink-0" style="color:var(--text-dim);min-width:72px"></span>
+                    <span id="wl-market-status" class="text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-widest flex-shrink-0" style="min-width:48px;text-align:center"></span>
                 </div>
 
                 <!-- USD/THB FX Widget — compact Dime style -->
                 <div id="fx-widget" class="flex items-center gap-1.5 flex-shrink-0">
                     <!-- USD→THB: ขาย 1 USD ได้ XX THB -->
-                    <div class="flex flex-col justify-center px-2.5 py-1.5 rounded-xl border" style="background:var(--bg-card2);border-color:var(--border);height:36px;min-width:118px">
+                    <div class="flex flex-col justify-center px-2.5 py-1.5 rounded-xl border" style="background:var(--bg-card2);border-color:var(--border);height:36px;width:130px;flex-shrink:0;overflow:hidden">
                         <div class="flex items-center gap-1">
                             <span class="text-[8px] font-semibold leading-none" style="color:var(--text-dim)">🇺🇸→🇹🇭 USD→THB</span>
                             <span id="fx-src-badge" class="text-[7px] font-bold px-1 rounded" style="background:rgba(16,185,129,0.15);color:#10b981;display:none"></span>
                         </div>
                         <div class="flex items-baseline gap-1.5 mt-0.5">
                             <span id="fx-change" class="text-[9px] font-bold" style="color:#22c55e;font-family:var(--font-mono)">↑ 0.00%</span>
-                            <span id="fx-rate" class="text-[12px] font-black leading-none" style="color:var(--text-primary);font-family:var(--font-mono);font-variant-numeric:tabular-nums">—</span>
+                            <span id="fx-rate" class="text-[11px] font-black leading-none" style="color:var(--text-primary);font-family:var(--font-mono);font-variant-numeric:tabular-nums;letter-spacing:-0.02em">—</span>
                             <span class="text-[8px] font-semibold" style="color:var(--text-dim)">THB</span>
                         </div>
                     </div>
                     <!-- THB→USD: ซื้อ 1 USD ต้องใช้ XX THB (always slightly higher = spread) -->
-                    <div class="flex flex-col justify-center px-2.5 py-1.5 rounded-xl border" style="background:var(--bg-card2);border-color:var(--border);height:36px;min-width:118px">
+                    <div class="flex flex-col justify-center px-2.5 py-1.5 rounded-xl border" style="background:var(--bg-card2);border-color:var(--border);height:36px;width:130px;flex-shrink:0;overflow:hidden">
                         <div class="flex items-center gap-1">
                             <span class="text-[8px] font-semibold leading-none" style="color:var(--text-dim)">🇹🇭→🇺🇸 THB→USD</span>
                         </div>
                         <div class="flex items-baseline gap-1.5 mt-0.5">
                             <span id="fx-change-inv" class="text-[9px] font-bold" style="color:#22c55e;font-family:var(--font-mono)">↑ 0.00%</span>
-                            <span id="fx-rate-inv" class="text-[12px] font-black leading-none" style="color:var(--text-primary);font-family:var(--font-mono);font-variant-numeric:tabular-nums">—</span>
+                            <span id="fx-rate-inv" class="text-[11px] font-black leading-none" style="color:var(--text-primary);font-family:var(--font-mono);font-variant-numeric:tabular-nums;letter-spacing:-0.02em">—</span>
                             <span class="text-[8px] font-semibold" style="color:var(--text-dim)">THB</span>
                         </div>
                     </div>
@@ -3575,8 +3575,8 @@ Analysis guidelines:
             // Dime! shows Thai retail selling rate (~31.33) → spread ≈ +0.87%
             // USD→THB: mid × 1.0087  (retail selling, "ขาย 1 USD ได้กี่บาท")
             // THB→USD: mid × 1.0087 × 1.004  (retail buying, "ซื้อ 1 USD ใช้กี่บาท")
-            const SELL_SPREAD = 1.0087;  // ~0.27 THB on 31.06 base → 31.33
-            const BUY_SPREAD  = 1.0087 * 1.004; // THB→USD side adds ~0.4% more
+            const SELL_SPREAD = 1.0077;  // ~0.24 THB on 31.06 base → 31.30
+            const BUY_SPREAD  = 1.0077 * 1.004; // THB→USD side → ~31.46
 
             rateEl.textContent    = '...';
             rateInvEl.textContent = '...';
@@ -3689,7 +3689,7 @@ Analysis guidelines:
 
             const ts = new Date().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});
             rateEl.title    = `mid: ${midRate.toFixed(4)} × ${SELL_SPREAD} = ${sellRate.toFixed(4)} THB · [${src}] ${ts}`;
-            rateInvEl.title = `mid: ${midRate.toFixed(4)} × ${BUY_SPREAD.toFixed(4)} = ${buyRate.toFixed(4)} THB · [${src}] ${ts}`;
+            rateInvEl.title = `mid: ${midRate.toFixed(4)} × ${BUY_SPREAD.toFixed(5)} = ${buyRate.toFixed(4)} THB · [${src}] ${ts}`;
 
             const srcBadge = document.getElementById('fx-src-badge');
             if (srcBadge) {
