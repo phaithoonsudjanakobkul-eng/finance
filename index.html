@@ -610,7 +610,7 @@
                         <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
                         <div id="db-name-display" class="text-[10px] font-bold uppercase tracking-widest leading-none" style="color:var(--text-dim);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ready</div>
                     </div>
-                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.02-r26</div>
+                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.02-r27</div>
                 </div>
             </div>
             
@@ -2747,19 +2747,66 @@
 
         // ── Chat Popup ──────────────────────────────────────────────────────────
         function openAiPopup() {
-            const popup = document.getElementById('ai-popup');
-            popup.classList.remove('hidden');
+            document.getElementById('ai-popup').classList.remove('hidden');
+            document.getElementById('ai-fab').classList.add('hidden');
             document.getElementById('ai-popup-input').focus();
-            // Block wheel from reaching background — works even when content is short (no scrollbar yet)
-            const panel = document.getElementById('ai-popup-panel');
-            if (!panel._wheelBlocked) {
-                panel.addEventListener('wheel', e => { e.stopPropagation(); }, { passive: true });
-                panel._wheelBlocked = true;
-            }
+            initAiDrag();
         }
 
-        function closeAiPopup() {
+        function minimizeAiPopup() {
             document.getElementById('ai-popup').classList.add('hidden');
+            document.getElementById('ai-fab').classList.remove('hidden');
+        }
+
+        function restoreAiPopup() {
+            document.getElementById('ai-fab').classList.add('hidden');
+            document.getElementById('ai-popup').classList.remove('hidden');
+            document.getElementById('ai-popup-input').focus();
+        }
+
+        function closeAiPopup() { minimizeAiPopup(); }
+
+        function initAiDrag() {
+            const popup  = document.getElementById('ai-popup');
+            const header = document.getElementById('ai-popup-header');
+            if (popup._dragInited) return;
+            popup._dragInited = true;
+
+            let startX, startY, startRight, startBottom, dragging = false;
+
+            header.addEventListener('mousedown', e => {
+                if (e.button !== 0) return;
+                dragging = true;
+                startX = e.clientX;
+                startY = e.clientY;
+                const rect = popup.getBoundingClientRect();
+                startRight  = window.innerWidth  - rect.right;
+                startBottom = window.innerHeight - rect.bottom;
+                header.style.cursor = 'grabbing';
+                e.preventDefault();
+            });
+
+            document.addEventListener('mousemove', e => {
+                if (!dragging) return;
+                const dx = e.clientX - startX;
+                const dy = e.clientY - startY;
+                const newRight  = Math.max(8, Math.min(window.innerWidth  - 100, startRight  - dx));
+                const newBottom = Math.max(8, Math.min(window.innerHeight - 60,  startBottom - dy));
+                popup.style.right  = newRight  + 'px';
+                popup.style.bottom = newBottom + 'px';
+            });
+
+            document.addEventListener('mouseup', () => {
+                dragging = false;
+                header.style.cursor = 'grab';
+            });
+
+            // Wheel block
+            const panel = document.getElementById('ai-popup-panel');
+            if (!panel._wheelBlocked) {
+                panel.addEventListener('wheel', e => e.stopPropagation(), { passive: true });
+                panel._wheelBlocked = true;
+            }
         }
 
         function clearAiChat() {
@@ -3085,17 +3132,26 @@
 
             const sysPrompt = `You are a professional stock analyst with access to comprehensive LIVE data from Finnhub below. Use ALL data provided as your primary source. Answer in Thai if user writes Thai, English if English.
 
+CURRENT DATE/TIME: ${new Date().toLocaleString('th-TH', {timeZone:'Asia/Bangkok'})} (Bangkok time)
+
+GLOBAL CONTEXT (知识截止 March 2026 — always factor these into analysis):
+- US-Iran-Israel military tensions escalating (March 2026) — oil price risk, defense stocks elevated
+- US-China trade war: semiconductor export restrictions tightening, affecting NVDA, AMD, QCOM
+- Fed rate policy: rates elevated, watching for cuts in mid-2026
+- Nasdaq/tech sector under pressure from macro uncertainty and AI spending scrutiny
+- Thai Baht: USD/THB ~${document.getElementById('fx-rate')?.textContent?.replace(' THB','') || '33-35'} — factor into USD-denominated stock analysis for Thai investors
+
 LIVE MARKET DATA (refreshed minutes ago):
 ${mkData || '(no watchlist data)'}
 ${techSections}
 ${contextSections}
 
 Analysis guidelines:
+- Always mention relevant geopolitical risks that could affect the stock
 - Support/resistance: use SMA, Fibonacci, pivot points — NOT just day high/low
-- Factor in analyst consensus, price targets, and insider activity
-- Mention upcoming earnings dates as risk events
-- News sentiment and recent headlines may explain price action
-- Be specific with numbers from the data above`;
+- Factor in analyst consensus, price targets, earnings surprises, and insider activity
+- Mention upcoming earnings dates as key risk events
+- Be specific with numbers from the live data above`;
 
             const msgs = [
                 { role:'system', content: sysPrompt },
@@ -3353,17 +3409,27 @@ Analysis guidelines:
             try {
                 let rate = null;
 
-                // Primary: Finnhub forex (realtime, uses existing user key)
-                const fKey = getFinnhubKey();
-                if (fKey) {
-                    try {
-                        const r = await fetch(`https://finnhub.io/api/v1/forex/rates?base=USD&token=${fKey}`);
-                        const j = await r.json();
-                        if (j.quote?.THB) rate = j.quote.THB;
-                    } catch(e) {}
+                // Primary: frankfurter.app — ECB-sourced, updates daily at ~16:00 CET, very accurate
+                try {
+                    const r = await fetch('https://api.frankfurter.app/latest?from=USD&to=THB');
+                    const j = await r.json();
+                    if (j.rates?.THB) rate = j.rates.THB;
+                } catch(e) {}
+
+                // Fallback 1: Finnhub forex (realtime during market hours)
+                if (!rate) {
+                    const fKey = getFinnhubKey();
+                    if (fKey) {
+                        try {
+                            // Finnhub returns { quote: { "USDTHB": rate } } for forex pairs
+                            const r = await fetch(`https://finnhub.io/api/v1/quote?symbol=OANDA:USD_THB&token=${fKey}`);
+                            const j = await r.json();
+                            if (j.c && j.c > 20) rate = j.c; // current price of USD/THB
+                        } catch(e) {}
+                    }
                 }
 
-                // Fallback 1: ExchangeRate-API (free, no key, updates every few hours)
+                // Fallback 2: ExchangeRate-API
                 if (!rate) {
                     try {
                         const r = await fetch('https://open.er-api.com/v6/latest/USD');
@@ -3372,7 +3438,7 @@ Analysis guidelines:
                     } catch(e) {}
                 }
 
-                // Fallback 2: Fawaz CDN
+                // Fallback 3: Fawaz CDN
                 if (!rate) {
                     try {
                         const r = await fetch('https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json');
@@ -3385,19 +3451,15 @@ Analysis guidelines:
 
                 const mid = parseFloat(rate.toFixed(2));
 
-                // แสดง mid rate ตรงๆ ไม่บวก spread เอง — ตรงกับ Google/Dime
                 rateEl.textContent    = mid.toFixed(2) + ' THB';
                 rateInvEl.textContent = mid.toFixed(2) + ' THB';
 
-                // % change vs previous fetch
                 if (fxPrevRate !== null && fxPrevRate > 0) {
                     const diff = mid - fxPrevRate;
                     const pct  = Math.abs((diff / fxPrevRate) * 100).toFixed(2);
                     const isUp = diff > 0.005;
                     const isDn = diff < -0.005;
                     const sign = isUp ? '+' : isDn ? '-' : '';
-
-                    // rate ขึ้น = USD แข็ง/บาทอ่อน = แดงสำหรับนักลงทุนไทย
                     changeEl.textContent    = `${isUp?'↑':isDn?'↓':'—'} ${sign}${pct}%`;
                     changeEl.style.color    = isUp ? '#f43f5e' : isDn ? '#22c55e' : '#94a3b8';
                     changeInvEl.textContent = `${isUp?'↑':isDn?'↓':'—'} ${sign}${pct}%`;
@@ -3583,56 +3645,80 @@ Analysis guidelines:
             });
         };
     </script>
-    <!-- ── AI Chat Popup ───────────────────────────────────────────────────── -->
-    <div id="ai-popup" class="hidden fixed inset-0 z-[200] flex items-center justify-center p-4" onclick="if(event.target===this)closeAiPopup()">
-        <div id="ai-popup-panel" class="flex flex-col rounded-2xl shadow-2xl overflow-hidden" style="width:min(680px,95vw);height:min(600px,85vh);background:var(--bg-card);border:1px solid var(--border);overscroll-behavior:contain" onwheel="event.stopPropagation()">
+    <!-- ── AI Chat Popup (draggable, minimizable) ─────────────────────────── -->
+    <!-- Minimized FAB — shown when popup is minimized -->
+    <div id="ai-fab" class="hidden fixed z-[201] cursor-pointer select-none"
+         style="bottom:24px;right:24px"
+         onclick="restoreAiPopup()">
+        <div class="flex items-center gap-2 px-4 py-3 rounded-2xl shadow-2xl"
+             style="background:linear-gradient(135deg,#1a73e8,#34a853);color:white;min-width:120px">
+            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.347.347a3.5 3.5 0 01-4.95 0l-.347-.347z"/></svg>
+            <span class="text-[11px] font-black uppercase tracking-widest">AI Analyst</span>
+            <span id="ai-fab-badge" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse ml-auto"></span>
+        </div>
+    </div>
 
-            <!-- Popup Header -->
-            <div class="flex items-center justify-between px-5 py-3 flex-shrink-0 border-b" style="background:var(--bg-card2);border-color:var(--border)">
-                <div class="flex items-center gap-3">
-                    <div class="w-7 h-7 rounded-xl flex items-center justify-center" style="background:linear-gradient(135deg,#1a73e8,#34a853)">
-                        <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.347.347a3.5 3.5 0 01-4.95 0l-.347-.347z"/></svg>
+    <!-- Full popup panel — draggable -->
+    <div id="ai-popup" class="hidden fixed z-[200] select-none"
+         style="bottom:24px;right:24px;width:520px;max-width:calc(100vw - 32px)">
+        <div id="ai-popup-panel"
+             class="flex flex-col rounded-2xl shadow-2xl overflow-hidden"
+             style="height:420px;background:var(--bg-card);border:1px solid var(--border);overscroll-behavior:contain"
+             onwheel="event.stopPropagation()">
+
+            <!-- Header (drag handle) -->
+            <div id="ai-popup-header"
+                 class="flex items-center justify-between px-4 py-2.5 flex-shrink-0 border-b cursor-grab active:cursor-grabbing"
+                 style="background:var(--bg-card2);border-color:var(--border);user-select:none">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0" style="background:linear-gradient(135deg,#1a73e8,#34a853)">
+                        <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.347.347a3.5 3.5 0 01-4.95 0l-.347-.347z"/></svg>
                     </div>
-                    <span class="font-black text-sm uppercase tracking-widest" style="color:var(--text-primary)">AI Stock Analyst</span>
-                    <span id="ai-popup-badge" class="text-[9px] font-bold px-2 py-0.5 rounded-full" style="background:rgba(26,115,232,0.12);color:#4285f4">Llama 3.3 70B</span>
+                    <span class="font-black text-xs uppercase tracking-widest" style="color:var(--text-primary)">AI Stock Analyst</span>
+                    <span id="ai-popup-badge" class="text-[8px] font-bold px-1.5 py-0.5 rounded-full" style="background:rgba(26,115,232,0.12);color:#4285f4">Auto Free</span>
                 </div>
-                <div class="flex items-center gap-2">
-                    <button onclick="clearAiChat()" class="text-[10px] font-bold px-3 py-1.5 rounded-lg uppercase tracking-wide transition-all" style="background:var(--bg-card2) ;border:1px solid var(--border);color:var(--text-dim)">ล้างแชท</button>
-                    <button onclick="closeAiPopup()" class="w-7 h-7 flex items-center justify-center rounded-lg transition-all hover:scale-110" style="background:var(--bg-card2);border:1px solid var(--border);color:var(--text-secondary)">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                <div class="flex items-center gap-1.5">
+                    <button onclick="clearAiChat()" class="text-[9px] font-bold px-2.5 py-1 rounded-lg uppercase tracking-wide transition-all" style="background:var(--bg-card);border:1px solid var(--border);color:var(--text-dim)">ล้างแชท</button>
+                    <!-- Minimize -->
+                    <button onclick="minimizeAiPopup()" class="w-6 h-6 flex items-center justify-center rounded-lg transition-all hover:scale-110" style="background:var(--bg-card);border:1px solid var(--border);color:var(--text-secondary)" title="ย่อ">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M20 12H4"/></svg>
+                    </button>
+                    <!-- Close -->
+                    <button onclick="minimizeAiPopup()" class="w-6 h-6 flex items-center justify-center rounded-lg transition-all hover:scale-110" style="background:var(--bg-card);border:1px solid var(--border);color:var(--text-secondary)" title="ปิด">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                     </button>
                 </div>
             </div>
 
             <!-- Messages -->
-            <div id="ai-popup-messages" class="flex-1 overflow-y-auto flex flex-col gap-4 p-5" onwheel="event.stopPropagation()">
-                <div class="flex items-start gap-3">
-                    <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style="background:linear-gradient(135deg,#1a73e8,#34a853)">
-                        <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.347.347a3.5 3.5 0 01-4.95 0l-.347-.347z"/></svg>
+            <div id="ai-popup-messages" class="flex-1 overflow-y-auto flex flex-col gap-3 p-4" onwheel="event.stopPropagation()">
+                <div class="flex items-start gap-2.5">
+                    <div class="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" style="background:linear-gradient(135deg,#1a73e8,#34a853)">
+                        <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.347.347a3.5 3.5 0 01-4.95 0l-.347-.347z"/></svg>
                     </div>
                     <div class="flex-1">
-                        <div class="text-[10px] font-bold mb-1.5" style="color:#4285f4">AI ANALYST</div>
+                        <div class="text-[10px] font-bold mb-1" style="color:#4285f4">AI ANALYST</div>
                         <div class="text-sm leading-relaxed" style="color:var(--text-secondary)">สวัสดีครับ ถามได้เลยเรื่องแนวรับ/แนวต้าน, ข่าวล่าสุด หรือ outlook ของหุ้นใดก็ได้ครับ</div>
                     </div>
                 </div>
             </div>
 
-            <!-- Popup Input -->
-            <div class="flex items-center gap-2 px-4 py-3 flex-shrink-0 border-t" style="border-color:var(--border);background:var(--bg-card2)">
+            <!-- Input -->
+            <div class="flex items-center gap-2 px-3 py-2.5 flex-shrink-0 border-t" style="border-color:var(--border);background:var(--bg-card2)">
                 <input id="ai-popup-input" type="text" placeholder="ถามต่อได้เลย..."
-                    class="flex-1 text-sm px-4 py-2.5 rounded-xl outline-none"
+                    class="flex-1 text-xs px-3 py-2 rounded-xl outline-none"
                     style="background:var(--bg-card);border:1px solid var(--border);color:var(--text-primary)"
                     onkeydown="if(event.key==='Enter')sendAiMessage()">
                 <button onclick="sendAiMessage()" id="ai-popup-send-btn"
-                    class="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider flex-shrink-0"
+                    class="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wider flex-shrink-0"
                     style="background:linear-gradient(135deg,#1a73e8,#34a853);color:white">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
                     ส่ง
                 </button>
                 <button onclick="stopAiMessage()" id="ai-popup-stop-btn"
-                    class="hidden flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider flex-shrink-0"
+                    class="hidden flex items-center gap-1.5 px-3 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wider flex-shrink-0"
                     style="background:#ef4444;color:white">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1" stroke-width="2" fill="currentColor"/></svg>
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1" stroke-width="2" fill="currentColor"/></svg>
                     หยุด
                 </button>
             </div>
