@@ -2763,7 +2763,18 @@
                 return;
             }
 
-            // Clear both inputs + open popup
+            // Detect wrong key format (old Claude/Perplexity keys)
+            if (key.startsWith('sk-ant') || key.startsWith('pplx-')) {
+                localStorage.removeItem('ps_gemini_key');
+                updateAiStatus();
+                document.getElementById('ai-key-panel').classList.remove('hidden');
+                document.getElementById('ai-key-input').value = '';
+                document.getElementById('ai-key-input').placeholder = 'AIzaSy... (Gemini key เท่านั้น)';
+                document.getElementById('ai-key-input').focus();
+                return;
+            }
+
+            // Open popup immediately before any async work
             inputBar.value = '';
             inputPopup.value = '';
             openAiPopup();
@@ -3114,6 +3125,15 @@
             }, 60 * 1000);
 
             updateMarketStatus();
+
+            // Migrate old AI keys → ps_gemini_key (runs once)
+            ['ps_claude_key','ps_perplexity_key'].forEach(old => {
+                const v = localStorage.getItem(old);
+                if (v) {
+                    if (!localStorage.getItem('ps_gemini_key')) localStorage.setItem('ps_gemini_key', v);
+                    localStorage.removeItem(old);
+                }
+            });
             updateAiStatus();
 
             // ── Debounced auto-save: saves 5s after last change, not blindly every 30s
