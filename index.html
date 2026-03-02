@@ -2819,22 +2819,38 @@
                 const wlSymbols = watchlist.slice(0, 20).join(', ');
                 const sysText = `You are a professional stock analyst. Answer in Thai if the user writes Thai, English if English. Give specific support/resistance price levels as numbers. Use latest available data. User's watchlist: ${wlSymbols || 'not specified'}.`;
 
-                // Build contents: prepend system turn as first user message if history is fresh
-                const contents = aiChatHistory.slice(-10);
+                // Keep only last 6 messages to stay within free tier token limits
+                const contents = aiChatHistory.slice(-6);
 
-                const res = await fetch(
-                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
-                    {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            system_instruction: { parts: [{ text: sysText }] },
-                            contents,
-                            tools: [{ googleSearch: {} }],
-                            generationConfig: { temperature: 0.3, maxOutputTokens: 2048 }
-                        })
-                    }
-                );
+                const callGemini = async () => {
+                    const res = await fetch(
+                        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
+                        {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                system_instruction: { parts: [{ text: sysText }] },
+                                contents,
+                                tools: [{ googleSearch: {} }],
+                                generationConfig: { temperature: 0.3, maxOutputTokens: 1024 }
+                            })
+                        }
+                    );
+                    return res;
+                };
+
+                let res = await callGemini();
+
+                // Auto-retry once on 429 after waiting the suggested delay
+                if (res.status === 429) {
+                    const errData = await res.json();
+                    const retryMsg = errData.error?.message || '';
+                    const seconds = parseFloat(retryMsg.match(/(\d+\.?\d*)\s*s/)?.[1] || '15');
+                    const el = document.getElementById(loadingId);
+                    if (el) el.querySelector('.ai-msg-body').innerHTML = `<span style="color:var(--text-dim)">⏳ Rate limit — รอ ${Math.ceil(seconds)} วินาที แล้วลองใหม่อัตโนมัติ...</span>`;
+                    await new Promise(r => setTimeout(r, seconds * 1000));
+                    res = await callGemini();
+                }
 
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error?.message || `HTTP ${res.status}`);
@@ -2845,6 +2861,8 @@
                     ?.join('\n') || '(ไม่มีคำตอบ)';
 
                 aiChatHistory.push({ role: 'model', parts: [{ text: reply }] });
+                // Trim history to last 10 to prevent runaway token usage
+                if (aiChatHistory.length > 10) aiChatHistory = aiChatHistory.slice(-10);
 
                 const el = document.getElementById(loadingId);
                 if (el) el.querySelector('.ai-msg-body').innerHTML = escHtml(reply).replace(/\n/g, '<br>');
