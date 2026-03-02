@@ -94,7 +94,8 @@
             color: #14b8a6 !important;
         }
         html.dark .dash-label { color: var(--text-secondary) !important; }
-        html.dark .dash-value { color: var(--text-primary) !important; }
+        /* Only override dash-value that doesn't carry a color class */
+        html.dark .dash-value:not(.dash-green):not(.dash-red):not(.dash-yellow) { color: var(--text-primary) !important; }
         html.dark .dash-section-title { color: var(--text-secondary) !important; }
         html.dark .dash-divider { border-color: #334155 !important; }
 
@@ -209,10 +210,11 @@
             display: flex;
             flex-direction: column;
         }
-        /* Table card fills left panel height */
+        /* Table card fills left panel — exact same height as chart panel */
         #wl-split-wrap.chart-open #wl-table-panel .glass-card {
             flex: 1 1 auto;
-            max-height: calc(100vh - 146px);
+            height: calc(100vh - 98px);
+            max-height: calc(100vh - 98px);
             overflow-y: auto;
             overflow-x: hidden;
         }
@@ -329,7 +331,7 @@
         #tab-dashboard {
             background: #f0f4f8;
             border-radius: 1.5rem;
-            padding: 1.5rem;
+            padding: 1rem;
             border: 1px solid #d0dce8;
         }
 
@@ -966,8 +968,8 @@
 
             </div><!-- /wl-split-wrap -->
 
-            <!-- ── Market News: full-width, below split wrap ── -->
-            <div class="glass-card overflow-hidden" style="margin-top:16px">
+            <!-- ── Market News: full-width, same width as watchlist card ── -->
+            <div class="glass-card overflow-hidden">
                 <div class="flex items-center justify-between px-5 py-3 border-b" style="border-color:var(--border);background:var(--bg-card2)">
                     <div class="flex items-center gap-3">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:var(--text-dim)"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/></svg>
@@ -989,8 +991,8 @@
                     </div>
                 </div>
             </div>
-            <!-- bottom padding -->
-            <div class="h-6"></div>
+            <!-- bottom spacer -->
+            <div class="pb-4"></div>
 
         </div>
 
@@ -1945,13 +1947,22 @@
             });
         }
 
-        // Permanent cache for profile+metric (doesn't change often) — only quote refreshes
+        // Permanent cache for profile+metric — refresh after 24h
         const profileCache = {};
+        const PROFILE_TTL = 24 * 60 * 60 * 1000; // 24 hours
+
+        // Quote cache TTL — skip re-fetch if refreshed very recently
+        const quoteTsCache = {}; // { symbol: timestamp }
+        const QUOTE_MIN_INTERVAL = 30 * 1000; // 30 seconds
 
         async function fetchQuote(symbol) {
             const key = getFinnhubKey();
-            // Quote always fresh; profile+metric from cache if available
-            const needsProfile = !profileCache[symbol];
+            const now = Date.now();
+
+            // Profile: fetch if missing OR stale (>24h)
+            const profileEntry = profileCache[symbol];
+            const needsProfile = !profileEntry || (now - profileEntry._ts > PROFILE_TTL);
+
             const requests = [fetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${key}`)];
             if (needsProfile) {
                 requests.push(fetch(`https://finnhub.io/api/v1/stock/profile2?symbol=${symbol}&token=${key}`));
@@ -1959,12 +1970,14 @@
             }
             const results = await Promise.all(requests);
             const quote = results[0].ok ? await results[0].json() : {};
-            let profile = {}, m = {};
+            quoteTsCache[symbol] = now;
+
             if (needsProfile) {
-                profile = results[1].ok ? await results[1].json() : {};
+                const profile = results[1].ok ? await results[1].json() : {};
                 const metricData = results[2].ok ? await results[2].json() : {};
-                m = metricData.metric ?? {};
+                const m = metricData.metric ?? {};
                 profileCache[symbol] = {
+                    _ts: now,
                     name:      profile.name ?? '',
                     logo:      profile.logo ?? '',
                     type:      profile.finnhubIndustry ? 'Stock' : (profile.name ? 'ETF' : ''),
@@ -1982,9 +1995,13 @@
         }
 
         // Batch helper — run async tasks in groups to avoid rate limits
-        async function batchRun(items, batchSize, fn) {
+        // Adds a small inter-batch delay to stay well under 30 req/s
+        async function batchRun(items, batchSize, fn, delayMs = 200) {
             for (let i = 0; i < items.length; i += batchSize) {
                 await Promise.all(items.slice(i, i + batchSize).map(fn));
+                if (i + batchSize < items.length) {
+                    await new Promise(r => setTimeout(r, delayMs));
+                }
             }
         }
 
@@ -2004,35 +2021,49 @@
                 if (!document.getElementById('wl-row-' + s)) renderWatchlistRow(s, null);
             });
 
-            // Phase A: symbols without profile yet → need 3 reqs each → batch of 2 (=6 req/batch, safe)
-            const needsProfile = watchlist.filter(s => !profileCache[s]);
+            const now = Date.now();
+            const wsLive = fhWs && fhWs.readyState === 1;
+
+            // Phase A: symbols needing profile (new or >24h stale)
+            //   3 reqs each → batch of 2 + 200ms delay = ~15 req/s, safe
+            const needsProfile = watchlist.filter(s => {
+                const p = profileCache[s];
+                return !p || (now - p._ts > PROFILE_TTL);
+            });
             await batchRun(needsProfile, 2, async (symbol) => {
                 try {
-                    const data = await fetchQuote(symbol);   // fetches quote + profile + metric
+                    const data = await fetchQuote(symbol);
                     if (data?.logo) preloadLogo(data.logo);
                     renderWatchlistRow(symbol, data);
-                } catch(e) {
-                    // keep skeleton; will retry on next Refresh click
-                }
-            });
+                } catch(e) { /* skeleton stays, retry on next Refresh */ }
+            }, 250);
 
-            // Phase B: symbols that already have profile → quote only → batch of 8 (safe)
-            const hasProfile = watchlist.filter(s => profileCache[s]);
-            await batchRun(hasProfile, 8, async (symbol) => {
-                try {
-                    const r = await fetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${key}`);
-                    if (!r.ok) return;
-                    const q = await r.json();
-                    const merged = { ...profileCache[symbol], ...wlDataCache[symbol], ...q };
-                    wlDataCache[symbol] = merged;
-                    updateWatchlistPriceCells(symbol, merged);
-                } catch(e) {}
-            });
+            // Phase B: symbols with fresh profile
+            //   If WS is live: skip quote fetch entirely (WS already delivers real-time prices)
+            //   If WS down: fetch quote only, batch of 10 + 150ms delay
+            if (!wsLive) {
+                const needsQuote = watchlist.filter(s => {
+                    if (!profileCache[s]) return false; // already handled in Phase A
+                    const ts = quoteTsCache[s] ?? 0;
+                    return (now - ts) > QUOTE_MIN_INTERVAL; // skip if refreshed <30s ago
+                });
+                await batchRun(needsQuote, 10, async (symbol) => {
+                    try {
+                        const r = await fetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${key}`);
+                        if (!r.ok) return;
+                        const q = await r.json();
+                        quoteTsCache[symbol] = Date.now();
+                        const merged = { ...profileCache[symbol], ...wlDataCache[symbol], ...q };
+                        wlDataCache[symbol] = merged;
+                        updateWatchlistPriceCells(symbol, merged);
+                    } catch(e) {}
+                }, 150);
+            }
 
             icon.style.animation = '';
-            const now = new Date();
+            const t = new Date();
             document.getElementById('wl-last-update').innerText =
-                `Updated ${now.toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'})}`;
+                `Updated ${t.toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'})}`;
             isWlRefreshing = false;
             if (isMarketOpen()) connectFinnhubWs();
             updateMarketStatus();
