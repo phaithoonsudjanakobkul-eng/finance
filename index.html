@@ -273,6 +273,10 @@
             animation: shimmer 1.4s ease infinite;
         }
 
+        /* AI chat typing indicator */
+        @keyframes blink { 0%,100%{opacity:0} 50%{opacity:1} }
+        .ai-typing .dots { animation: blink 1.2s infinite; }
+
         /* Market news grid — must not overflow card width */
         #market-news-grid {
             min-width: 0;
@@ -711,7 +715,7 @@
         </div>
 
         <!-- RECORDS TAB -->
-        <div id="tab-edit" class="hidden space-y-4 animate-in pt-3">
+        <div id="tab-edit" class="hidden space-y-4 pt-3">
             <div class="flex flex-wrap gap-4 items-center justify-between bg-white p-4 rounded-3xl border border-gray-100" id="records-toolbar">
                 <div class="flex items-center gap-4">
                     <div class="flex items-center bg-gray-50 rounded-xl px-2" id="month-picker-wrap">
@@ -781,9 +785,9 @@
                                 <button onclick="toggleCheckAll('fixed', this)" class="text-[9px] font-bold text-gray-300 hover:text-blue-500 transition-colors uppercase tracking-wide border border-gray-200 hover:border-blue-300 rounded px-1.5 py-0.5">Uncheck All</button>
                             </div>
                         </div>
-                        <div class="flex flex-col items-end gap-1">
-                            <span id="sum-fixed" class="summary-badge text-rose-500 bg-rose-50 border border-rose-100">฿ 0.00</span>
-                            <div id="paid-fixed-badge" class="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100" style="visibility:hidden">PAID: ฿ 0.00</div>
+                        <div class="flex flex-col items-end gap-1" style="min-width:120px">
+                            <span id="sum-fixed" class="summary-badge w-full text-center text-rose-500 bg-rose-50 border border-rose-100">฿ 0.00</span>
+                            <div id="paid-fixed-badge" class="w-full text-center text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100" style="visibility:hidden">PAID: ฿ 0.00</div>
                         </div>
                     </div>
                     <div id="fixed-list" class="space-y-2"></div>
@@ -801,9 +805,9 @@
                                 <button onclick="toggleCheckAll('dynamic', this)" class="text-[9px] font-bold text-gray-300 hover:text-orange-500 transition-colors uppercase tracking-wide border border-gray-200 hover:border-orange-300 rounded px-1.5 py-0.5">Uncheck All</button>
                             </div>
                         </div>
-                        <div class="flex flex-col items-end gap-1">
-                            <span id="sum-dynamic" class="summary-badge text-rose-500 bg-rose-50 border border-rose-100">฿ 0.00</span>
-                            <div id="paid-dynamic-badge" class="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100" style="visibility:hidden">PAID: ฿ 0.00</div>
+                        <div class="flex flex-col items-end gap-1" style="min-width:120px">
+                            <span id="sum-dynamic" class="summary-badge w-full text-center text-rose-500 bg-rose-50 border border-rose-100">฿ 0.00</span>
+                            <div id="paid-dynamic-badge" class="w-full text-center text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100" style="visibility:hidden">PAID: ฿ 0.00</div>
                         </div>
                     </div>
                     <div id="dynamic-list" class="space-y-2"></div>
@@ -833,15 +837,16 @@
             </div>
 
             <!-- Header -->
-            <div class="flex items-center justify-between">
-                <div class="flex items-center gap-3">
+            <div class="flex items-center gap-3">
+                <!-- Left: title + status -->
+                <div class="flex items-center gap-3 flex-shrink-0">
                     <h3 class="font-black text-base uppercase tracking-tight" style="color:var(--text-primary);font-family:var(--font-main)">Watchlist</h3>
                     <span id="wl-last-update" class="text-[9px] font-bold uppercase tracking-widest" style="color:var(--text-dim)"></span>
                     <span id="wl-market-status" class="text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-widest"></span>
                 </div>
 
                 <!-- USD/THB FX Widget -->
-                <div id="fx-widget" class="flex items-center gap-3 px-3 py-1.5 rounded-xl border relative group/fx"
+                <div id="fx-widget" class="flex items-center gap-3 px-3 py-1.5 rounded-xl border relative group/fx flex-shrink-0"
                     style="background:var(--bg-card2);border-color:var(--border);cursor:default">
                     <div id="fx-tooltip" class="absolute left-1/2 -translate-x-1/2 top-full mt-2 z-50 hidden group-hover/fx:block">
                         <div class="px-3 py-1.5 rounded-xl text-[10px] font-bold whitespace-nowrap shadow-lg" style="background:var(--bg-card);border:1px solid var(--border)">
@@ -874,7 +879,25 @@
                     </div>
                 </div>
 
-                <div class="flex items-center gap-2">
+                <!-- AI Chat input — stretches to fill remaining space -->
+                <div class="flex items-center gap-2 flex-1 min-w-0 rounded-xl px-3 py-1.5 border" style="background:var(--bg-card2);border-color:var(--border)">
+                    <div class="w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0" style="background:linear-gradient(135deg,#6366f1,#8b5cf6)">
+                        <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.347.347a3.5 3.5 0 01-4.95 0l-.347-.347z"/></svg>
+                    </div>
+                    <input id="ai-input" type="text" placeholder="ถาม AI นักวิเคราะห์... เช่น แนวรับ NVDA, outlook TSLA สัปดาห์นี้"
+                        class="flex-1 min-w-0 text-xs outline-none bg-transparent"
+                        style="color:var(--text-primary);font-family:var(--font-main)"
+                        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendAiMessage()}">
+                    <button onclick="sendAiMessage()" id="ai-send-btn"
+                        class="flex items-center gap-1 px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider flex-shrink-0 transition-all"
+                        style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+                        ส่ง
+                    </button>
+                </div>
+
+                <!-- Right: Refresh + Add -->
+                <div class="flex items-center gap-2 flex-shrink-0">
                     <button onclick="refreshWatchlist()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all uppercase tracking-wider" style="background:var(--bg-card2);color:var(--text-secondary);border:1px solid var(--border);font-family:var(--font-main)">
                         <svg id="wl-refresh-icon" class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
                         Refresh
@@ -1003,7 +1026,61 @@
 
             </div><!-- /wl-split-wrap -->
 
-            <!-- ── Market News: full-width, same width as watchlist card ── -->
+            <!-- ── AI Stock Analyst Chat ── -->
+            <div id="ai-chat-card" class="glass-card overflow-hidden">
+                <!-- Header -->
+                <div class="flex items-center justify-between px-5 py-3 border-b" style="border-color:var(--border);background:var(--bg-card2)">
+                    <div class="flex items-center gap-3">
+                        <div class="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0" style="background:linear-gradient(135deg,#6366f1,#8b5cf6)">
+                            <svg class="w-3.5 h-3.5 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
+                        </div>
+                        <span class="text-xs font-bold uppercase tracking-widest" style="color:var(--text-primary);font-family:var(--font-main)">AI Stock Analyst</span>
+                        <span class="text-[9px] font-medium px-2 py-0.5 rounded-full" style="background:rgba(99,102,241,0.12);color:#818cf8">Perplexity</span>
+                        <span id="ai-status-dot" class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
+                        <span id="ai-status-text" class="text-[9px]" style="color:var(--text-dim)">ไม่ได้เชื่อมต่อ</span>
+                    </div>
+                    <button onclick="toggleAiKeyPanel()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all" style="background:var(--bg-card);border:1px solid var(--border);color:var(--text-secondary)">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
+                        API Key
+                    </button>
+                </div>
+
+                <!-- API Key panel (hidden by default) -->
+                <div id="ai-key-panel" class="hidden px-5 py-3 border-b" style="border-color:var(--border);background:var(--bg-card)">
+                    <div class="flex items-center gap-2">
+                        <input id="ai-key-input" type="password" placeholder="pplx-xxxxxxxxxxxxxxxx" 
+                            class="flex-1 text-xs px-3 py-2 rounded-lg outline-none"
+                            style="background:var(--bg-card2);border:1px solid var(--border);color:var(--text-primary);font-family:var(--font-mono)">
+                        <button onclick="saveAiKey()" class="px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider" style="background:#6366f1;color:white">บันทึก</button>
+                        <button onclick="clearAiKey()" class="px-3 py-2 rounded-lg text-xs font-bold" style="background:var(--bg-card2);border:1px solid var(--border);color:var(--text-dim)">ลบ</button>
+                    </div>
+                    <p class="text-[9px] mt-1.5" style="color:var(--text-dim)">API Key เก็บไว้ใน localStorage ของ browser เท่านั้น · สมัครได้ที่ perplexity.ai/settings/api</p>
+                </div>
+
+                <!-- Messages -->
+                <div id="ai-messages" class="flex flex-col gap-3 px-5 py-4 overflow-y-auto" style="max-height:380px;min-height:120px">
+                    <div id="ai-welcome" class="flex items-start gap-3">
+                        <div class="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5" style="background:linear-gradient(135deg,#6366f1,#8b5cf6)">
+                            <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.347.347a3.5 3.5 0 01-4.95 0l-.347-.347z"/></svg>
+                        </div>
+                        <div class="flex-1">
+                            <div class="text-[10px] font-bold mb-1" style="color:#818cf8">AI ANALYST</div>
+                            <div class="text-xs leading-relaxed" style="color:var(--text-secondary)">สวัสดีครับ ผมคือ AI นักวิเคราะห์หุ้น ถามได้เลยครับเกี่ยวกับ แนวรับ/แนวต้าน, ข่าวล่าสุด, หรือ outlook ของหุ้นตัวไหนก็ได้ในพอร์ตคุณ</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick prompts -->
+                <div id="ai-quick-prompts" class="flex flex-wrap gap-2 px-5 pb-4 pt-1">
+                    <span class="text-[9px] font-bold uppercase tracking-widest self-center mr-1" style="color:var(--text-dim)">Quick:</span>
+                    <button onclick="aiQuickAsk(this)" class="ai-quick-btn text-[9px] font-bold px-2.5 py-1 rounded-full transition-all" style="background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.2);color:#818cf8">📊 แนวรับแนวต้าน NVDA</button>
+                    <button onclick="aiQuickAsk(this)" class="ai-quick-btn text-[9px] font-bold px-2.5 py-1 rounded-full transition-all" style="background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.2);color:#818cf8">📰 ข่าวล่าสุดที่กระทบพอร์ต</button>
+                    <button onclick="aiQuickAsk(this)" class="ai-quick-btn text-[9px] font-bold px-2.5 py-1 rounded-full transition-all" style="background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.2);color:#818cf8">🎯 หุ้นน่าสนใจสัปดาห์นี้</button>
+                    <button onclick="aiQuickAsk(this)" class="ai-quick-btn text-[9px] font-bold px-2.5 py-1 rounded-full transition-all" style="background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.2);color:#818cf8">⚠️ ความเสี่ยงตลาดตอนนี้</button>
+                </div>
+            </div><!-- /ai-chat-card -->
+
+
             <div class="glass-card overflow-hidden">
                 <div class="flex items-center justify-between px-5 py-3 border-b" style="border-color:var(--border);background:var(--bg-card2)">
                     <div class="flex items-center gap-3">
@@ -1162,7 +1239,7 @@
             const displayVal = val !== '' ? formatNumber(val) : '';
 
             const html = `
-                <div id="${id}" class="flex gap-2 items-center group animate-in p-1 rounded-xl transition-all ${isPaid ? 'row-paid' : ''}">
+                <div id="${id}" class="flex gap-2 items-center group p-1 rounded-xl transition-colors ${isPaid ? 'row-paid' : ''}">
                     <input type="checkbox" onchange="togglePaidStatus('${id}', this.checked)" ${isPaid ? 'checked' : ''} 
                         class="w-5 h-5 rounded-md border-gray-200 text-blue-600 focus:ring-blue-500 cursor-pointer">
                     <input type="text" value="${name}" oninput="saveAndCalc()" placeholder="รายการ..." 
@@ -2588,6 +2665,143 @@
             }
         }
 
+        // ── AI Stock Analyst (Perplexity) ─────────────────────────────────────
+        let aiChatHistory = [];
+
+        function getAiKey() { return localStorage.getItem('ps_perplexity_key') || ''; }
+
+        function saveAiKey() {
+            const k = document.getElementById('ai-key-input').value.trim();
+            if (!k) return;
+            localStorage.setItem('ps_perplexity_key', k);
+            document.getElementById('ai-key-panel').classList.add('hidden');
+            updateAiStatus();
+        }
+
+        function clearAiKey() {
+            localStorage.removeItem('ps_perplexity_key');
+            document.getElementById('ai-key-input').value = '';
+            updateAiStatus();
+        }
+
+        function toggleAiKeyPanel() {
+            const panel = document.getElementById('ai-key-panel');
+            panel.classList.toggle('hidden');
+            if (!panel.classList.contains('hidden')) {
+                const k = getAiKey();
+                document.getElementById('ai-key-input').value = k ? '••••••••' + k.slice(-4) : '';
+                setTimeout(() => document.getElementById('ai-key-input').focus(), 50);
+            }
+        }
+
+        function updateAiStatus() {
+            const dot  = document.getElementById('ai-status-dot');
+            const text = document.getElementById('ai-status-text');
+            if (getAiKey()) {
+                dot.className  = 'w-1.5 h-1.5 rounded-full bg-emerald-400';
+                text.textContent = 'พร้อมใช้งาน';
+            } else {
+                dot.className  = 'w-1.5 h-1.5 rounded-full bg-gray-400';
+                text.textContent = 'ยังไม่มี API Key';
+            }
+        }
+
+        function aiQuickAsk(btn) {
+            const text = btn.textContent.replace(/^[^\s]+\s/, '');
+            document.getElementById('ai-input').value = text;
+            sendAiMessage();
+        }
+
+        function appendAiMessage(role, text, isLoading = false) {
+            const container = document.getElementById('ai-messages');
+            const welcome   = document.getElementById('ai-welcome');
+            if (welcome) welcome.style.display = 'none';
+
+            const isUser = role === 'user';
+            const id = 'ai-msg-' + Date.now();
+            const html = isUser ? `
+                <div id="${id}" class="flex justify-end">
+                    <div class="max-w-[75%] px-3.5 py-2.5 rounded-2xl rounded-tr-sm text-xs leading-relaxed" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white">${escHtml(text)}</div>
+                </div>` : `
+                <div id="${id}" class="flex items-start gap-3">
+                    <div class="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5" style="background:linear-gradient(135deg,#6366f1,#8b5cf6)">
+                        <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.347.347a3.5 3.5 0 01-4.95 0l-.347-.347z"/></svg>
+                    </div>
+                    <div class="flex-1">
+                        <div class="text-[10px] font-bold mb-1" style="color:#818cf8">AI ANALYST</div>
+                        <div class="text-xs leading-relaxed ai-msg-body" style="color:var(--text-secondary);white-space:pre-wrap">${isLoading ? '<span class="ai-typing">กำลังคิด<span class="dots">...</span></span>' : escHtml(text)}</div>
+                    </div>
+                </div>`;
+            container.insertAdjacentHTML('beforeend', html);
+            container.scrollTop = container.scrollHeight;
+            return id;
+        }
+
+        function escHtml(s) {
+            return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        }
+
+        async function sendAiMessage() {
+            const input = document.getElementById('ai-input');
+            const text  = input.value.trim();
+            if (!text) return;
+
+            const key = getAiKey();
+            if (!key) {
+                document.getElementById('ai-key-panel').classList.remove('hidden');
+                document.getElementById('ai-key-input').focus();
+                return;
+            }
+
+            input.value = '';
+            appendAiMessage('user', text);
+
+            // Build context from watchlist
+            const wlSymbols = watchlist.slice(0, 15).join(', ');
+            const systemPrompt = `คุณคือนักวิเคราะห์หุ้นมืออาชีพที่เชี่ยวชาญด้านเทคนิคและปัจจัยพื้นฐาน ตอบเป็นภาษาไทยหรืออังกฤษตามที่ผู้ใช้ถาม ให้ข้อมูลแนวรับ/แนวต้านที่ชัดเจน พร้อม levels เป็นตัวเลข ใช้ข้อมูล real-time ล่าสุด ผู้ใช้มีหุ้นในพอร์ต: ${wlSymbols || 'ไม่ระบุ'}`;
+
+            aiChatHistory.push({ role: 'user', content: text });
+            const loadingId = appendAiMessage('assistant', '', true);
+            document.getElementById('ai-send-btn').disabled = true;
+
+            try {
+                const res = await fetch('https://api.perplexity.ai/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${key}`
+                    },
+                    body: JSON.stringify({
+                        model: 'sonar',
+                        messages: [
+                            { role: 'system', content: systemPrompt },
+                            ...aiChatHistory.slice(-8)
+                        ],
+                        max_tokens: 1024,
+                        temperature: 0.2,
+                        search_recency_filter: 'week'
+                    })
+                });
+
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error?.message || `HTTP ${res.status}`);
+
+                const reply = data.choices?.[0]?.message?.content || '(ไม่มีคำตอบ)';
+                aiChatHistory.push({ role: 'assistant', content: reply });
+
+                // Replace loading bubble with real answer
+                const el = document.getElementById(loadingId);
+                if (el) el.querySelector('.ai-msg-body').innerHTML = escHtml(reply).replace(/\n/g,'<br>');
+
+            } catch(e) {
+                const el = document.getElementById(loadingId);
+                if (el) el.querySelector('.ai-msg-body').innerHTML = `<span style="color:#f43f5e">เกิดข้อผิดพลาด: ${escHtml(e.message)}</span>`;
+            } finally {
+                document.getElementById('ai-send-btn').disabled = false;
+                document.getElementById('ai-messages').scrollTop = 999999;
+            }
+        }
+
         // --- FX Rate (USD/THB) ---
         let fxPrevRate = null;
 
@@ -2888,6 +3102,7 @@
             }, 60 * 1000);
 
             updateMarketStatus();
+            updateAiStatus();
 
             // ── Debounced auto-save: saves 5s after last change, not blindly every 30s
             let autoSaveTimer = null;
