@@ -1035,7 +1035,7 @@
                             <svg class="w-3.5 h-3.5 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
                         </div>
                         <span class="text-xs font-bold uppercase tracking-widest" style="color:var(--text-primary);font-family:var(--font-main)">AI Stock Analyst</span>
-                        <span class="text-[9px] font-medium px-2 py-0.5 rounded-full" style="background:rgba(99,102,241,0.12);color:#818cf8">Perplexity</span>
+                        <span class="text-[9px] font-medium px-2 py-0.5 rounded-full" style="background:rgba(99,102,241,0.12);color:#818cf8">Claude</span>
                         <span id="ai-status-dot" class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
                         <span id="ai-status-text" class="text-[9px]" style="color:var(--text-dim)">ไม่ได้เชื่อมต่อ</span>
                     </div>
@@ -1048,13 +1048,13 @@
                 <!-- API Key panel (hidden by default) -->
                 <div id="ai-key-panel" class="hidden px-5 py-3 border-b" style="border-color:var(--border);background:var(--bg-card)">
                     <div class="flex items-center gap-2">
-                        <input id="ai-key-input" type="password" placeholder="pplx-xxxxxxxxxxxxxxxx" 
+                        <input id="ai-key-input" type="password" placeholder="sk-ant-api03-xxxxxxxx" 
                             class="flex-1 text-xs px-3 py-2 rounded-lg outline-none"
                             style="background:var(--bg-card2);border:1px solid var(--border);color:var(--text-primary);font-family:var(--font-mono)">
                         <button onclick="saveAiKey()" class="px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider" style="background:#6366f1;color:white">บันทึก</button>
                         <button onclick="clearAiKey()" class="px-3 py-2 rounded-lg text-xs font-bold" style="background:var(--bg-card2);border:1px solid var(--border);color:var(--text-dim)">ลบ</button>
                     </div>
-                    <p class="text-[9px] mt-1.5" style="color:var(--text-dim)">API Key เก็บไว้ใน localStorage ของ browser เท่านั้น · สมัครได้ที่ perplexity.ai/settings/api</p>
+                    <p class="text-[9px] mt-1.5" style="color:var(--text-dim)">API Key เก็บไว้ใน localStorage ของ browser เท่านั้น · สมัครได้ที่ console.anthropic.com</p>
                 </div>
 
                 <!-- Messages -->
@@ -2668,18 +2668,18 @@
         // ── AI Stock Analyst (Perplexity) ─────────────────────────────────────
         let aiChatHistory = [];
 
-        function getAiKey() { return localStorage.getItem('ps_perplexity_key') || ''; }
+        function getAiKey() { return localStorage.getItem('ps_claude_key') || ''; }
 
         function saveAiKey() {
             const k = document.getElementById('ai-key-input').value.trim();
             if (!k) return;
-            localStorage.setItem('ps_perplexity_key', k);
+            localStorage.setItem('ps_claude_key', k);
             document.getElementById('ai-key-panel').classList.add('hidden');
             updateAiStatus();
         }
 
         function clearAiKey() {
-            localStorage.removeItem('ps_perplexity_key');
+            localStorage.removeItem('ps_claude_key');
             document.getElementById('ai-key-input').value = '';
             updateAiStatus();
         }
@@ -2760,34 +2760,41 @@
             const wlSymbols = watchlist.slice(0, 15).join(', ');
             const systemPrompt = `คุณคือนักวิเคราะห์หุ้นมืออาชีพที่เชี่ยวชาญด้านเทคนิคและปัจจัยพื้นฐาน ตอบเป็นภาษาไทยหรืออังกฤษตามที่ผู้ใช้ถาม ให้ข้อมูลแนวรับ/แนวต้านที่ชัดเจน พร้อม levels เป็นตัวเลข ใช้ข้อมูล real-time ล่าสุด ผู้ใช้มีหุ้นในพอร์ต: ${wlSymbols || 'ไม่ระบุ'}`;
 
-            aiChatHistory.push({ role: 'user', content: text });
+            aiChatHistory.push({ role: 'user', content: [{ type: 'text', text: text }] });
             const loadingId = appendAiMessage('assistant', '', true);
             document.getElementById('ai-send-btn').disabled = true;
 
             try {
-                const res = await fetch('https://api.perplexity.ai/chat/completions', {
+                const res = await fetch('https://api.anthropic.com/v1/messages', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${key}`
+                        'x-api-key': key,
+                        'anthropic-version': '2023-06-01',
+                        'anthropic-dangerous-direct-browser-access': 'true'
                     },
                     body: JSON.stringify({
-                        model: 'sonar',
-                        messages: [
-                            { role: 'system', content: systemPrompt },
-                            ...aiChatHistory.slice(-8)
-                        ],
+                        model: 'claude-haiku-4-5-20251001',
                         max_tokens: 1024,
-                        temperature: 0.2,
-                        search_recency_filter: 'week'
+                        system: systemPrompt,
+                        tools: [{
+                            type: 'web_search_20250305',
+                            name: 'web_search'
+                        }],
+                        messages: aiChatHistory.slice(-8)
                     })
                 });
 
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error?.message || `HTTP ${res.status}`);
 
-                const reply = data.choices?.[0]?.message?.content || '(ไม่มีคำตอบ)';
-                aiChatHistory.push({ role: 'assistant', content: reply });
+                // Extract text from content blocks (may include tool_use blocks)
+                const reply = data.content
+                    .filter(b => b.type === 'text')
+                    .map(b => b.text)
+                    .join('\n') || '(ไม่มีคำตอบ)';
+
+                aiChatHistory.push({ role: 'assistant', content: data.content });
 
                 // Replace loading bubble with real answer
                 const el = document.getElementById(loadingId);
