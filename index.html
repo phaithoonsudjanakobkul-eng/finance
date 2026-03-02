@@ -345,8 +345,9 @@
         #tab-dashboard {
             background: #f0f4f8;
             border-radius: 1.5rem;
-            padding: 1rem;
+            padding: 1.25rem 1rem 1rem 1rem;
             border: 1px solid #d0dce8;
+            margin-top: 12px;
         }
 
         .dash-card {
@@ -620,11 +621,8 @@
     <main class="w-full px-4 pt-24">
         
         <!-- DASHBOARD TAB -->
-        <div id="tab-dashboard" class="space-y-5 pt-3">
+        <div id="tab-dashboard" class="space-y-5">
             <div id="dash-content" class="hidden space-y-5">
-
-                <!-- Ticker line -->
-                <div class="ticker-line"></div>
 
                 <!-- 4 Summary Cards -->
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -1975,33 +1973,44 @@
         const quoteTsCache = {}; // { symbol: timestamp }
         const QUOTE_MIN_INTERVAL = 30 * 1000; // 30 seconds
 
+        // ── Finnhub rate-safe fetch: sequential requests per symbol + retry on 429 ──
+        async function finnhubFetch(url, retries = 3) {
+            for (let attempt = 0; attempt < retries; attempt++) {
+                const res = await fetch(url);
+                if (res.status === 429) {
+                    // Rate limited — wait then retry with backoff
+                    await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+                    continue;
+                }
+                return res;
+            }
+            return { ok: false, json: async () => ({}) };
+        }
+
         async function fetchQuote(symbol) {
             const key = getFinnhubKey();
             const now = Date.now();
-
-            // Profile: fetch if missing OR stale (>24h)
             const profileEntry = profileCache[symbol];
             const needsProfile = !profileEntry || (now - profileEntry._ts > PROFILE_TTL);
 
-            const requests = [fetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${key}`)];
-            if (needsProfile) {
-                requests.push(fetch(`https://finnhub.io/api/v1/stock/profile2?symbol=${symbol}&token=${key}`));
-                requests.push(fetch(`https://finnhub.io/api/v1/stock/metric?symbol=${symbol}&metric=all&token=${key}`));
-            }
-            const results = await Promise.all(requests);
-            const quote = results[0].ok ? await results[0].json() : {};
+            // Always fetch quote first (sequential — avoids burst)
+            const quoteRes = await finnhubFetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${key}`);
+            const quote = quoteRes.ok ? await quoteRes.json() : {};
             quoteTsCache[symbol] = now;
 
             if (needsProfile) {
-                const profile = results[1].ok ? await results[1].json() : {};
-                const metricData = results[2].ok ? await results[2].json() : {};
+                // Sequential: profile then metric (2 more reqs, spaced by network RTT naturally)
+                const profileRes = await finnhubFetch(`https://finnhub.io/api/v1/stock/profile2?symbol=${symbol}&token=${key}`);
+                const profile = profileRes.ok ? await profileRes.json() : {};
+                const metricRes = await finnhubFetch(`https://finnhub.io/api/v1/stock/metric?symbol=${symbol}&metric=all&token=${key}`);
+                const metricData = metricRes.ok ? await metricRes.json() : {};
                 const m = metricData.metric ?? {};
                 profileCache[symbol] = {
                     _ts: now,
-                    name:      profile.name ?? '',
-                    logo:      profile.logo ?? '',
-                    type:      profile.finnhubIndustry ? 'Stock' : (profile.name ? 'ETF' : ''),
-                    marketCap: profile.marketCapitalization ?? null,
+                    name:       profile.name ?? '',
+                    logo:       profile.logo ?? '',
+                    type:       profile.finnhubIndustry ? 'Stock' : (profile.name ? 'ETF' : ''),
+                    marketCap:  profile.marketCapitalization ?? null,
                     week52High: m['52WeekHigh'] ?? null,
                     week52Low:  m['52WeekLow']  ?? null,
                     avgVol10d:  m['10DayAverageTradingVolume'] ?? null,
@@ -2014,11 +2023,10 @@
             return { ...quote, ...profileCache[symbol] };
         }
 
-        // Batch helper — run async tasks in groups to avoid rate limits
-        // Adds a small inter-batch delay to stay well under 30 req/s
-        // ── Throttled concurrent fetch ──────────────────────────────
-        // Fires up to MAX_CONCURRENT requests at a time, starts next as soon as one finishes.
-        // This is much faster than batching with fixed delays.
+        // ── Throttled concurrent fetch ──────────────────────────────────────────
+        // Keeps at most maxConcurrent tasks in-flight; starts the next as soon as one finishes.
+        // With sequential fetchQuote (3 reqs in series per symbol) and maxConcurrent=2,
+        // we stay well under Finnhub's 30 req/s limit even for large watchlists.
         async function throttledAll(items, maxConcurrent, fn) {
             if (!items.length) return;
             const queue = [...items];
@@ -2061,13 +2069,13 @@
             const wsLive = fhWs && fhWs.readyState === 1;
 
             // Phase A: symbols needing full profile (new or >24h stale)
-            // 3 reqs per symbol — run up to 4 in parallel (=12 req in-flight max, safe under 30/s)
-            // Each row renders as soon as its data arrives → feels instant
+            // Sequential 3 reqs per symbol, 2 symbols at a time = max ~6 req in-flight
+            // Each row renders as soon as its data arrives
             const needsProfile = watchlist.filter(s => {
                 const p = profileCache[s];
                 return !p || (now - p._ts > PROFILE_TTL);
             });
-            await throttledAll(needsProfile, 4, async (symbol) => {
+            await throttledAll(needsProfile, 2, async (symbol) => {
                 try {
                     const data = await fetchQuote(symbol);
                     if (data?.logo) preloadLogo(data.logo);
@@ -2083,10 +2091,10 @@
                     if (!profileCache[s]) return false;
                     return (now - (quoteTsCache[s] ?? 0)) > QUOTE_MIN_INTERVAL;
                 });
-                // Quote is 1 req per symbol — run up to 12 in parallel
-                await throttledAll(needsQuote, 12, async (symbol) => {
+                // 1 req per symbol, 8 at a time = max 8 req in-flight, very safe
+                await throttledAll(needsQuote, 8, async (symbol) => {
                     try {
-                        const r = await fetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${key}`);
+                        const r = await finnhubFetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${key}`);
                         if (!r.ok) return;
                         const q = await r.json();
                         quoteTsCache[symbol] = Date.now();
