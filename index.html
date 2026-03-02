@@ -276,6 +276,7 @@
         /* AI chat typing indicator */
         @keyframes blink { 0%,100%{opacity:0} 50%{opacity:1} }
         .ai-typing .dots { animation: blink 1.2s infinite; }
+        .ai-cursor { display:inline-block; animation: blink 0.7s infinite; color:#4285f4; font-weight:bold; margin-left:1px; }
 
         /* Market news grid — must not overflow card width */
         #market-news-grid {
@@ -608,7 +609,7 @@
                         <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
                         <div id="db-name-display" class="text-[10px] font-bold uppercase tracking-widest leading-none" style="color:var(--text-dim);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ready</div>
                     </div>
-                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.02-r19</div>
+                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.02-r20</div>
                 </div>
             </div>
             
@@ -2857,9 +2858,21 @@
             msgContainer.scrollTop = msgContainer.scrollHeight;
             const msgBody = bubble.querySelector('.msgbody'); // direct reference — never fails
 
+            // Markdown renderer + think-block stripper
+            function renderMd(text) {
+                text = text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+                let s = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+                s = s.replace(/\*(.+?)\*/g, '<em>$1</em>');
+                s = s.replace(/^#{1,3}\s+(.+)$/gm, '<strong style="font-size:1.05em">$1</strong>');
+                s = s.replace(/^[\-\*]\s+(.+)$/gm, '• $1');
+                s = s.replace(/\n/g, '<br>');
+                return s;
+            }
+
             const setMsg  = (html)  => { msgBody.innerHTML = html; msgContainer.scrollTop = msgContainer.scrollHeight; };
-            const setTxt  = (text)  => setMsg(escHtml(text).replace(/\n/g,'<br>'));
-            const setInfo = (text)  => setMsg(`<span style="color:var(--text-dim)">${text}</span>`);
+            const setTxt  = (text)  => setMsg(renderMd(text));
+            const setInfo = (text)  => setMsg(`<span style="color:var(--text-dim)">${escHtml(text)} <span class="ai-cursor">▋</span></span>`);
             const setErr  = (text)  => setMsg(`<span style="color:#f43f5e">❌ ${escHtml(text)}</span>`);
 
             // Show stop, hide send
@@ -2902,19 +2915,22 @@ Base your analysis on the live prices above. You may use your knowledge for tech
                 }))
             ];
 
-            // Animate text streaming word-by-word
+            // Animate text streaming word-by-word with typing cursor
             async function streamText(text) {
-                const words = text.split(' ');
+                // Strip think blocks before streaming
+                const clean = text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+                const words = clean.split(/(\s+)/); // keep whitespace tokens
                 let out = '';
-                for (const word of words) {
+                for (const token of words) {
                     if (ctrl.signal.aborted) break;
-                    out += (out ? ' ' : '') + word;
-                    msgBody.innerHTML = escHtml(out).replace(/\n/g,'<br>');
+                    out += token;
+                    msgBody.innerHTML = renderMd(out) + '<span class="ai-cursor">▋</span>';
                     msgContainer.scrollTop = msgContainer.scrollHeight;
-                    await new Promise(r => setTimeout(r, 18));
+                    await new Promise(r => setTimeout(r, 14));
                 }
-                // Ensure final full text is set
-                msgBody.innerHTML = escHtml(text).replace(/\n/g,'<br>');
+                // Final render without cursor
+                msgBody.innerHTML = renderMd(clean);
+                msgContainer.scrollTop = msgContainer.scrollHeight;
             }
 
             // Update badge in popup header
@@ -2938,7 +2954,7 @@ Base your analysis on the live prices above. You may use your knowledge for tech
                             method:'POST',
                             headers:{'Content-Type':'application/json','Authorization':`Bearer ${cleanKey}`},
                             signal: ctrl.signal,
-                            body: JSON.stringify({ model, messages:msgs, max_tokens:800, temperature:0.2 })
+                            body: JSON.stringify({ model, messages:msgs, max_tokens:1500, temperature:0.3 })
                         });
                         data = await res.json();
                     } catch(fetchErr) {
