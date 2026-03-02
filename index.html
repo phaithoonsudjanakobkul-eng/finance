@@ -609,7 +609,7 @@
                         <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
                         <div id="db-name-display" class="text-[10px] font-bold uppercase tracking-widest leading-none" style="color:var(--text-dim);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ready</div>
                     </div>
-                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.02-r20</div>
+                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.02-r22</div>
                 </div>
             </div>
             
@@ -2810,6 +2810,162 @@
             sendAiMessage();
         }
 
+        // ── Technical Analysis: fetch candles → compute SMA, Fibonacci, key levels ──
+        async function fetchTechnicals(symbol, finnhubKey) {
+            try {
+                const to   = Math.floor(Date.now() / 1000);
+                const from = to - 90 * 24 * 3600; // 90 days
+                const url  = `https://finnhub.io/api/v1/stock/candle?symbol=${symbol}&resolution=D&from=${from}&to=${to}&token=${finnhubKey}`;
+                const res  = await fetch(url);
+                const d    = await res.json();
+                if (!d || d.s !== 'ok' || !d.c?.length) return null;
+
+                const closes = d.c, highs = d.h, lows = d.l, vols = d.v || [];
+                const n = closes.length;
+                if (n < 20) return null;
+
+                // SMA
+                const sma = (arr, period) => {
+                    const slice = arr.slice(-period);
+                    return +(slice.reduce((a,b)=>a+b,0)/slice.length).toFixed(2);
+                };
+                const sma20  = sma(closes, 20);
+                const sma50  = n >= 50 ? sma(closes, 50) : null;
+                const sma200 = n >= 200 ? sma(closes, 200) : null;
+
+                // Swing High/Low over last 90 days for Fibonacci
+                const swingHigh = Math.max(...highs);
+                const swingLow  = Math.min(...lows);
+                const diff = swingHigh - swingLow;
+                const fib = {
+                    '100%': +swingHigh.toFixed(2),
+                    '78.6%': +(swingHigh - diff * 0.214).toFixed(2),
+                    '61.8%': +(swingHigh - diff * 0.382).toFixed(2),
+                    '50%':   +(swingHigh - diff * 0.500).toFixed(2),
+                    '38.2%': +(swingHigh - diff * 0.618).toFixed(2),
+                    '23.6%': +(swingHigh - diff * 0.764).toFixed(2),
+                    '0%':    +swingLow.toFixed(2),
+                };
+
+                // Volume-weighted key levels: find price clusters with high volume
+                const recent20 = closes.slice(-20);
+                const minP = Math.min(...recent20), maxP = Math.max(...recent20);
+                const buckets = 10;
+                const bucketSize = (maxP - minP) / buckets || 1;
+                const volBuckets = new Array(buckets).fill(0);
+                for (let i = n - 20; i < n; i++) {
+                    const idx = Math.min(Math.floor((closes[i] - minP) / bucketSize), buckets - 1);
+                    volBuckets[idx] += (vols[i] || 1);
+                }
+                const topBucketIdx = volBuckets.indexOf(Math.max(...volBuckets));
+                const hvLevel = +(minP + (topBucketIdx + 0.5) * bucketSize).toFixed(2);
+
+                // Recent pivot highs/lows (last 20 candles, look-back 3)
+                const pivots = { supports: [], resistances: [] };
+                for (let i = 3; i < n - 3; i++) {
+                    const isLow  = lows[i]  < Math.min(...lows.slice(i-3,i), ...lows.slice(i+1,i+4));
+                    const isHigh = highs[i] > Math.max(...highs.slice(i-3,i), ...highs.slice(i+1,i+4));
+                    if (isLow  && i >= n - 30) pivots.supports.push(+lows[i].toFixed(2));
+                    if (isHigh && i >= n - 30) pivots.resistances.push(+highs[i].toFixed(2));
+                }
+
+                return { sma20, sma50, sma200, fib, hvLevel, pivots, swingHigh: +swingHigh.toFixed(2), swingLow: +swingLow.toFixed(2) };
+            } catch(e) {
+                return null;
+            }
+        }
+
+        // ── Fetch all extra Finnhub data for AI context ──────────────────────────
+        async function fetchAiContext(symbol, fKey) {
+            const base = `https://finnhub.io/api/v1`;
+            const get  = async (url) => {
+                try {
+                    const r = await fetch(url);
+                    return r.ok ? await r.json() : null;
+                } catch { return null; }
+            };
+
+            // Fire all requests in parallel
+            const [earnings, recommend, priceTarget, insider, upgrades, sentiment, earningsCal, newsRaw] = await Promise.all([
+                get(`${base}/stock/earnings?symbol=${symbol}&limit=4&token=${fKey}`),
+                get(`${base}/stock/recommendation?symbol=${symbol}&token=${fKey}`),
+                get(`${base}/stock/price-target?symbol=${symbol}&token=${fKey}`),
+                get(`${base}/stock/insider-transactions?symbol=${symbol}&token=${fKey}`),
+                get(`${base}/stock/upgrade-downgrade?symbol=${symbol}&limit=5&token=${fKey}`),
+                get(`${base}/news-sentiment?symbol=${symbol}&token=${fKey}`),
+                get(`${base}/calendar/earnings?symbol=${symbol}&from=${new Date().toISOString().slice(0,10)}&to=${new Date(Date.now()+90*864e5).toISOString().slice(0,10)}&token=${fKey}`),
+                get(`${base}/company-news?symbol=${symbol}&from=${new Date(Date.now()-7*864e5).toISOString().slice(0,10)}&to=${new Date().toISOString().slice(0,10)}&token=${fKey}`),
+            ]);
+
+            let out = `\n═══ ${symbol} FUNDAMENTAL & SENTIMENT DATA ═══`;
+
+            // Earnings history
+            if (Array.isArray(earnings) && earnings.length) {
+                out += `\nEARNINGS (recent quarters):`;
+                earnings.slice(0,4).forEach(e => {
+                    const beat = e.actual != null && e.estimate != null
+                        ? (e.actual > e.estimate ? '✅ Beat' : e.actual < e.estimate ? '❌ Miss' : '➖ Met')
+                        : '';
+                    out += `\n  Q${e.period||''}: Actual EPS $${e.actual??'N/A'} vs Est $${e.estimate??'N/A'} ${beat} | Surprise: ${e.surprisePercent!=null?e.surprisePercent.toFixed(1)+'%':'N/A'}`;
+                });
+            }
+
+            // Analyst recommendations
+            if (Array.isArray(recommend) && recommend.length) {
+                const r = recommend[0];
+                out += `\nANALYST CONSENSUS (latest): Strong Buy:${r.strongBuy} Buy:${r.buy} Hold:${r.hold} Sell:${r.sell} Strong Sell:${r.strongSell} (as of ${r.period||'N/A'})`;
+            }
+
+            // Price target
+            if (priceTarget && priceTarget.targetMean) {
+                out += `\nANALYST PRICE TARGET: Mean $${priceTarget.targetMean?.toFixed(2)} | High $${priceTarget.targetHigh?.toFixed(2)} | Low $${priceTarget.targetLow?.toFixed(2)} | Median $${priceTarget.targetMedian?.toFixed(2)} (${priceTarget.numberOfAnalysts} analysts)`;
+            }
+
+            // Insider transactions (last 5)
+            const txns = insider?.data || insider;
+            if (Array.isArray(txns) && txns.length) {
+                const recent = txns.slice(0,5);
+                const buys  = recent.filter(t => (t.transactionType||t.change||0) > 0 || (t.transactionType||'').toLowerCase().includes('buy'));
+                const sells = recent.filter(t => (t.transactionType||'').toLowerCase().includes('sell') || (t.change||0) < 0);
+                out += `\nINSIDER TRANSACTIONS (recent): ${buys.length} buys, ${sells.length} sells`;
+                recent.slice(0,3).forEach(t => {
+                    out += `\n  ${t.name||'Unknown'} (${t.position||t.title||'exec'}): ${t.transactionType||'transaction'} ${t.share!=null?t.share.toLocaleString()+' shares':''} @ $${t.transactionPrice||'N/A'} on ${t.transactionDate||t.date||'N/A'}`;
+                });
+            }
+
+            // Upgrades/Downgrades
+            if (Array.isArray(upgrades) && upgrades.length) {
+                out += `\nRECENT UPGRADES/DOWNGRADES:`;
+                upgrades.slice(0,4).forEach(u => {
+                    out += `\n  ${u.company||'Firm'}: ${u.fromGrade||'?'} → ${u.toGrade||'?'} (${u.action||''}) on ${u.gradeDate||'N/A'}`;
+                });
+            }
+
+            // Sentiment
+            if (sentiment && sentiment.companyNewsScore != null) {
+                const score = sentiment.companyNewsScore;
+                const label = score > 0.6 ? 'Positive 📈' : score < 0.4 ? 'Negative 📉' : 'Neutral ➖';
+                out += `\nNEWS SENTIMENT: ${label} (score: ${score.toFixed(2)}) | Buzz: ${sentiment.buzz?.articlesInLastWeek||0} articles/week | Sector avg: ${sentiment.sectorAverageNewsScore?.toFixed(2)||'N/A'}`;
+            }
+
+            // Upcoming earnings date
+            const upcomingList = earningsCal?.earningsCalendar || [];
+            if (upcomingList.length) {
+                const next = upcomingList[0];
+                out += `\nNEXT EARNINGS DATE: ${next.date||'N/A'} | Est EPS: $${next.epsEstimate??'N/A'} | Est Revenue: $${next.revenueEstimate!=null?(next.revenueEstimate/1e9).toFixed(2)+'B':'N/A'}`;
+            }
+
+            // Recent news headlines (top 4)
+            if (Array.isArray(newsRaw) && newsRaw.length) {
+                out += `\nRECENT NEWS (last 7 days):`;
+                newsRaw.slice(0,4).forEach(n => {
+                    out += `\n  • ${n.headline||''}`;
+                });
+            }
+
+            return out;
+        }
+
         async function sendAiMessage() {
             const inputBar   = document.getElementById('ai-input');
             const inputPopup = document.getElementById('ai-popup-input');
@@ -2891,6 +3047,30 @@
                 'google/gemma-3-27b-it:free',
             ];
 
+            // Detect which symbols are mentioned in the question
+            const mentionedSyms = watchlist.filter(s => text.toUpperCase().includes(s.toUpperCase())).slice(0, 3);
+            const fKey = getFinnhubKey();
+
+            // Fetch technicals + full context for mentioned symbols
+            let techSections = '';
+            let contextSections = '';
+            if (mentionedSyms.length > 0 && fKey) {
+                setInfo('📊 กำลังดึงข้อมูล Technical + Fundamental...');
+                const [techResults, ctxResults] = await Promise.all([
+                    Promise.all(mentionedSyms.map(s => fetchTechnicals(s, fKey))),
+                    Promise.all(mentionedSyms.map(s => fetchAiContext(s, fKey))),
+                ]);
+                techSections = mentionedSyms.map((sym, i) => {
+                    const t = techResults[i];
+                    if (!t) return '';
+                    const fibLines = Object.entries(t.fib).map(([k,v]) => `  Fib ${k}: $${v}`).join('\n');
+                    const supports = t.pivots.supports.length ? t.pivots.supports.slice(-3).join(', ') : 'none';
+                    const resists  = t.pivots.resistances.length ? t.pivots.resistances.slice(-3).join(', ') : 'none';
+                    return `\n${sym} TECHNICAL ANALYSIS (90-day):\n  SMA20: $${t.sma20}${t.sma50?` | SMA50: $${t.sma50}`:''}${t.sma200?` | SMA200: $${t.sma200}`:''}\n  90d Range: $${t.swingLow}–$${t.swingHigh}\n  Fibonacci:\n${fibLines}\n  High-Volume Level: $${t.hvLevel}\n  Pivot Supports: ${supports}\n  Pivot Resistances: ${resists}`;
+                }).join('\n');
+                contextSections = ctxResults.filter(Boolean).join('\n');
+            }
+
             // Build realtime market data from Finnhub cache
             const mkData = watchlist.slice(0, 20).map(sym => {
                 const d = wlDataCache[sym];
@@ -2900,12 +3080,19 @@
                 return `${sym}${name}: ราคา $${p.toFixed(2)}, เปลี่ยน ${ch>=0?'+':''}${ch?.toFixed(2)}%, สูง $${hi?.toFixed(2)}, ต่ำ $${lo?.toFixed(2)}, ปิดก่อนหน้า $${pc?.toFixed(2)}, 52wk H/L $${d.week52High??'N/A'}/$${d.week52Low??'N/A'}, PE ${d.pe??'N/A'}, Beta ${d.beta??'N/A'}`;
             }).filter(Boolean).join('\n');
 
-            const sysPrompt = `You are a professional stock analyst with access to LIVE market data below (from Finnhub, refreshed minutes ago). Use this data as your primary source for current prices and levels. Answer in Thai if user writes Thai, English if English. Give specific support/resistance as exact dollar numbers based on technical levels near current price.
+            const sysPrompt = `You are a professional stock analyst with access to comprehensive LIVE data from Finnhub below. Use ALL data provided as your primary source. Answer in Thai if user writes Thai, English if English.
 
-LIVE MARKET DATA:
-${mkData || '(no watchlist data available)'}
+LIVE MARKET DATA (refreshed minutes ago):
+${mkData || '(no watchlist data)'}
+${techSections}
+${contextSections}
 
-Base your analysis on the live prices above. You may use your knowledge for technical patterns, sector trends, and fundamentals.`;
+Analysis guidelines:
+- Support/resistance: use SMA, Fibonacci, pivot points — NOT just day high/low
+- Factor in analyst consensus, price targets, and insider activity
+- Mention upcoming earnings dates as risk events
+- News sentiment and recent headlines may explain price action
+- Be specific with numbers from the data above`;
 
             const msgs = [
                 { role:'system', content: sysPrompt },
