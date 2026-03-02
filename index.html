@@ -644,7 +644,7 @@
                         <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
                         <div id="db-name-display" class="text-[10px] font-bold uppercase tracking-widest leading-none" style="color:var(--text-dim);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ready</div>
                     </div>
-                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.02-r37</div>
+                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.02-r38</div>
                 </div>
             </div>
             
@@ -3570,40 +3570,48 @@ Analysis guidelines:
 
             const sane = v => typeof v === 'number' && isFinite(v) && v > 28 && v < 45;
 
-            let usdThb   = null;
-            let prevRate = null; // yesterday close for real % change
-            let src = '';
+            // ── Spread constants ─────────────────────────────────────────
+            // ExchangeRate-API gives mid-market rate (e.g. 31.06)
+            // Dime! shows Thai retail selling rate (~31.33) → spread ≈ +0.87%
+            // USD→THB: mid × 1.0087  (retail selling, "ขาย 1 USD ได้กี่บาท")
+            // THB→USD: mid × 1.0087 × 1.004  (retail buying, "ซื้อ 1 USD ใช้กี่บาท")
+            const SELL_SPREAD = 1.0087;  // ~0.27 THB on 31.06 base → 31.33
+            const BUY_SPREAD  = 1.0087 * 1.004; // THB→USD side adds ~0.4% more
 
-            // Show loading state
-            rateEl.textContent    = '... THB';
-            rateInvEl.textContent = '... THB';
+            rateEl.textContent    = '...';
+            rateInvEl.textContent = '...';
 
-            // ── Source 1: ExchangeRate-API (hourly, most accurate free tier) ──
+            let midRate  = null;
+            let prevMid  = null;  // yesterday mid for % change
+            let src      = '';
+
+            // ── Source 1: ExchangeRate-API v6 (hourly updates) ───────────
             const ERAPI_KEY = getErapiKey();
             if (ERAPI_KEY) {
                 try {
-                    const url = `https://v6.exchangerate-api.com/v6/${ERAPI_KEY}/latest/USD`;
+                    const url = `https://v6.exchangerate-api.com/v6/${ERAPI_KEY}/latest/USD?_=${Date.now()}`;
                     const r = await fetch(url, { cache: 'no-store' });
                     if (r.ok) {
                         const j = await r.json();
                         if (j.result === 'error') {
-                            // Show API error in tooltip for debugging
-                            rateEl.title = `ERAPI error: ${j['error-type']}`;
+                            console.warn('[FX] ERAPI error:', j['error-type']);
+                            rateEl.title = 'ERAPI error: ' + j['error-type'];
                         } else if (sane(j.conversion_rates?.THB)) {
-                            usdThb = j.conversion_rates.THB;
+                            midRate = j.conversion_rates.THB;
                             src = 'ExchangeRate-API';
+                            console.log('[FX] ERAPI mid:', midRate.toFixed(4));
                         }
                     } else {
-                        rateEl.title = `ERAPI HTTP ${r.status}`;
+                        console.warn('[FX] ERAPI HTTP', r.status);
                     }
                 } catch(e) {
-                    rateEl.title = `ERAPI fetch error: ${e.message}`;
+                    console.warn('[FX] ERAPI fetch error:', e.message);
                 }
 
-                // Fetch yesterday for real % change
-                if (usdThb) {
+                // Yesterday rate → real % change
+                if (midRate) {
                     try {
-                        const d  = new Date();
+                        const d = new Date();
                         d.setDate(d.getDate() - 1);
                         const yr = d.getFullYear(), mo = d.getMonth()+1, dy = d.getDate();
                         const r2 = await fetch(
@@ -3612,14 +3620,17 @@ Analysis guidelines:
                         );
                         if (r2.ok) {
                             const j2 = await r2.json();
-                            if (sane(j2.conversion_rates?.THB)) prevRate = j2.conversion_rates.THB;
+                            if (sane(j2.conversion_rates?.THB)) {
+                                prevMid = j2.conversion_rates.THB;
+                                console.log('[FX] ERAPI yesterday mid:', prevMid.toFixed(4));
+                            }
                         }
                     } catch(e) {}
                 }
             }
 
-            // ── Source 2: Finnhub OANDA (realtime interbank + prev_close) ──
-            if (!usdThb) {
+            // ── Source 2: Finnhub OANDA (realtime interbank + prev_close) ─
+            if (!midRate) {
                 const fKey = getFinnhubKey();
                 if (fKey) {
                     try {
@@ -3629,47 +3640,57 @@ Analysis guidelines:
                         );
                         if (r.ok) {
                             const j = await r.json();
-                            if (sane(j.c))  { usdThb   = j.c;  src = 'Finnhub OANDA'; }
-                            if (sane(j.pc)) { prevRate  = j.pc; }
+                            if (sane(j.c))  { midRate = j.c;  src = 'Finnhub'; }
+                            if (sane(j.pc)) { prevMid = j.pc; }
+                            console.log('[FX] Finnhub mid:', j.c, 'prev:', j.pc);
                         }
                     } catch(e) {}
                 }
             }
 
-            // ── Source 3: Frankfurter ECB (daily fallback) ──
-            if (!usdThb) {
+            // ── Source 3: Frankfurter ECB (daily fallback) ───────────────
+            if (!midRate) {
                 try {
                     const r = await fetch('https://api.frankfurter.app/latest?from=USD&to=THB', { cache: 'no-store' });
                     if (r.ok) {
                         const j = await r.json();
-                        if (sane(j.rates?.THB)) { usdThb = j.rates.THB; src = 'ECB'; }
+                        if (sane(j.rates?.THB)) {
+                            midRate = j.rates.THB;
+                            src = 'ECB';
+                            console.log('[FX] ECB mid:', midRate.toFixed(4));
+                        }
                     }
                 } catch(e) {}
             }
 
-            if (!usdThb) {
+            // ── No rate available ─────────────────────────────────────────
+            if (!midRate) {
                 const noKey = !ERAPI_KEY && !getFinnhubKey();
                 rateEl.textContent    = noKey ? 'ใส่ Key' : '— THB';
                 rateInvEl.textContent = noKey ? 'Settings' : '— THB';
                 rateEl.style.fontSize = noKey ? '9px' : '';
                 rateInvEl.style.fontSize = noKey ? '9px' : '';
-                const srcBadge = document.getElementById('fx-src-badge');
-                if (srcBadge) { srcBadge.textContent = 'no src'; srcBadge.style.display='inline'; srcBadge.style.background='rgba(244,63,94,0.15)'; srcBadge.style.color='#f43f5e'; }
+                const b = document.getElementById('fx-src-badge');
+                if (b) { b.textContent='no src'; b.style.display='inline'; b.style.background='rgba(244,63,94,0.15)'; b.style.color='#f43f5e'; }
                 return;
             }
 
-            // ── Calculate both display rates ──────────────────────────────
-            // USD→THB sell: ขาย 1 USD ได้กี่บาท
-            // THB→USD buy:  ซื้อ 1 USD ต้องใช้กี่บาท (+0.4% spread ≈ Dime)
-            const sellRate = usdThb;                          // keep full precision
-            const buyRate  = usdThb * 1.004;              // keep full precision
+            // ── Apply retail spread ───────────────────────────────────────
+            // sellRate = "ขาย 1 USD ได้กี่บาท" → mid × SELL_SPREAD ≈ Dime USD→THB
+            // buyRate  = "ซื้อ 1 USD ต้องใช้กี่บาท" → slightly higher than sell
+            const sellRate = midRate * SELL_SPREAD;
+            const buyRate  = midRate * BUY_SPREAD;
+            console.log('[FX] Display → USD→THB:', sellRate.toFixed(4), '| THB→USD:', buyRate.toFixed(4), '| src:', src);
 
             rateEl.textContent    = sellRate.toFixed(4) + ' THB';
             rateInvEl.textContent = buyRate.toFixed(4)  + ' THB';
+            rateEl.style.fontSize = '';
+            rateInvEl.style.fontSize = '';
+
             const ts = new Date().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});
-            rateEl.title    = `ขาย 1 USD ได้ ${sellRate} THB · [${src}] อัปเดต ${ts}`;
-            rateInvEl.title = `ซื้อ 1 USD ใช้ ${buyRate} THB · spread 0.4% · [${src}] อัปเดต ${ts}`;
-            // Show source badge
+            rateEl.title    = `mid: ${midRate.toFixed(4)} × ${SELL_SPREAD} = ${sellRate.toFixed(4)} THB · [${src}] ${ts}`;
+            rateInvEl.title = `mid: ${midRate.toFixed(4)} × ${BUY_SPREAD.toFixed(4)} = ${buyRate.toFixed(4)} THB · [${src}] ${ts}`;
+
             const srcBadge = document.getElementById('fx-src-badge');
             if (srcBadge) {
                 srcBadge.textContent = src;
@@ -3679,8 +3700,8 @@ Analysis guidelines:
             }
 
             // ── % Change vs yesterday ─────────────────────────────────────
-            const baseSell = prevRate ?? fxPrevRate;
-            const baseBuy  = prevRate ? (prevRate * 1.004) : fxPrevRateInv;
+            const prevSell = prevMid ? prevMid * SELL_SPREAD : fxPrevRate;
+            const prevBuy  = prevMid ? prevMid * BUY_SPREAD  : fxPrevRateInv;
 
             const fmtChg = (curr, base, el) => {
                 if (!base || !sane(base)) {
@@ -3688,97 +3709,17 @@ Analysis guidelines:
                 }
                 const diff = curr - base;
                 const pct  = Math.abs((diff / base) * 100).toFixed(2);
-                const isUp = diff >  0.005;
-                const isDn = diff < -0.005;
+                const isUp = diff >  0.001;
+                const isDn = diff < -0.001;
                 el.textContent = `${isUp ? '↗' : isDn ? '↘' : '↗'} ${pct}%`;
                 el.style.color = isDn ? '#f43f5e' : '#22c55e';
             };
 
-            fmtChg(sellRate, baseSell, changeEl);
-            fmtChg(buyRate,  baseBuy,  changeInvEl);
+            fmtChg(sellRate, prevSell, changeEl);
+            fmtChg(buyRate,  prevBuy,  changeInvEl);
 
             fxPrevRate    = sellRate;
             fxPrevRateInv = buyRate;
-        }
-
-        // --- Settings Modal ---
-        function openSettingsModal() {
-            const modal = document.getElementById('settings-modal');
-            modal.classList.remove('hidden');
-            // Pre-fill all saved keys
-            const fill = (inputId, storageKey) => {
-                const el = document.getElementById(inputId);
-                if (el) el.value = localStorage.getItem(storageKey) || '';
-            };
-            fill('s-finnhub-input',    'ps_finnhub_key');
-            fill('s-erapi-input',      'ps_erapi_key');
-            fill('s-openrouter-input', 'ps_openrouter_key');
-            fill('s-gist-input',       'ps_gist_token');
-            // Update status badges
-            updateSettingsBadges();
-        }
-
-        function closeSettingsModal() {
-            document.getElementById('settings-modal').classList.add('hidden');
-        }
-
-        function updateSettingsBadges() {
-            const badge = (id, storageKey) => {
-                const el = document.getElementById(id);
-                if (!el) return;
-                const has = !!localStorage.getItem(storageKey);
-                el.textContent = has ? '✓ บันทึกแล้ว' : 'ยังไม่ได้ใส่';
-                el.style.background = has ? 'rgba(16,185,129,0.15)' : 'rgba(100,116,139,0.15)';
-                el.style.color = has ? '#10b981' : '#64748b';
-            };
-            badge('s-finnhub-badge',    'ps_finnhub_key');
-            badge('s-erapi-badge',      'ps_erapi_key');
-            badge('s-openrouter-badge', 'ps_openrouter_key');
-            badge('s-gist-badge',       'ps_gist_token');
-        }
-
-        function saveAllSettings() {
-            const save = (inputId, storageKey, validator) => {
-                const el = document.getElementById(inputId);
-                if (!el) return;
-                const val = el.value.trim();
-                if (val) {
-                    if (!validator || validator(val)) {
-                        localStorage.setItem(storageKey, val);
-                    }
-                }
-            };
-            save('s-finnhub-input',    'ps_finnhub_key');
-            save('s-erapi-input',      'ps_erapi_key');
-            save('s-openrouter-input', 'ps_openrouter_key', v => v.startsWith('sk-or-'));
-            save('s-gist-input',       'ps_gist_token');
-
-            closeSettingsModal();
-
-            // Trigger refresh with new keys
-            const hasNewFinnhub = !!localStorage.getItem('ps_finnhub_key');
-            if (hasNewFinnhub) {
-                setTimeout(() => refreshWatchlist(), 100);
-                updateAiStatus();
-            }
-            // Small delay so localStorage is flushed before fetch reads it
-            setTimeout(() => fetchFxRate(), 200);
-        }
-
-        function clearAllSettings() {
-            if (!confirm('ล้าง API keys ทั้งหมดใช่ไหม?')) return;
-            ['ps_finnhub_key','ps_erapi_key','ps_openrouter_key','ps_gist_token'].forEach(k => localStorage.removeItem(k));
-            ['s-finnhub-input','s-erapi-input','s-openrouter-input','s-gist-input'].forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.value = '';
-            });
-            updateSettingsBadges();
-        }
-
-        function toggleVisibility(inputId) {
-            const el = document.getElementById(inputId);
-            if (!el) return;
-            el.type = el.type === 'password' ? 'text' : 'password';
         }
 
         // --- Dark Mode ---
