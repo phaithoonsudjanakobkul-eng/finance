@@ -14,18 +14,11 @@
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=IBM+Plex+Mono:wght@400;500;600;700&display=optional" rel="stylesheet">
     <style>
-        /* Prevent FOUT — lock font size/weight immediately with system fallback that matches Inter metrics */
+        /* Prevent FOUT: system fallback matching Inter metrics */
         body { font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
-    </style>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&display=swap');
-        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&display=swap');
-        @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap');
-        
+
         :root {
             --font-main: 'Inter', 'IBM Plex Sans Thai', system-ui, sans-serif;
             --font-mono: 'IBM Plex Mono', 'Courier New', monospace;
@@ -155,6 +148,7 @@
         html.dark #month-picker-wrap {
             background-color: #0f172a !important;
         }
+        html.dark #records-toolbar {
             background-color: #1e293b !important;
             border-color: #334155 !important;
         }
@@ -644,7 +638,7 @@
                         <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
                         <div id="db-name-display" class="text-[10px] font-bold uppercase tracking-widest leading-none" style="color:var(--text-dim);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ready</div>
                     </div>
-                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.02-r45</div>
+                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.03-r47</div>
                 </div>
             </div>
             
@@ -1301,8 +1295,8 @@
             saveAndCalc();
         }
 
-        const sumArr = (arr) => arr ? arr.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0) : 0;
-        const sumPaidArr = (arr) => arr ? arr.reduce((s, i) => s + (i.isPaid ? (parseFloat(i.amount) || 0) : 0), 0) : 0;
+        const sumArr     = (arr) => arr ? arr.reduce((s, i) => s + (parseFloat(i.val) || parseFloat(i.amount) || 0), 0) : 0;
+        const sumPaidArr = (arr) => arr ? arr.reduce((s, i) => s + (i.isPaid ? (parseFloat(i.val) || parseFloat(i.amount) || 0) : 0), 0) : 0;
 
         function showTab(t, save = true, skipWlRefresh = false) {
             document.getElementById('tab-dashboard').classList.toggle('hidden', t !== 'dashboard');
@@ -1354,23 +1348,389 @@
 
         function addInput(type, name = '', val = '', isPaid = false) {
             const container = document.getElementById(type + '-list');
+            if (!container) return;
             const id = 'row-' + Math.random().toString(36).substr(2, 9);
             const hiddenId = 'hidden-' + id;
             const displayVal = val !== '' ? formatNumber(val) : '';
 
+            const html = `
+                <div id="${id}" class="flex gap-2 items-center group p-1 rounded-xl transition-colors ${isPaid ? 'row-paid' : ''}">
+                    <input type="checkbox" onchange="togglePaidStatus('${id}', this.checked)" ${isPaid ? 'checked' : ''}
+                        class="w-5 h-5 rounded-md border-gray-200 text-blue-600 focus:ring-blue-500 cursor-pointer">
+                    <input type="text" value="${name}" oninput="saveAndCalc()" placeholder="รายการ..."
+                        class="flex-grow bg-white border border-gray-100 rounded-xl px-4 py-2 text-sm font-medium outline-none shadow-sm focus:border-blue-300 transition-all">
+                    <div class="relative w-40 flex-shrink-0">
+                        <input type="text" value="${displayVal}" oninput="handleCurrencyInput(this, '${hiddenId}')"
+                            placeholder="0.00" class="w-full bg-white border border-gray-100 rounded-xl px-4 py-2 text-right text-sm font-semibold outline-none shadow-sm focus:border-blue-300 transition-all">
+                        <input type="hidden" id="${hiddenId}" value="${val}">
+                    </div>
+                    <button onclick="document.getElementById('${id}').remove(); saveAndCalc();"
+                        class="text-gray-200 hover:text-rose-400 transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>`;
 
-            // Pre-market cell HTML (computed before template to avoid nested backtick)
-            let preMktHtml;
-            if (isLoading) {
-                preMktHtml = sk(56) || '';
-            } else if (preMkt !== null) {
-                const pChgStr = preMktChg !== null
-                    ? ' <span class="text-[8px] ' + preMktColor + ' opacity-80">(' + (preMktChg >= 0 ? '+' : '') + preMktChg.toFixed(2) + '%)</span>'
-                    : '';
-                preMktHtml = '<span class="' + preMktColor + ' font-bold">$' + fmt(preMkt) + '</span>' + pChgStr;
-            } else {
-                preMktHtml = '<span style="color:var(--text-dim)">—</span>';
+            container.insertAdjacentHTML('beforeend', html);
+            if (isPaid) {
+                const row = document.getElementById(id);
+                if (row) row.querySelectorAll('input[type=text]').forEach(inp => inp.style.textDecoration = 'line-through');
             }
+        }
+
+        function togglePaidStatus(id, checked) {
+            const row = document.getElementById(id);
+            if (!row) return;
+            if (checked) {
+                row.classList.add('row-paid');
+                row.querySelectorAll('input[type=text]').forEach(inp => inp.style.textDecoration = 'line-through');
+            } else {
+                row.classList.remove('row-paid');
+                row.querySelectorAll('input[type=text]').forEach(inp => inp.style.textDecoration = '');
+            }
+            saveAndCalc();
+        }
+
+        function getListItems(type) {
+            const container = document.getElementById(type + '-list');
+            if (!container) return [];
+            return Array.from(container.children).map(row => {
+                const inputs = row.querySelectorAll('input');
+                const nameInput = Array.from(inputs).find(i => i.type === 'text' && i.placeholder === 'รายการ...');
+                const hiddenInput = row.querySelector('input[type=hidden]');
+                const checkbox = row.querySelector('input[type=checkbox]');
+                return {
+                    name: nameInput ? nameInput.value : '',
+                    val: hiddenInput ? parseFloat(hiddenInput.value) || 0 : 0,
+                    isPaid: checkbox ? checkbox.checked : false,
+                    amount: hiddenInput ? parseFloat(hiddenInput.value) || 0 : 0
+                };
+            });
+        }
+
+        function saveAndCalc() {
+            if (isLoading) return;
+            const month = curMonth;
+            const fixedItems   = getListItems('fixed');
+            const dynamicItems = getListItems('dynamic');
+            const payday = parseFloat(document.getElementById('paydayVal')?.value) || 0;
+
+            // ── Persist to records ─────────────────────────────────────────────
+            let rec = records.find(r => r.id === month);
+            if (!rec) { rec = { id: month, payday: 0, fixed: [], dynamic: [] }; records.push(rec); }
+            rec.payday  = payday;
+            rec.fixed   = fixedItems;
+            rec.dynamic = dynamicItems;
+            try { localStorage.setItem('ps_records', JSON.stringify(records)); } catch(e) {}
+
+            // ── Update financial bar (Records tab) ────────────────────────────
+            const fixedTotal   = sumArr(fixedItems);
+            const dynamicTotal = sumArr(dynamicItems);
+            const totalExp     = fixedTotal + dynamicTotal;
+            const balance      = payday - totalExp;
+            const savingRate   = payday > 0 ? Math.round((balance / payday) * 100) : 0;
+            const paidFixed    = sumPaidArr(fixedItems);
+            const paidDynamic  = sumPaidArr(dynamicItems);
+
+            const $  = id => document.getElementById(id);
+            const setText = (id, val) => { const el = $(id); if (el) el.innerText = val; };
+
+            setText('sum-fixed',    '฿ ' + formatNumber(fixedTotal));
+            setText('sum-dynamic',  '฿ ' + formatNumber(dynamicTotal));
+            setText('sum-total-exp','฿ ' + formatNumber(totalExp));
+            setText('record-balance-val', '฿ ' + formatNumber(balance));
+            setText('current-saving-rate', savingRate + '%');
+
+            // Balance card color
+            const balCard = $('record-balance-card');
+            const balVal  = $('record-balance-val');
+            if (balCard && balVal) {
+                const isPos = balance >= 0;
+                balVal.style.color = isPos ? '#0d9488' : '#e11d48';
+                balCard.style.background = isPos ? '' : 'rgba(225,29,72,0.04)';
+            }
+
+            // Paid badges
+            const pbFixed   = $('paid-fixed-badge');
+            const pbDynamic = $('paid-dynamic-badge');
+            if (pbFixed)   { pbFixed.style.visibility   = paidFixed   > 0 ? 'visible' : 'hidden'; pbFixed.innerText   = 'PAID: ฿ ' + formatNumber(paidFixed); }
+            if (pbDynamic) { pbDynamic.style.visibility = paidDynamic > 0 ? 'visible' : 'hidden'; pbDynamic.innerText = 'PAID: ฿ ' + formatNumber(paidDynamic); }
+
+            // Previous month reference badge
+            const prevMonth = getPreviousMonthRef(month);
+            if (prevMonth) {
+                const setText2 = (id, val) => { const el = $(id); if (el) el.innerText = val; };
+                setText2('last-fixed-ref',   'LAST MONTH: ฿ ' + formatNumber(sumArr(prevMonth.fixed)));
+                setText2('last-dynamic-ref', 'LAST MONTH: ฿ ' + formatNumber(sumArr(prevMonth.dynamic)));
+            }
+
+            updateDashboard();
+            scheduleAutoSave();
+        }
+
+        function getPreviousMonthRef(monthId) {
+            const idx = records.findIndex(r => r.id === monthId);
+            if (idx > 0) return records[idx - 1];
+            // If current month isn't in records yet, return last record
+            return records.length > 0 ? records[records.length - 1] : null;
+        }
+
+        function toggleCheckAll(type, btn) {
+            const container = document.getElementById(type + '-list');
+            if (!container) return;
+            const checkboxes = container.querySelectorAll('input[type=checkbox]');
+            const allChecked = Array.from(checkboxes).every(c => c.checked);
+            checkboxes.forEach(cb => {
+                cb.checked = !allChecked;
+                togglePaidStatus(cb.closest('[id^="row-"]')?.id, !allChecked);
+            });
+            btn.textContent = allChecked ? 'Uncheck All' : 'Check All';
+        }
+
+        function checkSafetyLock(monthId) {
+            // Lock editing for months older than 3 months
+            const [y, m] = monthId.split('-').map(Number);
+            const monthDate = new Date(y, m - 1, 1);
+            const cutoff = new Date();
+            cutoff.setMonth(cutoff.getMonth() - 3);
+            const isLocked = monthDate < cutoff;
+            const clearBtn  = document.getElementById('clear-month-btn');
+            const lockTip   = document.getElementById('lock-tooltip');
+            if (clearBtn)  clearBtn.disabled = isLocked;
+            if (lockTip)   lockTip.style.display = isLocked ? '' : 'none';
+        }
+
+        function loadMonth(m) {
+            isLoading = true;
+            curMonth = m;
+            const monthInput = document.getElementById('monthInput');
+            if (monthInput) monthInput.value = m;
+            try { localStorage.setItem('ps_month', m); } catch(e) {}
+
+            const fixedList = document.getElementById('fixed-list');
+            const dynamicList = document.getElementById('dynamic-list');
+            if (fixedList) fixedList.innerHTML = '';
+            if (dynamicList) dynamicList.innerHTML = '';
+
+            const rec = records.find(r => r.id === m);
+            if (rec) {
+                const paydayDisplay = document.getElementById('paydayDisplay');
+                const paydayVal = document.getElementById('paydayVal');
+                if (paydayDisplay) paydayDisplay.value = rec.payday ? formatNumber(rec.payday) : '';
+                if (paydayVal) paydayVal.value = rec.payday || '';
+                (rec.fixed || []).forEach(item => addInput('fixed', item.name, item.val || item.amount || 0, item.isPaid));
+                (rec.dynamic || []).forEach(item => addInput('dynamic', item.name, item.val || item.amount || 0, item.isPaid));
+            } else {
+                const paydayDisplay = document.getElementById('paydayDisplay');
+                const paydayVal = document.getElementById('paydayVal');
+                if (paydayDisplay) paydayDisplay.value = '';
+                if (paydayVal) paydayVal.value = '';
+            }
+            isLoading = false;
+            checkSafetyLock(m);
+            saveAndCalc(); // updates financial bar + dashboard + schedules autosave
+        }
+
+        function updateDashboard() {
+            const validRecords = records.filter(r => r.payday > 0 || (r.fixed && r.fixed.length > 0) || (r.dynamic && r.dynamic.length > 0));
+            if (validRecords.length === 0) {
+                const emptyEl = document.getElementById('empty-state');
+                const contentEl = document.getElementById('dash-content');
+                if (emptyEl) emptyEl.classList.remove('hidden');
+                if (contentEl) contentEl.classList.add('hidden');
+                return;
+            }
+            const emptyEl = document.getElementById('empty-state');
+            const contentEl = document.getElementById('dash-content');
+            if (emptyEl) emptyEl.classList.add('hidden');
+            if (contentEl) contentEl.classList.remove('hidden');
+
+            const latest = records.find(r => r.id === curMonth) || records[records.length - 1];
+            const expense = sumArr(latest.fixed) + sumArr(latest.dynamic);
+            const surplus = latest.payday - expense;
+
+            const surplusEl = document.getElementById('dash-surplus');
+            if (surplusEl) surplusEl.innerText = formatNumber(surplus);
+            const monthLabelEl = document.getElementById('current-month-label');
+            if (monthLabelEl) monthLabelEl.innerText = latest.id;
+
+            const mainCard = document.getElementById('surplus-card-main');
+            const statusText = document.getElementById('status-text');
+            if (surplus < 0) {
+                document.getElementById('dash-surplus').style.color = '#e11d48';
+                if (statusText) { statusText.style.color = '#e11d48'; statusText.innerText = 'OVERSPENT'; }
+            } else {
+                document.getElementById('dash-surplus').style.color = '#0d9488';
+                if (statusText) { statusText.style.color = '#0d9488'; statusText.innerText = 'HEALTHY'; }
+            }
+
+            // MoM change
+            const curIdx = records.indexOf(latest);
+            const momEl = document.getElementById('mom-change');
+            if (momEl && curIdx > 0) {
+                const prev = records[curIdx - 1];
+                const prevSurplus = prev.payday - (sumArr(prev.fixed) + sumArr(prev.dynamic));
+                const diff = surplus - prevSurplus;
+                momEl.innerText = (diff >= 0 ? '▲ ' : '▼ ') + formatNumber(Math.abs(diff)) + ' vs ' + prev.id;
+                momEl.classList.remove('hidden');
+            } else if (momEl) { momEl.classList.add('hidden'); }
+
+            // YTD
+            const currentYear = latest.id.split('-')[0];
+            const ytdRecords = records.filter(r => r.id.startsWith(currentYear));
+            const ytdInc = ytdRecords.reduce((s, r) => s + (r.payday || 0), 0);
+            const ytdExp = ytdRecords.reduce((s, r) => s + (sumArr(r.fixed) + sumArr(r.dynamic)), 0);
+
+            const ytdIncEl = document.getElementById('ytd-income');
+            const ytdExpEl = document.getElementById('ytd-expense');
+            const ytdSrEl  = document.getElementById('ytd-savings-rate');
+            const ytdYrInc = document.getElementById('ytd-year-income');
+            const ytdYrExp = document.getElementById('ytd-year-expense');
+            const ytdYrSav = document.getElementById('ytd-year-savings');
+            if (ytdIncEl) ytdIncEl.innerText = '฿ ' + formatNumber(ytdInc);
+            if (ytdExpEl) ytdExpEl.innerText = '฿ ' + formatNumber(ytdExp);
+            if (ytdSrEl)  ytdSrEl.innerText  = (ytdInc > 0 ? Math.round(((ytdInc-ytdExp)/ytdInc)*100) : 0) + '%';
+            if (ytdYrInc) ytdYrInc.innerText = 'FY ' + currentYear;
+            if (ytdYrExp) ytdYrExp.innerText = 'FY ' + currentYear;
+            if (ytdYrSav) ytdYrSav.innerText = 'FY ' + currentYear;
+
+            try { updateCharts(latest, validRecords); } catch(e) {}
+        }
+
+        function updateCharts(latest, validRecords) {
+            const isDark = document.documentElement.classList.contains('dark');
+            const gridCol   = isDark ? 'rgba(255,255,255,0.05)' : '#e8eef5';
+            const tickCol   = isDark ? '#475569' : '#94a3b8';
+            const legendCol = isDark ? '#475569' : '#64748b';
+            const tooltipBg = isDark ? '#1e293b' : '#ffffff';
+            const tooltipBdr= isDark ? '#334155' : '#d0dce8';
+            const tooltipBdy= isDark ? '#f1f5f9' : '#0f2030';
+
+            // Distribution doughnut
+            const ctxDist = document.getElementById('distChart');
+            if (ctxDist) {
+                const fixedAmt = sumArr(latest.fixed);
+                const dynAmt   = sumArr(latest.dynamic);
+                const savingsAmt = Math.max(0, latest.payday - (fixedAmt + dynAmt));
+                const total = fixedAmt + dynAmt + savingsAmt;
+                const pct = (v) => total > 0 ? Math.round((v/total)*100) : 0;
+                if (distChart) distChart.destroy();
+                distChart = new Chart(ctxDist.getContext('2d'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Fixed '+pct(fixedAmt)+'%', 'Variable '+pct(dynAmt)+'%', 'Savings '+pct(savingsAmt)+'%'],
+                        datasets: [{ data: [fixedAmt, dynAmt, savingsAmt],
+                            backgroundColor: ['#2563eb','#f97316','#10b981'], borderWidth: 0 }]
+                    },
+                    options: {
+                        cutout: '78%', maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'bottom', labels: { color: legendCol, font: { weight:'bold', size:10 }, boxWidth:10 } },
+                            tooltip: { backgroundColor: tooltipBg, borderColor: tooltipBdr, borderWidth:1, bodyColor: tooltipBdy, titleColor: legendCol }
+                        }
+                    }
+                });
+            }
+
+            // Trend bar chart
+            const rangeLimit = parseInt(document.getElementById('compareRange')?.value || '6');
+            const displayData = validRecords.slice(-rangeLimit);
+            const ctxComp = document.getElementById('compareChart');
+            if (ctxComp) {
+                if (compareChart) compareChart.destroy();
+                compareChart = new Chart(ctxComp.getContext('2d'), {
+                    type: 'bar',
+                    data: {
+                        labels: displayData.map(r => r.id),
+                        datasets: [
+                            { label:'Income',  data: displayData.map(r => r.payday || 0), backgroundColor:'#10b981', borderRadius:4 },
+                            { label:'Expense', data: displayData.map(r => sumArr(r.fixed)+sumArr(r.dynamic)), backgroundColor:'#ef4444', borderRadius:4 }
+                        ]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position:'top', labels:{ color:legendCol, boxWidth:10, font:{weight:'bold',size:10} } },
+                            tooltip: { backgroundColor:tooltipBg, borderColor:tooltipBdr, borderWidth:1, bodyColor:tooltipBdy }
+                        },
+                        scales: {
+                            y: { beginAtZero:true, grid:{ color:gridCol }, ticks:{ color:tickCol, font:{weight:'bold',size:10} } },
+                            x: { grid:{ color:gridCol }, ticks:{ color:tickCol, font:{weight:'bold',size:10} } }
+                        }
+                    }
+                });
+            }
+        }
+
+        function clonePreviousMonth() {
+            const currentIdx = records.findIndex(r => r.id === curMonth);
+            let searchIdx = currentIdx > -1 ? currentIdx - 1 : records.length - 1;
+            let prevData = null;
+            while (searchIdx >= 0) {
+                const prev = records[searchIdx];
+                if (prev && ((prev.fixed&&prev.fixed.length>0)||(prev.dynamic&&prev.dynamic.length>0))) {
+                    prevData = prev; break;
+                }
+                searchIdx--;
+            }
+            if (!prevData) { alert('ไม่พบข้อมูลเดือนก่อน'); return; }
+            const fixedList = document.getElementById('fixed-list');
+            const dynamicList = document.getElementById('dynamic-list');
+            if (fixedList) fixedList.innerHTML = '';
+            if (dynamicList) dynamicList.innerHTML = '';
+            (prevData.fixed||[]).forEach(item=>addInput('fixed',item.name,item.val||item.amount||0,item.isPaid));
+            (prevData.dynamic||[]).forEach(item=>addInput('dynamic',item.name,item.val||item.amount||0,item.isPaid));
+            saveAndCalc();
+        }
+
+        // ── Watchlist ────────────────────────────────────────────────────────
+        let watchlist = [];
+        const wlDataCache = {};
+        const quoteTsCache = {};
+
+        function saveWatchlist() {
+            try { localStorage.setItem('ps_watchlist', JSON.stringify(watchlist)); } catch(e) {}
+            scheduleAutoSave();
+        }
+
+        function checkWlEmpty() {
+            const empty = document.getElementById('wl-empty');
+            const table = document.getElementById('wl-table-wrap');
+            if (!empty || !table) return;
+            const isEmpty = watchlist.length === 0;
+            empty.classList.toggle('hidden', !isEmpty);
+            table.classList.toggle('hidden', isEmpty);
+        }
+
+        async function addTicker(symbolRaw) {
+            if (!symbolRaw) return;
+            const symbol = symbolRaw.toUpperCase().trim();
+            if (watchlist.includes(symbol)) return;
+            watchlist.push(symbol);
+            saveWatchlist();
+            checkWlEmpty();
+            renderWatchlistRow(symbol, null);
+            const key = getFinnhubKey();
+            if (!key) return;
+            try {
+                const data = await fetchQuote(symbol);
+                renderWatchlistRow(symbol, data);
+                if (isMarketOpen()) subscribeWs(symbol);
+            } catch(e) { console.warn('addTicker error:', symbol, e); }
+        }
+
+        function removeTicker(symbol) {
+            watchlist = watchlist.filter(s => s !== symbol);
+            saveWatchlist();
+            renderWatchlistRow(symbol, null, true);
+            unsubscribeWs(symbol);
+            checkWlEmpty();
+        }
+
+        let wlDragSrc = null;
+
+        function renderWatchlistRow(symbol, data, remove = false) {
 
             const html = `
                 <tr id="wl-row-${symbol}" draggable="true" ${isLoading ? 'class="is-skeleton"' : ''}
@@ -1443,11 +1803,6 @@
             }
         }
 
-        function checkWlEmpty() {
-            const realRows = Array.from(document.querySelectorAll('[id^="wl-row-"]')).filter(r => r.id !== 'wl-empty');
-            if (realRows.length === 0) document.getElementById('wl-empty').classList.remove('hidden');
-        }
-
         // --- Drag & Drop ---
         let dragSrc = null;
 
@@ -1493,7 +1848,6 @@
         const PROFILE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 
         // Quote cache TTL — skip re-fetch if refreshed very recently
-        const quoteTsCache = {}; // { symbol: timestamp }
         const QUOTE_MIN_INTERVAL = 30 * 1000; // 30 seconds
 
         // ── Finnhub rate-safe fetch: sequential requests per symbol + retry on 429 ──
@@ -3129,56 +3483,57 @@ Analysis guidelines:
                 localStorage.removeItem('ps_openrouter_key');
             }
             updateAiStatus();
-
-            // ── Debounced auto-save: saves 5s after last change, not blindly every 30s
-            let autoSaveTimer = null;
-            function scheduleAutoSave() {
-                if (!getGistToken() || (records.length === 0 && watchlist.length === 0)) return;
-                clearTimeout(autoSaveTimer);
-                autoSaveTimer = setTimeout(async () => {
-                    const exportData = { meta: { avatar: db.avatar, dark: document.documentElement.classList.contains('dark') }, records, watchlist };
-                    const token = getGistToken();
-                    try {
-                        const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
-                            method: 'PATCH',
-                            headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ files: { [GIST_FILENAME]: { content: JSON.stringify(exportData, null, 2) } } })
-                        });
-                        if (res.ok) showGistStatus('AUTO SAVED ✓', 'text-emerald-400');
-                        else showGistStatus('SAVE FAILED ✗', 'text-rose-500');
-                    } catch(e) {
-                        showGistStatus('OFFLINE — saved locally', 'text-amber-400');
-                    }
-                }, 5000);
-            }
-            // Trigger schedule whenever records/watchlist change (patch saveWatchlist + saveRecords)
-            const _origSaveWatchlist = saveWatchlist;
-            saveWatchlist = function() { _origSaveWatchlist(); scheduleAutoSave(); };
-
-            // Periodic safety-net every 30s (only if pending changes exist)
-            let lastSavedHash = '';
-            setInterval(() => {
-                if (!getGistToken() || (records.length === 0 && watchlist.length === 0)) return;
-                const hash = JSON.stringify({ r: records.length, w: watchlist.length });
-                if (hash === lastSavedHash) return;
-                lastSavedHash = hash;
-                scheduleAutoSave();
-            }, 30 * 1000);
-
-            // Save on tab close / navigate away
-            window.addEventListener('beforeunload', () => {
-                if (getGistToken() && (records.length > 0 || watchlist.length > 0)) {
-                    const exportData = { meta: { avatar: db.avatar, dark: document.documentElement.classList.contains('dark') }, records, watchlist };
-                    const token = getGistToken();
-                    fetch(`https://api.github.com/gists/${GIST_ID}`, {
-                        method: 'PATCH',
-                        headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ files: { [GIST_FILENAME]: { content: JSON.stringify(exportData, null, 2) } } }),
-                        keepalive: true
-                    });
-                }
-            });
         };
+
+        // ── Auto-save: debounced Gist sync, 5s after last change ───────────────
+        let autoSaveTimer = null;
+        function scheduleAutoSave() {
+            if (!getGistToken() || (records.length === 0 && watchlist.length === 0)) return;
+            clearTimeout(autoSaveTimer);
+            autoSaveTimer = setTimeout(async () => {
+                const token = getGistToken();
+                if (!token) return;
+                const exportData = {
+                    meta: { avatar: db.avatar, dark: document.documentElement.classList.contains('dark') },
+                    records,
+                    watchlist
+                };
+                try {
+                    const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+                        method:  'PATCH',
+                        headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
+                        body:    JSON.stringify({ files: { [GIST_FILENAME]: { content: JSON.stringify(exportData, null, 2) } } })
+                    });
+                    showGistStatus(res.ok ? 'AUTO SAVED ✓' : 'SAVE FAILED ✗', res.ok ? 'text-emerald-400' : 'text-rose-500');
+                } catch(e) {
+                    showGistStatus('OFFLINE — saved locally', 'text-amber-400');
+                }
+            }, 5000);
+        }
+
+        // ── Periodic safety-net: sync every 30s only if data changed ──────────
+        let lastSavedHash = '';
+        setInterval(() => {
+            if (!getGistToken() || (records.length === 0 && watchlist.length === 0)) return;
+            const hash = JSON.stringify({ r: records.length, w: watchlist.length });
+            if (hash === lastSavedHash) return;
+            lastSavedHash = hash;
+            scheduleAutoSave();
+        }, 30 * 1000);
+
+        // ── Save on tab close / navigate away ─────────────────────────────────
+        window.addEventListener('beforeunload', () => {
+            if (getGistToken() && (records.length > 0 || watchlist.length > 0)) {
+                const exportData = { meta: { avatar: db.avatar, dark: document.documentElement.classList.contains('dark') }, records, watchlist };
+                const token = getGistToken();
+                fetch(`https://api.github.com/gists/${GIST_ID}`, {
+                    method: 'PATCH',
+                    headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ files: { [GIST_FILENAME]: { content: JSON.stringify(exportData, null, 2) } } }),
+                    keepalive: true
+                });
+            }
+        });
     </script>
     <!-- ── AI Chat Popup (draggable, minimizable) ─────────────────────────── -->
     <!-- Minimized FAB — shown when popup is minimized -->
