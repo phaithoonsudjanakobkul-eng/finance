@@ -12,14 +12,17 @@
             document.documentElement.classList.add('dark');
         }
     </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&display=swap');
         @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&display=swap');
         @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap');
         
         :root {
-            --font-main: 'IBM Plex Sans Thai', 'Sarabun', sans-serif;
-            --font-mono: 'IBM Plex Mono', monospace;
+            --font-main: 'Inter', 'IBM Plex Sans Thai', system-ui, sans-serif;
+            --font-mono: 'IBM Plex Mono', 'Courier New', monospace;
             --bg-dark: #f0f4f8;
             --bg-card: #ffffff;
             --bg-card2: #e8eef5;
@@ -178,57 +181,60 @@
         }
         #wl-split-wrap {
             display: flex;
-            gap: 16px;
+            gap: 8px;
             align-items: flex-start;
         }
-        /* When chart open: make split wrap tall enough so market news isn't hidden behind sticky chart */
+        /* Push Market News below sticky chart when open */
         #wl-split-wrap.chart-open {
-            min-height: calc(100vh - 125px);
+            min-height: calc(100vh - 74px);
         }
         #wl-table-panel {
             flex: 1 1 auto;
             min-width: 0;
-            transition: flex-basis 0.35s cubic-bezier(0.4,0,0.2,1), max-width 0.35s cubic-bezier(0.4,0,0.2,1);
+            transition: flex-basis 0.3s cubic-bezier(0.4,0,0.2,1), max-width 0.3s cubic-bezier(0.4,0,0.2,1);
         }
         #quick-chart-panel {
             flex: 0 0 0px;
             max-width: 0;
             overflow: hidden;
             opacity: 0;
-            transition: flex-basis 0.35s cubic-bezier(0.4,0,0.2,1), max-width 0.35s cubic-bezier(0.4,0,0.2,1), opacity 0.2s ease;
+            transition: flex-basis 0.3s cubic-bezier(0.4,0,0.2,1), max-width 0.3s cubic-bezier(0.4,0,0.2,1), opacity 0.2s ease;
         }
 
-        /* ── Chart open state ───────────────────────────── */
+        /* ── Chart open state ── */
         #wl-split-wrap.chart-open #wl-table-panel {
-            flex: 0 0 420px;
-            max-width: 420px;
+            flex: 0 0 340px;
+            max-width: 340px;
+            display: flex;
+            flex-direction: column;
         }
+        /* Table card fills left panel height */
         #wl-split-wrap.chart-open #wl-table-panel .glass-card {
-            max-height: calc(100vh - 180px);
+            flex: 1 1 auto;
+            max-height: calc(100vh - 130px);
             overflow-y: auto;
             overflow-x: hidden;
         }
+        /* Chart panel: sticky full-viewport height */
         #wl-split-wrap.chart-open #quick-chart-panel {
             flex: 1 1 auto;
             max-width: 100%;
             opacity: 1;
-            /* Sticky so it stays in view while scrolling the left panel */
             position: sticky;
-            top: 110px;
-            /* Total height = viewport minus navbar; split between chart and news */
-            height: calc(100vh - 125px);
+            top: 66px;
+            height: calc(100vh - 74px);
             display: flex;
             flex-direction: column;
             overflow: hidden;
+            border-radius: 12px;
         }
-        /* Chart gets fixed portion of height */
+        /* TV chart: 60% */
         #wl-split-wrap.chart-open #qc-tv-container {
-            height: 55% !important;
-            min-height: 260px;
-            max-height: 520px;
-            flex-shrink: 0;
+            flex: 0 0 60%;
+            min-height: 200px;
+            overflow: hidden;
         }
-        /* News panel fills remaining space and scrolls internally */
+        /* News: fills remaining 40%, internal scroll */
         #wl-split-wrap.chart-open #qc-news-panel {
             flex: 1 1 0;
             min-height: 0;
@@ -242,7 +248,7 @@
             min-height: 0;
             overflow-y: auto;
         }
-        /* Hide less important columns when in compact mode */
+        /* Hide extra columns when compact */
         #wl-split-wrap.chart-open .wl-col-hide { display: none !important; }
         #wl-split-wrap.chart-open #watchlist-table { min-width: unset !important; }
 
@@ -291,6 +297,23 @@
             color: #1e293b;
             overflow-y: scroll;
             scrollbar-gutter: stable;
+        }
+
+        /* ── Watchlist table font (Inter/Webull style) ── */
+        #watchlist-table th {
+            font-family: var(--font-main);
+            font-weight: 600;
+            font-size: 9px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+        #watchlist-table td {
+            font-family: var(--font-main);
+        }
+        /* Price cells — mono for alignment */
+        #watchlist-table .price-cell {
+            font-family: var(--font-mono);
+            font-weight: 700;
         }
 
         #tab-dashboard {
@@ -499,58 +522,65 @@
     </div>
 
     <!-- Header & Navigation -->
-    <nav class="bg-white/90 backdrop-blur-md fixed top-0 left-0 right-0 z-50 border-b border-gray-100">
-        <div class="max-w-7xl mx-auto px-6 h-24 flex justify-between items-center gap-4">
-            <!-- Left: Logo + name -->
-            <div class="flex items-center gap-3 flex-shrink-0">
+    <nav class="fixed top-0 left-0 right-0 z-50 border-b" style="background:var(--bg-card);border-color:var(--border);backdrop-filter:blur(12px)">
+        <div class="w-full px-4 h-16 flex items-center justify-between gap-3">
+            <!-- Left: Avatar + brand -->
+            <div class="flex items-center gap-2.5 flex-shrink-0">
                 <div onclick="document.getElementById('avatarInput').click()" title="Click to change profile picture"
-                    style="width:88px;height:88px;border-radius:50%;border:2px solid #2563eb;overflow:hidden;cursor:pointer;flex-shrink:0;background:#eff6ff;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(37,99,235,0.15);">
+                    style="width:40px;height:40px;border-radius:50%;border:2px solid #14b8a6;overflow:hidden;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;"
+                    onmouseover="this.style.borderColor='#0d9488'" onmouseout="this.style.borderColor='#14b8a6'">
                     <img id="avatarImg" src="" alt="avatar" style="width:100%;height:100%;object-fit:cover;display:none;">
-                    <svg id="avatarPlaceholder" xmlns="http://www.w3.org/2000/svg" style="width:44px;height:44px;color:#93c5fd;" fill="currentColor" viewBox="0 0 24 24">
+                    <svg id="avatarPlaceholder" xmlns="http://www.w3.org/2000/svg" style="width:22px;height:22px;color:#14b8a6;" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
                     </svg>
                 </div>
                 <input type="file" id="avatarInput" accept="image/*" style="display:none;" onchange="handleAvatar(event)">
                 <div>
-                    <div class="text-blue-600 font-black text-lg tracking-tighter leading-none uppercase">PS SMART FINANCE</div>
-                    <div class="flex items-center gap-1.5 mt-1">
+                    <div class="font-black text-sm tracking-tight leading-none uppercase" style="color:var(--text-primary);font-family:var(--font-main)">PS Smart Finance</div>
+                    <div class="flex items-center gap-1 mt-0.5">
                         <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
-                        <div id="db-name-display" class="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none truncate max-w-[150px]">Ready to Start</div>
+                        <div id="db-name-display" class="text-[9px] font-bold uppercase tracking-widest leading-none truncate max-w-[130px]" style="color:var(--text-dim)">Ready</div>
                     </div>
                 </div>
             </div>
             
-            <!-- Right: all controls -->
-            <div class="flex items-center gap-2 flex-shrink-0">
+            <!-- Right: Tabs + controls -->
+            <div class="flex items-center gap-1.5 flex-shrink-0">
                 <!-- Tabs -->
-                <div class="bg-gray-100 p-1 rounded-2xl flex gap-0.5">
-                    <button onclick="showTab('dashboard')" id="btn-dash" class="px-4 py-1.5 rounded-xl text-[11px] font-bold tab-active transition-all uppercase">Dashboard</button>
-                    <button onclick="showTab('edit')" id="btn-edit" class="px-4 py-1.5 rounded-xl text-[11px] font-bold text-gray-400 transition-all uppercase">Records</button>
-                    <button onclick="showTab('watchlist')" id="btn-watchlist" class="px-4 py-1.5 rounded-xl text-[11px] font-bold text-gray-400 transition-all uppercase flex items-center gap-1">
+                <div class="flex gap-0.5 p-1 rounded-xl" style="background:var(--bg-card2)">
+                    <button onclick="showTab('dashboard')" id="btn-dash" class="px-4 py-1.5 rounded-lg text-[11px] font-bold tab-active transition-all uppercase tracking-wide" style="font-family:var(--font-main)">Dashboard</button>
+                    <button onclick="showTab('edit')" id="btn-edit" class="px-4 py-1.5 rounded-lg text-[11px] font-bold transition-all uppercase tracking-wide" style="color:var(--text-dim);font-family:var(--font-main)">Records</button>
+                    <button onclick="showTab('watchlist')" id="btn-watchlist" class="px-4 py-1.5 rounded-lg text-[11px] font-bold transition-all uppercase tracking-wide flex items-center gap-1" style="color:var(--text-dim);font-family:var(--font-main)">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
                         Watchlist
                     </button>
                 </div>
-                <!-- Import / Export icon-only -->
-                <div class="bg-gray-100 p-1 rounded-2xl flex gap-0.5">
-                    <button onclick="document.getElementById('fileInput').click()" title="Import JSON" class="px-3 py-1.5 rounded-xl text-gray-400 hover:text-blue-600 transition-all flex items-center">
+                <!-- Divider -->
+                <div class="w-px h-5" style="background:var(--border)"></div>
+                <!-- Import/Export -->
+                <div class="flex gap-0.5 p-1 rounded-xl" style="background:var(--bg-card2)">
+                    <button onclick="document.getElementById('fileInput').click()" title="Import JSON" class="px-2.5 py-1.5 rounded-lg transition-all flex items-center" style="color:var(--text-dim)">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
                     </button>
-                    <button onclick="exportJSON()" title="Export JSON" class="px-3 py-1.5 rounded-xl text-gray-400 hover:text-blue-600 transition-all flex items-center">
+                    <button onclick="exportJSON()" title="Export JSON" class="px-2.5 py-1.5 rounded-lg transition-all flex items-center" style="color:var(--text-dim)">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
                     </button>
                 </div>
-                <!-- Sync / Upload in same pill -->
-                <div class="bg-gray-100 p-1 rounded-2xl flex gap-0.5">
-                    <button onclick="syncFromGist()" title="Sync จาก Gist" class="px-3 py-1.5 rounded-xl text-[11px] font-bold text-gray-500 hover:text-gray-800 transition-all uppercase tracking-widest flex items-center gap-1.5">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                <!-- Divider -->
+                <div class="w-px h-5" style="background:var(--border)"></div>
+                <!-- Sync / Upload -->
+                <div class="flex gap-0.5 p-1 rounded-xl" style="background:var(--bg-card2)">
+                    <button onclick="syncFromGist()" class="px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all uppercase tracking-wider flex items-center gap-1" style="color:var(--text-dim);font-family:var(--font-main)">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
                         Sync
                     </button>
-                    <button onclick="syncToGist()" title="Upload ขึ้น Gist" class="tab-active px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all uppercase tracking-widest flex items-center gap-1.5">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                    <button onclick="syncToGist()" class="tab-active px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all uppercase tracking-wider flex items-center gap-1" style="font-family:var(--font-main)">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
                         Upload
                     </button>
                 </div>
+                <!-- Divider -->
+                <div class="w-px h-5" style="background:var(--border)"></div>
                 <!-- Dark Mode Toggle -->
                 <div class="flex items-center gap-1.5" title="Dark Mode">
                     <svg class="w-3 h-3 text-amber-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm0 16a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zm8-8a1 1 0 110 2h-1a1 1 0 110-2h1zM4 12a1 1 0 110 2H3a1 1 0 110-2h1zm13.66-5.66a1 1 0 010 1.41l-.71.71a1 1 0 11-1.41-1.41l.71-.71a1 1 0 011.41 0zM7.05 16.95a1 1 0 010 1.41l-.71.71a1 1 0 01-1.41-1.41l.71-.71a1 1 0 011.41 0zM17.66 16.95a1 1 0 00-1.41 0l-.71.71a1 1 0 001.41 1.41l.71-.71a1 1 0 000-1.41zM7.05 7.05a1 1 0 00-1.41 0l-.71.71a1 1 0 001.41 1.41l.71-.71a1 1 0 000-1.41zM12 7a5 5 0 100 10A5 5 0 0012 7z"/></svg>
@@ -561,7 +591,7 @@
         </div>
     </nav>
 
-    <main class="max-w-6xl mx-auto px-6 mt-3 pt-24">
+    <main class="w-full px-2 mt-1 pt-16">
         
         <!-- DASHBOARD TAB -->
         <div id="tab-dashboard" class="space-y-5">
@@ -760,81 +790,74 @@
             <!-- Header -->
             <div class="flex items-center justify-between">
                 <div class="flex items-center gap-3">
-                    <h3 class="font-black text-gray-900 text-lg uppercase tracking-tight">Watchlist</h3>
-                    <span id="wl-last-update" class="text-[10px] font-bold text-gray-300 uppercase tracking-widest"></span>
+                    <h3 class="font-black text-base uppercase tracking-tight" style="color:var(--text-primary);font-family:var(--font-main)">Watchlist</h3>
+                    <span id="wl-last-update" class="text-[9px] font-bold uppercase tracking-widest" style="color:var(--text-dim)"></span>
                     <span id="wl-market-status" class="text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-widest"></span>
                 </div>
 
                 <!-- USD/THB FX Widget -->
-                <div id="fx-widget" class="flex items-center gap-3 px-4 py-2 rounded-2xl border relative group/fx"
+                <div id="fx-widget" class="flex items-center gap-3 px-3 py-1.5 rounded-xl border relative group/fx"
                     style="background:var(--bg-card2);border-color:var(--border);cursor:default">
-
-                    <!-- Tooltip -->
                     <div id="fx-tooltip" class="absolute left-1/2 -translate-x-1/2 top-full mt-2 z-50 hidden group-hover/fx:block">
                         <div class="px-3 py-1.5 rounded-xl text-[10px] font-bold whitespace-nowrap shadow-lg" style="background:var(--bg-card);border:1px solid var(--border)">
                             <span id="fx-note" style="color:var(--text-primary)">—</span>
                         </div>
                     </div>
-
-                    <!-- 1 USD = X THB -->
                     <div class="flex flex-col">
-                        <span class="text-[9px] font-bold uppercase tracking-widest" style="color:var(--text-dim)">1 USD =</span>
-                        <div class="flex items-baseline gap-1 mt-0.5">
-                            <span id="fx-rate" class="font-black text-sm" style="font-family:var(--font-mono);color:var(--text-primary)">—</span>
-                            <span class="text-[10px] font-bold" style="color:var(--text-dim)">THB</span>
-                            <span id="fx-change" class="text-[10px] font-bold ml-1" style="font-family:var(--font-mono)"></span>
+                        <span class="text-[8px] font-bold uppercase tracking-widest" style="color:var(--text-dim)">1 USD =</span>
+                        <div class="flex items-baseline gap-1">
+                            <span id="fx-rate" class="font-black text-xs" style="font-family:var(--font-mono);color:var(--text-primary)">—</span>
+                            <span class="text-[9px] font-bold" style="color:var(--text-dim)">THB</span>
+                            <span id="fx-change" class="text-[9px] font-bold ml-0.5" style="font-family:var(--font-mono)"></span>
                         </div>
                     </div>
-
-                    <div class="w-px h-8 self-stretch" style="background:var(--border)"></div>
-
-                    <!-- ซื้อ 1 USD ต้องใช้ -->
+                    <div class="w-px h-6 self-stretch" style="background:var(--border)"></div>
                     <div class="flex flex-col">
-                        <span class="text-[9px] font-bold uppercase tracking-widest" style="color:var(--text-dim)">ซื้อ 1 USD ใช้</span>
-                        <div class="flex items-baseline gap-1 mt-0.5">
-                            <span id="fx-rate-inv" class="font-black text-sm" style="font-family:var(--font-mono);color:var(--text-primary)">—</span>
-                            <span class="text-[10px] font-bold" style="color:var(--text-dim)">฿</span>
+                        <span class="text-[8px] font-bold uppercase tracking-widest" style="color:var(--text-dim)">ซื้อ 1 USD</span>
+                        <div class="flex items-baseline gap-1">
+                            <span id="fx-rate-inv" class="font-black text-xs" style="font-family:var(--font-mono);color:var(--text-primary)">—</span>
+                            <span class="text-[9px] font-bold" style="color:var(--text-dim)">฿</span>
                         </div>
                     </div>
-
-                    <div class="w-px h-8 self-stretch" style="background:var(--border)"></div>
-
-                    <!-- Status -->
+                    <div class="w-px h-6 self-stretch" style="background:var(--border)"></div>
                     <div class="flex flex-col items-center gap-0.5">
                         <div class="flex items-center gap-1">
                             <span id="fx-dot" class="w-1.5 h-1.5 rounded-full bg-gray-300"></span>
-                            <span class="text-[8px] font-bold uppercase tracking-widest" style="color:var(--text-dim)">Live</span>
+                            <span class="text-[7px] font-bold uppercase tracking-widest" style="color:var(--text-dim)">Live</span>
                         </div>
-                        <span id="fx-time" class="text-[9px] font-bold" style="font-family:var(--font-mono);color:var(--text-secondary)">—</span>
+                        <span id="fx-time" class="text-[8px] font-bold" style="font-family:var(--font-mono);color:var(--text-secondary)">—</span>
                     </div>
                 </div>
 
                 <div class="flex items-center gap-2">
-                    <button onclick="refreshWatchlist()" class="bg-gray-100 hover:bg-gray-200 text-gray-600 px-4 py-2 rounded-xl text-xs font-bold transition-all uppercase tracking-widest flex items-center gap-1.5">
-                        <svg id="wl-refresh-icon" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                    <button onclick="refreshWatchlist()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all uppercase tracking-wider" style="background:var(--bg-card2);color:var(--text-secondary);border:1px solid var(--border);font-family:var(--font-main)">
+                        <svg id="wl-refresh-icon" class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
                         Refresh
                     </button>
-                    <button onclick="showAddTickerInput()" class="bg-gray-900 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-black transition-all uppercase tracking-widest flex items-center gap-1.5">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                    <button onclick="showAddTickerInput()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all uppercase tracking-wider" style="background:#14b8a6;color:#fff;font-family:var(--font-main)">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                         Add
                     </button>
                 </div>
             </div>
 
-            <!-- Add ticker input -->
-            <div id="add-ticker-bar" class="hidden glass-card p-4 flex items-center gap-3 relative">
+            <!-- Add ticker input — Webull style -->
+            <div id="add-ticker-bar" class="hidden rounded-xl p-3 flex items-center gap-2 relative" style="background:var(--bg-card2);border:1px solid var(--border)">
                 <div class="flex-grow relative">
-                    <input type="text" id="ticker-input" placeholder="ค้นหา เช่น NVDA, QQQ, SPY" 
-                        class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm font-bold outline-none focus:border-teal-400 transition-all"
-                        style="text-transform:uppercase"
+                    <div class="absolute left-3 top-1/2 -translate-y-1/2" style="color:var(--text-dim)">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                    </div>
+                    <input type="text" id="ticker-input" placeholder="Search symbol e.g. NVDA, AAPL, SPY"
+                        class="w-full pl-10 pr-4 py-2 rounded-lg text-sm font-semibold outline-none transition-all"
+                        style="background:var(--bg-card);border:1.5px solid var(--border);color:var(--text-primary);font-family:var(--font-main);text-transform:uppercase;letter-spacing:0.03em"
+                        onfocus="this.style.borderColor='#14b8a6'" onblur="this.style.borderColor='var(--border)'"
                         oninput="onTickerInput(this.value)"
                         onkeydown="onTickerKeydown(event)"
                         autocomplete="off">
-                    <!-- Dropdown -->
-                    <div id="ticker-dropdown" class="hidden absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden max-h-64 overflow-y-auto"></div>
+                    <div id="ticker-dropdown" class="hidden absolute top-full left-0 right-0 mt-1 rounded-xl shadow-2xl z-50 overflow-hidden max-h-64 overflow-y-auto" style="background:var(--bg-card);border:1px solid var(--border)"></div>
                 </div>
-                <button onclick="addTicker()" class="bg-teal-600 text-white px-5 py-2.5 rounded-xl text-xs font-bold hover:bg-teal-700 transition-all uppercase tracking-widest flex-shrink-0">Add</button>
-                <button onclick="closeAddTicker()" class="text-gray-300 hover:text-gray-500 transition-colors flex-shrink-0">
+                <button onclick="addTicker()" class="px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider flex-shrink-0 transition-all" style="background:#14b8a6;color:#fff;font-family:var(--font-main)">Add</button>
+                <button onclick="closeAddTicker()" class="flex-shrink-0 transition-colors" style="color:var(--text-dim)">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
             </div>
@@ -1558,16 +1581,28 @@
             const token = getGistToken();
             if (!token) { document.getElementById('gist-modal').classList.remove('hidden'); return; }
             showGistStatus('UPLOADING...', 'text-blue-500');
+            const exportData = { meta: { avatar: db.avatar, dark: document.documentElement.classList.contains('dark') }, records, watchlist };
+            // Always save to localStorage first as fallback
+            try { localStorage.setItem('ps_records', JSON.stringify(records)); } catch(e) {}
+            try { localStorage.setItem('ps_watchlist', JSON.stringify(watchlist)); } catch(e) {}
             try {
-                const exportData = { meta: { avatar: db.avatar, dark: document.documentElement.classList.contains('dark') }, records: records, watchlist: watchlist };
                 const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
                     method: 'PATCH',
                     headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ files: { [GIST_FILENAME]: { content: JSON.stringify(exportData, null, 2) } } })
                 });
-                if (res.ok) showGistStatus('UPLOADED ✓', 'text-emerald-500');
-                else showGistStatus('UPLOAD FAILED ✗', 'text-rose-500');
-            } catch(e) { showGistStatus('ERROR ✗', 'text-rose-500'); }
+                if (res.ok) {
+                    showGistStatus('UPLOADED ✓', 'text-emerald-500');
+                } else if (res.status === 401) {
+                    showGistStatus('TOKEN EXPIRED — re-enter token', 'text-rose-500');
+                } else if (res.status === 404) {
+                    showGistStatus('GIST NOT FOUND — check GIST_ID', 'text-rose-500');
+                } else {
+                    showGistStatus(`UPLOAD FAILED (${res.status}) — saved locally`, 'text-amber-400');
+                }
+            } catch(e) {
+                showGistStatus('OFFLINE — saved to localStorage', 'text-amber-400');
+            }
         }
 
         async function syncFromGist(isInitialLoad = false) {
@@ -1578,10 +1613,12 @@
                 const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
                     headers: { 'Authorization': `token ${token}` }
                 });
-                if (!res.ok) { showGistStatus('SYNC FAILED ✗', 'text-rose-500'); return; }
+                if (res.status === 401) { showGistStatus('TOKEN EXPIRED ✗', 'text-rose-500'); return; }
+                if (res.status === 404) { showGistStatus('GIST NOT FOUND ✗', 'text-rose-500'); return; }
+                if (!res.ok) { showGistStatus(`SYNC FAILED (${res.status}) ✗`, 'text-rose-500'); return; }
                 const gist = await res.json();
                 const content = gist.files[GIST_FILENAME]?.content;
-                if (!content) { showGistStatus('NO DATA', 'text-gray-400'); return; }
+                if (!content) { showGistStatus('NO DATA IN GIST', 'text-gray-400'); return; }
                 const data = JSON.parse(content);
                 if (Array.isArray(data)) {
                     records = data;
@@ -1602,16 +1639,17 @@
                 try { localStorage.setItem('ps_dbname', GIST_FILENAME); } catch(e) {}
                 loadMonth(curMonth);
                 showGistStatus('SYNCED ✓', 'text-emerald-500');
-                // After sync: if on watchlist tab, refresh with fresh data
                 const wlVisible = !document.getElementById('tab-watchlist').classList.contains('hidden');
                 if (wlVisible) {
                     fetchFxRate();
                     if (watchlist.length > 0) {
-                        isWlRefreshing = false; // reset any stale lock
+                        isWlRefreshing = false;
                         refreshWatchlist();
                     }
                 }
-            } catch(e) { showGistStatus('ERROR ✗', 'text-rose-500'); }
+            } catch(e) {
+                showGistStatus('ERROR — check connection', 'text-rose-500');
+            }
         }
 
         // --- Watchlist ---
@@ -2112,7 +2150,7 @@
                 interval: 'D',
                 timezone: 'Asia/Bangkok',
                 theme: isDark ? 'dark' : 'light',
-                style: '1',
+                style: '3',          // 3 = Area chart
                 locale: 'en',
                 backgroundColor: isDark ? '#1e293b' : '#ffffff',
                 gridColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)',
@@ -2121,9 +2159,10 @@
                 save_image: false,
                 calendar: false,
                 hide_volume: false,
+                autosize: true,
                 support_host: 'https://www.tradingview.com',
                 width: '100%',
-                height: '480',
+                height: '100%',
             });
             container.appendChild(script);
 
@@ -2140,6 +2179,8 @@
         }
 
         let newsAbortController = null;
+        const newsCache = {}; // { [symbol]: { ts: timestamp, items: [...] } }
+        const NEWS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
         // ── News Store (avoids inline string escaping) ────────
         const _newsStore = [];
         function clearNewsStore() { _newsStore.length = 0; }
@@ -2267,6 +2308,15 @@
 
             symEl.textContent = symbol;
             statusEl.textContent = '';
+
+            // Serve from cache if fresh (< 5 min)
+            const cached = newsCache[symbol];
+            if (cached && (Date.now() - cached.ts) < NEWS_CACHE_TTL) {
+                statusEl.textContent = `${cached.items.length} stories · cached`;
+                listEl.innerHTML = cached.items.map(a => renderNewsRow(a)).join('');
+                return;
+            }
+
             listEl.innerHTML = `<div class="flex items-center justify-center py-6 gap-2" style="color:var(--text-dim)">
                 <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
                 <span class="text-xs font-bold uppercase tracking-widest">Loading...</span>
@@ -2279,7 +2329,6 @@
                 const key = getFinnhubKey();
                 if (!key) { listEl.innerHTML = `<p class="text-xs text-center py-6" style="color:var(--text-dim)">ต้องการ Finnhub API Key</p>`; return; }
 
-                // Date range: last 7 days
                 const to = new Date();
                 const from = new Date(to);
                 from.setDate(from.getDate() - 7);
@@ -2289,7 +2338,7 @@
                     `https://finnhub.io/api/v1/company-news?symbol=${symbol}&from=${fmt(from)}&to=${fmt(to)}&token=${key}`,
                     { signal: newsAbortController.signal }
                 );
-                if (!res.ok) throw new Error('fetch failed');
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 const articles = await res.json();
 
                 if (!Array.isArray(articles) || articles.length === 0) {
@@ -2298,11 +2347,16 @@
                 }
 
                 const items = articles.slice(0, 20);
+                newsCache[symbol] = { ts: Date.now(), items }; // store in cache
                 statusEl.textContent = `${items.length} stories`;
                 listEl.innerHTML = items.map(a => renderNewsRow(a)).join('');
             } catch(e) {
                 if (e.name === 'AbortError') return;
-                listEl.innerHTML = `<p class="text-xs text-center py-6" style="color:var(--text-dim)">โหลดข่าวไม่สำเร็จ</p>`;
+                // Show friendly error with retry
+                listEl.innerHTML = `<div class="flex flex-col items-center py-6 gap-2">
+                    <p class="text-xs" style="color:var(--text-dim)">โหลดข่าวไม่สำเร็จ</p>
+                    <button onclick="fetchStockNews('${symbol}')" class="text-[10px] font-bold px-3 py-1.5 rounded-lg" style="background:var(--bg-card2);color:var(--text-secondary)">Retry</button>
+                </div>`;
             }
         }
 
@@ -2414,15 +2468,17 @@
         let fhWs = null;
         let fhWsReconnectTimer = null;
         let fhWsSubscribed = new Set();
+        let fhWsBackoff = 5000; // start 5s, max 30s
 
         function connectFinnhubWs() {
             const key = getFinnhubKey();
             if (!key || watchlist.length === 0) return;
-            if (fhWs && fhWs.readyState <= 1) return; // already open/connecting
+            if (fhWs && fhWs.readyState <= 1) return;
 
             fhWs = new WebSocket(`wss://ws.finnhub.io?token=${key}`);
 
             fhWs.onopen = () => {
+                fhWsBackoff = 5000; // reset backoff on successful connect
                 fhWsSubscribed.clear();
                 watchlist.forEach(sym => subscribeWs(sym));
                 updateMarketStatus();
@@ -2432,7 +2488,6 @@
                 try {
                     const msg = JSON.parse(e.data);
                     if (msg.type !== 'trade') return;
-                    // Group latest trade per symbol
                     const latest = {};
                     msg.data.forEach(t => {
                         if (!latest[t.s] || t.t > latest[t.s].t) latest[t.s] = t;
@@ -2446,14 +2501,12 @@
                         const changePct = prevClose ? (change / prevClose) * 100 : 0;
                         const updated = { ...cached, c: newPrice, d: change, dp: changePct };
                         updateWatchlistPriceCells(sym, updated);
-                        // Flash row green/red on price update
                         const row = document.getElementById('wl-row-' + sym);
                         if (row) {
                             row.style.transition = 'background 0.1s';
                             row.style.background = change >= 0 ? 'rgba(5,150,105,0.08)' : 'rgba(225,29,72,0.08)';
                             setTimeout(() => { row.style.background = ''; }, 600);
                         }
-                        // Update quick chart header if open
                         if (qcCurrentSymbol === sym) {
                             document.getElementById('qc-price').textContent = '$' + newPrice.toFixed(2);
                             const pct = Math.abs(changePct).toFixed(2);
@@ -2469,11 +2522,13 @@
             fhWs.onclose = () => {
                 fhWs = null;
                 fhWsSubscribed.clear();
-                // Reconnect after 5s if market still open
                 clearTimeout(fhWsReconnectTimer);
+                // Exponential backoff: 5s → 7.5s → 11.25s → ... → max 30s
                 fhWsReconnectTimer = setTimeout(() => {
                     if (isMarketOpen()) connectFinnhubWs();
-                }, 5000);
+                }, fhWsBackoff);
+                fhWsBackoff = Math.min(fhWsBackoff * 1.5, 30000);
+                updateMarketStatus(false);
             };
 
             fhWs.onerror = () => { fhWs?.close(); };
@@ -2493,6 +2548,7 @@
 
         function disconnectFinnhubWs() {
             clearTimeout(fhWsReconnectTimer);
+            fhWsBackoff = 5000;
             if (fhWs) { fhWs.close(); fhWs = null; }
             fhWsSubscribed.clear();
         }
@@ -2687,18 +2743,40 @@
             }, 60 * 1000);
 
             updateMarketStatus();
-            // Auto-save to Gist every 30 seconds if there's data and token
-            setInterval(() => {
-                if (getGistToken() && (records.length > 0 || watchlist.length > 0)) {
+
+            // ── Debounced auto-save: saves 5s after last change, not blindly every 30s
+            let autoSaveTimer = null;
+            function scheduleAutoSave() {
+                if (!getGistToken() || (records.length === 0 && watchlist.length === 0)) return;
+                clearTimeout(autoSaveTimer);
+                autoSaveTimer = setTimeout(async () => {
                     const exportData = { meta: { avatar: db.avatar, dark: document.documentElement.classList.contains('dark') }, records, watchlist };
                     const token = getGistToken();
-                    fetch(`https://api.github.com/gists/${GIST_ID}`, {
-                        method: 'PATCH',
-                        headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ files: { [GIST_FILENAME]: { content: JSON.stringify(exportData, null, 2) } } })
-                    }).then(() => showGistStatus('AUTO SAVED ✓', 'text-emerald-400'))
-                      .catch(() => {});
-                }
+                    try {
+                        const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+                            method: 'PATCH',
+                            headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ files: { [GIST_FILENAME]: { content: JSON.stringify(exportData, null, 2) } } })
+                        });
+                        if (res.ok) showGistStatus('AUTO SAVED ✓', 'text-emerald-400');
+                        else showGistStatus('SAVE FAILED ✗', 'text-rose-500');
+                    } catch(e) {
+                        showGistStatus('OFFLINE — saved locally', 'text-amber-400');
+                    }
+                }, 5000);
+            }
+            // Trigger schedule whenever records/watchlist change (patch saveWatchlist + saveRecords)
+            const _origSaveWatchlist = saveWatchlist;
+            saveWatchlist = function() { _origSaveWatchlist(); scheduleAutoSave(); };
+
+            // Periodic safety-net every 30s (only if pending changes exist)
+            let lastSavedHash = '';
+            setInterval(() => {
+                if (!getGistToken() || (records.length === 0 && watchlist.length === 0)) return;
+                const hash = JSON.stringify({ r: records.length, w: watchlist.length });
+                if (hash === lastSavedHash) return;
+                lastSavedHash = hash;
+                scheduleAutoSave();
             }, 30 * 1000);
 
             // Save on tab close / navigate away
