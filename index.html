@@ -2813,67 +2813,90 @@
 
             aiChatHistory.push({ role: 'user', parts: [{ text }] });
             const loadingId = appendPopupMessage('assistant', '', true);
-            document.getElementById('ai-send-btn').disabled = true;
+
+            // Show stop button, hide send button
+            const sendBtn = document.getElementById('ai-send-btn');
+            const stopBtn = document.getElementById('ai-stop-btn');
+            sendBtn.classList.add('hidden');
+            stopBtn.classList.remove('hidden');
+
+            // AbortController for stop + 45s timeout
+            let abortCtrl = new AbortController();
+            const timeoutId = setTimeout(() => abortCtrl.abort('timeout'), 45000);
+            window._aiAbort = abortCtrl;
 
             try {
                 const wlSymbols = watchlist.slice(0, 20).join(', ');
-                const sysText = `You are a professional stock analyst. Answer in Thai if the user writes Thai, English if English. Give specific support/resistance price levels as numbers. Use latest available data. User's watchlist: ${wlSymbols || 'not specified'}.`;
+                const sysText = `You are a professional stock analyst. Answer in Thai if the user writes Thai, English if English. Give specific support/resistance price levels as numbers. User's watchlist: ${wlSymbols || 'not specified'}. Be concise.`;
 
-                // Keep only last 6 messages to stay within free tier token limits
                 const contents = aiChatHistory.slice(-6);
 
-                const callGemini = async () => {
-                    const res = await fetch(
+                const callGemini = async (signal) => {
+                    return fetch(
                         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
                         {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
+                            signal,
                             body: JSON.stringify({
                                 system_instruction: { parts: [{ text: sysText }] },
                                 contents,
-                                tools: [{ googleSearch: {} }],
-                                generationConfig: { temperature: 0.3, maxOutputTokens: 1024 }
+                                generationConfig: { temperature: 0.2, maxOutputTokens: 800 }
                             })
                         }
                     );
-                    return res;
                 };
 
-                let res = await callGemini();
+                let res = await callGemini(abortCtrl.signal);
 
-                // Auto-retry once on 429 after waiting the suggested delay
+                // Auto-retry once on 429
                 if (res.status === 429) {
                     const errData = await res.json();
                     const retryMsg = errData.error?.message || '';
                     const seconds = parseFloat(retryMsg.match(/(\d+\.?\d*)\s*s/)?.[1] || '15');
                     const el = document.getElementById(loadingId);
-                    if (el) el.querySelector('.ai-msg-body').innerHTML = `<span style="color:var(--text-dim)">⏳ Rate limit — รอ ${Math.ceil(seconds)} วินาที แล้วลองใหม่อัตโนมัติ...</span>`;
-                    await new Promise(r => setTimeout(r, seconds * 1000));
-                    res = await callGemini();
+                    if (el) el.querySelector('.ai-msg-body').innerHTML = `<span style="color:var(--text-dim)">⏳ รอ ${Math.ceil(seconds)}s แล้วลองใหม่...</span>`;
+                    await new Promise((r, rej) => {
+                        const t = setTimeout(r, seconds * 1000);
+                        abortCtrl.signal.addEventListener('abort', () => { clearTimeout(t); rej(new Error('หยุดแล้ว')); });
+                    });
+                    abortCtrl = new AbortController();
+                    window._aiAbort = abortCtrl;
+                    clearTimeout(timeoutId);
+                    setTimeout(() => abortCtrl.abort('timeout'), 45000);
+                    res = await callGemini(abortCtrl.signal);
                 }
 
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error?.message || `HTTP ${res.status}`);
 
                 const reply = data.candidates?.[0]?.content?.parts
-                    ?.filter(p => p.text)
-                    ?.map(p => p.text)
-                    ?.join('\n') || '(ไม่มีคำตอบ)';
+                    ?.filter(p => p.text)?.map(p => p.text)?.join('\n') || '(ไม่มีคำตอบ)';
 
                 aiChatHistory.push({ role: 'model', parts: [{ text: reply }] });
-                // Trim history to last 10 to prevent runaway token usage
                 if (aiChatHistory.length > 10) aiChatHistory = aiChatHistory.slice(-10);
 
                 const el = document.getElementById(loadingId);
                 if (el) el.querySelector('.ai-msg-body').innerHTML = escHtml(reply).replace(/\n/g, '<br>');
 
             } catch(e) {
+                clearTimeout(timeoutId);
                 const el = document.getElementById(loadingId);
-                if (el) el.querySelector('.ai-msg-body').innerHTML = `<span style="color:#f43f5e">❌ ${escHtml(e.message)}</span>`;
+                const msg = e.name === 'AbortError' || e.message === 'หยุดแล้ว'
+                    ? '<span style="color:var(--text-dim)">⏹ หยุดแล้ว</span>'
+                    : `<span style="color:#f43f5e">❌ ${escHtml(e.message)}</span>`;
+                if (el) el.querySelector('.ai-msg-body').innerHTML = msg;
             } finally {
-                document.getElementById('ai-send-btn').disabled = false;
+                clearTimeout(timeoutId);
+                window._aiAbort = null;
+                sendBtn.classList.remove('hidden');
+                stopBtn.classList.add('hidden');
                 document.getElementById('ai-popup-messages').scrollTop = 999999;
             }
+        }
+
+        function stopAiMessage() {
+            if (window._aiAbort) window._aiAbort.abort('user');
         }
 
         // --- FX Rate (USD/THB) ---
@@ -3277,11 +3300,17 @@
                     class="flex-1 text-sm px-4 py-2.5 rounded-xl outline-none"
                     style="background:var(--bg-card);border:1px solid var(--border);color:var(--text-primary)"
                     onkeydown="if(event.key==='Enter')sendAiMessage()">
-                <button onclick="sendAiMessage()"
+                <button onclick="sendAiMessage()" id="ai-send-btn"
                     class="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider flex-shrink-0"
                     style="background:linear-gradient(135deg,#1a73e8,#34a853);color:white">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
                     ส่ง
+                </button>
+                <button onclick="stopAiMessage()" id="ai-stop-btn"
+                    class="hidden flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider flex-shrink-0"
+                    style="background:#ef4444;color:white">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1" stroke-width="2" fill="currentColor"/></svg>
+                    หยุด
                 </button>
             </div>
         </div>
