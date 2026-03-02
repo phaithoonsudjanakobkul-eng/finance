@@ -609,7 +609,7 @@
                         <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
                         <div id="db-name-display" class="text-[10px] font-bold uppercase tracking-widest leading-none" style="color:var(--text-dim);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ready</div>
                     </div>
-                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.02-r22</div>
+                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.02-r23</div>
                 </div>
             </div>
             
@@ -862,37 +862,19 @@
                     <span id="wl-market-status" class="text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-widest"></span>
                 </div>
 
-                <!-- USD/THB FX Widget -->
-                <div id="fx-widget" class="flex items-center gap-3 px-3 py-1.5 rounded-xl border relative group/fx flex-shrink-0"
-                    style="background:var(--bg-card2);border-color:var(--border);cursor:default;min-width:260px">
-                    <div id="fx-tooltip" class="absolute left-1/2 -translate-x-1/2 top-full mt-2 z-50 hidden group-hover/fx:block">
-                        <div class="px-3 py-1.5 rounded-xl text-[10px] font-bold whitespace-nowrap shadow-lg" style="background:var(--bg-card);border:1px solid var(--border)">
-                            <span id="fx-note" style="color:var(--text-primary)">—</span>
-                        </div>
+                <!-- USD/THB FX Widget — Dime style -->
+                <div id="fx-widget" class="flex items-center gap-2 flex-shrink-0">
+                    <!-- USD→THB card -->
+                    <div class="flex flex-col px-3 py-2 rounded-xl border" style="background:var(--bg-card2);border-color:var(--border);min-width:90px">
+                        <span class="text-[9px] font-bold mb-1" style="color:var(--text-dim)">🇺🇸 → 🇹🇭 USD→THB</span>
+                        <span id="fx-change" class="text-[11px] font-black" style="color:#22c55e;font-family:var(--font-mono)">—</span>
+                        <span id="fx-rate" class="text-[13px] font-black" style="color:var(--text-primary);font-family:var(--font-mono);font-variant-numeric:tabular-nums">— THB</span>
                     </div>
-                    <div class="flex flex-col" style="min-width:72px">
-                        <span class="text-[8px] font-bold uppercase tracking-widest" style="color:var(--text-dim)">1 USD =</span>
-                        <div class="flex items-baseline gap-1">
-                            <span id="fx-rate" class="font-black text-xs" style="font-family:var(--font-mono);color:var(--text-primary);font-variant-numeric:tabular-nums;min-width:52px;display:inline-block">—</span>
-                            <span class="text-[9px] font-bold" style="color:var(--text-dim)">THB</span>
-                            <span id="fx-change" class="text-[9px] font-bold ml-0.5" style="font-family:var(--font-mono);min-width:16px;display:inline-block"></span>
-                        </div>
-                    </div>
-                    <div class="w-px h-6 self-stretch" style="background:var(--border)"></div>
-                    <div class="flex flex-col" style="min-width:52px">
-                        <span class="text-[8px] font-bold uppercase tracking-widest" style="color:var(--text-dim)">ซื้อ 1 USD</span>
-                        <div class="flex items-baseline gap-1">
-                            <span id="fx-rate-inv" class="font-black text-xs" style="font-family:var(--font-mono);color:var(--text-primary);font-variant-numeric:tabular-nums;min-width:40px;display:inline-block">—</span>
-                            <span class="text-[9px] font-bold" style="color:var(--text-dim)">฿</span>
-                        </div>
-                    </div>
-                    <div class="w-px h-6 self-stretch" style="background:var(--border)"></div>
-                    <div class="flex flex-col items-center gap-0.5" style="min-width:44px">
-                        <div class="flex items-center gap-1">
-                            <span id="fx-dot" class="w-1.5 h-1.5 rounded-full bg-gray-300"></span>
-                            <span class="text-[7px] font-bold uppercase tracking-widest" style="color:var(--text-dim)">Live</span>
-                        </div>
-                        <span id="fx-time" class="text-[8px] font-bold" style="font-family:var(--font-mono);color:var(--text-secondary);font-variant-numeric:tabular-nums;min-width:44px;text-align:center">—</span>
+                    <!-- THB→USD card -->
+                    <div class="flex flex-col px-3 py-2 rounded-xl border" style="background:var(--bg-card2);border-color:var(--border);min-width:90px">
+                        <span class="text-[9px] font-bold mb-1" style="color:var(--text-dim)">🇹🇭 → 🇺🇸 THB→USD</span>
+                        <span id="fx-change-inv" class="text-[11px] font-black" style="color:#22c55e;font-family:var(--font-mono)">—</span>
+                        <span id="fx-rate-inv" class="text-[13px] font-black" style="color:var(--text-primary);font-family:var(--font-mono);font-variant-numeric:tabular-nums">— THB</span>
                     </div>
                 </div>
 
@@ -2786,16 +2768,21 @@
             const container = document.getElementById('ai-popup-messages');
             const id = 'pmsg-' + Date.now();
             const isUser = role === 'user';
+            const ts = new Date().toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'});
             const html = isUser
-                ? `<div id="${id}" class="flex justify-end">
+                ? `<div id="${id}" class="flex flex-col items-end gap-0.5">
                     <div class="max-w-[80%] px-4 py-2.5 rounded-2xl rounded-tr-sm text-sm leading-relaxed" style="background:linear-gradient(135deg,#1a73e8,#0d47a1);color:white">${escHtml(text)}</div>
+                    <span class="text-[9px]" style="color:var(--text-dim)">${ts}</span>
                    </div>`
                 : `<div id="${id}" class="flex items-start gap-3">
                     <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5" style="background:linear-gradient(135deg,#1a73e8,#34a853)">
                         <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.347.347a3.5 3.5 0 01-4.95 0l-.347-.347z"/></svg>
                     </div>
                     <div class="flex-1 min-w-0">
-                        <div class="text-[10px] font-bold mb-1.5" style="color:#4285f4">AI ANALYST</div>
+                        <div class="flex items-center gap-2 mb-1.5">
+                            <span class="text-[10px] font-bold" style="color:#4285f4">AI ANALYST</span>
+                            <span class="text-[9px]" style="color:var(--text-dim)">${ts}</span>
+                        </div>
                         <div class="ai-msg-body text-sm leading-relaxed" style="color:var(--text-secondary);white-space:pre-wrap">${isLoading ? '<span class="ai-typing">กำลังวิเคราะห์<span class="dots">...</span></span>' : escHtml(text)}</div>
                     </div>
                    </div>`;
@@ -2999,12 +2986,16 @@
             // Create assistant bubble and hold direct reference
             const bubble = document.createElement('div');
             bubble.className = 'flex items-start gap-3';
+            const ts = new Date().toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'});
             bubble.innerHTML = `
                 <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5" style="background:linear-gradient(135deg,#1a73e8,#34a853)">
                     <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.347.347a3.5 3.5 0 01-4.95 0l-.347-.347z"/></svg>
                 </div>
                 <div class="flex-1 min-w-0">
-                    <div class="text-[10px] font-bold mb-1.5" style="color:#4285f4">AI ANALYST</div>
+                    <div class="flex items-center gap-2 mb-1.5">
+                        <span class="text-[10px] font-bold" style="color:#4285f4">AI ANALYST</span>
+                        <span class="text-[9px]" style="color:var(--text-dim)">${ts}</span>
+                    </div>
                     <div class="msgbody text-sm leading-relaxed" style="color:var(--text-secondary);white-space:pre-wrap">
                         <span style="color:var(--text-dim)">⏳ กำลังเชื่อมต่อ...</span>
                     </div>
@@ -3323,10 +3314,10 @@ Analysis guidelines:
         }
 
         async function fetchFxRate() {
-            const rateEl   = document.getElementById('fx-rate');
-            const changeEl = document.getElementById('fx-change');
-            const timeEl   = document.getElementById('fx-time');
-            const dotEl    = document.getElementById('fx-dot');
+            const rateEl      = document.getElementById('fx-rate');
+            const rateInvEl   = document.getElementById('fx-rate-inv');
+            const changeEl    = document.getElementById('fx-change');
+            const changeInvEl = document.getElementById('fx-change-inv');
             if (!rateEl) return;
 
             try {
@@ -3348,46 +3339,49 @@ Analysis guidelines:
 
                 if (!rate) throw new Error('No rate');
 
-                const rounded = parseFloat(rate.toFixed(4));
-                rateEl.textContent = rounded.toFixed(4);
-                // "1 USD ใช้" = same number, just 2 decimal places — how many baht to buy 1 USD
-                document.getElementById('fx-rate-inv').textContent = rounded.toFixed(2);
+                const rounded = parseFloat(rate.toFixed(2));
+                const invRate = parseFloat((1 / rate * 100).toFixed(2)); // how many THB per 100 USD inverse
 
-                // Show change vs previous fetch
+                // USD→THB card
+                rateEl.textContent = rounded.toFixed(2) + ' THB';
+
+                // THB→USD card (show how many THB to get 1 USD, same number different framing)
+                rateInvEl.textContent = rounded.toFixed(2) + ' THB';
+
+                // Show change % vs previous fetch
+                const formatChange = (diff, el) => {
+                    if (fxPrevRate === null) { el.textContent = ''; return; }
+                    const pct = ((diff / fxPrevRate) * 100);
+                    const isUp = diff > 0.001;
+                    const isDn = diff < -0.001;
+                    el.textContent = isDn ? `↗ ${Math.abs(pct).toFixed(2)}%` : isUp ? `↗ ${pct.toFixed(2)}%` : '';
+                    el.style.color = isDn ? '#22c55e' : isUp ? '#f43f5e' : '#22c55e';
+                    if (!isDn && !isUp) el.textContent = '➖ 0.00%';
+                };
+
                 if (fxPrevRate !== null) {
                     const diff = rounded - fxPrevRate;
-                    const isUp = diff > 0;
-                    const isFlat = Math.abs(diff) < 0.0001;
-                    changeEl.textContent = isFlat ? '' : (isUp ? '▲' : '▼') + Math.abs(diff).toFixed(4);
-                    changeEl.style.color  = isFlat ? '' : isUp ? '#e11d48' : '#059669';
+                    // USD→THB: rate up = USD stronger (baht weaker), THB→USD: inverse
+                    const pct = ((Math.abs(diff) / fxPrevRate) * 100).toFixed(2);
+                    const isUp = diff > 0.001, isDn = diff < -0.001;
 
-                    // Note: USD แข็ง = ต้องใช้บาทมากขึ้น (rate ขึ้น) = แย่สำหรับคนซื้อหุ้น USD
-                    const noteEl = document.getElementById('fx-note');
-                    if (isFlat) {
-                        noteEl.textContent = 'ค่าเงินทรงตัว';
-                        noteEl.style.color = 'var(--text-dim)';
-                    } else if (isUp) {
-                        noteEl.textContent = '฿ อ่อนค่า / $ แข็งค่า';
-                        noteEl.style.color = '#e11d48';
-                    } else {
-                        noteEl.textContent = '฿ แข็งค่า / $ อ่อนค่า';
-                        noteEl.style.color = '#059669';
-                    }
+                    // USD→THB: up arrow green if baht cheaper (rate rises) — Dime shows change %
+                    changeEl.textContent = (isDn ? '↗ ' : isUp ? '↗ ' : '➖ ') + pct + '%';
+                    changeEl.style.color = isDn ? '#22c55e' : isUp ? '#f43f5e' : '#94a3b8';
+
+                    // THB→USD: inverse direction
+                    changeInvEl.textContent = (isUp ? '↗ ' : isDn ? '↗ ' : '➖ ') + pct + '%';
+                    changeInvEl.style.color = isUp ? '#22c55e' : isDn ? '#f43f5e' : '#94a3b8';
+                } else {
+                    changeEl.textContent    = '➖ 0.00%';
+                    changeInvEl.textContent = '➖ 0.00%';
+                    changeEl.style.color = changeInvEl.style.color = '#94a3b8';
                 }
+
                 fxPrevRate = rounded;
-
-                // Dot = green (live)
-                dotEl.classList.remove('bg-gray-300', 'bg-rose-400');
-                dotEl.classList.add('bg-emerald-400');
-
-                // Time
-                const now = new Date();
-                timeEl.textContent = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
 
             } catch(e) {
                 rateEl.textContent = 'Error';
-                dotEl.classList.remove('bg-emerald-400');
-                dotEl.classList.add('bg-rose-400');
             }
         }
 
@@ -3487,15 +3481,6 @@ Analysis guidelines:
                 if (wlVisible) fetchFxRate();
             }, 30 * 1000);
 
-            // Clock tick every second — updates the LIVE time display without a network call
-            setInterval(() => {
-                const timeEl = document.getElementById('fx-time');
-                if (timeEl) {
-                    const now = new Date();
-                    timeEl.textContent = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
-                }
-            }, 1000);
-
             // Fallback polling every 1 min — only when WebSocket is NOT connected and market is open
             setInterval(() => {
                 const wlVisible = !document.getElementById('tab-watchlist').classList.contains('hidden');
@@ -3570,7 +3555,7 @@ Analysis guidelines:
         };
     </script>
     <!-- ── AI Chat Popup ───────────────────────────────────────────────────── -->
-    <div id="ai-popup" class="hidden fixed inset-0 z-[200] flex items-center justify-center p-4" style="background:rgba(0,0,0,0.5);backdrop-filter:blur(6px)" onclick="if(event.target===this)closeAiPopup()">
+    <div id="ai-popup" class="hidden fixed inset-0 z-[200] flex items-center justify-center p-4" onclick="if(event.target===this)closeAiPopup()" onwheel="event.stopPropagation()">
         <div class="flex flex-col rounded-2xl shadow-2xl overflow-hidden" style="width:min(680px,95vw);height:min(600px,85vh);background:var(--bg-card);border:1px solid var(--border)">
 
             <!-- Popup Header -->
@@ -3591,7 +3576,7 @@ Analysis guidelines:
             </div>
 
             <!-- Messages -->
-            <div id="ai-popup-messages" class="flex-1 overflow-y-auto flex flex-col gap-4 p-5">
+            <div id="ai-popup-messages" class="flex-1 overflow-y-auto flex flex-col gap-4 p-5" onwheel="event.stopPropagation()">
                 <div class="flex items-start gap-3">
                     <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style="background:linear-gradient(135deg,#1a73e8,#34a853)">
                         <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.347.347a3.5 3.5 0 01-4.95 0l-.347-.347z"/></svg>
