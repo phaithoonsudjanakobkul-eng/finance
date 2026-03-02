@@ -178,11 +178,11 @@
         }
         #wl-split-wrap {
             display: flex;
-            gap: 8px;
+            gap: 0;
             align-items: flex-start;
         }
-        /* Push Market News below sticky chart when open */
         #wl-split-wrap.chart-open {
+            gap: 8px;
             min-height: calc(100vh - 98px);
             padding-bottom: 24px;
         }
