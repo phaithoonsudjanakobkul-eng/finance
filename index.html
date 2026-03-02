@@ -618,12 +618,22 @@
         
         
         /* ── Watchlist data color classes — light + dark aware ───── */
-        .wl-up      { color: #00a86b; }
-        .wl-dn      { color: #e8274b; }
-        .wl-neutral { color: var(--text-dim); }
-        html.dark .wl-up      { color: #00e676; }
-        html.dark .wl-dn      { color: #ff1744; }
-        html.dark .wl-neutral { color: var(--text-dim); }
+        #watchlist-table td.wl-up,
+        #watchlist-table td.wl-up span,
+        #watchlist-table span.wl-up      { color: #00a86b; }
+        #watchlist-table td.wl-dn,
+        #watchlist-table td.wl-dn span,
+        #watchlist-table span.wl-dn      { color: #e8274b; }
+        #watchlist-table td.wl-neutral,
+        #watchlist-table span.wl-neutral { color: var(--text-dim); }
+        html.dark #watchlist-table td.wl-up,
+        html.dark #watchlist-table td.wl-up span,
+        html.dark #watchlist-table span.wl-up      { color: #00e676; }
+        html.dark #watchlist-table td.wl-dn,
+        html.dark #watchlist-table td.wl-dn span,
+        html.dark #watchlist-table span.wl-dn      { color: #ff1744; }
+        html.dark #watchlist-table td.wl-neutral,
+        html.dark #watchlist-table span.wl-neutral { color: var(--text-dim); }
         </style>
 </head>
 
@@ -703,7 +713,7 @@
                         <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
                         <div id="db-name-display" class="text-[10px] font-bold uppercase tracking-widest leading-none" style="color:var(--text-dim);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ready</div>
                     </div>
-                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.03-r66</div>
+                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.03-r67</div>
                 </div>
             </div>
             
