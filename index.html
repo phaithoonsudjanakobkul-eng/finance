@@ -644,7 +644,7 @@
                         <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
                         <div id="db-name-display" class="text-[10px] font-bold uppercase tracking-widest leading-none" style="color:var(--text-dim);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ready</div>
                     </div>
-                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.02-r36</div>
+                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.02-r37</div>
                 </div>
             </div>
             
@@ -919,7 +919,7 @@
                 <!-- USD/THB FX Widget — compact Dime style -->
                 <div id="fx-widget" class="flex items-center gap-1.5 flex-shrink-0">
                     <!-- USD→THB: ขาย 1 USD ได้ XX THB -->
-                    <div class="flex flex-col justify-center px-2.5 py-1.5 rounded-xl border" style="background:var(--bg-card2);border-color:var(--border);height:36px;min-width:105px">
+                    <div class="flex flex-col justify-center px-2.5 py-1.5 rounded-xl border" style="background:var(--bg-card2);border-color:var(--border);height:36px;min-width:118px">
                         <div class="flex items-center gap-1">
                             <span class="text-[8px] font-semibold leading-none" style="color:var(--text-dim)">🇺🇸→🇹🇭 USD→THB</span>
                             <span id="fx-src-badge" class="text-[7px] font-bold px-1 rounded" style="background:rgba(16,185,129,0.15);color:#10b981;display:none"></span>
@@ -931,7 +931,7 @@
                         </div>
                     </div>
                     <!-- THB→USD: ซื้อ 1 USD ต้องใช้ XX THB (always slightly higher = spread) -->
-                    <div class="flex flex-col justify-center px-2.5 py-1.5 rounded-xl border" style="background:var(--bg-card2);border-color:var(--border);height:36px;min-width:105px">
+                    <div class="flex flex-col justify-center px-2.5 py-1.5 rounded-xl border" style="background:var(--bg-card2);border-color:var(--border);height:36px;min-width:118px">
                         <div class="flex items-center gap-1">
                             <span class="text-[8px] font-semibold leading-none" style="color:var(--text-dim)">🇹🇭→🇺🇸 THB→USD</span>
                         </div>
@@ -3661,11 +3661,11 @@ Analysis guidelines:
             // ── Calculate both display rates ──────────────────────────────
             // USD→THB sell: ขาย 1 USD ได้กี่บาท
             // THB→USD buy:  ซื้อ 1 USD ต้องใช้กี่บาท (+0.4% spread ≈ Dime)
-            const sellRate = parseFloat(usdThb.toFixed(2));
-            const buyRate  = parseFloat((usdThb * 1.004).toFixed(2));
+            const sellRate = usdThb;                          // keep full precision
+            const buyRate  = usdThb * 1.004;              // keep full precision
 
-            rateEl.textContent    = sellRate.toFixed(2) + ' THB';
-            rateInvEl.textContent = buyRate.toFixed(2)  + ' THB';
+            rateEl.textContent    = sellRate.toFixed(4) + ' THB';
+            rateInvEl.textContent = buyRate.toFixed(4)  + ' THB';
             const ts = new Date().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});
             rateEl.title    = `ขาย 1 USD ได้ ${sellRate} THB · [${src}] อัปเดต ${ts}`;
             rateInvEl.title = `ซื้อ 1 USD ใช้ ${buyRate} THB · spread 0.4% · [${src}] อัปเดต ${ts}`;
@@ -3680,7 +3680,7 @@ Analysis guidelines:
 
             // ── % Change vs yesterday ─────────────────────────────────────
             const baseSell = prevRate ?? fxPrevRate;
-            const baseBuy  = prevRate ? parseFloat((prevRate * 1.004).toFixed(2)) : fxPrevRateInv;
+            const baseBuy  = prevRate ? (prevRate * 1.004) : fxPrevRateInv;
 
             const fmtChg = (curr, base, el) => {
                 if (!base || !sane(base)) {
