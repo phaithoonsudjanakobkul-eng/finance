@@ -608,7 +608,7 @@
                         <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
                         <div id="db-name-display" class="text-[10px] font-bold uppercase tracking-widest leading-none" style="color:var(--text-dim);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ready</div>
                     </div>
-                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.02-r15</div>
+                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.02-r16</div>
                 </div>
             </div>
             
@@ -2810,7 +2810,7 @@
         }
 
         async function sendAiMessage() {
-            const inputBar = document.getElementById('ai-input');
+            const inputBar   = document.getElementById('ai-input');
             const inputPopup = document.getElementById('ai-popup-input');
             const text = (inputBar.value || inputPopup.value).trim();
             if (!text) return;
@@ -2822,137 +2822,130 @@
                 return;
             }
 
-            // Validate key format — must be OpenRouter key starting with sk-or-
-            // Strip any whitespace or non-ASCII that would break HTTP headers
             const cleanKey = key.replace(/[^\x20-\x7E]/g, '').trim();
             if (!cleanKey.startsWith('sk-or-')) {
                 localStorage.removeItem('ps_openrouter_key');
                 updateAiStatus();
                 document.getElementById('ai-key-panel').classList.remove('hidden');
                 const inp = document.getElementById('ai-key-input');
-                inp.value = '';
-                inp.placeholder = 'sk-or-v1-... (OpenRouter key)';
-                inp.focus();
+                inp.value = ''; inp.placeholder = 'sk-or-v1-...'; inp.focus();
                 inp.style.borderColor = '#ef4444';
                 setTimeout(() => inp.style.borderColor = '', 2000);
                 return;
             }
 
-            // Open popup immediately before any async work
-            inputBar.value = '';
-            inputPopup.value = '';
+            inputBar.value = ''; inputPopup.value = '';
             openAiPopup();
             appendPopupMessage('user', text);
-
             aiChatHistory.push({ role: 'user', content: text });
-            const loadingId = appendPopupMessage('assistant', '', true);
 
-            // Show stop button, hide send button
-            const sendBtn = document.getElementById('ai-popup-send-btn');
-            const stopBtn = document.getElementById('ai-popup-stop-btn');
-            sendBtn.classList.add('hidden');
-            stopBtn.classList.remove('hidden');
+            // Create assistant bubble and hold direct reference
+            const bubble = document.createElement('div');
+            bubble.className = 'flex items-start gap-3';
+            bubble.innerHTML = `
+                <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5" style="background:linear-gradient(135deg,#1a73e8,#34a853)">
+                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.347.347a3.5 3.5 0 01-4.95 0l-.347-.347z"/></svg>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="text-[10px] font-bold mb-1.5" style="color:#4285f4">AI ANALYST</div>
+                    <div class="msgbody text-sm leading-relaxed" style="color:var(--text-secondary);white-space:pre-wrap">
+                        <span style="color:var(--text-dim)">⏳ กำลังเชื่อมต่อ...</span>
+                    </div>
+                </div>`;
+            const msgContainer = document.getElementById('ai-popup-messages');
+            msgContainer.appendChild(bubble);
+            msgContainer.scrollTop = msgContainer.scrollHeight;
+            const msgBody = bubble.querySelector('.msgbody'); // direct reference — never fails
 
-            // Single AbortController for stop + timeout
+            const setMsg  = (html)  => { msgBody.innerHTML = html; msgContainer.scrollTop = msgContainer.scrollHeight; };
+            const setTxt  = (text)  => setMsg(escHtml(text).replace(/\n/g,'<br>'));
+            const setInfo = (text)  => setMsg(`<span style="color:var(--text-dim)">${text}</span>`);
+            const setErr  = (text)  => setMsg(`<span style="color:#f43f5e">❌ ${escHtml(text)}</span>`);
+
+            // Show stop, hide send
+            document.getElementById('ai-popup-send-btn').classList.add('hidden');
+            document.getElementById('ai-popup-stop-btn').classList.remove('hidden');
+
             const ctrl = new AbortController();
             window._aiAbort = ctrl;
-            const timeoutId = setTimeout(() => {
-                if (!ctrl.signal.aborted) ctrl.abort('timeout');
-            }, 90000);
+            const tid = setTimeout(() => ctrl.abort(), 90000);
 
-            try {
-            const FREE_MODELS = [
+            const MODELS = [
                 'meta-llama/llama-3.3-70b-instruct:free',
                 'mistralai/mistral-7b-instruct:free',
                 'google/gemma-3-27b-it:free',
                 'microsoft/phi-4-reasoning-plus:free',
             ];
 
-            const sysPrompt = `You are a professional stock analyst. Answer in Thai if the user writes Thai, English if English. Give specific support/resistance as exact numbers. Watchlist: ${watchlist.slice(0,20).join(', ') || 'none'}. Be concise.`;
-
+            const sysPrompt = `You are a professional stock analyst. Answer in Thai if user writes Thai, English if English. Always give support/resistance as exact dollar numbers. Watchlist: ${watchlist.slice(0,20).join(', ')||'none'}. Be concise.`;
             const msgs = [
-                { role: 'system', content: sysPrompt },
+                { role:'system', content: sysPrompt },
                 ...aiChatHistory.slice(-6).map(m => ({
-                    role: m.role === 'model' ? 'assistant' : (m.role || 'user'),
-                    content: typeof m.content === 'string' ? m.content : (m.parts?.[0]?.text || '')
+                    role: m.role === 'model' ? 'assistant' : (m.role||'user'),
+                    content: typeof m.content === 'string' ? m.content : (m.parts?.[0]?.text||'')
                 }))
             ];
 
-            const loadEl = document.getElementById(loadingId);
-            let lastError = '';
+            try {
+                let replied = false;
+                for (let i = 0; i < MODELS.length && !replied; i++) {
+                    if (ctrl.signal.aborted) break;
+                    const model = MODELS[i];
+                    const name  = model.split('/')[1]?.replace(':free','') || model;
+                    setInfo(`🔗 กำลังเชื่อมต่อ ${name}${i>0?` (${i+1}/${MODELS.length})`:''}...`);
 
-            for (let i = 0; i < FREE_MODELS.length; i++) {
-                if (ctrl.signal.aborted) break;
-                const model = FREE_MODELS[i];
-                const modelShort = model.split('/')[1]?.replace(':free','') || model;
-                if (loadEl) loadEl.querySelector('.ai-msg-body').innerHTML =
-                    `<span style="color:var(--text-dim)">🔗 กำลังเชื่อมต่อ ${modelShort}${i > 0 ? ` (ลอง ${i+1}/${FREE_MODELS.length})` : ''}...</span>`;
-
-                try {
-                    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${cleanKey}` },
-                        signal: ctrl.signal,
-                        body: JSON.stringify({ model, messages: msgs, max_tokens: 800, temperature: 0.2 })
-                    });
-
-                    const data = await res.json();
-
-                    // 429 — wait briefly then try next model
-                    if (res.status === 429) {
-                        const w = Math.min(parseInt((data.error?.message||'').match(/\d+/)?.[0]||'5'), 10);
-                        if (loadEl) loadEl.querySelector('.ai-msg-body').innerHTML = `<span style="color:var(--text-dim)">⏳ ${modelShort} busy รอ ${w}s แล้วลอง model ถัดไป...</span>`;
-                        await new Promise((r,rej) => {
-                            const t = setTimeout(r, w*1000);
-                            ctrl.signal.addEventListener('abort', ()=>{ clearTimeout(t); rej(new DOMException('','AbortError')); }, {once:true});
+                    let res, data;
+                    try {
+                        res  = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                            method:'POST',
+                            headers:{'Content-Type':'application/json','Authorization':`Bearer ${cleanKey}`},
+                            signal: ctrl.signal,
+                            body: JSON.stringify({ model, messages:msgs, max_tokens:800, temperature:0.2 })
                         });
-                        lastError = '429 too many requests';
-                        continue; // move to next model
+                        data = await res.json();
+                    } catch(fetchErr) {
+                        if (fetchErr.name === 'AbortError') throw fetchErr;
+                        setInfo(`⚠️ ${name} ไม่ตอบสนอง ลอง model ถัดไป...`);
+                        await new Promise(r => setTimeout(r, 1000));
+                        continue;
                     }
 
-                    // Provider error — try next model
+                    if (res.status === 429) {
+                        setInfo(`⏳ ${name} เต็ม ลอง model ถัดไป...`);
+                        await new Promise((r,rej) => {
+                            const t = setTimeout(r, 3000);
+                            ctrl.signal.addEventListener('abort', ()=>{ clearTimeout(t); rej(new DOMException('','AbortError')); },{once:true});
+                        });
+                        continue;
+                    }
+
                     if (!res.ok || data.error) {
-                        lastError = data.error?.message || `HTTP ${res.status}`;
+                        setInfo(`⚠️ ${name}: ${data.error?.message||`HTTP ${res.status}`} — ลอง model ถัดไป...`);
+                        await new Promise(r => setTimeout(r, 500));
                         continue;
                     }
 
                     const reply = data.choices?.[0]?.message?.content;
-                    if (!reply) { lastError = 'empty response'; continue; }
+                    if (!reply) { setInfo(`⚠️ ${name} ตอบว่างเปล่า ลอง model ถัดไป...`); continue; }
 
-                    aiChatHistory.push({ role: 'assistant', content: reply });
+                    aiChatHistory.push({ role:'assistant', content:reply });
                     if (aiChatHistory.length > 10) aiChatHistory = aiChatHistory.slice(-10);
-                    if (loadEl) loadEl.querySelector('.ai-msg-body').innerHTML = escHtml(reply).replace(/\n/g,'<br>');
-                    return; // success — exit loop
-
-                } catch(fetchErr) {
-                    if (fetchErr.name === 'AbortError') throw fetchErr; // propagate stop/timeout
-                    lastError = fetchErr.message;
+                    setTxt(reply);
+                    replied = true;
                 }
-            }
 
-            // All models failed
-            if (loadEl) loadEl.querySelector('.ai-msg-body').innerHTML =
-                `<span style="color:#f43f5e">❌ ทุก model ไม่ตอบสนอง — ${escHtml(lastError)}</span>`;
+                if (!replied && !ctrl.signal.aborted) {
+                    setErr('ทุก model ไม่ตอบสนองในขณะนี้ ลองใหม่ในอีกสักครู่ครับ');
+                }
 
             } catch(e) {
-                const loadEl = document.getElementById(loadingId);
-                let msg;
-                if (e.name === 'AbortError') {
-                    const wasTimeout = !window._aiAbort || window._aiAbort.signal.aborted;
-                    msg = wasTimeout && e.message !== 'stopped'
-                        ? '<span style="color:#f43f5e">❌ หมดเวลา 90s — ลองใหม่สักครู่ครับ</span>'
-                        : '<span style="color:var(--text-dim)">⏹ หยุดแล้ว</span>';
-                } else {
-                    msg = `<span style="color:#f43f5e">❌ ${escHtml(e.message || String(e))}</span>`;
-                }
-                if (loadEl) loadEl.querySelector('.ai-msg-body').innerHTML = msg;
+                if (e.name === 'AbortError') setMsg('<span style="color:var(--text-dim)">⏹ หยุดแล้ว</span>');
+                else setErr(e.message || String(e));
             } finally {
-                clearTimeout(timeoutId);
+                clearTimeout(tid);
                 window._aiAbort = null;
                 document.getElementById('ai-popup-send-btn').classList.remove('hidden');
                 document.getElementById('ai-popup-stop-btn').classList.add('hidden');
-                const msgContainer = document.getElementById('ai-popup-messages');
-                if (msgContainer) msgContainer.scrollTop = msgContainer.scrollHeight;
             }
         }
 
