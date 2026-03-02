@@ -269,6 +269,7 @@
         #wl-table-panel .glass-card > div[style*="overflow-x"] {
             overflow-x: auto;
             overflow-y: hidden;
+            scrollbar-gutter: auto;
         }
 
         /* Consistent scrollbar for both modes — prevents layout shift */
@@ -314,8 +315,7 @@
             font-family: var(--font-main); 
             background-color: #f8fafc; 
             color: #1e293b;
-            overflow-y: scroll;
-            scrollbar-gutter: stable;
+            overflow-y: auto;
         }
 
         /* ── Watchlist table font — uniform Inter weight 500 ── */
@@ -894,7 +894,7 @@
             <!-- Watchlist Table -->
             <div id="wl-table-panel">
             <div class="glass-card overflow-hidden">
-                <div style="overflow-x:auto">
+                <div style="overflow-x:auto;overflow-y:hidden;scrollbar-gutter:auto">
                 <table id="watchlist-table" class="w-full min-w-[700px]">
                     <thead>
                         <tr class="border-b" style="border-color:var(--border);background:var(--bg-card2)">
