@@ -14,7 +14,13 @@
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=IBM+Plex+Mono:wght@400;500;600;700&display=optional" rel="stylesheet">
+    <style>
+        /* Prevent FOUT — lock font size/weight immediately with system fallback that matches Inter metrics */
+        body { font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    </style>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&display=swap');
         @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&display=swap');
@@ -357,6 +363,12 @@
             font-size: 12px;
             color: var(--text-secondary);
         }
+        /* Fix: td color override must yield to explicit color classes — use !important on color utilities */
+        #watchlist-table td.text-emerald-600 { color: #059669 !important; }
+        #watchlist-table td.text-rose-500    { color: #f43f5e !important; }
+        #watchlist-table td.text-gray-300    { color: #94a3b8 !important; }
+        html.dark #watchlist-table td.text-emerald-600 { color: #34d399 !important; }
+        html.dark #watchlist-table td.text-rose-500    { color: #fb7185 !important; }
         /* Symbol — slightly bolder for quick scan */
         #watchlist-table .sym-cell {
             font-weight: 600;
@@ -610,7 +622,7 @@
                         <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
                         <div id="db-name-display" class="text-[10px] font-bold uppercase tracking-widest leading-none" style="color:var(--text-dim);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ready</div>
                     </div>
-                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.02-r27</div>
+                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.02-r28</div>
                 </div>
             </div>
             
@@ -1931,13 +1943,13 @@
                 const raw = localStorage.getItem('ps_wl_cache');
                 if (!raw) return;
                 const payload = JSON.parse(raw);
-                // Restore wlDataCache
                 Object.assign(wlDataCache, payload.wl || {});
-                // Restore profileCache (respect TTL — entries still valid if < 24h)
                 Object.assign(profileCache, payload.profile || {});
+                // Preload all logos that were cached — so icons show instantly on next load
+                Object.values(profileCache).forEach(p => { if (p?.logo) preloadLogo(p.logo); });
             } catch(e) {}
         }
-        loadWlCache(); // run immediately on script load
+        loadWlCache();
 
         function preloadLogo(url) {
             if (!url || logoCache[url]) return;
@@ -1980,8 +1992,8 @@
                 ? `<span class="text-[8px] font-black px-1.5 py-0.5 rounded bg-purple-50 text-purple-500 ml-1">ETF</span>`
                 : '';
             const logoHtml = logo
-                ? `<img src="${logo}" loading="eager" decoding="sync" class="w-6 h-6 rounded-full object-contain bg-white border border-gray-100 flex-shrink-0" onerror="this.style.display='none'">`
-                : `<div class="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0" style="background:var(--bg-card2)"><span class="text-[8px] font-black" style="color:var(--text-dim)">${symbol[0]}</span></div>`;
+                ? `<img src="${logo}" loading="eager" decoding="sync" class="w-6 h-6 rounded-full object-contain bg-white border border-gray-100 flex-shrink-0" onerror="this.outerHTML='<div class=\\'w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0\\'style=\\'background:linear-gradient(135deg,#6366f1,#8b5cf6)\\'><span class=\\'text-[8px] font-black text-white\\'>${symbol[0]}</span></div>'">`
+                : `<div class="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0" style="background:linear-gradient(135deg,#6366f1,#8b5cf6)"><span class="text-[8px] font-black text-white">${symbol[0]}</span></div>`;
             const fmt = (v) => v !== null ? v.toFixed(2) : '—';
 
             // Shimmer helper — shown while data is loading
@@ -3406,53 +3418,59 @@ Analysis guidelines:
             const changeInvEl = document.getElementById('fx-change-inv');
             if (!rateEl) return;
 
+            // --- helper: validate a FX rate value looks sane (USD/THB should be 28-45) ---
+            const valid = v => typeof v === 'number' && v > 28 && v < 45;
+
             try {
                 let rate = null;
+                let src  = '';
 
-                // Primary: frankfurter.app — ECB-sourced, updates daily at ~16:00 CET, very accurate
-                try {
-                    const r = await fetch('https://api.frankfurter.app/latest?from=USD&to=THB');
-                    const j = await r.json();
-                    if (j.rates?.THB) rate = j.rates.THB;
-                } catch(e) {}
-
-                // Fallback 1: Finnhub forex (realtime during market hours)
-                if (!rate) {
-                    const fKey = getFinnhubKey();
-                    if (fKey) {
-                        try {
-                            // Finnhub returns { quote: { "USDTHB": rate } } for forex pairs
-                            const r = await fetch(`https://finnhub.io/api/v1/quote?symbol=OANDA:USD_THB&token=${fKey}`);
-                            const j = await r.json();
-                            if (j.c && j.c > 20) rate = j.c; // current price of USD/THB
-                        } catch(e) {}
-                    }
-                }
-
-                // Fallback 2: ExchangeRate-API
-                if (!rate) {
+                // SOURCE 1: Finnhub stock quote for forex symbol OANDA:USD_THB (truly realtime)
+                const fKey = getFinnhubKey();
+                if (!rate && fKey) {
                     try {
-                        const r = await fetch('https://open.er-api.com/v6/latest/USD');
+                        const r = await fetch(`https://finnhub.io/api/v1/quote?symbol=OANDA:USD_THB&token=${fKey}`);
                         const j = await r.json();
-                        if (j.rates?.THB) rate = j.rates.THB;
+                        // j.c = current price; j.pc = prev close
+                        if (valid(j.c)) { rate = j.c; src = 'Finnhub'; }
                     } catch(e) {}
                 }
 
-                // Fallback 3: Fawaz CDN
+                // SOURCE 2: Frankfurter (ECB daily ~16:00 CET) — accurate, no key
                 if (!rate) {
                     try {
-                        const r = await fetch('https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json');
+                        const r = await fetch('https://api.frankfurter.app/latest?from=USD&to=THB', { cache: 'no-store' });
                         const j = await r.json();
-                        if (j.usd?.thb) rate = j.usd.thb;
+                        if (valid(j.rates?.THB)) { rate = j.rates.THB; src = 'ECB'; }
                     } catch(e) {}
                 }
 
-                if (!rate) throw new Error('No rate');
+                // SOURCE 3: open.er-api (hourly)
+                if (!rate) {
+                    try {
+                        const r = await fetch('https://open.er-api.com/v6/latest/USD', { cache: 'no-store' });
+                        const j = await r.json();
+                        if (valid(j.rates?.THB)) { rate = j.rates.THB; src = 'ER-API'; }
+                    } catch(e) {}
+                }
+
+                // SOURCE 4: Fawaz CDN (daily)
+                if (!rate) {
+                    try {
+                        const r = await fetch('https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json', { cache: 'no-store' });
+                        const j = await r.json();
+                        if (valid(j.usd?.thb)) { rate = j.usd.thb; src = 'CDN'; }
+                    } catch(e) {}
+                }
+
+                if (!rate) throw new Error('No valid FX rate');
 
                 const mid = parseFloat(rate.toFixed(2));
 
                 rateEl.textContent    = mid.toFixed(2) + ' THB';
                 rateInvEl.textContent = mid.toFixed(2) + ' THB';
+                // Store source in tooltip for debug
+                rateEl.title = `Source: ${src}`;
 
                 if (fxPrevRate !== null && fxPrevRate > 0) {
                     const diff = mid - fxPrevRate;
