@@ -345,37 +345,48 @@
         /* ── Watchlist table font — uniform Inter weight 500 ── */
         #watchlist-table th {
             font-family: var(--font-main);
-            font-weight: 500;
-            font-size: 9px;
-            letter-spacing: 0.08em;
+            font-weight: 600;
+            font-size: 10px;
+            letter-spacing: 0.1em;
             text-transform: uppercase;
-            color: var(--text-dim);
+            color: var(--text-secondary);
         }
         #watchlist-table td {
             font-family: var(--font-main);
-            font-weight: 500;
-            font-size: 12px;
+            font-weight: 400;
+            font-size: 13px;
             color: var(--text-secondary);
         }
-        /* Fix: td color override must yield to explicit color classes — use !important on color utilities */
-        #watchlist-table td.text-emerald-600 { color: #059669 !important; }
-        #watchlist-table td.text-rose-500    { color: #f43f5e !important; }
+        /* ── High-contrast price colors ─────────────────────────── */
+        /* Light mode: vivid green/red */
+        #watchlist-table td.text-emerald-600 { color: #00a86b !important; }
+        #watchlist-table td.text-rose-500    { color: #e8274b !important; }
         #watchlist-table td.text-gray-300    { color: #94a3b8 !important; }
-        html.dark #watchlist-table td.text-emerald-600 { color: #34d399 !important; }
-        html.dark #watchlist-table td.text-rose-500    { color: #fb7185 !important; }
-        /* Symbol — slightly bolder for quick scan */
+        /* Dark mode: neon green / hot red — max contrast */
+        html.dark #watchlist-table td.text-emerald-600 { color: #00e676 !important; }
+        html.dark #watchlist-table td.text-rose-500    { color: #ff1744 !important; }
+        html.dark #watchlist-table td.text-gray-300    { color: #475569 !important; }
+        /* Symbol — bold + slightly larger, immediate scan */
         #watchlist-table .sym-cell {
-            font-weight: 600;
-            letter-spacing: 0.02em;
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 0.03em;
+            color: var(--text-primary);
         }
-        /* Price/numbers — mono + tabular-nums (digits same width, no layout shift) */
-        #watchlist-table .price-cell,
+        /* Price — large, heavy mono for that trading-terminal feel */
+        #watchlist-table .price-cell {
+            font-family: var(--font-mono);
+            font-size: 14px;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            letter-spacing: -0.01em;
+        }
+        /* Other numbers — mono, medium weight */
         #watchlist-table .num-cell {
             font-family: var(--font-mono);
             font-weight: 500;
             font-variant-numeric: tabular-nums;
         }
-        /* table-layout auto — let colgroup widths guide without forced reflow */
         #watchlist-table td { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         /* Fixed widths per column index */
         #watchlist-table col:nth-child(1)  { width: 32px; }
@@ -579,6 +590,32 @@
             box-shadow: 0 0 0 1000px #1e293b inset !important;
             -webkit-text-fill-color: #e2e8f0 !important;
         }
+        
+        /* ── Watchlist badge & row ───────────────────────────────── */
+        .wl-badge-up {
+            color: #00a86b;
+            background: rgba(0, 168, 107, 0.12);
+        }
+        .wl-badge-dn {
+            color: #e8274b;
+            background: rgba(232, 39, 75, 0.12);
+        }
+        html.dark .wl-badge-up {
+            color: #00e676;
+            background: rgba(0, 230, 118, 0.15);
+        }
+        html.dark .wl-badge-dn {
+            color: #ff1744;
+            background: rgba(255, 23, 68, 0.15);
+        }
+        html.dark .wl-row:hover {
+            background: rgba(255,255,255,0.04) !important;
+        }
+        /* Header row slightly taller too */
+        #watchlist-table thead th {
+            padding-top: 10px;
+            padding-bottom: 10px;
+        }
         </style>
 </head>
 
@@ -658,7 +695,7 @@
                         <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
                         <div id="db-name-display" class="text-[10px] font-bold uppercase tracking-widest leading-none" style="color:var(--text-dim);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ready</div>
                     </div>
-                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.03-r60</div>
+                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.03-r61</div>
                 </div>
             </div>
             
@@ -1859,8 +1896,8 @@
                     ondrop="onDrop(event,'${symbol}')"
                     ondragend="onDragEnd(event)"
                     onclick="openQuickChart('${symbol}')"
-                    class="border-b hover:bg-gray-50 transition-colors group cursor-grab active:cursor-grabbing select-none" style="border-color:var(--border)">
-                    <td class="px-3 py-1.5">
+                    class="border-b hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors group cursor-grab active:cursor-grabbing select-none wl-row" style="border-color:var(--border)">
+                    <td class="px-3 py-2">
                         <div class="flex items-center gap-1.5">
                             <svg class="w-3 h-3 text-gray-200 group-hover:text-gray-400 transition-colors flex-shrink-0" fill="currentColor" viewBox="0 0 16 16">
                                 <circle cx="5" cy="4" r="1.2"/><circle cx="11" cy="4" r="1.2"/>
@@ -1870,7 +1907,7 @@
                             <span class="wl-idx text-[10px] font-medium w-4 text-center" style="color:var(--text-dim)">${idx}</span>
                         </div>
                     </td>
-                    <td class="px-3 py-1.5">
+                    <td class="px-3 py-2">
                         <div class="flex items-center gap-2">
                             ${logoHtml}
                             <div class="flex items-center gap-1">
@@ -1879,30 +1916,30 @@
                             </div>
                         </div>
                     </td>
-                    <td class="px-3 py-1.5 text-xs wl-col-hide" style="color:var(--text-dim)">${sk(80) ?? name}</td>
-                    <td class="px-3 py-1.5 text-right price-cell text-sm ${priceColor}">${sk(52) ?? (price !== null ? '$' + fmt(price) : '—')}</td>
-                    <td class="px-3 py-1.5 text-right text-xs num-cell ${changeColor} wl-col-hide">${sk(40) ?? (change !== null ? (isUp ? '+' : '') + fmt(change) : '—')}</td>
-                    <td class="px-3 py-1.5 text-right">${sk(56) ??
+                    <td class="px-3 py-2 text-xs wl-col-hide" style="color:var(--text-dim)">${sk(80) ?? name}</td>
+                    <td class="px-3 py-2 text-right price-cell text-sm ${priceColor}">${sk(52) ?? (price !== null ? '$' + fmt(price) : '—')}</td>
+                    <td class="px-3 py-2 text-right text-xs num-cell ${changeColor} wl-col-hide">${sk(40) ?? (change !== null ? (isUp ? '+' : '') + fmt(change) : '—')}</td>
+                    <td class="px-3 py-2 text-right">${sk(56) ??
                         (changePct !== null
-                            ? `<span class="inline-block px-2 py-0.5 rounded text-xs num-cell whitespace-nowrap ${changeColor} ${isUp ? 'bg-emerald-50' : 'bg-rose-50'}">${arrow} ${Math.abs(changePct).toFixed(2)}%</span>`
+                            ? `<span class="inline-block px-2 py-0.5 rounded text-xs num-cell whitespace-nowrap font-bold ${isUp ? 'wl-badge-up' : 'wl-badge-dn'}">${arrow} ${Math.abs(changePct).toFixed(2)}%</span>`
                             : '<span style="color:var(--text-dim)" class="text-xs">—</span>')
                     }</td>
-                    <td class="px-3 py-1.5 text-right text-xs num-cell wl-col-hide">
+                    <td class="px-3 py-2 text-right text-xs num-cell wl-col-hide">
                         ${preMktHtml}
                     </td>
 
 
-                    <td class="px-3 py-1.5 text-right text-xs num-cell wl-col-hide ${openColor}">${sk(48) ?? (open !== null ? '$' + fmt(open) : '—')}</td>
-                                        <td class="px-3 py-1.5 text-right text-xs num-cell wl-col-hide" style="color:var(--text-secondary)">${sk(48) ?? (prevClose !== null ? '$' + fmt(prevClose) : '—')}</td>
-                    <td class="px-3 py-1.5 text-right text-xs num-cell wl-col-hide ${highColor}">${sk(48) ?? (high !== null ? '$' + fmt(high) : '—')}</td>
-                    <td class="px-3 py-1.5 text-right text-xs num-cell wl-col-hide ${lowColor}">${sk(48)  ?? (low  !== null ? '$' + fmt(low)  : '—')}</td>
-                    <td class="px-3 py-1.5 text-right text-xs num-cell wl-col-hide" style="color:#10b981">${sk(52) ?? (d?.week52High != null ? '$' + fmt(d.week52High) : '—')}</td>
-                    <td class="px-3 py-1.5 text-right text-xs num-cell wl-col-hide" style="color:#f43f5e">${sk(52) ?? (d?.week52Low  != null ? '$' + fmt(d.week52Low)  : '—')}</td>
-                    <td class="px-3 py-1.5 text-right text-xs num-cell wl-col-hide" style="color:var(--text-secondary)">${sk(44) ?? (d?.marketCap  != null ? fmtCap(d.marketCap)     : '—')}</td>
-                    <td class="px-3 py-1.5 text-right text-xs num-cell wl-col-hide" style="color:var(--text-secondary)">${sk(44) ?? (d?.avgVol10d  != null ? fmtVol(d.avgVol10d)     : '—')}</td>
-                    <td class="px-3 py-1.5 text-right text-xs num-cell wl-col-hide" style="color:var(--text-secondary)">${sk(28) ?? (d?.beta       != null ? d.beta.toFixed(2)        : '—')}</td>
-                    <td class="px-3 py-1.5 text-right text-xs num-cell wl-col-hide" style="color:var(--text-secondary)">${sk(28) ?? (d?.pe         != null ? d.pe.toFixed(1)          : '—')}</td>
-                    <td class="px-3 py-1.5 text-right text-xs num-cell wl-col-hide" style="color:var(--text-secondary)">${sk(32) ?? (d?.divYield   != null ? d.divYield.toFixed(2)+'%': '—')}</td>
+                    <td class="px-3 py-2 text-right text-xs num-cell wl-col-hide ${openColor}">${sk(48) ?? (open !== null ? '$' + fmt(open) : '—')}</td>
+                                        <td class="px-3 py-2 text-right text-xs num-cell wl-col-hide" style="color:var(--text-secondary)">${sk(48) ?? (prevClose !== null ? '$' + fmt(prevClose) : '—')}</td>
+                    <td class="px-3 py-2 text-right text-xs num-cell wl-col-hide ${highColor}">${sk(48) ?? (high !== null ? '$' + fmt(high) : '—')}</td>
+                    <td class="px-3 py-2 text-right text-xs num-cell wl-col-hide ${lowColor}">${sk(48)  ?? (low  !== null ? '$' + fmt(low)  : '—')}</td>
+                    <td class="px-3 py-2 text-right text-xs num-cell wl-col-hide" style="color:#10b981">${sk(52) ?? (d?.week52High != null ? '$' + fmt(d.week52High) : '—')}</td>
+                    <td class="px-3 py-2 text-right text-xs num-cell wl-col-hide" style="color:#f43f5e">${sk(52) ?? (d?.week52Low  != null ? '$' + fmt(d.week52Low)  : '—')}</td>
+                    <td class="px-3 py-2 text-right text-xs num-cell wl-col-hide" style="color:var(--text-secondary)">${sk(44) ?? (d?.marketCap  != null ? fmtCap(d.marketCap)     : '—')}</td>
+                    <td class="px-3 py-2 text-right text-xs num-cell wl-col-hide" style="color:var(--text-secondary)">${sk(44) ?? (d?.avgVol10d  != null ? fmtVol(d.avgVol10d)     : '—')}</td>
+                    <td class="px-3 py-2 text-right text-xs num-cell wl-col-hide" style="color:var(--text-secondary)">${sk(28) ?? (d?.beta       != null ? d.beta.toFixed(2)        : '—')}</td>
+                    <td class="px-3 py-2 text-right text-xs num-cell wl-col-hide" style="color:var(--text-secondary)">${sk(28) ?? (d?.pe         != null ? d.pe.toFixed(1)          : '—')}</td>
+                    <td class="px-3 py-2 text-right text-xs num-cell wl-col-hide" style="color:var(--text-secondary)">${sk(32) ?? (d?.divYield   != null ? d.divYield.toFixed(2)+'%': '—')}</td>
                     <td class="px-2 py-1.5 text-right">
                         <button onclick="removeTicker('${symbol}')" class="text-gray-200 hover:text-rose-400 transition-colors opacity-0 group-hover:opacity-100">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -2200,7 +2237,7 @@
             // idx:0=#, 1=symbol, 2=name, 3=price, 4=change, 5=%change
             // 6=preMkt, 7=open, 8=prev, 9=high, 10=low
             // 11=52wH, 12=52wL, 13=mktcap, 14=vol, 15=beta, 16=pe, 17=div, 18=delete
-            setClass(cells[3], `px-3 py-1.5 text-right price-cell text-sm ${priceColor}`);
+            setClass(cells[3], `px-3 py-2 text-right price-cell text-sm ${priceColor}`);
             setText(cells[3], price !== null ? '$' + fmt(price) : '—');
         }
 
