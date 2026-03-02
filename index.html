@@ -250,6 +250,14 @@
         /* Hide extra columns when compact */
         #wl-split-wrap.chart-open .wl-col-hide { display: none !important; }
         #wl-split-wrap.chart-open #watchlist-table { min-width: unset !important; }
+        /* In compact mode name column truncates to fit */
+        #wl-split-wrap.chart-open td:nth-child(3),
+        #wl-split-wrap.chart-open th:nth-child(3) {
+            max-width: 80px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
 
         /* ── Skeleton shimmer for loading rows ── */
         @keyframes shimmer {
@@ -579,7 +587,7 @@
                     <div class="font-black text-base tracking-tight leading-none uppercase" style="color:#2563eb;font-family:var(--font-main)">PS SMART FINANCE</div>
                     <div class="flex items-center gap-1.5 mt-1">
                         <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
-                        <div id="db-name-display" class="text-[10px] font-bold uppercase tracking-widest leading-none truncate max-w-[180px]" style="color:var(--text-dim)">Ready</div>
+                        <div id="db-name-display" class="text-[10px] font-bold uppercase tracking-widest leading-none" style="color:var(--text-dim);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ready</div>
                     </div>
                 </div>
             </div>
@@ -911,7 +919,7 @@
                         <tr class="border-b" style="border-color:var(--border);background:var(--bg-card2)">
                             <th class="px-3 py-2 text-left text-[9px] font-medium uppercase tracking-widest" style="color:var(--text-secondary) w-8">#</th>
                             <th class="px-3 py-2 text-left text-[9px] font-medium uppercase tracking-widest" style="color:var(--text-secondary)">Symbol</th>
-                            <th class="px-3 py-2 text-left text-[9px] font-medium uppercase tracking-widest" style="color:var(--text-secondary) wl-col-hide">Name</th>
+                            <th class="px-3 py-2 text-left text-[9px] font-medium uppercase tracking-widest" style="color:var(--text-secondary)">Name</th>
                             <th class="px-3 py-2 text-right text-[9px] font-medium uppercase tracking-widest" style="color:var(--text-secondary)">Price</th>
                             <th class="px-3 py-2 text-right text-[9px] font-medium uppercase tracking-widest" style="color:var(--text-secondary) wl-col-hide">Change</th>
                             <th class="px-3 py-2 text-right text-[9px] font-medium uppercase tracking-widest" style="color:var(--text-secondary)">% Change</th>
@@ -1903,12 +1911,12 @@
                             </div>
                         </div>
                     </td>
-                    <td class="px-3 py-1.5 text-xs wl-col-hide" style="color:var(--text-dim)">${sk(80) ?? name}</td>
+                    <td class="px-3 py-1.5 text-xs" style="color:var(--text-dim)">${sk(80) ?? name}</td>
                     <td class="px-3 py-1.5 text-right price-cell text-sm ${priceColor}">${sk(52) ?? (price !== null ? '$' + fmt(price) : '—')}</td>
                     <td class="px-3 py-1.5 text-right text-xs num-cell ${changeColor} wl-col-hide">${sk(40) ?? (change !== null ? (isUp ? '+' : '') + fmt(change) : '—')}</td>
                     <td class="px-3 py-1.5 text-right">${sk(56) ??
                         (changePct !== null
-                            ? `<span class="inline-block px-2 py-0.5 rounded text-xs num-cell ${changeColor} ${isUp ? 'bg-emerald-50' : 'bg-rose-50'}">${arrow} ${Math.abs(changePct).toFixed(2)}%</span>`
+                            ? `<span class="inline-block px-2 py-0.5 rounded text-xs num-cell whitespace-nowrap ${changeColor} ${isUp ? 'bg-emerald-50' : 'bg-rose-50'}">${arrow} ${Math.abs(changePct).toFixed(2)}%</span>`
                             : '<span style="color:var(--text-dim)" class="text-xs">—</span>')
                     }</td>
                     <td class="px-3 py-1.5 text-right text-xs num-cell wl-col-hide" style="color:var(--text-secondary)">${sk(48) ?? (open      !== null ? '$' + fmt(open)      : '—')}</td>
