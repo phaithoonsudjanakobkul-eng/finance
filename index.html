@@ -1654,13 +1654,14 @@
                 try { localStorage.setItem('ps_dbname', GIST_FILENAME); } catch(e) {}
                 loadMonth(curMonth);
                 showGistStatus('SYNCED ✓', 'text-emerald-500');
-                const wlVisible = !document.getElementById('tab-watchlist').classList.contains('hidden');
-                if (wlVisible) {
+                // Always refresh watchlist after sync — render skeletons first then fetch prices
+                if (watchlist.length > 0) {
                     fetchFxRate();
-                    if (watchlist.length > 0) {
-                        isWlRefreshing = false;
-                        refreshWatchlist();
-                    }
+                    isWlRefreshing = false;
+                    watchlist.forEach(s => {
+                        if (!document.getElementById('wl-row-' + s)) renderWatchlistRow(s, null);
+                    });
+                    refreshWatchlist();
                 }
             } catch(e) {
                 showGistStatus('ERROR — check connection', 'text-rose-500');
@@ -2794,24 +2795,24 @@
             if (savedMonth) curMonth = savedMonth;
             document.getElementById('monthInput').value = curMonth;
             const savedTab = localStorage.getItem('ps_tab') || 'dashboard';
-            // skipWlRefresh=true on initial load — syncFromGist will trigger refresh after data is ready
             showTab(savedTab, false, true);
             loadMonth(curMonth);
 
-            // ── Instant skeleton render ──────────────────────────────────
-            // Show symbol rows with shimmer IMMEDIATELY from localStorage data,
-            // before any network call. User sees the list structure right away.
-            if (savedTab === 'watchlist' && watchlist.length > 0) {
-                watchlist.forEach(s => renderWatchlistRow(s, null));
-                fetchFxRate();
-            }
-
             if (getGistToken()) {
-                // Has Gist token: sync first (skeletons already showing), THEN fill with real data
+                // Has Gist token → sync immediately, syncFromGist will render skeletons + fetch prices
+                // Pre-render skeletons from localStorage NOW so user sees the list while Gist loads
+                if (savedTab === 'watchlist' && watchlist.length > 0) {
+                    watchlist.forEach(s => renderWatchlistRow(s, null));
+                    fetchFxRate();
+                }
                 syncFromGist();
             } else {
-                // No Gist: fetch quotes immediately — skeletons are already rendered
-                if (savedTab === 'watchlist' && watchlist.length > 0) refreshWatchlist();
+                // No Gist → use localStorage data, render skeletons + fetch prices immediately
+                if (savedTab === 'watchlist' && watchlist.length > 0) {
+                    watchlist.forEach(s => renderWatchlistRow(s, null));
+                    fetchFxRate();
+                    refreshWatchlist();
+                }
             }
 
             // Auto-refresh FX rate every 5 minutes when on watchlist tab
