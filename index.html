@@ -175,10 +175,6 @@
 
         /* Watchlist tab full-width breakout */
         #tab-watchlist {
-            margin-left: calc(-50vw + 50%);
-            margin-right: calc(-50vw + 50%);
-            padding-left: 32px;
-            padding-right: 32px;
         }
         #wl-split-wrap {
             display: flex;
@@ -269,10 +265,10 @@
             animation: shimmer 1.4s ease infinite;
         }
 
-        /* Watchlist table inner scroll — overlay so horizontal scrollbar doesn't push card width */
+        /* Watchlist table inner scroll — scrollbar stays inside card, doesn't affect outer width */
         #wl-table-panel .glass-card > div[style*="overflow-x"] {
             overflow-x: auto;
-            scrollbar-gutter: auto;
+            overflow-y: hidden;
         }
 
         /* Consistent scrollbar for both modes — prevents layout shift */
