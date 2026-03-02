@@ -536,6 +536,21 @@
     </style>
 </head>
 <body class="min-h-screen pb-20">
+<script>
+// Pre-load avatar before first paint to prevent blank flash
+(function(){
+    try {
+        var av = localStorage.getItem('ps_avatar');
+        if (av) {
+            // Inject style that sets avatar as background immediately
+            var s = document.createElement('style');
+            s.id = 'avatar-preload';
+            s.textContent = '#avatarImg{content:url("' + av + '");display:block!important}#avatarPlaceholder{display:none!important}';
+            document.head.appendChild(s);
+        }
+    } catch(e) {}
+})();
+</script>
 
     <!-- Gist Token Modal -->
     <div id="gist-modal" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4">
@@ -1048,14 +1063,14 @@
                 <!-- API Key panel -->
                 <div id="ai-key-panel" class="hidden px-5 py-3 border-b" style="border-color:var(--border);background:var(--bg-card)">
                     <div class="flex items-center gap-2">
-                        <input id="ai-key-input" type="password" placeholder="AIzaSy..."
+                        <input id="ai-key-input" type="password" placeholder="sk-or-v1-..."
                             class="flex-1 text-xs px-3 py-2 rounded-lg outline-none"
                             style="background:var(--bg-card2);border:1px solid var(--border);color:var(--text-primary);font-family:var(--font-mono)"
                             onkeydown="if(event.key==='Enter') saveAiKey()">
                         <button onclick="saveAiKey()" class="px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider" style="background:#1a73e8;color:white">บันทึก</button>
                         <button onclick="clearAiKey()" class="px-3 py-2 rounded-lg text-xs font-bold" style="background:var(--bg-card2);border:1px solid var(--border);color:var(--text-dim)">ลบ</button>
                     </div>
-                    <p class="text-[9px] mt-1.5" style="color:var(--text-dim)">ฟรี ไม่มีหมดอายุ · สมัครได้ที่ <strong>aistudio.google.com/apikey</strong> · Key เก็บใน browser เท่านั้น</p>
+                    <p class="text-[9px] mt-1.5" style="color:var(--text-dim)">ฟรี ไม่มีหมดอายุ · สมัครได้ที่ <strong>openrouter.ai → API Keys</strong> · Key เก็บใน browser เท่านั้น</p>
                 </div>
 
                 <!-- Quick prompts -->
@@ -2698,18 +2713,18 @@
         // ── AI Stock Analyst (Gemini) ──────────────────────────────────────────
         let aiChatHistory = [];
 
-        function getAiKey() { return localStorage.getItem('ps_gemini_key') || ''; }
+        function getAiKey() { return localStorage.getItem('ps_openrouter_key') || ''; }
 
         function saveAiKey() {
             const k = document.getElementById('ai-key-input').value.trim();
             if (!k) return;
-            localStorage.setItem('ps_gemini_key', k);
+            localStorage.setItem('ps_openrouter_key', k);
             document.getElementById('ai-key-panel').classList.add('hidden');
             updateAiStatus();
         }
 
         function clearAiKey() {
-            localStorage.removeItem('ps_gemini_key');
+            localStorage.removeItem('ps_openrouter_key');
             document.getElementById('ai-key-input').value = '';
             updateAiStatus();
         }
@@ -2807,11 +2822,11 @@
 
             // Detect wrong key format (old Claude/Perplexity keys)
             if (key.startsWith('sk-ant') || key.startsWith('pplx-')) {
-                localStorage.removeItem('ps_gemini_key');
+                localStorage.removeItem('ps_openrouter_key');
                 updateAiStatus();
                 document.getElementById('ai-key-panel').classList.remove('hidden');
                 document.getElementById('ai-key-input').value = '';
-                document.getElementById('ai-key-input').placeholder = 'AIzaSy... (Gemini key เท่านั้น)';
+                document.getElementById('ai-key-input').placeholder = 'sk-or-v1-... (OpenRouter key เท่านั้น)';
                 document.getElementById('ai-key-input').focus();
                 return;
             }
@@ -2825,7 +2840,7 @@
             const wlSymbols = watchlist.slice(0, 20).join(', ');
             const systemPrompt = `You are a professional stock analyst specializing in technical and fundamental analysis. Answer in Thai or English based on what the user writes. Always provide specific support/resistance levels as numbers. Use the most current data available. The user's watchlist: ${wlSymbols || 'not specified'}. Be concise but thorough.`;
 
-            aiChatHistory.push({ role: 'user', parts: [{ text }] });
+            aiChatHistory.push({ role: 'user', content: text });
             const loadingId = appendPopupMessage('assistant', '', true);
 
             // Show stop button, hide send button
@@ -2841,23 +2856,35 @@
             const doFetch = (timeoutMs) => {
                 const ctrl = new AbortController();
                 const tid = setTimeout(() => ctrl.abort(), timeoutMs);
-                // If user hits stop, also abort this fetch
                 userAbort.signal.addEventListener('abort', () => ctrl.abort());
-                return fetch(
-                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
-                    {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        signal: ctrl.signal,
-                        body: JSON.stringify({
-                            system_instruction: { parts: [{ text:
-                                `You are a professional stock analyst. Answer in Thai if the user writes Thai, English if English. Give specific support/resistance price levels as numbers. User's watchlist: ${watchlist.slice(0,20).join(', ') || 'not specified'}. Be concise.`
-                            }] },
-                            contents: aiChatHistory.slice(-6),
-                            generationConfig: { temperature: 0.2, maxOutputTokens: 800 }
-                        })
-                    }
-                ).finally(() => clearTimeout(tid));
+
+                const sysPrompt = `You are a professional stock analyst specializing in technical analysis. Answer in Thai if the user writes Thai, English if English. Always give specific support/resistance price levels as exact numbers (e.g. แนวรับ $165, แนวต้าน $185). User's watchlist: ${watchlist.slice(0,20).join(', ') || 'not specified'}. Be concise and actionable.`;
+
+                // Build OpenAI-compatible messages array
+                const msgs = [
+                    { role: 'system', content: sysPrompt },
+                    ...aiChatHistory.slice(-6).map(m => ({
+                        role: m.role === 'model' ? 'assistant' : m.role,
+                        content: typeof m.content === 'string' ? m.content : (m.parts?.[0]?.text || '')
+                    }))
+                ];
+
+                return fetch('https://openrouter.ai/api/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${key}`,
+                        'HTTP-Referer': 'https://ps-smart-finance',
+                        'X-Title': 'PS Smart Finance'
+                    },
+                    signal: ctrl.signal,
+                    body: JSON.stringify({
+                        model: 'meta-llama/llama-3.3-70b-instruct:free',
+                        messages: msgs,
+                        max_tokens: 800,
+                        temperature: 0.2
+                    })
+                }).finally(() => clearTimeout(tid));
             };
 
             try {
@@ -2888,10 +2915,9 @@
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error?.message || `HTTP ${res.status}`);
 
-                const reply = data.candidates?.[0]?.content?.parts
-                    ?.filter(p => p.text)?.map(p => p.text)?.join('\n') || '(ไม่มีคำตอบ)';
+                const reply = data.choices?.[0]?.message?.content || '(ไม่มีคำตอบ)';
 
-                aiChatHistory.push({ role: 'model', parts: [{ text: reply }] });
+                aiChatHistory.push({ role: 'assistant', content: reply });
                 if (aiChatHistory.length > 10) aiChatHistory = aiChatHistory.slice(-10);
 
                 const el = document.getElementById(loadingId);
@@ -2899,10 +2925,17 @@
 
             } catch(e) {
                 const el = document.getElementById(loadingId);
-                const isStop = e.name === 'AbortError' || userAbort.signal.aborted;
-                if (el) el.querySelector('.ai-msg-body').innerHTML = isStop
-                    ? '<span style="color:var(--text-dim)">⏹ หยุดแล้ว</span>'
-                    : `<span style="color:#f43f5e">❌ ${escHtml(e.message)}</span>`;
+                const isStop = userAbort.signal.aborted;
+                const isTimeout = !isStop && e.name === 'AbortError';
+                let msg;
+                if (isStop) {
+                    msg = '<span style="color:var(--text-dim)">⏹ หยุดแล้ว</span>';
+                } else if (isTimeout) {
+                    msg = '<span style="color:#f43f5e">❌ หมดเวลา (60s) — ลองใหม่อีกครั้งครับ</span>';
+                } else {
+                    msg = `<span style="color:#f43f5e">❌ ${escHtml(e.message || e.toString())}</span>`;
+                }
+                if (el) el.querySelector('.ai-msg-body').innerHTML = msg;
             } finally {
                 window._aiAbort = null;
                 document.getElementById('ai-popup-send-btn').classList.remove('hidden');
@@ -3219,11 +3252,11 @@
 
             updateMarketStatus();
 
-            // Migrate old AI keys → ps_gemini_key (runs once)
-            ['ps_claude_key','ps_perplexity_key'].forEach(old => {
+            // Migrate old AI keys → ps_openrouter_key (runs once)
+            ['ps_claude_key','ps_perplexity_key','ps_gemini_key'].forEach(old => {
                 const v = localStorage.getItem(old);
                 if (v) {
-                    if (!localStorage.getItem('ps_gemini_key')) localStorage.setItem('ps_gemini_key', v);
+                    if (!localStorage.getItem('ps_openrouter_key')) localStorage.setItem('ps_openrouter_key', v);
                     localStorage.removeItem(old);
                 }
             });
@@ -3290,7 +3323,7 @@
                         <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.347.347a3.5 3.5 0 01-4.95 0l-.347-.347z"/></svg>
                     </div>
                     <span class="font-black text-sm uppercase tracking-widest" style="color:var(--text-primary)">AI Stock Analyst</span>
-                    <span class="text-[9px] font-bold px-2 py-0.5 rounded-full" style="background:rgba(26,115,232,0.12);color:#4285f4">Gemini 2.0 Flash</span>
+                    <span class="text-[9px] font-bold px-2 py-0.5 rounded-full" style="background:rgba(26,115,232,0.12);color:#4285f4">Llama 3.3 70B</span>
                 </div>
                 <div class="flex items-center gap-2">
                     <button onclick="clearAiChat()" class="text-[10px] font-bold px-3 py-1.5 rounded-lg uppercase tracking-wide transition-all" style="background:var(--bg-card2) ;border:1px solid var(--border);color:var(--text-dim)">ล้างแชท</button>
