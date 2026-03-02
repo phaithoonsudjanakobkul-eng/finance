@@ -1201,6 +1201,12 @@
             document.getElementById('btn-watchlist').className = t === 'watchlist' ? 'px-5 py-2 rounded-xl text-xs font-bold tab-active transition-all uppercase flex items-center gap-1.5' : 'px-5 py-2 rounded-xl text-xs font-bold text-gray-400 transition-all uppercase flex items-center gap-1.5';
             if (t === 'dashboard') updateDashboard();
             if (t === 'watchlist' && !skipWlRefresh) {
+                // Render cached data instantly — no skeleton flash if cache exists
+                watchlist.forEach(s => {
+                    if (!document.getElementById('wl-row-' + s)) {
+                        renderWatchlistRow(s, wlDataCache[s] || null);
+                    }
+                });
                 refreshWatchlist();
                 fetchFxRate();
             }
@@ -1904,6 +1910,27 @@
         const wlDataCache = {};
         const logoCache = {}; // preloaded logo URLs
 
+        // ── Persist cache to localStorage ──────────────────────────────────────
+        function saveWlCache() {
+            try {
+                const payload = { wl: wlDataCache, profile: profileCache, ts: Date.now() };
+                localStorage.setItem('ps_wl_cache', JSON.stringify(payload));
+            } catch(e) {}
+        }
+
+        function loadWlCache() {
+            try {
+                const raw = localStorage.getItem('ps_wl_cache');
+                if (!raw) return;
+                const payload = JSON.parse(raw);
+                // Restore wlDataCache
+                Object.assign(wlDataCache, payload.wl || {});
+                // Restore profileCache (respect TTL — entries still valid if < 24h)
+                Object.assign(profileCache, payload.profile || {});
+            } catch(e) {}
+        }
+        loadWlCache(); // run immediately on script load
+
         function preloadLogo(url) {
             if (!url || logoCache[url]) return;
             const img = new Image();
@@ -2198,6 +2225,7 @@
             document.getElementById('wl-last-update').innerText =
                 `Updated ${new Date().toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'})}`;
             isWlRefreshing = false;
+            saveWlCache(); // persist for instant load next time
             if (isMarketOpen()) connectFinnhubWs();
             updateMarketStatus();
             loadMarketNews();
@@ -3088,17 +3116,17 @@
             loadMonth(curMonth);
 
             if (getGistToken()) {
-                // Has Gist token → sync immediately, syncFromGist will render skeletons + fetch prices
-                // Pre-render skeletons from localStorage NOW so user sees the list while Gist loads
+                // Has Gist token → sync immediately
+                // Pre-render from cache NOW so user sees real data while Gist loads
                 if (savedTab === 'watchlist' && watchlist.length > 0) {
-                    watchlist.forEach(s => renderWatchlistRow(s, null));
+                    watchlist.forEach(s => renderWatchlistRow(s, wlDataCache[s] || null));
                     fetchFxRate();
                 }
                 syncFromGist();
             } else {
-                // No Gist → use localStorage data, render skeletons + fetch prices immediately
+                // No Gist → use localStorage data, render from cache + fetch prices immediately
                 if (savedTab === 'watchlist' && watchlist.length > 0) {
-                    watchlist.forEach(s => renderWatchlistRow(s, null));
+                    watchlist.forEach(s => renderWatchlistRow(s, wlDataCache[s] || null));
                     fetchFxRate();
                     refreshWatchlist();
                 }
