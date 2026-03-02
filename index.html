@@ -33,8 +33,8 @@
             --text-primary: #0f2030;
             --text-secondary: #64748b;
             --text-dim: #94a3b8;
-            --qc-up: #00a86b;
-            --qc-dn: #e8274b;
+            --qc-up: #22c55e;
+            --qc-dn: #f43f5e;
         }
 
         html.dark {
@@ -49,10 +49,10 @@
             --text-primary: #f0f6ff;
             --text-secondary: #94a3b8;
             --text-dim: #475569;
-            --qc-up: #00e676;
-            --qc-dn: #ff1744;
-            --chart-up: #00e676;
-            --chart-dn: #ff1744;
+            --qc-up: #22c55e;
+            --qc-dn: #f43f5e;
+            --chart-up: #22c55e;
+            --chart-dn: #f43f5e;
         }
 
         html.dark body {
@@ -375,7 +375,7 @@
         #watchlist-table .price-cell {
             font-family: var(--font-mono);
             font-size: 13px;
-            font-weight: 500;
+            font-weight: 900;
             font-variant-numeric: tabular-nums;
             letter-spacing: 0.03em;
         }
@@ -592,20 +592,20 @@
         
         /* ── Watchlist badge & row ───────────────────────────────── */
         .wl-badge-up {
-            color: #00a86b;
-            background: rgba(0, 168, 107, 0.12);
+            color: #22c55e;
+            background: rgba(34, 197, 94, 0.12);
         }
         .wl-badge-dn {
-            color: #e8274b;
-            background: rgba(232, 39, 75, 0.12);
+            color: #f43f5e;
+            background: rgba(244, 63, 94, 0.12);
         }
         html.dark .wl-badge-up {
-            color: #00e676;
-            background: rgba(0, 230, 118, 0.15);
+            color: #22c55e;
+            background: rgba(34, 197, 94, 0.15);
         }
         html.dark .wl-badge-dn {
-            color: #ff1744;
-            background: rgba(255, 23, 68, 0.15);
+            color: #f43f5e;
+            background: rgba(244, 63, 94, 0.15);
         }
         html.dark .wl-row:hover {
             background: rgba(255,255,255,0.04) !important;
@@ -620,18 +620,18 @@
         /* ── Watchlist data color classes — light + dark aware ───── */
         #watchlist-table td.wl-up,
         #watchlist-table td.wl-up span,
-        #watchlist-table span.wl-up      { color: #00a86b; }
+        #watchlist-table span.wl-up      { color: #22c55e; }
         #watchlist-table td.wl-dn,
         #watchlist-table td.wl-dn span,
-        #watchlist-table span.wl-dn      { color: #e8274b; }
+        #watchlist-table span.wl-dn      { color: #f43f5e; }
         #watchlist-table td.wl-neutral,
         #watchlist-table span.wl-neutral { color: var(--text-dim); }
         html.dark #watchlist-table td.wl-up,
         html.dark #watchlist-table td.wl-up span,
-        html.dark #watchlist-table span.wl-up      { color: #00e676; }
+        html.dark #watchlist-table span.wl-up      { color: #22c55e; }
         html.dark #watchlist-table td.wl-dn,
         html.dark #watchlist-table td.wl-dn span,
-        html.dark #watchlist-table span.wl-dn      { color: #ff1744; }
+        html.dark #watchlist-table span.wl-dn      { color: #f43f5e; }
         html.dark #watchlist-table td.wl-neutral,
         html.dark #watchlist-table span.wl-neutral { color: var(--text-dim); }
         </style>
@@ -713,7 +713,7 @@
                         <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
                         <div id="db-name-display" class="text-[10px] font-bold uppercase tracking-widest leading-none" style="color:var(--text-dim);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ready</div>
                     </div>
-                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.03-r67</div>
+                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.03-r68</div>
                 </div>
             </div>
             
@@ -1746,8 +1746,8 @@
                     data: {
                         labels: displayData.map(r => r.id),
                         datasets: [
-                            { label:'Income',  data: displayData.map(r => r.payday || 0), backgroundColor: isDark ? '#00e676' : '#10b981', borderRadius:4 },
-                            { label:'Expense', data: displayData.map(r => sumArr(r.fixed)+sumArr(r.dynamic)), backgroundColor: isDark ? '#ff1744' : '#ef4444', borderRadius:4 }
+                            { label:'Income',  data: displayData.map(r => r.payday || 0), backgroundColor: '#22c55e', borderRadius:4 },
+                            { label:'Expense', data: displayData.map(r => sumArr(r.fixed)+sumArr(r.dynamic)), backgroundColor: '#f43f5e', borderRadius:4 }
                         ]
                     },
                     options: {
@@ -2607,11 +2607,11 @@ priceEl.style.color = price === null ? '' : isUp ? 'var(--qc-up)' : 'var(--qc-dn
                 const isUp = prices[prices.length - 1] >= prices[0];
                 const isDarkMode = document.documentElement.classList.contains('dark');
                 const lineColor = isUp
-                    ? (isDarkMode ? '#00e676' : '#059669')
-                    : (isDarkMode ? '#ff1744' : '#e11d48');
+                    ? ('#22c55e')
+                    : ('#f43f5e');
                 const fillColor = isUp
-                    ? (isDarkMode ? 'rgba(0,230,118,0.10)' : 'rgba(5,150,105,0.08)')
-                    : (isDarkMode ? 'rgba(255,23,68,0.10)'  : 'rgba(225,29,72,0.08)');
+                    ? ('rgba(34,197,94,0.10)')
+                    : ('rgba(244,63,94,0.10)');
 
                 const isDark = document.documentElement.classList.contains('dark');
                 const gridColor  = isDark ? 'rgba(255,255,255,0.04)' : '#f1f5f9';
@@ -3555,8 +3555,8 @@ Analysis guidelines:
 
             // Update compareChart (bar) — income/expense colors
             if (compareChart?.data?.datasets?.length >= 2) {
-                compareChart.data.datasets[0].backgroundColor = isDark ? '#00e676' : '#10b981';
-                compareChart.data.datasets[1].backgroundColor = isDark ? '#ff1744' : '#ef4444';
+                compareChart.data.datasets[0].backgroundColor = '#22c55e';
+                compareChart.data.datasets[1].backgroundColor = '#f43f5e';
             }
             // Update distChart (donut) — fixed/variable/savings colors
             if (distChart?.data?.datasets?.[0]) {
