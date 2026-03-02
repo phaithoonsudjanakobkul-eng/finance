@@ -608,6 +608,7 @@
                         <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
                         <div id="db-name-display" class="text-[10px] font-bold uppercase tracking-widest leading-none" style="color:var(--text-dim);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ready</div>
                     </div>
+                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.02-r14</div>
                 </div>
             </div>
             
@@ -1050,7 +1051,7 @@
                             <svg class="w-3.5 h-3.5 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
                         </div>
                         <span class="text-xs font-bold uppercase tracking-widest" style="color:var(--text-primary);font-family:var(--font-main)">AI Stock Analyst</span>
-                        <span class="text-[9px] font-medium px-2 py-0.5 rounded-full" style="background:rgba(26,115,232,0.12);color:#4285f4">Gemini</span>
+                        <span class="text-[9px] font-medium px-2 py-0.5 rounded-full" style="background:rgba(99,102,241,0.12);color:#818cf8">Llama 3.3</span>
                         <span id="ai-status-dot" class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
                         <span id="ai-status-text" class="text-[9px]" style="color:var(--text-dim)">ยังไม่มี API Key</span>
                     </div>
@@ -2842,9 +2843,6 @@
             openAiPopup();
             appendPopupMessage('user', text);
 
-            const wlSymbols = watchlist.slice(0, 20).join(', ');
-            const systemPrompt = `You are a professional stock analyst specializing in technical and fundamental analysis. Answer in Thai or English based on what the user writes. Always provide specific support/resistance levels as numbers. Use the most current data available. The user's watchlist: ${wlSymbols || 'not specified'}. Be concise but thorough.`;
-
             aiChatHistory.push({ role: 'user', content: text });
             const loadingId = appendPopupMessage('assistant', '', true);
 
@@ -2854,16 +2852,12 @@
             sendBtn.classList.add('hidden');
             stopBtn.classList.remove('hidden');
 
-            // Separate: userAbort (Stop button) vs fetch timeout
-            const userAbort = new AbortController();
-            window._aiAbort = userAbort;
-
-            // AbortController — single one for entire request lifecycle
+            // Single AbortController for stop + timeout
             const ctrl = new AbortController();
             window._aiAbort = ctrl;
             const timeoutId = setTimeout(() => {
                 if (!ctrl.signal.aborted) ctrl.abort('timeout');
-            }, 90000); // 90s hard timeout
+            }, 90000);
 
             try {
                 if (ctrl.signal.aborted) throw new DOMException('stopped', 'AbortError');
