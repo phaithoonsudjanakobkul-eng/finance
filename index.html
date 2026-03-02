@@ -2788,17 +2788,22 @@
             document.getElementById('ai-send-btn').disabled = true;
 
             try {
+                const wlSymbols = watchlist.slice(0, 20).join(', ');
+                const sysText = `You are a professional stock analyst. Answer in Thai if the user writes Thai, English if English. Give specific support/resistance price levels as numbers. Use latest available data. User's watchlist: ${wlSymbols || 'not specified'}.`;
+
+                // Build contents: prepend system turn as first user message if history is fresh
                 const contents = aiChatHistory.slice(-10);
+
                 const res = await fetch(
-                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
+                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-04-17:generateContent?key=${key}`,
                     {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            system_instruction: { parts: [{ text: systemPrompt }] },
+                            system_instruction: { parts: [{ text: sysText }] },
                             contents,
-                            tools: [{ google_search: {} }],
-                            generationConfig: { temperature: 0.3, maxOutputTokens: 1024 }
+                            tools: [{ googleSearch: {} }],
+                            generationConfig: { temperature: 0.3, maxOutputTokens: 2048 }
                         })
                     }
                 );
@@ -3197,7 +3202,7 @@
                         <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.347.347a3.5 3.5 0 01-4.95 0l-.347-.347z"/></svg>
                     </div>
                     <span class="font-black text-sm uppercase tracking-widest" style="color:var(--text-primary)">AI Stock Analyst</span>
-                    <span class="text-[9px] font-bold px-2 py-0.5 rounded-full" style="background:rgba(26,115,232,0.12);color:#4285f4">Gemini 2.0 Flash</span>
+                    <span class="text-[9px] font-bold px-2 py-0.5 rounded-full" style="background:rgba(26,115,232,0.12);color:#4285f4">Gemini 2.5 Flash</span>
                 </div>
                 <div class="flex items-center gap-2">
                     <button onclick="clearAiChat()" class="text-[10px] font-bold px-3 py-1.5 rounded-lg uppercase tracking-wide transition-all" style="background:var(--bg-card2) ;border:1px solid var(--border);color:var(--text-dim)">ล้างแชท</button>
