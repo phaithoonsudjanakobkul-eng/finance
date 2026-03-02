@@ -255,6 +255,20 @@
         #wl-split-wrap.chart-open .wl-col-hide { display: none !important; }
         #wl-split-wrap.chart-open #watchlist-table { min-width: unset !important; }
 
+        /* ── Skeleton shimmer for loading rows ── */
+        @keyframes shimmer {
+            0%   { background-position: -400px 0; }
+            100% { background-position: 400px 0; }
+        }
+        .skeleton-cell {
+            display: inline-block;
+            height: 10px;
+            border-radius: 4px;
+            background: linear-gradient(90deg, var(--border) 25%, var(--bg-card2) 50%, var(--border) 75%);
+            background-size: 400px 100%;
+            animation: shimmer 1.4s ease infinite;
+        }
+
         /* Consistent scrollbar for both modes — prevents layout shift */
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: #f1f5f9; }
@@ -1814,6 +1828,7 @@
             if (remove) { if (existing) existing.remove(); delete wlDataCache[symbol]; checkWlEmpty(); return; }
             if (data) wlDataCache[symbol] = data;
             const d = data || wlDataCache[symbol] || null;
+            const isLoading = !d;
 
             const price     = d?.c   ?? null;
             const change    = d?.d   ?? null;
@@ -1827,8 +1842,8 @@
             const logo      = d?.logo ?? '';
 
             const isUp = changePct >= 0;
-            const priceColor  = price === null   ? 'text-gray-300' : isUp ? 'text-emerald-600' : 'text-rose-500';
-            const changeColor = change === null   ? 'text-gray-300' : isUp ? 'text-emerald-600' : 'text-rose-500';
+            const priceColor  = price === null   ? '' : isUp ? 'text-emerald-600' : 'text-rose-500';
+            const changeColor = change === null   ? '' : isUp ? 'text-emerald-600' : 'text-rose-500';
             const arrow = isUp ? '▲' : '▼';
             const idx = watchlist.indexOf(symbol) + 1;
             const typeBadge = type === 'ETF'
@@ -1836,8 +1851,13 @@
                 : '';
             const logoHtml = logo
                 ? `<img src="${logo}" loading="eager" decoding="sync" class="w-6 h-6 rounded-full object-contain bg-white border border-gray-100 flex-shrink-0" onerror="this.style.display='none'">`
-                : `<div class="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0"><span class="text-[8px] font-black text-gray-300">${symbol[0]}</span></div>`;
+                : `<div class="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0" style="background:var(--bg-card2)"><span class="text-[8px] font-black" style="color:var(--text-dim)">${symbol[0]}</span></div>`;
             const fmt = (v) => v !== null ? v.toFixed(2) : '—';
+
+            // Shimmer helper — shown while data is loading
+            const sk = (w = 48) => isLoading
+                ? `<span class="skeleton-cell" style="width:${w}px"></span>`
+                : null;
 
             const html = `
                 <tr id="wl-row-${symbol}" draggable="true"
@@ -1868,25 +1888,25 @@
                             </div>
                         </div>
                     </td>
-                    <td class="px-3 py-1.5 text-xs wl-col-hide" style="color:var(--text-dim)">${name}</td>
-                    <td class="px-3 py-1.5 text-right price-cell text-sm ${priceColor}">${price !== null ? '$' + fmt(price) : '—'}</td>
-                    <td class="px-3 py-1.5 text-right text-xs num-cell ${changeColor} wl-col-hide">${change !== null ? (isUp ? '+' : '') + fmt(change) : '—'}</td>
-                    <td class="px-3 py-1.5 text-right">
-                        ${changePct !== null
+                    <td class="px-3 py-1.5 text-xs wl-col-hide" style="color:var(--text-dim)">${sk(80) ?? name}</td>
+                    <td class="px-3 py-1.5 text-right price-cell text-sm ${priceColor}">${sk(52) ?? (price !== null ? '$' + fmt(price) : '—')}</td>
+                    <td class="px-3 py-1.5 text-right text-xs num-cell ${changeColor} wl-col-hide">${sk(40) ?? (change !== null ? (isUp ? '+' : '') + fmt(change) : '—')}</td>
+                    <td class="px-3 py-1.5 text-right">${sk(56) ??
+                        (changePct !== null
                             ? `<span class="inline-block px-2 py-0.5 rounded text-xs num-cell ${changeColor} ${isUp ? 'bg-emerald-50' : 'bg-rose-50'}">${arrow} ${Math.abs(changePct).toFixed(2)}%</span>`
-                            : '<span class="text-gray-300 text-xs">—</span>'}
-                    </td>
-                    <td class="px-3 py-1.5 text-right text-xs num-cell wl-col-hide" style="color:var(--text-secondary)">${open      !== null ? '$' + fmt(open)      : '—'}</td>
-                    <td class="px-3 py-1.5 text-right text-xs num-cell wl-col-hide" style="color:var(--text-secondary)">${prevClose !== null ? '$' + fmt(prevClose) : '—'}</td>
-                    <td class="px-3 py-1.5 text-right text-xs num-cell wl-col-hide" style="color:var(--text-secondary)">${high      !== null ? '$' + fmt(high)      : '—'}</td>
-                    <td class="px-3 py-1.5 text-right text-xs num-cell wl-col-hide" style="color:var(--text-secondary)">${low       !== null ? '$' + fmt(low)       : '—'}</td>
-                    <td class="px-3 py-1.5 text-right text-xs num-cell wl-col-hide" style="color:#10b981">${d?.week52High != null ? '$' + fmt(d.week52High) : '—'}</td>
-                    <td class="px-3 py-1.5 text-right text-xs num-cell wl-col-hide" style="color:#f43f5e">${d?.week52Low  != null ? '$' + fmt(d.week52Low)  : '—'}</td>
-                    <td class="px-3 py-1.5 text-right text-xs num-cell wl-col-hide" style="color:var(--text-secondary)">${d?.marketCap  != null ? fmtCap(d.marketCap)     : '—'}</td>
-                    <td class="px-3 py-1.5 text-right text-xs num-cell wl-col-hide" style="color:var(--text-secondary)">${d?.avgVol10d  != null ? fmtVol(d.avgVol10d)     : '—'}</td>
-                    <td class="px-3 py-1.5 text-right text-xs num-cell wl-col-hide" style="color:var(--text-secondary)">${d?.beta       != null ? d.beta.toFixed(2)        : '—'}</td>
-                    <td class="px-3 py-1.5 text-right text-xs num-cell wl-col-hide" style="color:var(--text-secondary)">${d?.pe         != null ? d.pe.toFixed(1)          : '—'}</td>
-                    <td class="px-3 py-1.5 text-right text-xs num-cell wl-col-hide" style="color:var(--text-secondary)">${d?.divYield   != null ? d.divYield.toFixed(2)+'%': '—'}</td>
+                            : '<span style="color:var(--text-dim)" class="text-xs">—</span>')
+                    }</td>
+                    <td class="px-3 py-1.5 text-right text-xs num-cell wl-col-hide" style="color:var(--text-secondary)">${sk(48) ?? (open      !== null ? '$' + fmt(open)      : '—')}</td>
+                    <td class="px-3 py-1.5 text-right text-xs num-cell wl-col-hide" style="color:var(--text-secondary)">${sk(48) ?? (prevClose !== null ? '$' + fmt(prevClose) : '—')}</td>
+                    <td class="px-3 py-1.5 text-right text-xs num-cell wl-col-hide" style="color:var(--text-secondary)">${sk(48) ?? (high      !== null ? '$' + fmt(high)      : '—')}</td>
+                    <td class="px-3 py-1.5 text-right text-xs num-cell wl-col-hide" style="color:var(--text-secondary)">${sk(48) ?? (low       !== null ? '$' + fmt(low)       : '—')}</td>
+                    <td class="px-3 py-1.5 text-right text-xs num-cell wl-col-hide" style="color:#10b981">${sk(52) ?? (d?.week52High != null ? '$' + fmt(d.week52High) : '—')}</td>
+                    <td class="px-3 py-1.5 text-right text-xs num-cell wl-col-hide" style="color:#f43f5e">${sk(52) ?? (d?.week52Low  != null ? '$' + fmt(d.week52Low)  : '—')}</td>
+                    <td class="px-3 py-1.5 text-right text-xs num-cell wl-col-hide" style="color:var(--text-secondary)">${sk(44) ?? (d?.marketCap  != null ? fmtCap(d.marketCap)     : '—')}</td>
+                    <td class="px-3 py-1.5 text-right text-xs num-cell wl-col-hide" style="color:var(--text-secondary)">${sk(44) ?? (d?.avgVol10d  != null ? fmtVol(d.avgVol10d)     : '—')}</td>
+                    <td class="px-3 py-1.5 text-right text-xs num-cell wl-col-hide" style="color:var(--text-secondary)">${sk(28) ?? (d?.beta       != null ? d.beta.toFixed(2)        : '—')}</td>
+                    <td class="px-3 py-1.5 text-right text-xs num-cell wl-col-hide" style="color:var(--text-secondary)">${sk(28) ?? (d?.pe         != null ? d.pe.toFixed(1)          : '—')}</td>
+                    <td class="px-3 py-1.5 text-right text-xs num-cell wl-col-hide" style="color:var(--text-secondary)">${sk(32) ?? (d?.divYield   != null ? d.divYield.toFixed(2)+'%': '—')}</td>
                     <td class="px-2 py-1.5 text-right">
                         <button onclick="removeTicker('${symbol}')" class="text-gray-200 hover:text-rose-400 transition-colors opacity-0 group-hover:opacity-100">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -1995,13 +2015,29 @@
 
         // Batch helper — run async tasks in groups to avoid rate limits
         // Adds a small inter-batch delay to stay well under 30 req/s
-        async function batchRun(items, batchSize, fn, delayMs = 200) {
-            for (let i = 0; i < items.length; i += batchSize) {
-                await Promise.all(items.slice(i, i + batchSize).map(fn));
-                if (i + batchSize < items.length) {
-                    await new Promise(r => setTimeout(r, delayMs));
+        // ── Throttled concurrent fetch ──────────────────────────────
+        // Fires up to MAX_CONCURRENT requests at a time, starts next as soon as one finishes.
+        // This is much faster than batching with fixed delays.
+        async function throttledAll(items, maxConcurrent, fn) {
+            if (!items.length) return;
+            const queue = [...items];
+            let active = 0;
+            await new Promise((resolve) => {
+                let completed = 0;
+                function next() {
+                    while (active < maxConcurrent && queue.length > 0) {
+                        active++;
+                        const item = queue.shift();
+                        fn(item).finally(() => {
+                            active--;
+                            completed++;
+                            if (completed === items.length) resolve();
+                            else next();
+                        });
+                    }
                 }
-            }
+                next();
+            });
         }
 
         async function refreshWatchlist() {
@@ -2015,7 +2051,7 @@
             const icon = document.getElementById('wl-refresh-icon');
             icon.style.animation = 'spin 1s linear infinite';
 
-            // Show skeleton immediately for any symbols not yet in DOM
+            // Show all skeletons immediately — user sees the list right away
             watchlist.forEach(s => {
                 if (!document.getElementById('wl-row-' + s)) renderWatchlistRow(s, null);
             });
@@ -2023,30 +2059,31 @@
             const now = Date.now();
             const wsLive = fhWs && fhWs.readyState === 1;
 
-            // Phase A: symbols needing profile (new or >24h stale)
-            //   3 reqs each → batch of 2 + 200ms delay = ~15 req/s, safe
+            // Phase A: symbols needing full profile (new or >24h stale)
+            // 3 reqs per symbol — run up to 4 in parallel (=12 req in-flight max, safe under 30/s)
+            // Each row renders as soon as its data arrives → feels instant
             const needsProfile = watchlist.filter(s => {
                 const p = profileCache[s];
                 return !p || (now - p._ts > PROFILE_TTL);
             });
-            await batchRun(needsProfile, 2, async (symbol) => {
+            await throttledAll(needsProfile, 4, async (symbol) => {
                 try {
                     const data = await fetchQuote(symbol);
                     if (data?.logo) preloadLogo(data.logo);
                     renderWatchlistRow(symbol, data);
-                } catch(e) { /* skeleton stays, retry on next Refresh */ }
-            }, 250);
+                } catch(e) { /* keep skeleton — retry on next refresh */ }
+            });
 
-            // Phase B: symbols with fresh profile
-            //   If WS is live: skip quote fetch entirely (WS already delivers real-time prices)
-            //   If WS down: fetch quote only, batch of 10 + 150ms delay
+            // Phase B: symbols with cached profile → quote-only refresh
+            // Skip if WebSocket is live (already streaming real-time)
+            // Skip if quote is very recent (<30s)
             if (!wsLive) {
                 const needsQuote = watchlist.filter(s => {
-                    if (!profileCache[s]) return false; // already handled in Phase A
-                    const ts = quoteTsCache[s] ?? 0;
-                    return (now - ts) > QUOTE_MIN_INTERVAL; // skip if refreshed <30s ago
+                    if (!profileCache[s]) return false;
+                    return (now - (quoteTsCache[s] ?? 0)) > QUOTE_MIN_INTERVAL;
                 });
-                await batchRun(needsQuote, 10, async (symbol) => {
+                // Quote is 1 req per symbol — run up to 12 in parallel
+                await throttledAll(needsQuote, 12, async (symbol) => {
                     try {
                         const r = await fetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${key}`);
                         if (!r.ok) return;
@@ -2056,13 +2093,12 @@
                         wlDataCache[symbol] = merged;
                         updateWatchlistPriceCells(symbol, merged);
                     } catch(e) {}
-                }, 150);
+                });
             }
 
             icon.style.animation = '';
-            const t = new Date();
             document.getElementById('wl-last-update').innerText =
-                `Updated ${t.toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'})}`;
+                `Updated ${new Date().toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'})}`;
             isWlRefreshing = false;
             if (isMarketOpen()) connectFinnhubWs();
             updateMarketStatus();
@@ -2761,12 +2797,21 @@
             // skipWlRefresh=true on initial load — syncFromGist will trigger refresh after data is ready
             showTab(savedTab, false, true);
             loadMonth(curMonth);
+
+            // ── Instant skeleton render ──────────────────────────────────
+            // Show symbol rows with shimmer IMMEDIATELY from localStorage data,
+            // before any network call. User sees the list structure right away.
+            if (savedTab === 'watchlist' && watchlist.length > 0) {
+                watchlist.forEach(s => renderWatchlistRow(s, null));
+                fetchFxRate();
+            }
+
             if (getGistToken()) {
-                // Has Gist token: sync first, THEN refresh watchlist with fresh data
+                // Has Gist token: sync first (skeletons already showing), THEN fill with real data
                 syncFromGist();
             } else {
-                // No Gist: use localStorage data directly, refresh immediately
-                if (savedTab === 'watchlist') { refreshWatchlist(); fetchFxRate(); }
+                // No Gist: fetch quotes immediately — skeletons are already rendered
+                if (savedTab === 'watchlist' && watchlist.length > 0) refreshWatchlist();
             }
 
             // Auto-refresh FX rate every 5 minutes when on watchlist tab
