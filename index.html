@@ -355,6 +355,7 @@
             font-family: var(--font-main);
             font-weight: 500;
             font-size: 12px;
+            color: var(--text-secondary);
         }
         /* Symbol — slightly bolder for quick scan */
         #watchlist-table .sym-cell {
@@ -609,7 +610,7 @@
                         <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
                         <div id="db-name-display" class="text-[10px] font-bold uppercase tracking-widest leading-none" style="color:var(--text-dim);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ready</div>
                     </div>
-                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.02-r24</div>
+                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.02-r25</div>
                 </div>
             </div>
             
@@ -864,21 +865,21 @@
 
                 <!-- USD/THB FX Widget — compact Dime style -->
                 <div id="fx-widget" class="flex items-center gap-1.5 flex-shrink-0">
-                    <!-- USD→THB card -->
+                    <!-- USD→THB card: ขาย USD ได้ THB เท่าไหร่ -->
                     <div class="flex flex-col justify-center px-2.5 py-1.5 rounded-xl border" style="background:var(--bg-card2);border-color:var(--border);height:36px;min-width:100px">
                         <div class="flex items-center gap-1 mb-0.5">
                             <span class="text-[8px] font-semibold" style="color:var(--text-dim)">🇺🇸→🇹🇭 USD→THB</span>
-                            <span id="fx-change" class="text-[8px] font-bold" style="color:#22c55e;font-family:var(--font-mono)">—</span>
+                            <span id="fx-change" class="text-[8px] font-bold" style="font-family:var(--font-mono)">—</span>
                         </div>
                         <span id="fx-rate" class="text-[12px] font-black leading-none" style="color:var(--text-primary);font-family:var(--font-mono);font-variant-numeric:tabular-nums">— THB</span>
                     </div>
-                    <!-- THB→USD card -->
+                    <!-- THB→USD card: ซื้อ USD ต้องใช้ THB เท่าไหร่ (เหมือน Dime) -->
                     <div class="flex flex-col justify-center px-2.5 py-1.5 rounded-xl border" style="background:var(--bg-card2);border-color:var(--border);height:36px;min-width:100px">
                         <div class="flex items-center gap-1 mb-0.5">
                             <span class="text-[8px] font-semibold" style="color:var(--text-dim)">🇹🇭→🇺🇸 THB→USD</span>
-                            <span id="fx-change-inv" class="text-[8px] font-bold" style="color:#22c55e;font-family:var(--font-mono)">—</span>
+                            <span id="fx-change-inv" class="text-[8px] font-bold" style="font-family:var(--font-mono)">—</span>
                         </div>
-                        <span id="fx-rate-inv" class="text-[12px] font-black leading-none" style="color:var(--text-primary);font-family:var(--font-mono);font-variant-numeric:tabular-nums">— USD</span>
+                        <span id="fx-rate-inv" class="text-[12px] font-black leading-none" style="color:var(--text-primary);font-family:var(--font-mono);font-variant-numeric:tabular-nums">— THB</span>
                     </div>
                 </div>
 
@@ -2749,10 +2750,11 @@
             const popup = document.getElementById('ai-popup');
             popup.classList.remove('hidden');
             document.getElementById('ai-popup-input').focus();
-            // Block wheel from bubbling to background regardless of scroll content height
-            if (!popup._wheelBlocked) {
-                popup.addEventListener('wheel', e => e.stopPropagation(), { passive: false });
-                popup._wheelBlocked = true;
+            // Block wheel from reaching background — works even when content is short (no scrollbar yet)
+            const panel = document.getElementById('ai-popup-panel');
+            if (!panel._wheelBlocked) {
+                panel.addEventListener('wheel', e => { e.stopPropagation(); }, { passive: true });
+                panel._wheelBlocked = true;
             }
         }
 
@@ -3349,28 +3351,26 @@ Analysis guidelines:
 
                 if (!rate) throw new Error('No rate');
 
-                const rounded    = parseFloat(rate.toFixed(2));         // 1 USD = X THB  e.g. 33.50
-                const invRounded = parseFloat((1 / rate).toFixed(4));   // 1 THB = X USD  e.g. 0.0299
+                const rounded    = parseFloat(rate.toFixed(2));            // mid rate e.g. 33.50
+                const buyRate    = parseFloat((rate * 1.005).toFixed(2));  // buying USD costs ~0.5% more
+                const sellRate   = parseFloat((rate * 0.995).toFixed(2));  // selling USD gets ~0.5% less
 
-                // USD→THB card: 1 USD = X THB
-                rateEl.textContent = rounded.toFixed(2) + ' THB';
-                // THB→USD card: 1 THB = X USD
-                rateInvEl.textContent = invRounded.toFixed(4) + ' USD';
+                // USD→THB: ขาย 1 USD ได้กี่บาท (sell rate, slightly lower)
+                rateEl.textContent = sellRate.toFixed(2) + ' THB';
+                // THB→USD: ซื้อ 1 USD ต้องใช้กี่บาท (buy rate, slightly higher) — Dime style
+                rateInvEl.textContent = buyRate.toFixed(2) + ' THB';
 
-                // Show % change vs previous fetch
+                // % change vs previous fetch
                 if (fxPrevRate !== null && fxPrevRate > 0) {
                     const diff = rounded - fxPrevRate;
                     const pct  = Math.abs((diff / fxPrevRate) * 100).toFixed(2);
-                    const isUp = diff > 0.005;   // USD stronger, baht weaker
-                    const isDn = diff < -0.005;  // USD weaker, baht stronger
+                    const isUp = diff > 0.005;
+                    const isDn = diff < -0.005;
                     const sign = isUp ? '+' : isDn ? '-' : '';
 
-                    // USD→THB: rate up = baht weaker = red for Thai investor
-                    changeEl.textContent = `${isUp?'↑':isDn?'↓':'—'} ${sign}${pct}%`;
-                    changeEl.style.color = isUp ? '#f43f5e' : isDn ? '#22c55e' : '#94a3b8';
-
-                    // THB→USD: inverse — if baht weakens, 1 THB buys fewer USD = red
-                    changeInvEl.textContent = `${isUp?'↓':isDn?'↑':'—'} ${sign}${pct}%`;
+                    changeEl.textContent    = `${isUp?'↑':isDn?'↓':'—'} ${sign}${pct}%`;
+                    changeEl.style.color    = isUp ? '#f43f5e' : isDn ? '#22c55e' : '#94a3b8';
+                    changeInvEl.textContent = `${isUp?'↑':isDn?'↓':'—'} ${sign}${pct}%`;
                     changeInvEl.style.color = isUp ? '#f43f5e' : isDn ? '#22c55e' : '#94a3b8';
                 } else {
                     changeEl.textContent = changeInvEl.textContent = '— 0.00%';
@@ -3554,8 +3554,8 @@ Analysis guidelines:
         };
     </script>
     <!-- ── AI Chat Popup ───────────────────────────────────────────────────── -->
-    <div id="ai-popup" class="hidden fixed inset-0 z-[200] flex items-center justify-center p-4" onclick="if(event.target===this)closeAiPopup()" onwheel="event.stopPropagation()">
-        <div class="flex flex-col rounded-2xl shadow-2xl overflow-hidden" style="width:min(680px,95vw);height:min(600px,85vh);background:var(--bg-card);border:1px solid var(--border)">
+    <div id="ai-popup" class="hidden fixed inset-0 z-[200] flex items-center justify-center p-4" onclick="if(event.target===this)closeAiPopup()">
+        <div id="ai-popup-panel" class="flex flex-col rounded-2xl shadow-2xl overflow-hidden" style="width:min(680px,95vw);height:min(600px,85vh);background:var(--bg-card);border:1px solid var(--border);overscroll-behavior:contain" onwheel="event.stopPropagation()">
 
             <!-- Popup Header -->
             <div class="flex items-center justify-between px-5 py-3 flex-shrink-0 border-b" style="background:var(--bg-card2);border-color:var(--border)">
