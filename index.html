@@ -269,6 +269,12 @@
             animation: shimmer 1.4s ease infinite;
         }
 
+        /* Watchlist table inner scroll — overlay so horizontal scrollbar doesn't push card width */
+        #wl-table-panel .glass-card > div[style*="overflow-x"] {
+            overflow-x: auto;
+            scrollbar-gutter: auto;
+        }
+
         /* Consistent scrollbar for both modes — prevents layout shift */
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: #f1f5f9; }
@@ -891,7 +897,8 @@
 
             <!-- Watchlist Table -->
             <div id="wl-table-panel">
-            <div class="glass-card overflow-x-auto">
+            <div class="glass-card overflow-hidden">
+                <div style="overflow-x:auto">
                 <table id="watchlist-table" class="w-full min-w-[700px]">
                     <thead>
                         <tr class="border-b" style="border-color:var(--border);background:var(--bg-card2)">
@@ -925,6 +932,7 @@
                         </tr>
                     </tbody>
                 </table>
+                </div><!-- /overflow-x scroll wrapper -->
             </div>
             </div><!-- /wl-table-panel -->
 
