@@ -1201,10 +1201,13 @@
             document.getElementById('btn-watchlist').className = t === 'watchlist' ? 'px-5 py-2 rounded-xl text-xs font-bold tab-active transition-all uppercase flex items-center gap-1.5' : 'px-5 py-2 rounded-xl text-xs font-bold text-gray-400 transition-all uppercase flex items-center gap-1.5';
             if (t === 'dashboard') updateDashboard();
             if (t === 'watchlist' && !skipWlRefresh) {
-                // Render cached data instantly — no skeleton flash if cache exists
+                // Render from cache instantly — skip symbols that already have rows with data
                 watchlist.forEach(s => {
-                    if (!document.getElementById('wl-row-' + s)) {
-                        renderWatchlistRow(s, wlDataCache[s] || null);
+                    const row = document.getElementById('wl-row-' + s);
+                    if (!row) renderWatchlistRow(s, wlDataCache[s] || null);
+                    // If row exists but is skeleton, replace with cached data if available
+                    else if (row.classList.contains('is-skeleton') && wlDataCache[s]) {
+                        renderWatchlistRow(s, wlDataCache[s]);
                     }
                 });
                 refreshWatchlist();
@@ -1945,6 +1948,13 @@
             const d = data || wlDataCache[symbol] || null;
             const isLoading = !d;
 
+            // If row already exists with real data and we're just re-rendering same data → skip to avoid flash
+            if (existing && !isLoading && !existing.classList.contains('is-skeleton')) {
+                // Just update price cells in-place (no DOM replace = no flash)
+                if (data) updateWatchlistPriceCells(symbol, d);
+                return;
+            }
+
             const price     = d?.c   ?? null;
             const change    = d?.d   ?? null;
             const changePct = d?.dp  ?? null;
@@ -1975,7 +1985,7 @@
                 : null;
 
             const html = `
-                <tr id="wl-row-${symbol}" draggable="true"
+                <tr id="wl-row-${symbol}" draggable="true" ${isLoading ? 'class="is-skeleton"' : ''}
                     ondragstart="onDragStart(event,'${symbol}')"
                     ondragover="onDragOver(event)"
                     ondragenter="onDragEnter(event)"
@@ -2029,8 +2039,12 @@
                     </td>
                 </tr>`;
 
-            if (existing) { existing.outerHTML = html; }
-            else {
+            if (existing) {
+                if (existing.classList.contains('is-skeleton') || isLoading) {
+                    existing.outerHTML = html; // replace skeleton with real row
+                }
+                // non-skeleton existing row already handled above (updateWatchlistPriceCells)
+            } else {
                 document.getElementById('wl-empty').classList.add('hidden');
                 document.getElementById('watchlist-rows').insertAdjacentHTML('beforeend', html);
             }
@@ -2815,14 +2829,14 @@
             const loadingId = appendPopupMessage('assistant', '', true);
 
             // Show stop button, hide send button
-            const sendBtn = document.getElementById('ai-send-btn');
-            const stopBtn = document.getElementById('ai-stop-btn');
+            const sendBtn = document.getElementById('ai-popup-send-btn');
+            const stopBtn = document.getElementById('ai-popup-stop-btn');
             sendBtn.classList.add('hidden');
             stopBtn.classList.remove('hidden');
 
-            // AbortController for stop + 45s timeout
+            // AbortController for stop + 20s timeout
             let abortCtrl = new AbortController();
-            const timeoutId = setTimeout(() => abortCtrl.abort('timeout'), 45000);
+            const timeoutId = setTimeout(() => abortCtrl.abort('timeout'), 20000);
             window._aiAbort = abortCtrl;
 
             try {
@@ -2889,8 +2903,8 @@
             } finally {
                 clearTimeout(timeoutId);
                 window._aiAbort = null;
-                sendBtn.classList.remove('hidden');
-                stopBtn.classList.add('hidden');
+                document.getElementById('ai-popup-send-btn').classList.remove('hidden');
+                document.getElementById('ai-popup-stop-btn').classList.add('hidden');
                 document.getElementById('ai-popup-messages').scrollTop = 999999;
             }
         }
@@ -3157,17 +3171,20 @@
             loadMonth(curMonth);
 
             if (getGistToken()) {
-                // Has Gist token → sync immediately
-                // Pre-render from cache NOW so user sees real data while Gist loads
                 if (savedTab === 'watchlist' && watchlist.length > 0) {
-                    watchlist.forEach(s => renderWatchlistRow(s, wlDataCache[s] || null));
+                    watchlist.forEach(s => {
+                        if (!document.getElementById('wl-row-' + s))
+                            renderWatchlistRow(s, wlDataCache[s] || null);
+                    });
                     fetchFxRate();
                 }
                 syncFromGist();
             } else {
-                // No Gist → use localStorage data, render from cache + fetch prices immediately
                 if (savedTab === 'watchlist' && watchlist.length > 0) {
-                    watchlist.forEach(s => renderWatchlistRow(s, wlDataCache[s] || null));
+                    watchlist.forEach(s => {
+                        if (!document.getElementById('wl-row-' + s))
+                            renderWatchlistRow(s, wlDataCache[s] || null);
+                    });
                     fetchFxRate();
                     refreshWatchlist();
                 }
@@ -3300,13 +3317,13 @@
                     class="flex-1 text-sm px-4 py-2.5 rounded-xl outline-none"
                     style="background:var(--bg-card);border:1px solid var(--border);color:var(--text-primary)"
                     onkeydown="if(event.key==='Enter')sendAiMessage()">
-                <button onclick="sendAiMessage()" id="ai-send-btn"
+                <button onclick="sendAiMessage()" id="ai-popup-send-btn"
                     class="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider flex-shrink-0"
                     style="background:linear-gradient(135deg,#1a73e8,#34a853);color:white">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
                     ส่ง
                 </button>
-                <button onclick="stopAiMessage()" id="ai-stop-btn"
+                <button onclick="stopAiMessage()" id="ai-popup-stop-btn"
                     class="hidden flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider flex-shrink-0"
                     style="background:#ef4444;color:white">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1" stroke-width="2" fill="currentColor"/></svg>
