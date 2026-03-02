@@ -265,6 +265,17 @@
             animation: shimmer 1.4s ease infinite;
         }
 
+        /* Market news grid — must not overflow card width */
+        #market-news-grid {
+            min-width: 0;
+            width: 100%;
+            overflow: hidden;
+        }
+        #market-news-grid > * {
+            min-width: 0;
+            overflow: hidden;
+        }
+
         /* Watchlist table inner scroll — scrollbar stays inside card, doesn't affect outer width */
         #wl-table-panel .glass-card > div[style*="overflow-x"] {
             overflow-x: auto;
@@ -999,7 +1010,7 @@
                         </button>
                     </div>
                 </div>
-                <div id="market-news-grid" class="grid grid-cols-2">
+                <div id="market-news-grid" class="grid grid-cols-2 min-w-0 overflow-hidden">
                     <div class="col-span-2 flex items-center justify-center py-8 gap-2" style="color:var(--text-dim)">
                         <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
                         <span class="text-xs font-medium" style="color:var(--text-dim)">Loading...</span>
