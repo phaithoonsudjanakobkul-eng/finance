@@ -610,7 +610,7 @@
                         <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
                         <div id="db-name-display" class="text-[10px] font-bold uppercase tracking-widest leading-none" style="color:var(--text-dim);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ready</div>
                     </div>
-                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.02-r25</div>
+                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.02-r26</div>
                 </div>
             </div>
             
@@ -3144,7 +3144,7 @@ Analysis guidelines:
                             method:'POST',
                             headers:{'Content-Type':'application/json','Authorization':`Bearer ${cleanKey}`},
                             signal: ctrl.signal,
-                            body: JSON.stringify({ model, messages:msgs, max_tokens:1500, temperature:0.3 })
+                            body: JSON.stringify({ model, messages:msgs, max_tokens:3000, temperature:0.3 })
                         });
                         data = await res.json();
                     } catch(fetchErr) {
@@ -3174,10 +3174,28 @@ Analysis guidelines:
                         continue;
                     }
 
-                    const reply = data.choices?.[0]?.message?.content;
-                    if (!reply) {
-                        attempt++;
-                        continue;
+                    let reply = data.choices?.[0]?.message?.content;
+                    if (!reply) { attempt++; continue; }
+
+                    // Detect truncation — if finish_reason is 'length', continue the response
+                    const finishReason = data.choices?.[0]?.finish_reason;
+                    if (finishReason === 'length') {
+                        setInfo('📝 ตอบยาวมาก กำลังดึงส่วนที่เหลือ...');
+                        try {
+                            const contMsgs = [...msgs,
+                                { role:'assistant', content: reply },
+                                { role:'user', content: 'โปรดตอบต่อจากที่ค้างไว้ให้ครบถ้วน' }
+                            ];
+                            const r2 = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                                method:'POST',
+                                headers:{'Content-Type':'application/json','Authorization':`Bearer ${cleanKey}`},
+                                signal: ctrl.signal,
+                                body: JSON.stringify({ model, messages:contMsgs, max_tokens:2000, temperature:0.3 })
+                            });
+                            const d2 = await r2.json();
+                            const cont = d2.choices?.[0]?.message?.content;
+                            if (cont) reply = reply + '\n' + cont;
+                        } catch(e2) { /* use partial reply as-is */ }
                     }
 
                     // Show which model actually answered
@@ -3335,39 +3353,51 @@ Analysis guidelines:
             try {
                 let rate = null;
 
-                // Primary: ExchangeRate-API (updates hourly, no key)
-                try {
-                    const r = await fetch('https://open.er-api.com/v6/latest/USD');
-                    const j = await r.json();
-                    if (j.rates?.THB) rate = j.rates.THB;
-                } catch(e) {}
+                // Primary: Finnhub forex (realtime, uses existing user key)
+                const fKey = getFinnhubKey();
+                if (fKey) {
+                    try {
+                        const r = await fetch(`https://finnhub.io/api/v1/forex/rates?base=USD&token=${fKey}`);
+                        const j = await r.json();
+                        if (j.quote?.THB) rate = j.quote.THB;
+                    } catch(e) {}
+                }
 
-                // Fallback: Fawaz CDN (jsDelivr 99.9% uptime)
+                // Fallback 1: ExchangeRate-API (free, no key, updates every few hours)
                 if (!rate) {
-                    const r = await fetch('https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json');
-                    const j = await r.json();
-                    if (j.usd?.thb) rate = j.usd.thb;
+                    try {
+                        const r = await fetch('https://open.er-api.com/v6/latest/USD');
+                        const j = await r.json();
+                        if (j.rates?.THB) rate = j.rates.THB;
+                    } catch(e) {}
+                }
+
+                // Fallback 2: Fawaz CDN
+                if (!rate) {
+                    try {
+                        const r = await fetch('https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json');
+                        const j = await r.json();
+                        if (j.usd?.thb) rate = j.usd.thb;
+                    } catch(e) {}
                 }
 
                 if (!rate) throw new Error('No rate');
 
-                const rounded    = parseFloat(rate.toFixed(2));            // mid rate e.g. 33.50
-                const buyRate    = parseFloat((rate * 1.005).toFixed(2));  // buying USD costs ~0.5% more
-                const sellRate   = parseFloat((rate * 0.995).toFixed(2));  // selling USD gets ~0.5% less
+                const mid = parseFloat(rate.toFixed(2));
 
-                // USD→THB: ขาย 1 USD ได้กี่บาท (sell rate, slightly lower)
-                rateEl.textContent = sellRate.toFixed(2) + ' THB';
-                // THB→USD: ซื้อ 1 USD ต้องใช้กี่บาท (buy rate, slightly higher) — Dime style
-                rateInvEl.textContent = buyRate.toFixed(2) + ' THB';
+                // แสดง mid rate ตรงๆ ไม่บวก spread เอง — ตรงกับ Google/Dime
+                rateEl.textContent    = mid.toFixed(2) + ' THB';
+                rateInvEl.textContent = mid.toFixed(2) + ' THB';
 
                 // % change vs previous fetch
                 if (fxPrevRate !== null && fxPrevRate > 0) {
-                    const diff = rounded - fxPrevRate;
+                    const diff = mid - fxPrevRate;
                     const pct  = Math.abs((diff / fxPrevRate) * 100).toFixed(2);
                     const isUp = diff > 0.005;
                     const isDn = diff < -0.005;
                     const sign = isUp ? '+' : isDn ? '-' : '';
 
+                    // rate ขึ้น = USD แข็ง/บาทอ่อน = แดงสำหรับนักลงทุนไทย
                     changeEl.textContent    = `${isUp?'↑':isDn?'↓':'—'} ${sign}${pct}%`;
                     changeEl.style.color    = isUp ? '#f43f5e' : isDn ? '#22c55e' : '#94a3b8';
                     changeInvEl.textContent = `${isUp?'↑':isDn?'↓':'—'} ${sign}${pct}%`;
@@ -3377,10 +3407,10 @@ Analysis guidelines:
                     changeEl.style.color = changeInvEl.style.color = '#94a3b8';
                 }
 
-                fxPrevRate = rounded;
+                fxPrevRate = mid;
 
             } catch(e) {
-                rateEl.textContent = 'Error';
+                if (rateEl) rateEl.textContent = '—';
             }
         }
 
