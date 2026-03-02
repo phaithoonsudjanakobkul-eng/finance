@@ -608,7 +608,7 @@
                         <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
                         <div id="db-name-display" class="text-[10px] font-bold uppercase tracking-widest leading-none" style="color:var(--text-dim);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ready</div>
                     </div>
-                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.02-r18</div>
+                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.02-r19</div>
                 </div>
             </div>
             
@@ -2878,7 +2878,22 @@
                 'google/gemma-3-27b-it:free',
             ];
 
-            const sysPrompt = `You are a professional stock analyst. Answer in Thai if user writes Thai, English if English. Always give support/resistance as exact dollar numbers. Watchlist: ${watchlist.slice(0,20).join(', ')||'none'}. Be concise.`;
+            // Build realtime market data from Finnhub cache
+            const mkData = watchlist.slice(0, 20).map(sym => {
+                const d = wlDataCache[sym];
+                if (!d?.c) return null;
+                const p = d.c, ch = d.dp, hi = d.h, lo = d.l, pc = d.pc;
+                const name = d.name ? ` (${d.name})` : '';
+                return `${sym}${name}: ราคา $${p.toFixed(2)}, เปลี่ยน ${ch>=0?'+':''}${ch?.toFixed(2)}%, สูง $${hi?.toFixed(2)}, ต่ำ $${lo?.toFixed(2)}, ปิดก่อนหน้า $${pc?.toFixed(2)}, 52wk H/L $${d.week52High??'N/A'}/$${d.week52Low??'N/A'}, PE ${d.pe??'N/A'}, Beta ${d.beta??'N/A'}`;
+            }).filter(Boolean).join('\n');
+
+            const sysPrompt = `You are a professional stock analyst with access to LIVE market data below (from Finnhub, refreshed minutes ago). Use this data as your primary source for current prices and levels. Answer in Thai if user writes Thai, English if English. Give specific support/resistance as exact dollar numbers based on technical levels near current price.
+
+LIVE MARKET DATA:
+${mkData || '(no watchlist data available)'}
+
+Base your analysis on the live prices above. You may use your knowledge for technical patterns, sector trends, and fundamentals.`;
+
             const msgs = [
                 { role:'system', content: sysPrompt },
                 ...aiChatHistory.slice(-6).map(m => ({
