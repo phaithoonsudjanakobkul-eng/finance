@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PS Smart Finance v1.1 - FMP Endpoint Fallback</title>
+    <title>PS Smart Finance v2026.03.03-r86</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
@@ -1001,7 +1001,7 @@
                         <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
                         <div id="db-name-display" class="text-[10px] font-bold uppercase tracking-widest leading-none" style="color:var(--text-dim);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ready</div>
                     </div>
-                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.03-r84</div>
+                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.03-r86</div>
                 </div>
             </div>
             
@@ -1423,7 +1423,7 @@
                             <th class="px-3 py-2 text-right text-[10px] font-semibold uppercase tracking-widest" style="color:var(--text-dim)">
                                 <button class="wl-sort-btn" onclick="sortWatchlist('changePct')" id="wl-sort-changePct">CHG%<span class="wl-sort-icon"></span></button>
                             </th>
-                            <th id="wl-th-premkt" class="wl-col-hide" style="color:#f59e0b;padding:6px 8px">EXT</th>
+                            <th id="wl-th-premkt" class="wl-col-hide" style="color:#f59e0b;padding:6px 8px;font-size:10px;font-weight:600;letter-spacing:0.05em">PRE-MKT</th>
                             <th class="wl-col-hide">OPEN</th>
                             <th class="wl-col-hide">P.CLS</th>
                             <th class="wl-col-hide">HIGH</th>
@@ -2442,52 +2442,72 @@
             });
         }
 
-        // ── Extended Hours: FMP (Financial Modeling Prep) — free, no CORS ──────
+        // ── Extended Hours: FMP (Financial Modeling Prep) ────────────────────────
         let _extLastBatchTs = 0;
-        let _fmpEndpointIdx = 0; // track which endpoint works
+        let _fmpEndpointIdx = 0;
         function getFmpKey() { return localStorage.getItem('ps_fmp_key') || ''; }
 
-        // FMP endpoint fallback chain (free-tier compatible)
-        // /pre-post-market-hours/ = primary (v3, free tier)
-        // /pre-post-market/       = alternate name same data
-        // /quote/                 = fallback (may need paid plan, but has preMarketPrice field)
+        // ── updatePreMktCell: surgically update col[6] for one symbol ────────────
+        function updatePreMktCell(sym, extPrice, extPct, isAH) {
+            const row = document.getElementById('wl-row-' + sym);
+            if (!row) return;
+            const cells = row.querySelectorAll('td');
+            if (!cells[6]) return;
+            const isUp  = extPct >= 0;
+            const color = isUp ? 'var(--wl-up)' : 'var(--wl-dn)';
+            const sign  = isUp ? '+' : '';
+            const label = isAH
+                ? '<span style="font-size:7px;margin-left:2px;opacity:0.65;vertical-align:middle">AH</span>'
+                : '<span style="font-size:7px;margin-left:2px;opacity:0.65;vertical-align:middle">PM</span>';
+            cells[6].innerHTML =
+                '<span style="display:block;text-align:right;font-size:10px;font-weight:700;color:' + color + ';font-variant-numeric:tabular-nums;line-height:1.3">' + sign + extPct.toFixed(2) + '%</span>'
+              + '<span style="display:block;text-align:right;font-size:9px;color:var(--text-dim);font-variant-numeric:tabular-nums;line-height:1.3">$' + extPrice.toFixed(2) + label + '</span>';
+        }
+
+        // ── FMP endpoint fallback chain ───────────────────────────────────────────
+        // [0] pre-post-market-hours  → free tier, fields: {pre, post, preChangesPercentage, ...}
+        // [1] pre-post-market        → alternate name, same structure
+        // [2] quote                  → paid tier fallback, fields: {preMarketPrice, afterHoursPrice, ...}
         const FMP_ENDPOINTS = [
-            (sym, key) => `https://financialmodelingprep.com/api/v3/pre-post-market-hours/${sym}?apikey=${key}`,
-            (sym, key) => `https://financialmodelingprep.com/api/v3/pre-post-market/${sym}?apikey=${key}`,
-            (sym, key) => `https://financialmodelingprep.com/api/v3/quote/${sym}?apikey=${key}`,
+            function(sym, key) { return 'https://financialmodelingprep.com/api/v3/pre-post-market-hours/' + sym + '?apikey=' + key; },
+            function(sym, key) { return 'https://financialmodelingprep.com/api/v3/pre-post-market/' + sym + '?apikey=' + key; },
+            function(sym, key) { return 'https://financialmodelingprep.com/api/v3/quote/' + sym + '?apikey=' + key; },
         ];
 
         async function fmpFetchSym(sym, fmpKey) {
-            // Try from last known working endpoint first, then cycle through all
-            const order = [_fmpEndpointIdx, ...[0,1,2].filter(i => i !== _fmpEndpointIdx)];
-            for (const idx of order) {
+            const tried = [_fmpEndpointIdx];
+            [0,1,2].forEach(function(i){ if (i !== _fmpEndpointIdx) tried.push(i); });
+            for (let t = 0; t < tried.length; t++) {
+                const idx = tried[t];
                 try {
                     const url  = FMP_ENDPOINTS[idx](sym, fmpKey);
                     const ctrl = new AbortController();
-                    const tid  = setTimeout(() => ctrl.abort(), 7000);
+                    const tid  = setTimeout(function(){ ctrl.abort(); }, 8000);
                     const res  = await fetch(url, { signal: ctrl.signal });
                     clearTimeout(tid);
                     if (res.status === 403) {
-                        console.warn(`[ExtHours] FMP endpoint[${idx}] 403 Forbidden for ${sym} — trying next`);
+                        console.warn('[PRE-MKT] FMP endpoint[' + idx + '] 403 for ' + sym + ' — trying next');
                         continue;
                     }
                     if (!res.ok) {
-                        console.warn(`[ExtHours] FMP endpoint[${idx}] HTTP ${res.status} for ${sym}`);
+                        console.warn('[PRE-MKT] FMP endpoint[' + idx + '] HTTP ' + res.status + ' for ' + sym);
                         continue;
                     }
                     const data = await res.json();
-                    const q    = Array.isArray(data) ? data[0] : data;
-                    if (!q || (typeof q === 'object' && q['Error Message'])) {
-                        console.warn(`[ExtHours] FMP endpoint[${idx}] empty/error response for ${sym}`, q);
+                    if (!data) continue;
+                    const q = Array.isArray(data) ? data[0] : data;
+                    if (!q || typeof q !== 'object') continue;
+                    if (q['Error Message'] || q['message']) {
+                        console.warn('[PRE-MKT] FMP API error for ' + sym + ':', q['Error Message'] || q['message']);
                         continue;
                     }
                     if (idx !== _fmpEndpointIdx) {
                         _fmpEndpointIdx = idx;
-                        console.info(`[ExtHours] FMP switched to endpoint[${idx}]:`, FMP_ENDPOINTS[idx]('X','..').replace('X','SYM').replace(/apikey=.+/,'apikey=***'));
+                        console.info('[PRE-MKT] Switched to FMP endpoint[' + idx + ']');
                     }
                     return q;
                 } catch(e) {
-                    if (e.name !== 'AbortError') console.warn(`[ExtHours] FMP endpoint[${idx}] error for ${sym}:`, e.message);
+                    if (e && e.name !== 'AbortError') console.warn('[PRE-MKT] endpoint[' + idx + '] error:', e.message);
                 }
             }
             return null;
@@ -2502,67 +2522,79 @@
 
             const fmpKey = getFmpKey();
             if (!fmpKey) {
-                console.info('[ExtHours] No FMP key — add in Settings to enable pre-market data');
+                console.info('[PRE-MKT] No FMP key — add in Settings to enable pre/after-market data');
                 return;
             }
 
-            const mktOpen   = isMarketOpen();
-            const preMarket = isExtendedHours() && !mktOpen;
+            const mktOpen  = isMarketOpen();
+            const inPreMkt = isExtendedHours() && !mktOpen;
             let updated = 0;
 
-            // Fetch in groups of 5 with 200ms gap between groups
+            // Process in groups of 5 to avoid rate limits
             const chunks = [];
             for (let i = 0; i < watchlist.length; i += 5) chunks.push(watchlist.slice(i, i + 5));
 
             for (let ci = 0; ci < chunks.length; ci++) {
-                await Promise.all(chunks[ci].map(async (sym) => {
+                await Promise.all(chunks[ci].map(async function(sym) {
                     try {
                         const q = await fmpFetchSym(sym, fmpKey);
                         if (!q) return;
 
-                        const pc  = wlDataCache[sym]?.pc ?? null;
+                        const pc = wlDataCache[sym] && wlDataCache[sym].pc ? wlDataCache[sym].pc : null;
                         let extPrice = null, extPct = null, isAH = false;
 
-                        // FMP field names vary by endpoint:
-                        // pre-post-market-hours: { pre, post, preChangesPercentage, postChangesPercentage }
-                        // quote: { preMarketPrice, afterHoursPrice, preMarketChangesPercentage, afterHoursChangesPercentage }
-                        const preP  = q.pre  ?? q.preMarketPrice  ?? q.prePrice  ?? null;
-                        const postP = q.post ?? q.afterHoursPrice ?? q.postMarketPrice ?? q.postPrice ?? null;
-                        const prePct  = q.preChangesPercentage  ?? q.preMarketChangesPercentage  ?? null;
-                        const postPct = q.postChangesPercentage ?? q.afterHoursChangesPercentage ?? null;
+                        // Normalize field names across endpoints
+                        const preP    = q.pre  != null ? q.pre  : (q.preMarketPrice  != null ? q.preMarketPrice  : (q.prePrice  != null ? q.prePrice  : null));
+                        const postP   = q.post != null ? q.post : (q.afterHoursPrice != null ? q.afterHoursPrice : (q.postMarketPrice != null ? q.postMarketPrice : (q.postPrice != null ? q.postPrice : null)));
+                        const prePct  = q.preChangesPercentage  != null ? q.preChangesPercentage  : (q.preMarketChangesPercentage  != null ? q.preMarketChangesPercentage  : null);
+                        const postPct = q.postChangesPercentage != null ? q.postChangesPercentage : (q.afterHoursChangesPercentage != null ? q.afterHoursChangesPercentage : null);
 
-                        if (preMarket && preP && preP > 0) {
+                        if (inPreMkt && preP && preP > 0) {
                             extPrice = preP;
-                            extPct   = pc ? (preP - pc) / pc * 100 : prePct;
+                            extPct   = (pc && pc > 0) ? (preP - pc) / pc * 100 : prePct;
+                            isAH     = false;
                         } else if (postP && postP > 0) {
                             extPrice = postP;
-                            extPct   = pc ? (postP - pc) / pc * 100 : postPct;
+                            extPct   = (pc && pc > 0) ? (postP - pc) / pc * 100 : postPct;
                             isAH     = true;
                         } else if (preP && preP > 0) {
                             extPrice = preP;
-                            extPct   = pc ? (preP - pc) / pc * 100 : prePct;
+                            extPct   = (pc && pc > 0) ? (preP - pc) / pc * 100 : prePct;
+                            isAH     = false;
                         }
 
-                        if (extPrice === null || extPct === null) return;
-                        if (pc && Math.abs(extPrice - pc) / pc > 0.30) return;
+                        if (!extPrice || extPrice <= 0) return;
+                        if (extPct === null || extPct === undefined) return;
+                        // Sanity: reject > 30% swing (likely stale/bad data)
+                        if (pc && pc > 0 && Math.abs(extPrice - pc) / pc > 0.30) {
+                            console.warn('[PRE-MKT] ' + sym + ' rejected: ' + extPrice + ' vs prev close ' + pc);
+                            return;
+                        }
 
+                        // Persist to cache
                         const existing = wlDataCache[sym] || {};
                         if (!isAH) {
                             wlDataCache[sym] = Object.assign({}, existing,
-                                { preMarketPrice: extPrice, preMarketChangePct: extPct });
+                                { preMarketPrice: extPrice, preMarketChangePct: extPct,
+                                  afterHoursPrice: null, afterHoursChangePct: null });
                         } else {
                             wlDataCache[sym] = Object.assign({}, existing,
-                                { afterHoursPrice: extPrice, afterHoursChangePct: extPct });
+                                { afterHoursPrice: extPrice, afterHoursChangePct: extPct,
+                                  preMarketPrice: null, preMarketChangePct: null });
                         }
+
+                        // Update the DOM cell directly
                         updatePreMktCell(sym, extPrice, extPct, isAH);
                         updated++;
-                    } catch(e) {}
+                    } catch(e) {
+                        console.warn('[PRE-MKT] Error processing ' + sym + ':', e && e.message);
+                    }
                 }));
-                if (ci < chunks.length - 1) await new Promise(r => setTimeout(r, 200));
+                if (ci < chunks.length - 1) await new Promise(function(r){ setTimeout(r, 200); });
             }
 
-            if (updated > 0) console.log('[ExtHours] FMP updated', updated, '/', watchlist.length);
-            else console.warn('[ExtHours] FMP: no pre/post data returned — check key, plan tier, or market hours');
+            if (updated > 0) console.log('[PRE-MKT] Updated ' + updated + '/' + watchlist.length + ' symbols');
+            else console.warn('[PRE-MKT] No extended-hours data — check: FMP key valid? Market closed? Plan tier?');
         }
 
         async function fetchQuote(symbol) {
@@ -4671,7 +4703,8 @@ Analysis guidelines:
             }
             updateAiStatus();
             updateSettingsBadges();
-            // Start Polygon pre-market polling if key set
+            // Start FMP pre/after-market polling on load
+            startExtHoursPolling();
         };
 
         // ── Auto-save: 2-tier smart sync ──────────────────────────────────────
