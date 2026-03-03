@@ -969,7 +969,7 @@
                         <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
                         <div id="db-name-display" class="text-[10px] font-bold uppercase tracking-widest leading-none" style="color:var(--text-dim);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ready</div>
                     </div>
-                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.03-r77</div>
+                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.03-r78</div>
                 </div>
             </div>
             
@@ -3243,9 +3243,12 @@
 
             try {
                 const symbols = watchlist.join(',');
-                // Use 'sip' feed for accuracy (includes all exchanges); fallback 'iex' is free but noisy
-                const url = 'https://data.alpaca.markets/v2/stocks/quotes/latest?symbols='
-                    + encodeURIComponent(symbols) + '&feed=sip';
+
+                // /v2/stocks/snapshots — available on FREE Alpaca paper accounts
+                // Returns: latestTrade.p (last trade price), prevDailyBar.c (prev close),
+                //          dailyBar.c (today's close), latestQuote.ap/bp (ask/bid)
+                const url = 'https://data.alpaca.markets/v2/stocks/snapshots?symbols='
+                    + encodeURIComponent(symbols) + '&feed=iex';
                 const res = await fetch(url, {
                     headers: {
                         'APCA-API-KEY-ID':     alpacaKey,
@@ -3253,47 +3256,50 @@
                     }
                 });
                 if (!res.ok) {
-                    console.warn('[Alpaca] HTTP', res.status);
+                    const txt = await res.text().catch(() => '');
+                    console.warn('[Alpaca] HTTP', res.status, txt.slice(0, 200));
                     return;
                 }
                 const json = await res.json();
-                const quotes = json && json.quotes ? json.quotes : {};
+                // Response is a flat object: { "AAPL": { latestTrade, latestQuote, dailyBar, prevDailyBar, ... }, ... }
 
                 watchlist.forEach(function(sym) {
-                    const q = quotes[sym];
-                    if (!q) return;
+                    const snap = json[sym];
+                    if (!snap) return;
 
-                    const ask = (q.ap != null && q.ap > 0) ? q.ap : null;
-                    const bid = (q.bp != null && q.bp > 0) ? q.bp : null;
-                    let extPrice = null;
+                    // Best real-time price: latestTrade.p → latestQuote mid → dailyBar.c
+                    const lastTrade = snap.latestTrade?.p ?? null;
+                    const askQ      = snap.latestQuote?.ap ?? null;
+                    const bidQ      = snap.latestQuote?.bp ?? null;
+                    const quoteMid  = (askQ > 0 && bidQ > 0) ? (askQ + bidQ) / 2 : (askQ || bidQ || null);
+                    const dayClose  = snap.dailyBar?.c ?? null;
 
-                    // Mid-point is most accurate; fall back to whichever side is available
-                    if (ask && bid) {
-                        extPrice = (ask + bid) / 2;
-                    } else {
-                        extPrice = ask || bid || null;
-                    }
+                    const extPrice = lastTrade ?? quoteMid ?? dayClose ?? null;
                     if (!extPrice || extPrice <= 0) return;
 
-                    const prevClose = wlDataCache[sym] && wlDataCache[sym].pc ? wlDataCache[sym].pc : null;
+                    // Use prevDailyBar.c as prev close (more reliable than Finnhub cache)
+                    const prevClose = snap.prevDailyBar?.c
+                        ?? (wlDataCache[sym]?.pc ?? null);
                     if (!prevClose) return;
 
-                    // ── Sanity gate: reject if > 15% from prev close (stale/bad IEX tick) ──
+                    // Sanity gate: reject ticks > 15% from prev close
                     const deviation = Math.abs(extPrice - prevClose) / prevClose;
                     if (deviation > MAX_DEVIATION) {
-                        console.warn('[Alpaca] ' + sym + ' rejected: ' + extPrice.toFixed(2)
-                            + ' vs prevClose ' + prevClose.toFixed(2)
+                        console.warn('[Alpaca] ' + sym + ' rejected: $' + extPrice.toFixed(2)
+                            + ' vs prevClose $' + prevClose.toFixed(2)
                             + ' (' + (deviation * 100).toFixed(1) + '% deviation)');
                         return;
                     }
 
-                    const extPct = ((extPrice - prevClose) / prevClose) * 100;
-                    const existing = wlDataCache[sym] || {};
+                    const extPct    = ((extPrice - prevClose) / prevClose) * 100;
+                    const existing  = wlDataCache[sym] || {};
 
                     if (preMarket) {
-                        wlDataCache[sym] = Object.assign({}, existing, { preMarketPrice: extPrice, preMarketChangePct: extPct });
+                        wlDataCache[sym] = Object.assign({}, existing,
+                            { preMarketPrice: extPrice, preMarketChangePct: extPct });
                     } else {
-                        wlDataCache[sym] = Object.assign({}, existing, { afterHoursPrice: extPrice, afterHoursChangePct: extPct });
+                        wlDataCache[sym] = Object.assign({}, existing,
+                            { afterHoursPrice: extPrice, afterHoursChangePct: extPct });
                     }
 
                     updatePreMktCell(sym, extPrice, extPct);
