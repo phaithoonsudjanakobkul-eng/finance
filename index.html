@@ -947,7 +947,7 @@
                         <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
                         <div id="db-name-display" class="text-[10px] font-bold uppercase tracking-widest leading-none" style="color:var(--text-dim);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ready</div>
                     </div>
-                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.03-r74</div>
+                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.03-r76</div>
                 </div>
             </div>
             
@@ -3198,10 +3198,10 @@
             }
         }
 
-        // ── Polygon.io Pre-Market / After-Hours Batch Fetch ───────────────────
-        let polygonPreMarketTimer = null;
-        let polygonActive = false;
-        const POLYGON_INTERVAL = 15000; // 15s during extended hours
+        // ── Alpaca Markets — Extended Hours (Pre-market & After-hours) ──────────
+        let alpacaTimer = null;
+        let alpacaActive = false;
+        const ALPACA_INTERVAL = 15000; // 15s polling interval
 
         function isExtendedHours() {
             const now = new Date();
@@ -3217,76 +3217,99 @@
                    (utcMins >= mktClose && utcMins < postClose);
         }
 
-        async function fetchPolygonExtendedBatch() {
-            const key = getPolygonKey();
-            if (!key || watchlist.length === 0) return;
+        async function fetchAlpacaExtendedBatch() {
+            const alpacaKey    = getAlpacaKey();
+            const alpacaSecret = getAlpacaSecret();
+            if (!alpacaKey || !alpacaSecret || watchlist.length === 0) return;
             if (document.hidden) return;
 
             const mktOpen   = isMarketOpen();
             const preMarket = isExtendedHours() && !mktOpen;
 
-            // Polygon Free plan: /v2/snapshot is 403 — use /v2/last/trade/{ticker} instead
-            const processSymbol = async (sym) => {
-                try {
-                    const res = await fetch(`https://api.polygon.io/v2/last/trade/${sym}?apiKey=${key}`);
-                    if (!res.ok) return;
-                    const json = await res.json();
-                    // Free tier response: { results: { p: price, ... } }
-                    const extPrice = json?.results?.p ?? json?.last?.price ?? null;
-                    if (extPrice === null) return;
+            try {
+                const symbols = watchlist.join(',');
+                const url = 'https://data.alpaca.markets/v2/stocks/quotes/latest?symbols=' + encodeURIComponent(symbols) + '&feed=iex';
+                const res = await fetch(url, {
+                    headers: {
+                        'APCA-API-KEY-ID':     alpacaKey,
+                        'APCA-API-SECRET-KEY': alpacaSecret,
+                    }
+                });
+                if (!res.ok) {
+                    console.warn('[Alpaca] HTTP', res.status);
+                    return;
+                }
+                const json = await res.json();
+                const quotes = json && json.quotes ? json.quotes : {};
 
-                    const prevClose = wlDataCache[sym]?.pc ?? null;
+                watchlist.forEach(function(sym) {
+                    const q = quotes[sym];
+                    if (!q) return;
+
+                    const ask = (q.ap != null) ? q.ap : null;
+                    const bid = (q.bp != null) ? q.bp : null;
+                    let extPrice = null;
+                    if (ask && bid && ask > 0 && bid > 0) {
+                        extPrice = (ask + bid) / 2;
+                    } else {
+                        extPrice = ask || bid || null;
+                    }
+                    if (!extPrice || extPrice <= 0) return;
+
+                    const prevClose = wlDataCache[sym] && wlDataCache[sym].pc ? wlDataCache[sym].pc : null;
                     if (!prevClose) return;
 
                     const extPct = ((extPrice - prevClose) / prevClose) * 100;
+                    const existing = wlDataCache[sym] || {};
 
-                    const existing = wlDataCache[sym] ?? {};
                     if (preMarket) {
-                        wlDataCache[sym] = { ...existing, preMarketPrice: extPrice, preMarketChangePct: extPct };
+                        wlDataCache[sym] = Object.assign({}, existing, { preMarketPrice: extPrice, preMarketChangePct: extPct });
                     } else {
-                        wlDataCache[sym] = { ...existing, afterHoursPrice: extPrice, afterHoursChangePct: extPct };
+                        wlDataCache[sym] = Object.assign({}, existing, { afterHoursPrice: extPrice, afterHoursChangePct: extPct });
                     }
 
-                    const row = document.getElementById('wl-row-' + sym);
-                    if (!row) return;
-                    const cells = row.querySelectorAll('td');
-                    if (!cells[6]) return;
-                    const isUp = extPct >= 0;
-                    cells[6].innerHTML = `<div class="flex flex-col items-end gap-0.5">
-                        <span class="text-[10px] font-medium ${isUp ? 'wl-up' : 'wl-dn'}" style="font-variant-numeric:tabular-nums;letter-spacing:-0.01em">${isUp ? '+' : ''}${extPct.toFixed(2)}%</span>
-                        <span class="text-[9px]" style="color:var(--text-dim);font-variant-numeric:tabular-nums">$${extPrice.toFixed(2)}</span>
-                    </div>`;
-                } catch(e) {}
-            };
-
-            // Throttle: max 5 concurrent requests
-            await throttledAll(watchlist, 5, processSymbol);
+                    updatePreMktCell(sym, extPrice, extPct);
+                });
+            } catch(e) {
+                console.error('[Alpaca] error:', e);
+            }
         }
 
-        function startPolygonPreMarket() {
-            stopPolygonPreMarket();
-            if (!getPolygonKey()) return;
-            polygonActive = true;
-            // Fetch immediately, then every 15s during extended hours
-            fetchPolygonExtendedBatch();
-            polygonPreMarketTimer = setInterval(() => {
-                if (!polygonActive) return;
-                if (!isExtendedHours() && !isMarketOpen()) return; // Only during extended/market hours
-                fetchPolygonExtendedBatch();
-            }, POLYGON_INTERVAL);
+        function updatePreMktCell(sym, extPrice, extPct) {
+            const row = document.getElementById('wl-row-' + sym);
+            if (!row) return;
+            const cells = row.querySelectorAll('td');
+            if (!cells[6]) return;
+            const isUp = extPct >= 0;
+            const sign = isUp ? '+' : '';
+            const colorCls = isUp ? 'wl-up' : 'wl-dn';
+            cells[6].innerHTML = '<div class="flex flex-col items-end gap-0.5">'
+                + '<span class="text-[10px] font-semibold ' + colorCls + '" style="font-variant-numeric:tabular-nums;letter-spacing:-0.01em">' + sign + extPct.toFixed(2) + '%</span>'
+                + '<span class="text-[9px]" style="color:var(--text-dim);font-variant-numeric:tabular-nums">$' + extPrice.toFixed(2) + '</span>'
+                + '</div>';
+        }
+        function startAlpacaPolling() {
+            stopAlpacaPolling();
+            if (!getAlpacaKey() || !getAlpacaSecret()) return;
+            alpacaActive = true;
+            fetchAlpacaExtendedBatch();
+            alpacaTimer = setInterval(() => {
+                if (!alpacaActive) return;
+                fetchAlpacaExtendedBatch();
+            }, ALPACA_INTERVAL);
         }
 
-        function stopPolygonPreMarket() {
-            polygonActive = false;
-            if (polygonPreMarketTimer) { clearInterval(polygonPreMarketTimer); polygonPreMarketTimer = null; }
+        function stopAlpacaPolling() {
+            alpacaActive = false;
+            if (alpacaTimer) { clearInterval(alpacaTimer); alpacaTimer = null; }
         }
 
-        // Active Tab Monitoring — pause Polygon fetch when tab hidden
+        // Active Tab Monitoring — pause Alpaca fetch when tab hidden
         document.addEventListener('visibilitychange', () => {
             if (document.hidden) {
-                stopPolygonPreMarket();
+                stopAlpacaPolling();
             } else {
-                if (getPolygonKey()) startPolygonPreMarket();
+                if (getAlpacaKey() && getAlpacaSecret()) startAlpacaPolling();
             }
         });
 
@@ -4569,7 +4592,8 @@ Analysis guidelines:
         // ── Settings Modal ────────────────────────────────────────────────────
         function getFinnhubKey() { return localStorage.getItem('ps_finnhub_key') || ''; }
         function getErapiKey()   { return localStorage.getItem('ps_erapi_key')   || ''; }
-        function getPolygonKey() { return localStorage.getItem('ps_polygon_key') || ''; }
+        function getAlpacaKey()    { return localStorage.getItem('ps_alpaca_key')    || ''; }
+        function getAlpacaSecret() { return localStorage.getItem('ps_alpaca_secret') || ''; }
 
         function openSettingsModal() {
             document.getElementById('settings-modal').classList.remove('hidden');
@@ -4579,7 +4603,8 @@ Analysis guidelines:
             };
             fill('s-finnhub-input',    'ps_finnhub_key');
             fill('s-erapi-input',      'ps_erapi_key');
-            fill('s-polygon-input',    'ps_polygon_key');
+            fill('s-alpaca-key-input',    'ps_alpaca_key');
+            fill('s-alpaca-secret-input', 'ps_alpaca_secret');
             fill('s-openrouter-input', 'ps_openrouter_key');
             fill('s-gist-input',       'ps_gist_token');
             updateSettingsBadges();
@@ -4600,7 +4625,7 @@ Analysis guidelines:
             };
             badge('s-finnhub-badge',    'ps_finnhub_key');
             badge('s-erapi-badge',      'ps_erapi_key');
-            badge('s-polygon-badge',    'ps_polygon_key');
+            badge('s-alpaca-badge',      'ps_alpaca_key');
             badge('s-openrouter-badge', 'ps_openrouter_key');
             badge('s-gist-badge',       'ps_gist_token');
         }
@@ -4615,24 +4640,25 @@ Analysis guidelines:
             };
             save('s-finnhub-input',    'ps_finnhub_key');
             save('s-erapi-input',      'ps_erapi_key');
-            save('s-polygon-input',    'ps_polygon_key');
+            save('s-alpaca-key-input',    'ps_alpaca_key');
+            save('s-alpaca-secret-input', 'ps_alpaca_secret');
             save('s-openrouter-input', 'ps_openrouter_key', v => v.startsWith('sk-or-'));
             save('s-gist-input',       'ps_gist_token');
             closeSettingsModal();
             // Trigger refresh with new keys
             if (getFinnhubKey()) { refreshWatchlist(); updateAiStatus(); }
-            if (getPolygonKey()) startPolygonPreMarket();
+            if (getAlpacaKey() && getAlpacaSecret()) startAlpacaPolling();
             fetchFxRate();
         }
 
         function clearAllSettings() {
             if (!confirm('ล้าง API keys ทั้งหมดใช่ไหม?')) return;
-            ['ps_finnhub_key','ps_erapi_key','ps_polygon_key','ps_openrouter_key','ps_gist_token'].forEach(k => localStorage.removeItem(k));
-            ['s-finnhub-input','s-erapi-input','s-polygon-input','s-openrouter-input','s-gist-input'].forEach(id => {
+            ['ps_finnhub_key','ps_erapi_key','ps_alpaca_key','ps_alpaca_secret','ps_openrouter_key','ps_gist_token'].forEach(k => localStorage.removeItem(k));
+            ['s-finnhub-input','s-erapi-input','s-alpaca-key-input','s-alpaca-secret-input','s-openrouter-input','s-gist-input'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.value = '';
             });
-            stopPolygonPreMarket();
+            stopAlpacaPolling();
             updateSettingsBadges();
         }
 
@@ -4759,7 +4785,6 @@ Analysis guidelines:
             updateAiStatus();
             updateSettingsBadges();
             // Start Polygon pre-market polling if key set
-            if (getPolygonKey()) startPolygonPreMarket();
         };
 
         // ── Auto-save: 2-tier smart sync ──────────────────────────────────────
@@ -5061,7 +5086,7 @@ Analysis guidelines:
                     </p>
                 </div>
 
-                <!-- Polygon.io — Pre/After-hours data -->
+                <!-- Alpaca Markets — Pre/After-hours data (FREE) -->
                 <div class="rounded-md p-4" style="background:var(--bg-card2);border:1px solid var(--border)">
                     <div class="flex items-center justify-between mb-3">
                         <div class="flex items-center gap-2">
@@ -5069,23 +5094,31 @@ Analysis guidelines:
                                 <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                             </div>
                             <div>
-                                <p class="text-xs font-bold" style="color:var(--text-primary)">Polygon.io</p>
-                                <p class="text-[10px]" style="color:var(--text-dim)">Pre-market &amp; After-hours · polygon.io</p>
+                                <p class="text-xs font-bold" style="color:var(--text-primary)">Alpaca Markets <span class="text-[9px] font-bold px-1.5 py-0.5 rounded ml-1" style="background:rgba(16,185,129,0.15);color:#10b981">FREE</span></p>
+                                <p class="text-[10px]" style="color:var(--text-dim)">Pre-market &amp; After-hours real-time · alpaca.markets</p>
                             </div>
                         </div>
-                        <span id="s-polygon-badge" class="text-[9px] font-bold px-2 py-0.5 rounded-full"></span>
+                        <span id="s-alpaca-badge" class="text-[9px] font-bold px-2 py-0.5 rounded-full"></span>
                     </div>
-                    <div class="flex gap-2">
-                        <input id="s-polygon-input" type="password" autocomplete="off" placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxx"
+                    <div class="flex gap-2 mb-2">
+                        <input id="s-alpaca-key-input" type="password" autocomplete="off" placeholder="API Key ID (PKXXXXXXXXXXXXXXXX)"
                             class="flex-1 text-xs px-3 py-2 rounded-lg outline-none"
                             style="background:var(--bg-main);border:1px solid var(--border);color:var(--text-primary);font-family:var(--font-mono)"
                             onkeydown="if(event.key==='Enter')saveAllSettings()">
-                        <button onclick="toggleVisibility('s-polygon-input')" class="px-2.5 rounded-lg text-[10px]"
+                        <button onclick="toggleVisibility('s-alpaca-key-input')" class="px-2.5 rounded-lg text-[10px]"
+                            style="background:var(--bg-main);border:1px solid var(--border);color:var(--text-dim)">👁</button>
+                    </div>
+                    <div class="flex gap-2">
+                        <input id="s-alpaca-secret-input" type="password" autocomplete="off" placeholder="Secret Key (xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx)"
+                            class="flex-1 text-xs px-3 py-2 rounded-lg outline-none"
+                            style="background:var(--bg-main);border:1px solid var(--border);color:var(--text-primary);font-family:var(--font-mono)"
+                            onkeydown="if(event.key==='Enter')saveAllSettings()">
+                        <button onclick="toggleVisibility('s-alpaca-secret-input')" class="px-2.5 rounded-lg text-[10px]"
                             style="background:var(--bg-main);border:1px solid var(--border);color:var(--text-dim)">👁</button>
                     </div>
                     <p class="text-[9px] mt-2" style="color:var(--text-dim)">
-                        สมัครฟรีที่ <a href="https://polygon.io" target="_blank" class="underline" style="color:#f59e0b">polygon.io</a>
-                        · Starter plan ฟรี · ใช้ Batch snapshot endpoint สำหรับ extended hours
+                        สมัครฟรีที่ <a href="https://alpaca.markets" target="_blank" class="underline" style="color:#f59e0b">alpaca.markets</a>
+                        → Paper Trading → API Keys → Generate · ใช้ <strong>Paper</strong> หรือ <strong>Live</strong> key ก็ได้ · ข้อมูล extended hours ฟรี 100%
                     </p>
                 </div>
 
