@@ -969,7 +969,7 @@
                         <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
                         <div id="db-name-display" class="text-[10px] font-bold uppercase tracking-widest leading-none" style="color:var(--text-dim);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ready</div>
                     </div>
-                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.03-r78</div>
+                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.03-r79</div>
                 </div>
             </div>
             
@@ -2314,7 +2314,21 @@
 
             if (existing) {
                 if (existing.classList.contains('is-skeleton') || isLoading) {
+                    // Full re-render only for skeleton/initial load
                     existing.outerHTML = html;
+                } else {
+                    // Surgical update — preserve col[6] (PRE-MKT) which Alpaca owns
+                    const tmp = document.createElement('tbody');
+                    tmp.innerHTML = html;
+                    const newRow = tmp.querySelector('tr');
+                    if (newRow) {
+                        const oldCells = existing.querySelectorAll('td');
+                        const newCells = newRow.querySelectorAll('td');
+                        newCells.forEach(function(nc, i) {
+                            if (i === 6) return; // PRE-MKT cell owned by Alpaca — never overwrite
+                            if (oldCells[i]) oldCells[i].outerHTML = nc.outerHTML;
+                        });
+                    }
                 }
             } else {
                 const emptyEl = document.getElementById('wl-empty');
@@ -2676,15 +2690,21 @@
             setText(cells[3], newPriceText);
 
             // Update pre-market cell (col index 6)
+            // ── Critical: preserve Alpaca pre-market value if already fetched ──
+            // Only write "—" if Alpaca has never populated a value for this symbol
             if (cells[6]) {
-                if (extPrice !== null && extPct !== null) {
-                    const c = extIsUp ? 'var(--wl-up)' : 'var(--wl-dn)';
+                // Re-read from cache (Alpaca may have updated it since last Finnhub refresh)
+                const cached      = wlDataCache[symbol] || {};
+                const livePreP    = cached.preMarketPrice     ?? cached.afterHoursPrice    ?? extPrice ?? null;
+                const livePrePct  = cached.preMarketChangePct ?? cached.afterHoursChangePct ?? extPct  ?? null;
+                const liveIsUp    = livePrePct !== null ? livePrePct >= 0 : true;
+                if (livePreP !== null && livePrePct !== null) {
+                    const c = liveIsUp ? 'var(--wl-up)' : 'var(--wl-dn)';
                     cells[6].innerHTML =
-                        `<span style="display:block;text-align:right;font-size:10px;font-weight:600;color:${c};font-variant-numeric:tabular-nums;line-height:1.25">${extIsUp?'+':''}${extPct.toFixed(2)}%</span>`
-                        + `<span style="display:block;text-align:right;font-size:9px;color:var(--text-dim);font-variant-numeric:tabular-nums;line-height:1.25">$${extPrice.toFixed(2)}</span>`;
-                } else if (data) {
-                    cells[6].innerHTML = '<span style="color:var(--text-dim);font-size:11px">—</span>';
+                        `<span style="display:block;text-align:right;font-size:10px;font-weight:600;color:${c};font-variant-numeric:tabular-nums;line-height:1.25">${liveIsUp?'+':''}${livePrePct.toFixed(2)}%</span>`
+                        + `<span style="display:block;text-align:right;font-size:9px;color:var(--text-dim);font-variant-numeric:tabular-nums;line-height:1.25">$${livePreP.toFixed(2)}</span>`;
                 }
+                // If no Alpaca data yet — leave cell as-is (don't flash "—")
             }
         }
 
@@ -3239,61 +3259,55 @@
 
             const mktOpen   = isMarketOpen();
             const preMarket = isExtendedHours() && !mktOpen;
-            const MAX_DEVIATION = 0.15; // 15% sanity gate
+            const MAX_DEVIATION = 0.20; // 20% sanity gate (pre-market can move significantly)
+
+            const headers = {
+                'APCA-API-KEY-ID':     alpacaKey,
+                'APCA-API-SECRET-KEY': alpacaSecret,
+            };
 
             try {
                 const symbols = watchlist.join(',');
 
-                // /v2/stocks/snapshots — available on FREE Alpaca paper accounts
-                // Returns: latestTrade.p (last trade price), prevDailyBar.c (prev close),
-                //          dailyBar.c (today's close), latestQuote.ap/bp (ask/bid)
-                const url = 'https://data.alpaca.markets/v2/stocks/snapshots?symbols='
-                    + encodeURIComponent(symbols) + '&feed=iex';
-                const res = await fetch(url, {
-                    headers: {
-                        'APCA-API-KEY-ID':     alpacaKey,
-                        'APCA-API-SECRET-KEY': alpacaSecret,
-                    }
-                });
+                // /v2/stocks/bars/latest — free tier, returns the most recent 1-min bar per symbol
+                // Includes pre-market and after-hours bars when feed=sip
+                // This is the correct endpoint for extended-hours pricing
+                const url = 'https://data.alpaca.markets/v2/stocks/bars/latest?symbols='
+                    + encodeURIComponent(symbols) + '&feed=sip&timeframe=1Min';
+
+                const res = await fetch(url, { headers });
                 if (!res.ok) {
                     const txt = await res.text().catch(() => '');
-                    console.warn('[Alpaca] HTTP', res.status, txt.slice(0, 200));
+                    console.warn('[Alpaca] bars/latest HTTP', res.status, txt.slice(0, 200));
+                    // Fallback: try snapshot endpoint
+                    await fetchAlpacaSnapshot(symbols, headers, preMarket, MAX_DEVIATION);
                     return;
                 }
                 const json = await res.json();
-                // Response is a flat object: { "AAPL": { latestTrade, latestQuote, dailyBar, prevDailyBar, ... }, ... }
+                // Response: { bars: { AAPL: { o,h,l,c,v,t,... }, ... } }
+                const bars = json?.bars ?? {};
 
+                let hitCount = 0;
                 watchlist.forEach(function(sym) {
-                    const snap = json[sym];
-                    if (!snap) return;
+                    const bar = bars[sym];
+                    if (!bar) return;
 
-                    // Best real-time price: latestTrade.p → latestQuote mid → dailyBar.c
-                    const lastTrade = snap.latestTrade?.p ?? null;
-                    const askQ      = snap.latestQuote?.ap ?? null;
-                    const bidQ      = snap.latestQuote?.bp ?? null;
-                    const quoteMid  = (askQ > 0 && bidQ > 0) ? (askQ + bidQ) / 2 : (askQ || bidQ || null);
-                    const dayClose  = snap.dailyBar?.c ?? null;
-
-                    const extPrice = lastTrade ?? quoteMid ?? dayClose ?? null;
+                    const extPrice = bar.c ?? bar.o ?? null; // close of latest 1-min bar
                     if (!extPrice || extPrice <= 0) return;
 
-                    // Use prevDailyBar.c as prev close (more reliable than Finnhub cache)
-                    const prevClose = snap.prevDailyBar?.c
-                        ?? (wlDataCache[sym]?.pc ?? null);
+                    const prevClose = wlDataCache[sym]?.pc ?? null;
                     if (!prevClose) return;
 
-                    // Sanity gate: reject ticks > 15% from prev close
                     const deviation = Math.abs(extPrice - prevClose) / prevClose;
                     if (deviation > MAX_DEVIATION) {
-                        console.warn('[Alpaca] ' + sym + ' rejected: $' + extPrice.toFixed(2)
-                            + ' vs prevClose $' + prevClose.toFixed(2)
-                            + ' (' + (deviation * 100).toFixed(1) + '% deviation)');
+                        console.warn('[Alpaca]', sym, 'rejected $' + extPrice.toFixed(2),
+                            'vs prevClose $' + prevClose.toFixed(2),
+                            '(' + (deviation*100).toFixed(1) + '%)');
                         return;
                     }
 
-                    const extPct    = ((extPrice - prevClose) / prevClose) * 100;
-                    const existing  = wlDataCache[sym] || {};
-
+                    const extPct   = ((extPrice - prevClose) / prevClose) * 100;
+                    const existing = wlDataCache[sym] || {};
                     if (preMarket) {
                         wlDataCache[sym] = Object.assign({}, existing,
                             { preMarketPrice: extPrice, preMarketChangePct: extPct });
@@ -3301,12 +3315,47 @@
                         wlDataCache[sym] = Object.assign({}, existing,
                             { afterHoursPrice: extPrice, afterHoursChangePct: extPct });
                     }
-
                     updatePreMktCell(sym, extPrice, extPct);
+                    hitCount++;
                 });
+                console.log('[Alpaca] bars/latest updated', hitCount, 'symbols');
             } catch(e) {
                 console.error('[Alpaca] error:', e);
             }
+        }
+
+        // Fallback: snapshot endpoint (also free tier)
+        async function fetchAlpacaSnapshot(symbols, headers, preMarket, MAX_DEVIATION) {
+            try {
+                const url = 'https://data.alpaca.markets/v2/stocks/snapshots?symbols='
+                    + encodeURIComponent(symbols) + '&feed=iex';
+                const res = await fetch(url, { headers });
+                if (!res.ok) {
+                    console.warn('[Alpaca] snapshot HTTP', res.status);
+                    return;
+                }
+                const json = await res.json();
+                watchlist.forEach(function(sym) {
+                    const snap = json[sym];
+                    if (!snap) return;
+                    const extPrice = snap.latestTrade?.p ?? snap.dailyBar?.c ?? null;
+                    if (!extPrice || extPrice <= 0) return;
+                    const prevClose = snap.prevDailyBar?.c ?? wlDataCache[sym]?.pc ?? null;
+                    if (!prevClose) return;
+                    const deviation = Math.abs(extPrice - prevClose) / prevClose;
+                    if (deviation > MAX_DEVIATION) return;
+                    const extPct   = ((extPrice - prevClose) / prevClose) * 100;
+                    const existing = wlDataCache[sym] || {};
+                    if (preMarket) {
+                        wlDataCache[sym] = Object.assign({}, existing,
+                            { preMarketPrice: extPrice, preMarketChangePct: extPct });
+                    } else {
+                        wlDataCache[sym] = Object.assign({}, existing,
+                            { afterHoursPrice: extPrice, afterHoursChangePct: extPct });
+                    }
+                    updatePreMktCell(sym, extPrice, extPct);
+                });
+            } catch(e) {}
         }
 
         function updatePreMktCell(sym, extPrice, extPct) {
