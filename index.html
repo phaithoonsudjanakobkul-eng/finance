@@ -239,8 +239,8 @@
 
         /* ── Chart open state ── */
         #wl-split-wrap.chart-open #wl-table-panel {
-            flex: 0 0 220px;
-            max-width: 220px;
+            flex: 0 0 250px;
+            max-width: 250px;
             display: flex;
             flex-direction: column;
         }
@@ -323,40 +323,44 @@
         }
 
         /* ── Compact mode when chart is open ── */
-        /* Show: drag(1) + icon+symbol(2) + CHG%(6) only. Hide NAME(3) PRICE(4) CHG$(5) PREMKT(7) */
+        /* col: 1=# 2=Symbol 3=Name 4=Price 5=CHG$ 6=CHG% 7=PRE-MKT */
+        /* Visible: #(1) + Symbol(2) + Price(4) + CHG%(6) | Hidden: Name(3) CHG$(5) PRE-MKT(7) */
         #wl-split-wrap.chart-open .wl-col-hide { display: none !important; }
         #wl-split-wrap.chart-open #watchlist-table {
             min-width: unset !important;
             table-layout: fixed;
-            width: 218px !important;
+            width: 250px !important;
         }
         #wl-split-wrap.chart-open td:nth-child(3),
         #wl-split-wrap.chart-open th:nth-child(3),
-        #wl-split-wrap.chart-open td:nth-child(4),
-        #wl-split-wrap.chart-open th:nth-child(4),
         #wl-split-wrap.chart-open td:nth-child(5),
         #wl-split-wrap.chart-open th:nth-child(5) {
             display: none !important;
         }
-        /* col widths: 20 + 118 + 80 = 218px */
+        /* 20 + 110 + 0 + 68 + 0 + 52 + 0 = 250px */
         #wl-split-wrap.chart-open col:nth-child(1)  { width: 20px  !important; }
-        #wl-split-wrap.chart-open col:nth-child(2)  { width: 118px !important; }
+        #wl-split-wrap.chart-open col:nth-child(2)  { width: 110px !important; }
         #wl-split-wrap.chart-open col:nth-child(3)  { width: 0     !important; }
-        #wl-split-wrap.chart-open col:nth-child(4)  { width: 0     !important; }
+        #wl-split-wrap.chart-open col:nth-child(4)  { width: 68px  !important; }
         #wl-split-wrap.chart-open col:nth-child(5)  { width: 0     !important; }
-        #wl-split-wrap.chart-open col:nth-child(6)  { width: 80px  !important; }
+        #wl-split-wrap.chart-open col:nth-child(6)  { width: 52px  !important; }
         #wl-split-wrap.chart-open col:nth-child(7)  { width: 0     !important; }
         #wl-split-wrap.chart-open td:nth-child(2),
         #wl-split-wrap.chart-open th:nth-child(2) {
-            max-width: 118px;
+            max-width: 110px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
         }
+        #wl-split-wrap.chart-open td:nth-child(4) {
+            text-align: right;
+            padding-right: 4px;
+            font-size: 11px;
+        }
         #wl-split-wrap.chart-open td:nth-child(6),
         #wl-split-wrap.chart-open th:nth-child(6) {
             text-align: right;
-            padding-right: 8px;
+            padding-right: 6px;
         }
 
         /* Stats grid — 2 columns with border dividers */
@@ -1008,7 +1012,7 @@
                         <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
                         <div id="db-name-display" class="text-[10px] font-bold uppercase tracking-widest leading-none" style="color:var(--text-dim);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ready</div>
                     </div>
-                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.03-r90</div>
+                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.03-r91</div>
                 </div>
             </div>
             
