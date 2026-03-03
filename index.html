@@ -296,6 +296,66 @@
             animation: shimmer 1.4s ease infinite;
         }
 
+        /* ── Quick Chart: Price Hero & Detail Panel ── */
+        #qc-price-hero {
+            font-variant-numeric: tabular-nums;
+            letter-spacing: -0.03em;
+            -webkit-font-smoothing: antialiased;
+        }
+        .qc-stat-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1px;
+            background: var(--border);
+        }
+        .qc-stat-cell {
+            background: var(--bg-card);
+            padding: 10px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+        .qc-stat-label {
+            font-size: 9px;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--text-dim);
+        }
+        .qc-stat-value {
+            font-size: 12px;
+            font-weight: 500;
+            font-variant-numeric: tabular-nums;
+            letter-spacing: -0.01em;
+            color: var(--text-primary);
+        }
+
+        /* Fade-in when stock detail changes */
+        @keyframes qcFadeIn {
+            from { opacity: 0; transform: translateY(4px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .qc-fade-in {
+            animation: qcFadeIn 0.22s ease-out forwards;
+        }
+
+        /* 52W range bar */
+        .range-bar-track {
+            height: 3px;
+            background: var(--bg-card2);
+            border-radius: 2px;
+            position: relative;
+            margin-top: 5px;
+        }
+        .range-bar-fill {
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            background: var(--accent);
+            border-radius: 2px;
+            transition: width 0.4s ease;
+        }
         /* AI chat typing indicator */
         @keyframes blink { 0%,100%{opacity:0} 50%{opacity:1} }
         .ai-typing .dots { animation: blink 1.2s infinite; }
@@ -364,6 +424,8 @@
             color: #1e293b;
             overflow-y: auto;
             letter-spacing: -0.01em;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
 
         /* ── Watchlist table font — uniform Inter weight ── */
@@ -381,6 +443,26 @@
             font-size: 12.5px;
             color: var(--text-secondary);
             font-variant-numeric: tabular-nums;
+            height: 40px;
+            max-height: 40px;
+            overflow: hidden;
+        }
+        /* Fixed row height */
+        #watchlist-table tr.wl-row {
+            height: 40px;
+        }
+        /* Row border + hover */
+        #watchlist-table tbody tr.wl-row {
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+        }
+        html.dark #watchlist-table tbody tr.wl-row {
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        #watchlist-table tbody tr.wl-row:hover {
+            background: rgba(0,0,0,0.025);
+        }
+        html.dark #watchlist-table tbody tr.wl-row:hover {
+            background: rgba(255,255,255,0.03) !important;
         }
         /* Symbol — semibold, immediate scan */
         #watchlist-table .sym-cell {
@@ -400,11 +482,39 @@
         /* Other numbers — medium weight, tabular nums */
         #watchlist-table .num-cell {
             font-family: var(--font-main);
-            font-weight: 500;
+            font-weight: 400;
             font-variant-numeric: tabular-nums;
             letter-spacing: -0.01em;
+            color: var(--text-secondary);
         }
         #watchlist-table td { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        /* ── Mobile Responsive — hide detail columns on small screens ── */
+        @media (max-width: 768px) {
+            .wl-col-hide { display: none !important; }
+            #watchlist-table col:nth-child(3) { width: auto; }
+            /* On mobile allow symbol+name to stack */
+            #watchlist-table .sym-name-stack {
+                display: flex;
+                flex-direction: column;
+                gap: 1px;
+            }
+            #watchlist-table .sym-name-stack .sym-cell {
+                font-size: 12px;
+            }
+            #watchlist-table .sym-name-stack .name-sub {
+                font-size: 10px;
+                color: var(--text-dim);
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                max-width: 120px;
+                display: block;
+            }
+        }
+        @media (min-width: 769px) {
+            #watchlist-table .sym-name-stack .name-sub { display: none; }
+        }
         /* Fixed widths per column index */
         #watchlist-table col:nth-child(1)  { width: 32px; }
         #watchlist-table col:nth-child(2)  { width: 78px; }
@@ -732,7 +842,7 @@
                         <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
                         <div id="db-name-display" class="text-[10px] font-bold uppercase tracking-widest leading-none" style="color:var(--text-dim);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ready</div>
                     </div>
-                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.03-r69</div>
+                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.03-r70</div>
                 </div>
             </div>
             
@@ -1176,36 +1286,89 @@
 
             <!-- Quick Chart Panel -->
             <div id="quick-chart-panel" class="glass-card overflow-hidden flex flex-col">
-                <!-- Header -->
-                <div class="flex items-center gap-3 px-4 pt-4 pb-3">
-                    <!-- Close button on LEFT — nearest to watchlist panel -->
+                <!-- Header Bar -->
+                <div class="flex items-center gap-3 px-4 pt-3 pb-2" style="border-bottom:1px solid var(--border)">
                     <button onclick="closeQuickChart()" 
-                        class="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg transition-all hover:scale-110"
+                        class="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-md transition-all hover:scale-110"
                         style="background:var(--bg-card2);border:1px solid var(--border);color:var(--text-secondary)"
                         title="Close chart">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg>
                     </button>
-                    <div class="w-10 h-10 flex-shrink-0 relative">
+                    <div class="w-8 h-8 flex-shrink-0 relative">
                         <img id="qc-logo" src="" 
-                            class="w-10 h-10 rounded-full absolute inset-0 transition-opacity duration-150"
-                            style="opacity:0;object-fit:contain;background:white;padding:2px;border:1.5px solid #e2e8f0;"
+                            class="w-8 h-8 rounded-full absolute inset-0 transition-opacity duration-150"
+                            style="opacity:0;object-fit:contain;background:white;padding:2px;border:1px solid #e2e8f0;"
                             onerror="this.style.opacity='0'">
                     </div>
                     <div class="flex-1 min-w-0">
-                        <div class="flex items-center gap-2">
-                            <span id="qc-symbol" class="font-black text-lg" style="color:var(--text-primary)"></span>
-                            <span id="qc-price" class="font-black text-lg"></span>
-                            <span id="qc-change" class="text-sm font-bold px-2 py-0.5 rounded"></span>
+                        <div class="flex items-center gap-1.5">
+                            <span id="qc-symbol" class="text-sm font-semibold" style="color:var(--text-primary)"></span>
+                            <span id="qc-exchange-badge" class="text-[8px] font-semibold px-1.5 py-0.5 rounded" style="background:var(--bg-card2);color:var(--text-dim)"></span>
                         </div>
-                        <div id="qc-name" class="text-xs mt-0.5" style="color:var(--text-dim)"></div>
+                        <div id="qc-name" class="text-[10px] leading-none mt-0.5 truncate" style="color:var(--text-dim);max-width:200px"></div>
                     </div>
                     <a id="qc-tv-link" href="#" target="_blank"
-                       class="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all"
-                       style="background:rgba(37,99,235,0.1);color:#3b82f6">
-                        <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M10 6v2H5v11h11v-5h2v7H3V6h7zm11-3v8l-3-3-7 7-1.5-1.5 7-7-3-3h8z"/></svg>
-                        TradingView
+                       class="flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[9px] font-semibold uppercase tracking-widest transition-all"
+                       style="background:rgba(37,99,235,0.08);color:#3b82f6;border:1px solid rgba(37,99,235,0.15)">
+                        <svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 24 24"><path d="M10 6v2H5v11h11v-5h2v7H3V6h7zm11-3v8l-3-3-7 7-1.5-1.5 7-7-3-3h8z"/></svg>
+                        TV
                     </a>
                 </div>
+
+                <!-- Price Hero -->
+                <div id="qc-price-hero-section" class="px-4 py-3" style="border-bottom:1px solid var(--border)">
+                    <div class="flex items-baseline gap-3 flex-wrap">
+                        <span id="qc-price-hero" class="text-4xl font-medium tabular-nums leading-none" style="color:var(--text-primary);font-variant-numeric:tabular-nums;letter-spacing:-0.03em"></span>
+                        <div class="flex items-center gap-2">
+                            <span id="qc-change-hero" class="text-sm font-medium px-2 py-0.5 rounded-md" style="font-variant-numeric:tabular-nums"></span>
+                            <span id="qc-price-label" class="text-[9px] font-medium uppercase tracking-widest" style="color:var(--text-dim)">Last Price</span>
+                        </div>
+                    </div>
+                    <!-- Keep legacy elements hidden for JS compat -->
+                    <span id="qc-price" style="display:none"></span>
+                    <span id="qc-change" style="display:none"></span>
+                    <span id="qc-symbol-hidden" style="display:none"></span>
+                </div>
+
+                <!-- Stats Grid (3-col) -->
+                <div id="qc-stats-grid" class="qc-stat-grid flex-shrink-0">
+                    <div class="qc-stat-cell">
+                        <span class="qc-stat-label">Open</span>
+                        <span id="qcs-open" class="qc-stat-value">—</span>
+                    </div>
+                    <div class="qc-stat-cell">
+                        <span class="qc-stat-label">Prev Close</span>
+                        <span id="qcs-prev" class="qc-stat-value">—</span>
+                    </div>
+                    <div class="qc-stat-cell">
+                        <span class="qc-stat-label">Day Range</span>
+                        <span id="qcs-range" class="qc-stat-value">—</span>
+                    </div>
+                    <div class="qc-stat-cell">
+                        <span class="qc-stat-label">Mkt Cap</span>
+                        <span id="qcs-mktcap" class="qc-stat-value">—</span>
+                    </div>
+                    <div class="qc-stat-cell">
+                        <span class="qc-stat-label">P/E Ratio</span>
+                        <span id="qcs-pe" class="qc-stat-value">—</span>
+                    </div>
+                    <div class="qc-stat-cell">
+                        <span class="qc-stat-label">Div Yield</span>
+                        <span id="qcs-div" class="qc-stat-value">—</span>
+                    </div>
+                    <div class="qc-stat-cell" style="grid-column:1/-1">
+                        <span class="qc-stat-label">52-Week Range</span>
+                        <div class="flex items-center justify-between mt-0.5">
+                            <span id="qcs-52wl" class="qc-stat-value" style="color:var(--danger)">—</span>
+                            <span id="qcs-52wh" class="qc-stat-value" style="color:var(--accent)">—</span>
+                        </div>
+                        <div class="range-bar-track">
+                            <div id="qcs-52w-fill" class="range-bar-fill" style="width:0%"></div>
+                            <div id="qcs-52w-dot" class="range-bar-dot" style="left:0%"></div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- TradingView Widget -->
                 <div id="qc-tv-container" style="height:480px;flex-shrink:0"></div>
 
@@ -1934,7 +2097,7 @@
                     ondrop="onDrop(event,'${symbol}')"
                     ondragend="onDragEnd(event)"
                     onclick="openQuickChart('${symbol}')"
-                    class="border-b hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors group cursor-grab active:cursor-grabbing select-none wl-row" style="border-color:var(--border)">
+                    class="transition-colors group cursor-grab active:cursor-grabbing select-none wl-row" style="border-color:var(--border)">
                     <td class="px-3 py-2">
                         <div class="flex items-center gap-1.5">
                             <svg class="w-3 h-3 text-gray-200 group-hover:text-gray-400 transition-colors flex-shrink-0" fill="currentColor" viewBox="0 0 16 16">
@@ -1948,9 +2111,12 @@
                     <td class="px-3 py-2">
                         <div class="flex items-center gap-2">
                             ${logoHtml}
-                            <div class="flex items-center gap-1">
-                                <span class="sym-cell text-sm" style="color:var(--text-primary)">${symbol}</span>
-                                ${typeBadge}
+                            <div class="sym-name-stack">
+                                <div class="flex items-center gap-1">
+                                    <span class="sym-cell" style="color:var(--text-primary)">${symbol}</span>
+                                    ${typeBadge}
+                                </div>
+                                <span class="name-sub">${name || ''}</span>
                             </div>
                         </div>
                     </td>
@@ -1965,10 +2131,8 @@
                     <td class="px-3 py-2 text-right text-xs num-cell wl-col-hide">
                         ${preMktHtml}
                     </td>
-
-
                     <td class="px-3 py-2 text-right text-xs num-cell wl-col-hide ${openColor}">${sk(48) ?? (open !== null ? '$' + fmt(open) : '—')}</td>
-                                        <td class="px-3 py-2 text-right text-xs num-cell wl-col-hide" style="color:var(--text-secondary)">${sk(48) ?? (prevClose !== null ? '$' + fmt(prevClose) : '—')}</td>
+                    <td class="px-3 py-2 text-right text-xs num-cell wl-col-hide" style="color:var(--text-secondary)">${sk(48) ?? (prevClose !== null ? '$' + fmt(prevClose) : '—')}</td>
                     <td class="px-3 py-2 text-right text-xs num-cell wl-col-hide ${highColor}">${sk(48) ?? (high !== null ? '$' + fmt(high) : '—')}</td>
                     <td class="px-3 py-2 text-right text-xs num-cell wl-col-hide ${lowColor}">${sk(48)  ?? (low  !== null ? '$' + fmt(low)  : '—')}</td>
                     <td class="px-3 py-2 text-right text-xs num-cell wl-col-hide" class="wl-up">${sk(52) ?? (d?.week52High != null ? '$' + fmt(d.week52High) : '—')}</td>
@@ -2320,6 +2484,13 @@
                 setTimeout(() => panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
             }
 
+            // ── Fade-in the detail panel content ──
+            const heroSection = document.getElementById('qc-price-hero-section');
+            const statsGrid   = document.getElementById('qc-stats-grid');
+            [heroSection, statsGrid].forEach(el => {
+                if (el) { el.classList.remove('qc-fade-in'); void el.offsetWidth; el.classList.add('qc-fade-in'); }
+            });
+
             // Header info
             document.getElementById('qc-symbol').innerText = symbol;
             document.getElementById('qc-name').innerText = d?.name ?? '';
@@ -2335,17 +2506,54 @@
                 if (logoEl.complete && logoEl.naturalWidth > 0) logoEl.style.opacity = '1';
             }
 
-            const price = d?.c ?? null;
+            const price     = d?.c ?? null;
             const changePct = d?.dp ?? null;
-            const isUp = (changePct ?? 0) >= 0;
-            const priceEl = document.getElementById('qc-price');
+            const changeAbs = d?.d ?? null;
+            const isUp      = (changePct ?? 0) >= 0;
+
+            // ── Price Hero ──
+            const priceHeroEl  = document.getElementById('qc-price-hero');
+            const changeHeroEl = document.getElementById('qc-change-hero');
+            if (priceHeroEl) {
+                priceHeroEl.innerText = price ? '$' + price.toFixed(2) : '—';
+                priceHeroEl.style.color = price === null ? 'var(--text-primary)' : isUp ? 'var(--qc-up)' : 'var(--qc-dn)';
+            }
+            if (changeHeroEl && changePct !== null) {
+                const arrow = isUp ? '▲' : '▼';
+                const absStr = changeAbs !== null ? (isUp ? '+' : '') + changeAbs.toFixed(2) + ' ' : '';
+                changeHeroEl.innerText = `${arrow} ${absStr}(${isUp?'+':''}${changePct.toFixed(2)}%)`;
+                changeHeroEl.className = 'text-sm font-medium px-2 py-0.5 rounded-md ' + (isUp ? 'wl-badge-up' : 'wl-badge-dn');
+            }
+
+            // Legacy compat (hidden elements)
+            const priceEl  = document.getElementById('qc-price');
             const changeEl = document.getElementById('qc-change');
-            priceEl.innerText = price ? '$' + price.toFixed(2) : '';
-            priceEl.className = 'font-black text-lg';
-priceEl.style.color = price === null ? '' : isUp ? 'var(--qc-up)' : 'var(--qc-dn)';
-            if (changePct !== null) {
+            if (priceEl) { priceEl.innerText = price ? '$' + price.toFixed(2) : ''; priceEl.style.color = isUp ? 'var(--qc-up)' : 'var(--qc-dn)'; }
+            if (changeEl && changePct !== null) {
                 changeEl.innerText = (isUp ? '▲ +' : '▼ ') + changePct.toFixed(2) + '%';
                 changeEl.className = 'text-sm font-bold px-2 py-0.5 rounded ' + (isUp ? 'wl-badge-up' : 'wl-badge-dn');
+            }
+
+            // ── Stats Grid ──
+            const fmt = v => v != null ? '$' + v.toFixed(2) : '—';
+            const fmtCap = v => { if (!v) return '—'; if (v>=1e12) return '$'+(v/1e12).toFixed(2)+'T'; if (v>=1e9) return '$'+(v/1e9).toFixed(2)+'B'; return '$'+(v/1e6).toFixed(1)+'M'; };
+            const set = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val; };
+            set('qcs-open',   d?.o   != null ? fmt(d.o)   : '—');
+            set('qcs-prev',   d?.pc  != null ? fmt(d.pc)  : '—');
+            set('qcs-range',  (d?.l != null && d?.h != null) ? fmt(d.l) + ' – ' + fmt(d.h) : '—');
+            set('qcs-mktcap', d?.marketCap != null ? fmtCap(d.marketCap) : '—');
+            set('qcs-pe',     d?.pe        != null ? d.pe.toFixed(1)     : '—');
+            set('qcs-div',    d?.divYield  != null ? d.divYield.toFixed(2) + '%' : '—');
+            // 52W range bar
+            const w52h = d?.week52High; const w52l = d?.week52Low;
+            set('qcs-52wl', w52l != null ? fmt(w52l) : '—');
+            set('qcs-52wh', w52h != null ? fmt(w52h) : '—');
+            if (w52h && w52l && price && w52h > w52l) {
+                const pct = Math.min(100, Math.max(0, ((price - w52l) / (w52h - w52l)) * 100));
+                const fillEl = document.getElementById('qcs-52w-fill');
+                const dotEl  = document.getElementById('qcs-52w-dot');
+                if (fillEl) fillEl.style.width = pct + '%';
+                if (dotEl)  dotEl.style.left   = pct + '%';
             }
 
             // TradingView link
@@ -2363,10 +2571,10 @@ priceEl.style.color = price === null ? '' : isUp ? 'var(--qc-up)' : 'var(--qc-dn
                 interval: 'D',
                 timezone: 'Asia/Bangkok',
                 theme: isDark ? 'dark' : 'light',
-                style: '3',          // 3 = Area chart
+                style: '3',
                 locale: 'en',
-                backgroundColor: isDark ? '#1e293b' : '#ffffff',
-                gridColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)',
+                backgroundColor: isDark ? '#161a1e' : '#ffffff',
+                gridColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)',
                 hide_top_toolbar: false,
                 hide_legend: false,
                 save_image: false,
@@ -3314,7 +3522,20 @@ Analysis guidelines:
                             setTimeout(() => { row.style.background = ''; }, 600);
                         }
                         if (qcCurrentSymbol === sym) {
+                            // Update legacy hidden elements
                             document.getElementById('qc-price').textContent = '$' + newPrice.toFixed(2);
+                            // Update Price Hero
+                            const heroEl = document.getElementById('qc-price-hero');
+                            if (heroEl) {
+                                heroEl.textContent = '$' + newPrice.toFixed(2);
+                                heroEl.style.color = change >= 0 ? 'var(--qc-up)' : 'var(--qc-dn)';
+                            }
+                            const heroChangeEl = document.getElementById('qc-change-hero');
+                            if (heroChangeEl) {
+                                const arrow = change >= 0 ? '▲' : '▼';
+                                heroChangeEl.textContent = `${arrow} ${change >= 0 ? '+' : ''}${change.toFixed(2)} (${change >= 0 ? '+' : ''}${changePct.toFixed(2)}%)`;
+                                heroChangeEl.className = 'text-sm font-medium px-2 py-0.5 rounded-md ' + (change >= 0 ? 'wl-badge-up' : 'wl-badge-dn');
+                            }
                             const pct = Math.abs(changePct).toFixed(2);
                             const el = document.getElementById('qc-change');
                             el.textContent = `${change >= 0 ? '▲' : '▼'} ${pct}%`;
