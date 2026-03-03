@@ -438,6 +438,18 @@
         }
         /* AI chat typing indicator */
         @keyframes blink { 0%,100%{opacity:0} 50%{opacity:1} }
+        #ai-popup-messages table{border-collapse:collapse;width:100%;margin:8px 0;font-size:11px}
+        #ai-popup-messages th,#ai-popup-messages td{border:1px solid var(--border);padding:5px 10px;text-align:left}
+        #ai-popup-messages th{background:var(--bg-card2);font-weight:700;color:var(--text-primary)}
+        #ai-popup-messages tr:nth-child(even) td{background:rgba(255,255,255,0.02)}
+        #ai-popup-messages code{background:var(--bg-card2);border-radius:3px;padding:1px 5px;font-size:11px;font-family:var(--font-mono)}
+        #ai-popup-messages pre{background:var(--bg-card2);border-radius:6px;padding:10px 12px;overflow-x:auto;font-size:11px;margin:6px 0}
+        #ai-popup-messages p{margin:0 0 4px 0;line-height:1.55}
+        #ai-popup-messages ul,#ai-popup-messages ol{padding-left:16px;margin:2px 0 4px 0}
+        #ai-popup-messages li{margin-bottom:2px;line-height:1.5}
+        #ai-popup-messages h3,#ai-popup-messages h4{margin:8px 0 2px 0;font-size:11.5px;color:var(--text-primary);font-weight:700}
+        #ai-popup-messages strong{color:inherit;font-weight:700}
+        #ai-popup-messages hr{border:none;border-top:1px solid var(--border);margin:10px 0}
         .ai-typing .dots { animation: blink 1.2s infinite; }
         .ai-cursor { display:inline-block; animation: blink 0.7s infinite; color:#4285f4; font-weight:bold; margin-left:1px; }
 
@@ -928,6 +940,7 @@
         html.dark #watchlist-table td.wl-neutral,
         html.dark #watchlist-table span.wl-neutral { color: var(--text-dim); }
         </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
 </head>
 
     <!-- Dummy hidden fields to prevent Chrome autofill on real inputs -->
@@ -1006,7 +1019,7 @@
                         <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
                         <div id="db-name-display" class="text-[10px] font-bold uppercase tracking-widest leading-none" style="color:var(--text-dim);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ready</div>
                     </div>
-                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.03-r97</div>
+                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.03-r111</div>
                 </div>
             </div>
             
@@ -1288,7 +1301,7 @@
                         <div class="flex flex-col justify-center px-2.5 py-1 rounded-xl border"
                             style="background:var(--bg-card2);border-color:var(--border);height:34px;width:148px;overflow:hidden;flex-shrink:0;white-space:nowrap">
                             <div class="flex items-center gap-1">
-                                <span class="text-[8px] font-semibold leading-none" style="color:var(--text-dim)">us→ท USD→THB</span>
+                                <span class="text-[8px] font-semibold leading-none" style="color:var(--text-dim)">USD → THB</span>
                                 <span id="fx-src-badge" class="text-[7px] font-bold px-1 rounded" style="background:rgba(16,185,129,0.15);color:#10b981;display:none"></span>
                             </div>
                             <div class="flex items-baseline gap-1 mt-0.5" style="overflow:hidden">
@@ -1301,7 +1314,7 @@
                         <div class="flex flex-col justify-center px-2.5 py-1 rounded-xl border"
                             style="background:var(--bg-card2);border-color:var(--border);height:34px;width:148px;overflow:hidden;flex-shrink:0;white-space:nowrap">
                             <div class="flex items-center gap-1">
-                                <span class="text-[8px] font-semibold leading-none" style="color:var(--text-dim)">ท→us THB→USD</span>
+                                <span class="text-[8px] font-semibold leading-none" style="color:var(--text-dim)">THB → USD</span>
                                 <span id="fx-src-badge2" class="text-[7px] font-bold px-1 rounded" style="background:rgba(16,185,129,0.15);color:#10b981;display:none"></span>
                             </div>
                             <div class="flex items-baseline gap-1 mt-0.5" style="overflow:hidden">
@@ -1322,8 +1335,22 @@
                             style="background:linear-gradient(135deg,#1a73e8,#34a853);color:white">บันทึก</button>
                     </div>
 
-                    <!-- Spacer — pushes buttons to right -->
-                    <div class="flex-1"></div>
+                    <!-- AI Chatbox — inline same row as FX, grows to fill -->
+                    <div class="flex items-center gap-2 flex-1 min-w-0 rounded-xl px-3 border" style="background:var(--bg-card2);border-color:var(--border);height:34px">
+                        <div class="w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0" style="background:linear-gradient(135deg,#6366f1,#8b5cf6)">
+                            <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.347.347a3.5 3.5 0 01-4.95 0l-.347-.347z"/></svg>
+                        </div>
+                        <input id="ai-input" type="text" autocomplete="off" placeholder="ถาม AI นักวิเคราะห์... เช่น แนวรับ NVDA, outlook TSLA สัปดาห์นี้"
+                            class="flex-1 min-w-0 text-xs outline-none bg-transparent"
+                            style="color:var(--text-primary);font-family:var(--font-main)"
+                            onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendAiMessage()}">
+                        <button onclick="sendAiMessage()" id="ai-send-btn"
+                            class="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider flex-shrink-0"
+                            style="background:#6366f1;color:white">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+                            ส่ง
+                        </button>
+                    </div>
 
                     <!-- Action buttons — always right-aligned, never shrink -->
                     <div class="flex items-center gap-2 flex-shrink-0">
@@ -1346,33 +1373,6 @@
                     </div>
                 </div>
 
-                <!-- Row 2: AI chatbox — full width, never competes with FX -->
-                <div class="flex items-center gap-2 w-full">
-                    <div class="flex items-center gap-2 flex-1 min-w-0 rounded-xl px-3 py-1.5 border"
-                        style="background:var(--bg-card2);border-color:var(--border)">
-                        <div class="w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0"
-                            style="background:linear-gradient(135deg,#6366f1,#8b5cf6)">
-                            <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.347.347a3.5 3.5 0 01-4.95 0l-.347-.347z"/>
-                            </svg>
-                        </div>
-                        <input id="ai-input" type="text" autocomplete="off"
-                            placeholder="ถาม AI นักวิเคราะห์... เช่น แนวรับ NVDA, outlook TSLA สัปดาห์นี้"
-                            class="flex-1 min-w-0 text-xs outline-none bg-transparent"
-                            style="color:var(--text-primary);font-family:var(--font-main)"
-                            onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendAiMessage()}">
-                        <button onclick="sendAiMessage()" id="ai-send-btn"
-                            class="flex items-center gap-1 px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider flex-shrink-0 transition-all"
-                            style="background:#6366f1;color:white">
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
-                            </svg>
-                            ส่ง
-                        </button>
-                    </div>
-                </div>
-
-            </div>
 
 <!-- Add ticker input — Webull style -->
             <div id="add-ticker-bar" class="hidden rounded-xl p-3 flex items-center gap-2 relative" style="background:var(--bg-card2);border:1px solid var(--border)">
@@ -2325,10 +2325,10 @@
                     <td class="wl-col-hide" style="text-align:left;font-size:11px;color:var(--text-dim);overflow:hidden;text-overflow:ellipsis">${sk(80) ?? name}</td>
                     <td class="price-cell ${priceColor}" style="text-align:right">${sk(52) ?? (price !== null ? '$' + fmt(price) : '—')}</td>
                     <td class="num-cell ${changeColor} wl-col-hide" style="text-align:right;font-size:11px">${sk(40) ?? (change !== null ? (isUp ? '+' : '') + fmt(change) : '—')}</td>
-                    <td style="text-align:right">${sk(56) ??
+                    <td style="text-align:center">${sk(56) ??
                         (changePct !== null
-                            ? `<span style="display:inline-block;padding:1px 6px;border-radius:3px;font-size:11px;font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums" class="${isUp ? 'wl-badge-up' : 'wl-badge-dn'}">${arrow} ${Math.abs(changePct).toFixed(2)}%</span>`
-                            : '<span style="color:var(--text-dim);font-size:11px">—</span>')
+                            ? `<span class="${isUp ? 'wl-badge-up' : 'wl-badge-dn'}">${arrow} ${isUp?'+':''}${changePct.toFixed(2)}%</span>`
+                            : '<span class="wl-badge-neu">—</span>')
                     }</td>
                     <td class="td-stack wl-col-hide" style="text-align:right">${preMktHtml}</td>
                     <td class="wl-col-hide ${openColor}" style="text-align:right;font-size:11px">${sk(48) ?? (open !== null ? '$' + fmt(open) : '—')}</td>
@@ -2723,18 +2723,24 @@
                     return (now - (quoteTsCache[s] ?? 0)) > QUOTE_MIN_INTERVAL;
                 });
                 // 1 req per symbol, 8 at a time = max 8 req in-flight, very safe
-                await throttledAll(needsQuote, 8, async (symbol) => {
-                    try {
-                        const r = await finnhubFetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${key}`);
-                        if (!r.ok) return;
-                        const q = await r.json();
-                        quoteTsCache[symbol] = Date.now();
-                        // Also refresh pre/after-hours data from Yahoo
-                        const preData = await fetchExtendedHours(symbol, q.c);
-                        const merged = { ...profileCache[symbol], ...wlDataCache[symbol], ...q, ...preData };
-                        wlDataCache[symbol] = merged;
-                        updateWatchlistPriceCells(symbol, merged);
-                    } catch(e) {}
+                // Fetch all quotes in parallel, then render all at once — no staggered flicker
+                const _quoteResults = await Promise.allSettled(needsQuote.map(async (symbol) => {
+                    const r = await finnhubFetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${key}`);
+                    if (!r.ok) return null;
+                    const q = await r.json();
+                    const preData = await fetchExtendedHours(symbol, q.c);
+                    return { symbol, data: { ...profileCache[symbol], ...wlDataCache[symbol], ...q, ...preData } };
+                }));
+                // Batch render after all fetches complete
+                _quoteResults.forEach(res => {
+                    if (res.status !== 'fulfilled' || !res.value) return;
+                    const { symbol, data } = res.value;
+                    quoteTsCache[symbol] = Date.now();
+                    wlDataCache[symbol] = data;
+                });
+                // Single render pass — all symbols update simultaneously
+                needsQuote.forEach(symbol => {
+                    if (wlDataCache[symbol]) updateWatchlistPriceCells(symbol, wlDataCache[symbol]);
                 });
             }
 
@@ -2819,6 +2825,19 @@
                 }
             }
             setText(cells[3], newPriceText);
+
+            // cells[4] = CHG ($)
+            if (cells[4]) {
+                setClass(cells[4], `px-3 py-2 text-right num-cell wl-col-hide text-sm ${changeColor}`);
+                setText(cells[4], change !== null ? (isUp ? '+' : '') + fmt(change) : '\u2014');
+            }
+            // cells[5] = CHG%
+            if (cells[5]) {
+                setClass(cells[5], 'px-2 py-2 text-center');
+                const pctTxt = changePct !== null ? `${arrow} ${isUp?'+':''}${changePct.toFixed(2)}%` : '\u2014';
+                const badgeCls = changePct === null ? 'wl-badge-neu' : isUp ? 'wl-badge-up' : 'wl-badge-dn';
+                cells[5].innerHTML = `<span class="${badgeCls}">${pctTxt}</span>`;
+            }
 
             // Update pre-market cell (col index 6)
             // ── Critical: preserve Alpaca pre-market value if already fetched ──
@@ -2969,7 +2988,8 @@
                 hide_legend: false,
                 save_image: false,
                 calendar: false,
-                hide_volume: false,
+                hide_volume: true,
+                studies: ['STD;Volume'],
                 autosize: true,
                 support_host: 'https://www.tradingview.com',
                 width: '100%',
@@ -3488,17 +3508,326 @@
                 } catch { return null; }
             };
 
-            // Fire all requests in parallel
-            const [earnings, recommend, priceTarget, insider, upgrades, sentiment, earningsCal, newsRaw] = await Promise.all([
+            // Fire 5 highest-impact requests (skip insider/upgrades/news to save ~1-2s)
+            const [earnings, recommend, priceTarget, sentiment, earningsCal] = await Promise.all([
                 get(`${base}/stock/earnings?symbol=${symbol}&limit=4&token=${fKey}`),
                 get(`${base}/stock/recommendation?symbol=${symbol}&token=${fKey}`),
                 get(`${base}/stock/price-target?symbol=${symbol}&token=${fKey}`),
-                get(`${base}/stock/insider-transactions?symbol=${symbol}&token=${fKey}`),
-                get(`${base}/stock/upgrade-downgrade?symbol=${symbol}&limit=5&token=${fKey}`),
                 get(`${base}/news-sentiment?symbol=${symbol}&token=${fKey}`),
                 get(`${base}/calendar/earnings?symbol=${symbol}&from=${new Date().toISOString().slice(0,10)}&to=${new Date(Date.now()+90*864e5).toISOString().slice(0,10)}&token=${fKey}`),
-                get(`${base}/company-news?symbol=${symbol}&from=${new Date(Date.now()-7*864e5).toISOString().slice(0,10)}&to=${new Date().toISOString().slice(0,10)}&token=${fKey}`),
             ]);
+            const insider = null, upgrades = null, newsRaw = null;
+
+            let out = `\n═══ ${symbol} FUNDAMENTAL & SENTIMENT DATA ═══`;
+
+            // Earnings history
+            if (Array.isArray(earnings) && earnings.length) {
+                out += `\nEARNINGS (recent quarters):`;
+                earnings.slice(0,4).forEach(e => {
+                    const beat = e.actual != null && e.estimate != null
+                        ? (e.actual > e.estimate ? '✅ Beat' : e.actual < e.estimate ? '❌ Miss' : '➖ Met')
+                        : '';
+                    out += `\n  Q${e.period||''}: Actual EPS $${e.actual??'N/A'} vs Est $${e.estimate??'N/A'} ${beat} | Surprise: ${e.surprisePercent!=null?e.surprisePercent.toFixed(1)+'%':'N/A'}`;
+                });
+            }
+
+            // Analyst recommendations
+            if (Array.isArray(recommend) && recommend.length) {
+                const r = recommend[0];
+                out += `\nANALYST CONSENSUS (latest): Strong Buy:${r.strongBuy} Buy:${r.buy} Hold:${r.hold} Sell:${r.sell} Strong Sell:${r.strongSell} (as of ${r.period||'N/A'})`;
+            }
+
+            // Price target
+            if (priceTarget && priceTarget.targetMean) {
+                out += `\nANALYST PRICE TARGET: Mean $${priceTarget.targetMean?.toFixed(2)} | High $${priceTarget.targetHigh?.toFixed(2)} | Low $${priceTarget.targetLow?.toFixed(2)} | Median $${priceTarget.targetMedian?.toFixed(2)} (${priceTarget.numberOfAnalysts} analysts)`;
+            }
+
+            // Insider transactions (last 5)
+            const txns = insider?.data || insider;
+            if (Array.isArray(txns) && txns.length) {
+                const recent = txns.slice(0,5);
+                const buys  = recent.filter(t => (t.transactionType||t.change||0) > 0 || (t.transactionType||'').toLowerCase().includes('buy'));
+                const sells = recent.filter(t => (t.transactionType||'').toLowerCase().includes('sell') || (t.change||0) < 0);
+                out += `\nINSIDER TRANSACTIONS (recent): ${buys.length} buys, ${sells.length} sells`;
+                recent.slice(0,3).forEach(t => {
+                    out += `\n  ${t.name||'Unknown'} (${t.position||t.title||'exec'}): ${t.transactionType||'transaction'} ${t.share!=null?t.share.toLocaleString()+' shares':''} @ $${t.transactionPrice||'N/A'} on ${t.transactionDate||t.date||'N/A'}`;
+                });
+            }
+
+            // Upgrades/Downgrades
+            if (Array.isArray(upgrades) && upgrades.length) {
+                out += `\nRECENT UPGRADES/DOWNGRADES:`;
+                upgrades.slice(0,4).forEach(u => {
+                    out += `\n  ${u.company||'Firm'}: ${u.fromGrade||'?'} → ${u.toGrade||'?'} (${u.action||''}) on ${u.gradeDate||'N/A'}`;
+                });
+            }
+
+            // Sentiment
+            if (sentiment && sentiment.companyNewsScore != null) {
+                const score = sentiment.companyNewsScore;
+                const label = score > 0.6 ? 'Positive 📈' : score < 0.4 ? 'Negative 📉' : 'Neutral ➖';
+                out += `\nNEWS SENTIMENT: ${label} (score: ${score.toFixed(2)}) | Buzz: ${sentiment.buzz?.articlesInLastWeek||0} articles/week | Sector avg: ${sentiment.sectorAverageNewsScore?.toFixed(2)||'N/A'}`;
+            }
+
+            // Upcoming earnings date
+            const upcomingList = earningsCal?.earningsCalendar || [];
+            if (upcomingList.length) {
+                const next = upcomingList[0];
+                out += `\nNEXT EARNINGS DATE: ${next.date||'N/A'} | Est EPS: $${next.epsEstimate??'N/A'} | Est Revenue: $${next.revenueEstimate!=null?(next.revenueEstimate/1e9).toFixed(2)+'B':'N/A'}`;
+            }
+
+            // Recent news headlines (top 4)
+            if (Array.isArray(newsRaw) && newsRaw.length) {
+                out += `\nRECENT NEWS (last 7 days):`;
+                newsRaw.slice(0,4).forEach(n => {
+                    out += `\n  • ${n.headline||''}`;
+                });
+            }
+
+            return out;
+        }
+
+        let aiChatHistory = [];
+        let _cachedFreeModels = null;  // cached from OpenRouter, refreshed every 30min
+        let _cachedModelsAt = 0;
+
+        function getAiKey() { return localStorage.getItem('ps_openrouter_key') || ''; }
+
+        function saveAiKey() {
+            const k = document.getElementById('ai-key-input').value.trim();
+            if (!k) return;
+            localStorage.setItem('ps_openrouter_key', k);
+            document.getElementById('ai-key-panel').classList.add('hidden');
+            updateAiStatus();
+        }
+
+        function clearAiKey() {
+            localStorage.removeItem('ps_openrouter_key');
+            document.getElementById('ai-key-input').value = '';
+            updateAiStatus();
+        }
+
+        function toggleAiKeyPanel() {
+            const panel = document.getElementById('ai-key-panel');
+            panel.classList.toggle('hidden');
+            if (!panel.classList.contains('hidden')) {
+                const k = getAiKey();
+                document.getElementById('ai-key-input').value = k ? '••••••••' + k.slice(-4) : '';
+                setTimeout(() => document.getElementById('ai-key-input').focus(), 50);
+            }
+        }
+
+        function updateAiStatus() {
+            const dot  = document.getElementById('ai-status-dot');
+            const text = document.getElementById('ai-status-text');
+            if (getAiKey()) {
+                dot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-400';
+                text.textContent = 'พร้อมใช้งาน';
+            } else {
+                dot.className = 'w-1.5 h-1.5 rounded-full bg-gray-400';
+                text.textContent = 'ยังไม่มี API Key';
+            }
+        }
+
+        function escHtml(s) {
+            return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        }
+
+        // ── Chat Popup ──────────────────────────────────────────────────────────
+        function openAiPopup() {
+            document.getElementById('ai-popup').classList.remove('hidden');
+            document.getElementById('ai-fab').classList.add('hidden');
+            document.getElementById('ai-popup-input').focus();
+            initAiDrag();
+        }
+
+        function minimizeAiPopup() {
+            document.getElementById('ai-popup').classList.add('hidden');
+            document.getElementById('ai-fab').classList.remove('hidden');
+        }
+
+        function restoreAiPopup() {
+            document.getElementById('ai-fab').classList.add('hidden');
+            document.getElementById('ai-popup').classList.remove('hidden');
+            document.getElementById('ai-popup-input').focus();
+        }
+
+        function closeAiPopup() { minimizeAiPopup(); }
+
+        function initAiDrag() {
+            const popup  = document.getElementById('ai-popup');
+            const header = document.getElementById('ai-popup-header');
+            if (popup._dragInited) return;
+            popup._dragInited = true;
+
+            let startX, startY, startRight, startBottom, dragging = false;
+
+            header.addEventListener('mousedown', e => {
+                if (e.button !== 0) return;
+                dragging = true;
+                startX = e.clientX;
+                startY = e.clientY;
+                const rect = popup.getBoundingClientRect();
+                startRight  = window.innerWidth  - rect.right;
+                startBottom = window.innerHeight - rect.bottom;
+                header.style.cursor = 'grabbing';
+                e.preventDefault();
+            });
+
+            document.addEventListener('mousemove', e => {
+                if (!dragging) return;
+                const dx = e.clientX - startX;
+                const dy = e.clientY - startY;
+                const newRight  = Math.max(8, Math.min(window.innerWidth  - 100, startRight  - dx));
+                const newBottom = Math.max(8, Math.min(window.innerHeight - 60,  startBottom - dy));
+                popup.style.right  = newRight  + 'px';
+                popup.style.bottom = newBottom + 'px';
+            });
+
+            document.addEventListener('mouseup', () => {
+                dragging = false;
+                header.style.cursor = 'grab';
+            });
+
+            // Wheel block
+            const panel = document.getElementById('ai-popup-panel');
+            if (!panel._wheelBlocked) {
+                panel.addEventListener('wheel', e => e.stopPropagation(), { passive: true });
+                panel._wheelBlocked = true;
+            }
+        }
+
+        function clearAiChat() {
+            aiChatHistory = [];
+            document.getElementById('ai-popup-messages').innerHTML = `
+                <div class="flex items-start gap-3">
+                    <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style="background:linear-gradient(135deg,#1a73e8,#34a853)">
+                        <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.347.347a3.5 3.5 0 01-4.95 0l-.347-.347z"/></svg>
+                    </div>
+                    <div class="flex-1">
+                        <div class="text-[10px] font-bold mb-1.5" style="color:#4285f4">AI ANALYST</div>
+                        <div class="text-sm leading-relaxed" style="color:var(--text-secondary)">สวัสดีครับ ถามได้เลยเรื่องแนวรับ/แนวต้าน, ข่าวล่าสุด หรือ outlook ของหุ้นใดก็ได้ครับ</div>
+                    </div>
+                </div>`;
+        }
+
+        function appendPopupMessage(role, text, isLoading = false) {
+            const container = document.getElementById('ai-popup-messages');
+            const id = 'pmsg-' + Date.now();
+            const isUser = role === 'user';
+            const ts = new Date().toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'});
+            const html = isUser
+                ? `<div id="${id}" class="flex flex-col items-end gap-0.5">
+                    <div class="max-w-[80%] px-4 py-2.5 rounded-2xl rounded-tr-sm text-sm leading-relaxed" style="background:linear-gradient(135deg,#1a73e8,#0d47a1);color:white">${escHtml(text)}</div>
+                    <span class="text-[9px]" style="color:var(--text-dim)">${ts}</span>
+                   </div>`
+                : `<div id="${id}" class="flex items-start gap-3">
+                    <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5" style="background:linear-gradient(135deg,#1a73e8,#34a853)">
+                        <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.347.347a3.5 3.5 0 01-4.95 0l-.347-.347z"/></svg>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 mb-1.5">
+                            <span class="text-[10px] font-bold" style="color:#4285f4">AI ANALYST</span>
+                            <span class="text-[9px]" style="color:var(--text-dim)">${ts}</span>
+                        </div>
+                        <div class="ai-msg-body text-sm leading-relaxed" style="color:var(--text-secondary);white-space:pre-wrap">${isLoading ? '<span class="ai-typing">กำลังวิเคราะห์<span class="dots">...</span></span>' : escHtml(text)}</div>
+                    </div>
+                   </div>`;
+            container.insertAdjacentHTML('beforeend', html);
+            container.scrollTop = container.scrollHeight;
+            return id;
+        }
+
+        function aiQuickAsk(btn) {
+            const text = btn.textContent.replace(/^[\S]+\s/, '').trim();
+            document.getElementById('ai-input').value = text;
+            sendAiMessage();
+        }
+
+        // ── Technical Analysis: fetch candles → compute SMA, Fibonacci, key levels ──
+        async function fetchTechnicals(symbol, finnhubKey) {
+            try {
+                const to   = Math.floor(Date.now() / 1000);
+                const from = to - 90 * 24 * 3600; // 90 days
+                const url  = `https://finnhub.io/api/v1/stock/candle?symbol=${symbol}&resolution=D&from=${from}&to=${to}&token=${finnhubKey}`;
+                const res  = await fetch(url);
+                const d    = await res.json();
+                if (!d || d.s !== 'ok' || !d.c?.length) return null;
+
+                const closes = d.c, highs = d.h, lows = d.l, vols = d.v || [];
+                const n = closes.length;
+                if (n < 20) return null;
+
+                // SMA
+                const sma = (arr, period) => {
+                    const slice = arr.slice(-period);
+                    return +(slice.reduce((a,b)=>a+b,0)/slice.length).toFixed(2);
+                };
+                const sma20  = sma(closes, 20);
+                const sma50  = n >= 50 ? sma(closes, 50) : null;
+                const sma200 = n >= 200 ? sma(closes, 200) : null;
+
+                // Swing High/Low over last 90 days for Fibonacci
+                const swingHigh = Math.max(...highs);
+                const swingLow  = Math.min(...lows);
+                const diff = swingHigh - swingLow;
+                const fib = {
+                    '100%': +swingHigh.toFixed(2),
+                    '78.6%': +(swingHigh - diff * 0.214).toFixed(2),
+                    '61.8%': +(swingHigh - diff * 0.382).toFixed(2),
+                    '50%':   +(swingHigh - diff * 0.500).toFixed(2),
+                    '38.2%': +(swingHigh - diff * 0.618).toFixed(2),
+                    '23.6%': +(swingHigh - diff * 0.764).toFixed(2),
+                    '0%':    +swingLow.toFixed(2),
+                };
+
+                // Volume-weighted key levels: find price clusters with high volume
+                const recent20 = closes.slice(-20);
+                const minP = Math.min(...recent20), maxP = Math.max(...recent20);
+                const buckets = 10;
+                const bucketSize = (maxP - minP) / buckets || 1;
+                const volBuckets = new Array(buckets).fill(0);
+                for (let i = n - 20; i < n; i++) {
+                    const idx = Math.min(Math.floor((closes[i] - minP) / bucketSize), buckets - 1);
+                    volBuckets[idx] += (vols[i] || 1);
+                }
+                const topBucketIdx = volBuckets.indexOf(Math.max(...volBuckets));
+                const hvLevel = +(minP + (topBucketIdx + 0.5) * bucketSize).toFixed(2);
+
+                // Recent pivot highs/lows (last 20 candles, look-back 3)
+                const pivots = { supports: [], resistances: [] };
+                for (let i = 3; i < n - 3; i++) {
+                    const isLow  = lows[i]  < Math.min(...lows.slice(i-3,i), ...lows.slice(i+1,i+4));
+                    const isHigh = highs[i] > Math.max(...highs.slice(i-3,i), ...highs.slice(i+1,i+4));
+                    if (isLow  && i >= n - 30) pivots.supports.push(+lows[i].toFixed(2));
+                    if (isHigh && i >= n - 30) pivots.resistances.push(+highs[i].toFixed(2));
+                }
+
+                return { sma20, sma50, sma200, fib, hvLevel, pivots, swingHigh: +swingHigh.toFixed(2), swingLow: +swingLow.toFixed(2) };
+            } catch(e) {
+                return null;
+            }
+        }
+
+        // ── Fetch all extra Finnhub data for AI context ──────────────────────────
+        async function fetchAiContext(symbol, fKey) {
+            const base = `https://finnhub.io/api/v1`;
+            const get  = async (url) => {
+                try {
+                    const r = await fetch(url);
+                    return r.ok ? await r.json() : null;
+                } catch { return null; }
+            };
+
+            // Fire 5 highest-impact requests (skip insider/upgrades/news to save ~1-2s)
+            const [earnings, recommend, priceTarget, sentiment, earningsCal] = await Promise.all([
+                get(`${base}/stock/earnings?symbol=${symbol}&limit=4&token=${fKey}`),
+                get(`${base}/stock/recommendation?symbol=${symbol}&token=${fKey}`),
+                get(`${base}/stock/price-target?symbol=${symbol}&token=${fKey}`),
+                get(`${base}/news-sentiment?symbol=${symbol}&token=${fKey}`),
+                get(`${base}/calendar/earnings?symbol=${symbol}&from=${new Date().toISOString().slice(0,10)}&to=${new Date(Date.now()+90*864e5).toISOString().slice(0,10)}&token=${fKey}`),
+            ]);
+            const insider = null, upgrades = null, newsRaw = null;
 
             let out = `\n═══ ${symbol} FUNDAMENTAL & SENTIMENT DATA ═══`;
 
@@ -3624,6 +3953,13 @@
             // Markdown renderer + think-block stripper
             function renderMd(text) {
                 text = text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+                if (window.marked) {
+                    try {
+                        marked.setOptions({ breaks: true, gfm: true });
+                        return marked.parse(text);
+                    } catch(e) {}
+                }
+                // Fallback
                 let s = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
                 s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
                 s = s.replace(/\*(.+?)\*/g, '<em>$1</em>');
@@ -3644,38 +3980,40 @@
 
             const ctrl = new AbortController();
             window._aiAbort = ctrl;
-            const tid = setTimeout(() => ctrl.abort(), 120000);
+            const tid = setTimeout(() => ctrl.abort(), 40000);
 
-            const MODELS = [
-                'openrouter/free',
-                'meta-llama/llama-3.3-70b-instruct:free',
-                'mistralai/mistral-7b-instruct:free',
-                'deepseek/deepseek-r1-0528:free',
-                'google/gemma-3-27b-it:free',
-            ];
+            // Probe each candidate to find working models — cached 30min
+            // Single model: StepFun Step 3.5 Flash (free)
+            const MODELS = ['stepfun/step-3.5-flash:free','meta-llama/llama-3.3-70b-instruct:free','google/gemma-3-27b-it:free'];
 
             // Detect which symbols are mentioned in the question
             const mentionedSyms = watchlist.filter(s => text.toUpperCase().includes(s.toUpperCase())).slice(0, 3);
             const fKey = getFinnhubKey();
 
-            // Fetch technicals + full context for mentioned symbols
+            // Fetch technicals with 5s timeout — AI starts immediately if Finnhub slow
             let techSections = '';
             let contextSections = '';
             if (mentionedSyms.length > 0 && fKey) {
-                setInfo('📊 กำลังดึงข้อมูล Technical + Fundamental...');
-                const [techResults, ctxResults] = await Promise.all([
-                    Promise.all(mentionedSyms.map(s => fetchTechnicals(s, fKey))),
-                    Promise.all(mentionedSyms.map(s => fetchAiContext(s, fKey))),
-                ]);
-                techSections = mentionedSyms.map((sym, i) => {
-                    const t = techResults[i];
-                    if (!t) return '';
-                    const fibLines = Object.entries(t.fib).map(([k,v]) => `  Fib ${k}: $${v}`).join('\n');
-                    const supports = t.pivots.supports.length ? t.pivots.supports.slice(-3).join(', ') : 'none';
-                    const resists  = t.pivots.resistances.length ? t.pivots.resistances.slice(-3).join(', ') : 'none';
-                    return `\n${sym} TECHNICAL ANALYSIS (90-day):\n  SMA20: $${t.sma20}${t.sma50?` | SMA50: $${t.sma50}`:''}${t.sma200?` | SMA200: $${t.sma200}`:''}\n  90d Range: $${t.swingLow}–$${t.swingHigh}\n  Fibonacci:\n${fibLines}\n  High-Volume Level: $${t.hvLevel}\n  Pivot Supports: ${supports}\n  Pivot Resistances: ${resists}`;
-                }).join('\n');
-                contextSections = ctxResults.filter(Boolean).join('\n');
+                setInfo('📊 กำลังดึงข้อมูล Technical...');
+                try {
+                    const _timedFetch = Promise.race([
+                        Promise.all([
+                            Promise.all(mentionedSyms.map(s => fetchTechnicals(s, fKey))),
+                            Promise.all(mentionedSyms.map(s => fetchAiContext(s, fKey))),
+                        ]),
+                        new Promise(res => setTimeout(() => res([[],[]]), 5000))
+                    ]);
+                    const [techResults, ctxResults] = await _timedFetch;
+                    techSections = mentionedSyms.map((sym, i) => {
+                        const t = techResults[i];
+                        if (!t) return '';
+                        const fibLines = Object.entries(t.fib).map(([k,v]) => `  Fib ${k}: $${v}`).join('\n');
+                        const supports = t.pivots.supports.length ? t.pivots.supports.slice(-3).join(', ') : 'none';
+                        const resists  = t.pivots.resistances.length ? t.pivots.resistances.slice(-3).join(', ') : 'none';
+                        return '\n' + sym + ' TECHNICAL ANALYSIS (90-day):\n  SMA20: $' + t.sma20 + (t.sma50?' | SMA50: $'+t.sma50:'') + (t.sma200?' | SMA200: $'+t.sma200:'') + '\n  90d Range: $' + t.swingLow + '–$' + t.swingHigh + '\n  Fibonacci:\n' + fibLines + '\n  High-Volume Level: $' + t.hvLevel + '\n  Pivot Supports: ' + supports + '\n  Pivot Resistances: ' + resists;
+                    }).join('\n');
+                    contextSections = ctxResults.filter(Boolean).join('\n');
+                } catch(_te) { /* timeout or error — proceed without technical data */ }
             }
 
             // Build realtime market data from Finnhub cache
@@ -3687,28 +4025,34 @@
                 return `${sym}${name}: ราคา $${p.toFixed(2)}, เปลี่ยน ${ch>=0?'+':''}${ch?.toFixed(2)}%, สูง $${hi?.toFixed(2)}, ต่ำ $${lo?.toFixed(2)}, ปิดก่อนหน้า $${pc?.toFixed(2)}, 52wk H/L $${d.week52High??'N/A'}/$${d.week52Low??'N/A'}, PE ${d.pe??'N/A'}, Beta ${d.beta??'N/A'}`;
             }).filter(Boolean).join('\n');
 
-            const sysPrompt = `You are a professional stock analyst with access to comprehensive LIVE data from Finnhub below. Use ALL data provided as your primary source. Answer in Thai if user writes Thai, English if English.
+            const sysPrompt = `You are an elite financial analyst and geopolitical intelligence advisor with access to LIVE Finnhub data. Be direct, precise, data-driven. Answer in Thai if user writes Thai, English if English.
 
-CURRENT DATE/TIME: ${new Date().toLocaleString('th-TH', {timeZone:'Asia/Bangkok'})} (Bangkok time)
+DATE/TIME: ${new Date().toLocaleString('th-TH', {timeZone:'Asia/Bangkok'})} Bangkok time
 
-GLOBAL CONTEXT (知识截止 March 2026 — always factor these into analysis):
-- US-Iran-Israel military tensions escalating (March 2026) — oil price risk, defense stocks elevated
-- US-China trade war: semiconductor export restrictions tightening, affecting NVDA, AMD, QCOM
-- Fed rate policy: rates elevated, watching for cuts in mid-2026
-- Nasdaq/tech sector under pressure from macro uncertainty and AI spending scrutiny
-- Thai Baht: USD/THB ~${document.getElementById('fx-rate')?.textContent?.replace(' THB','') || '33-35'} — factor into USD-denominated stock analysis for Thai investors
+## WORLD CONTEXT (March 2026)
+- MIDDLE EAST: US-Iran-Israel military tensions high — oil supply disruption risk, energy/defense stocks affected
+- TRADE WAR: US-China tariffs 145%+; semiconductor export controls tightened Jan 2026 (NVDA, AMD, QCOM, AMAT exposed)
+- UKRAINE: Ceasefire talks stalled — European defense spending surging; European energy prices volatile
+- FED: Rates 4.25-4.5%; 2 cuts expected 2026 if CPI stays under 3% — rate-sensitive sectors watch closely
+- AI CAPEX: DeepSeek shock triggered AI spending scrutiny; MSFT, META, GOOGL, AMZN capex under investor microscope
+- COMMODITIES: Oil $68-75 (geopolitical premium); Gold $3,100+ (safe haven demand)
+- FX: USD/THB ~${document.getElementById('fx-rate')?.textContent?.replace(' THB','') || '33-35'} — Thai investors must factor currency risk on USD assets
+- TESLA/EV: Musk political backlash (DOGE, Trump admin ties) weighing on brand; China EV competition intensifying
+- TRUMP TARIFFS: Broad tariff policy uncertainty — consumer goods, autos, pharma sectors most exposed
 
-LIVE MARKET DATA (refreshed minutes ago):
-${mkData || '(no watchlist data)'}
+## LIVE FINNHUB DATA
+${mkData || '(ไม่มีข้อมูล watchlist)'}
 ${techSections}
 ${contextSections}
 
-Analysis guidelines:
-- Always mention relevant geopolitical risks that could affect the stock
-- Support/resistance: use SMA, Fibonacci, pivot points — NOT just day high/low
-- Factor in analyst consensus, price targets, earnings surprises, and insider activity
-- Mention upcoming earnings dates as key risk events
-- Be specific with numbers from the live data above`;
+## YOUR ANALYSIS MUST:
+1. Use ONLY live numbers above — never estimate prices not shown
+2. Cite exact levels: SMA20/50/200, Fibonacci, pivot supports/resistances
+3. Link macro events directly to this stock's specific exposure
+4. State analyst consensus + price target range + next earnings date
+5. Give SHORT-TERM view (1-5 days) AND MEDIUM-TERM view (1-3 months)
+6. FORMAT: ตอบเป็นภาษาไทย ใช้ **ตัวหนา** สำหรับตัวเลขและคำสำคัญเท่านั้น ห้ามใช้ nested list หรือ sub-bullet ห้ามใช้ ### header ตอบเป็นย่อหน้าสั้นๆ ต่อเนื่อง เว้นบรรทัดเดียวระหว่างประเด็น ถ้ามีรายการให้เขียนในบรรทัดเดียวคั่นด้วยลูกน้ำ เช่น แนวรับ: **80**, **76** แนวต้าน: **85**, **90**
+7. End with concise Risk ⚠️ / Reward 🎯 summary`;
 
             const msgs = [
                 { role:'system', content: sysPrompt },
@@ -3746,49 +4090,58 @@ Analysis guidelines:
                 let replied = false;
                 let attempt = 0;
                 while (!replied && !ctrl.signal.aborted) {
-                    const model = MODELS[attempt % MODELS.length];
-                    const name  = model === 'openrouter/free' ? 'Auto Free' :
-                                  (model.split('/')[1]?.replace(':free','') || model);
-                    setInfo(`🔗 กำลังเชื่อมต่อ${attempt > 0 ? ` (ครั้งที่ ${attempt+1})` : ''}...`);
+                    if (attempt >= MODELS.length) { setErr("ทุก model ล้มเหลว (" + MODELS.length + " ตัว) — กรุณาลองใหม่"); break; }
+                    const model = MODELS[attempt];
+                    const mName = model.split('/')[1]?.split(':')[0] || model;
+                    setInfo('🔗 กำลังเชื่อมต่อ (' + mName + ')' + (attempt > 0 ? ' ครั้งที่ ' + (attempt+1) : '') + '...');
 
+                    const reqCtrl = new AbortController();
+                    const reqTid  = setTimeout(() => reqCtrl.abort(), 25000);
+                    const fwdAbort = () => reqCtrl.abort();
+                    ctrl.signal.addEventListener("abort", fwdAbort, {once:true});
                     let res, data;
                     try {
-                        res  = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-                            method:'POST',
-                            headers:{'Content-Type':'application/json','Authorization':`Bearer ${cleanKey}`},
-                            signal: ctrl.signal,
-                            body: JSON.stringify({ model, messages:msgs, max_tokens:3000, temperature:0.3 })
+                        res  = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                            method:"POST",
+                            headers:{"Content-Type":"application/json","Authorization":`Bearer ${cleanKey}`},
+                            signal: reqCtrl.signal,
+                            body: JSON.stringify({ model, messages:msgs, max_tokens:2500, temperature:0.3 })
                         });
                         data = await res.json();
                     } catch(fetchErr) {
-                        if (fetchErr.name === 'AbortError') throw fetchErr;
+                        clearTimeout(reqTid);
+                        ctrl.signal.removeEventListener("abort", fwdAbort);
+                        if (ctrl.signal.aborted) throw new DOMException("","AbortError");
                         attempt++;
-                        if (attempt >= MODELS.length * 2) { setErr('ไม่สามารถเชื่อมต่อ OpenRouter ได้ กรุณาตรวจสอบอินเทอร์เน็ต'); break; }
-                        setInfo(`⚠️ เชื่อมต่อไม่ได้ ลองใหม่...`);
-                        await new Promise(r => setTimeout(r, 1500));
+                        if (attempt >= MODELS.length) { setErr("ทุก model ไม่ตอบสนอง กรุณาลองใหม่"); break; }
+                        setInfo('🔗 กำลังเชื่อมต่อ...');
+                        await new Promise(r => setTimeout(r, 200));
                         continue;
                     }
+                    clearTimeout(reqTid);
+                    ctrl.signal.removeEventListener("abort", fwdAbort);
 
-                    if (res.status === 429) {
-                        setInfo(`⏳ Server เต็ม กำลังลองใหม่...`);
-                        await new Promise((r,rej) => {
-                            const t = setTimeout(r, 4000);
-                            ctrl.signal.addEventListener('abort', ()=>{ clearTimeout(t); rej(new DOMException('','AbortError')); },{once:true});
-                        });
-                        attempt++;
-                        continue;
-                    }
+                    if (res.status === 429) { attempt++; setInfo('🔗 กำลังเชื่อมต่อ...'); await new Promise(r=>setTimeout(r,400)); continue; }
 
-                    if (!res.ok || data.error) {
+                    if (res.status===401){setErr('❌ API Key ไม่ถูกต้อง');break;}
+                    if (res.status===402){setErr('❌ OpenRouter เครดิตหมด — เติมเงิน openrouter.ai/credits');break;}
+                    if (!res.ok || data?.error) {
+                        const em = data?.error?.message || `HTTP ${res.status}`;
                         attempt++;
-                        if (attempt >= MODELS.length * 2) { setErr(`ไม่มี model ใดพร้อมใช้งาน กรุณาลองใหม่อีกสักครู่`); break; }
-                        setInfo(`⚠️ ลอง model อื่น...`);
-                        await new Promise(r => setTimeout(r, 500));
+                        if (attempt >= MODELS.length) { setErr(`ทุก model ล้มเหลว: ${em}`); break; }
+                        setInfo('🔗 กำลังเชื่อมต่อ...');
+                        await new Promise(r => setTimeout(r, 400));
                         continue;
                     }
 
                     let reply = data.choices?.[0]?.message?.content;
-                    if (!reply) { attempt++; continue; }
+                    if (!reply) {
+                        attempt++;
+                        if (attempt >= MODELS.length) { setErr('ทุก model ตอบว่าง กรุณาลองใหม่อีกครั้ง'); break; }
+                        setInfo('🔗 กำลังเชื่อมต่อ...');
+                        await new Promise(r => setTimeout(r, 200));
+                        continue;
+                    }
 
                     // Detect truncation — if finish_reason is 'length', continue the response
                     const finishReason = data.choices?.[0]?.finish_reason;
@@ -4284,7 +4637,7 @@ Analysis guidelines:
                 gistStatusTimer = setTimeout(() => {
                     el.className = 'text-[10px] font-bold uppercase tracking-widest leading-none';
                     el.style.color = 'var(--text-dim)';
-                    el.innerText = localStorage.getItem('ps_dbname') || 'Ready';
+                    const _sv=localStorage.getItem('ps_dbname')||''; el.innerText=_sv||(getGistToken()?'Ready':'LOCAL MODE');
                 }, 2500);
             }
         }
@@ -4374,8 +4727,12 @@ Analysis guidelines:
                         try { localStorage.setItem('ps_avatar', db.avatar); } catch(e) {}
                     }
                     if (typeof data.meta?.dark === 'boolean') {
-                        applyDarkMode(data.meta.dark);
-                        try { localStorage.setItem('ps_dark', data.meta.dark ? '1' : '0'); } catch(e) {}
+                        // localStorage always wins — only apply Gist dark if no local preference
+                        const localPref = localStorage.getItem('ps_dark');
+                        if (localPref === null) {
+                            applyDarkMode(data.meta.dark);
+                            try { localStorage.setItem('ps_dark', data.meta.dark ? '1' : '0'); } catch(e) {}
+                        }
                     }
                 }
 
@@ -4653,9 +5010,10 @@ Analysis guidelines:
         }
 
         window.onload = () => {
-            // Apply dark mode immediately before render
+            // Apply dark mode immediately — localStorage is the source of truth
             const savedDark = localStorage.getItem('ps_dark');
             applyDarkMode(savedDark === '1');
+            if (savedDark === null) localStorage.setItem('ps_dark', '0'); // init default
 
             try {
                 const saved = localStorage.getItem('ps_records');
@@ -4880,7 +5238,7 @@ Analysis guidelines:
          style="bottom:24px;right:24px;width:520px;max-width:calc(100vw - 32px)">
         <div id="ai-popup-panel"
              class="flex flex-col rounded-md shadow-2xl overflow-hidden"
-             style="height:420px;background:var(--bg-card);border:1px solid var(--border);overscroll-behavior:contain"
+             style="height:600px;background:var(--bg-card);border:1px solid var(--border);overscroll-behavior:contain"
              onwheel="event.stopPropagation()">
 
             <!-- Header (drag handle) -->
