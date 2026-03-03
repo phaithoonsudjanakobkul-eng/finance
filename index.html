@@ -539,29 +539,36 @@
             -moz-osx-font-smoothing: grayscale;
         }
 
-        /* ── Watchlist table font — uniform Inter weight ── */
+        /* ── Watchlist table — Bloomberg-grade professional layout ── */
         #watchlist-table {
             table-layout: fixed;
             border-collapse: collapse;
             width: 100%;
         }
+        /* ALL th: right-aligned by default, left only for text columns */
         #watchlist-table th {
             font-family: var(--font-main);
-            font-weight: 600;
+            font-weight: 700;
             font-size: 10px;
-            letter-spacing: 0.06em;
+            letter-spacing: 0.07em;
             text-transform: uppercase;
             color: var(--text-dim);
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
             vertical-align: middle;
-            padding: 5px 8px;
+            padding: 6px 8px;
+            text-align: right; /* Bloomberg default: numeric headers right */
         }
+        /* Left-align only #, SYMBOL, NAME headers */
+        #watchlist-table th:nth-child(1),
+        #watchlist-table th:nth-child(2),
+        #watchlist-table th:nth-child(3) { text-align: left; }
+        /* ALL td: right-aligned by default */
         #watchlist-table td {
             font-family: var(--font-main);
             font-weight: 400;
-            font-size: 12px;
+            font-size: 11.5px;
             color: var(--text-secondary);
             font-variant-numeric: tabular-nums;
             white-space: nowrap;
@@ -571,51 +578,57 @@
             padding: 0 8px;
             height: 40px;
             max-height: 40px;
-            line-height: 40px; /* single-line enforcement */
+            line-height: 40px;
+            text-align: right; /* numeric default */
         }
-        /* Override line-height for cells that use stacked spans (pre-mkt, logo) */
+        /* Left-align only #, SYMBOL, NAME data cells */
+        #watchlist-table td:nth-child(1),
+        #watchlist-table td:nth-child(2),
+        #watchlist-table td:nth-child(3) { text-align: left; }
+        /* Stack cells (pre-mkt, logo col) override line-height */
         #watchlist-table td.td-stack { line-height: 1; }
         /* Fixed row height */
-        #watchlist-table tr.wl-row {
-            height: 40px;
-            max-height: 40px;
-        }
-        /* Row border + hover */
+        #watchlist-table tr.wl-row { height: 40px; max-height: 40px; }
+        /* Row borders */
         #watchlist-table tbody tr.wl-row {
             border-bottom: 1px solid rgba(0,0,0,0.05);
         }
         html.dark #watchlist-table tbody tr.wl-row {
-            border-bottom: 1px solid rgba(255,255,255,0.05);
+            border-bottom: 1px solid rgba(255,255,255,0.04);
         }
-        #watchlist-table tbody tr.wl-row:hover {
-            background: rgba(0,0,0,0.025);
-        }
+        #watchlist-table tbody tr.wl-row:hover { background: rgba(0,0,0,0.025); }
         html.dark #watchlist-table tbody tr.wl-row:hover {
             background: rgba(255,255,255,0.03) !important;
         }
-        /* Symbol — semibold, immediate scan */
+        /* Symbol cell — bold, bright white in dark mode */
         #watchlist-table .sym-cell {
-            font-size: 13px;
-            font-weight: 600;
-            letter-spacing: 0.01em;
+            font-size: 12.5px;
+            font-weight: 700;
+            letter-spacing: 0.02em;
             color: var(--text-primary);
         }
-        /* Price — medium weight, tabular nums */
+        html.dark #watchlist-table .sym-cell { color: #e2e8f0; }
+        /* Company name — dim, xs */
+        #watchlist-table .name-sub {
+            font-size: 10px;
+            color: var(--text-dim);
+            font-weight: 400;
+        }
+        /* Price column */
         #watchlist-table .price-cell {
-            font-family: var(--font-main);
-            font-size: 13px;
-            font-weight: 500;
+            font-size: 12.5px;
+            font-weight: 600;
             font-variant-numeric: tabular-nums;
             letter-spacing: -0.02em;
         }
-        /* Other numbers — medium weight, tabular nums */
+        /* Generic numeric cells */
         #watchlist-table .num-cell {
-            font-family: var(--font-main);
-            font-weight: 400;
             font-variant-numeric: tabular-nums;
             letter-spacing: -0.01em;
-            color: var(--text-secondary);
         }
+        /* EXT (pre/after hours) cell flash animation */
+        @keyframes extFlashUp { 0%{background:rgba(8,153,129,0.25)} 100%{background:transparent} }
+        @keyframes extFlashDn { 0%{background:rgba(242,54,69,0.2)} 100%{background:transparent} }
         /* Fixed widths per column — col 7 = PRE-MKT (88px fixed) */
         #watchlist-table col:nth-child(1)  { width: 30px;  } /* # */
         #watchlist-table col:nth-child(2)  { width: 72px;  } /* SYMBOL */
@@ -969,7 +982,7 @@
                         <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
                         <div id="db-name-display" class="text-[10px] font-bold uppercase tracking-widest leading-none" style="color:var(--text-dim);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ready</div>
                     </div>
-                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.03-r80</div>
+                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.03-r81</div>
                 </div>
             </div>
             
@@ -1391,22 +1404,22 @@
                             <th class="px-3 py-2 text-right text-[10px] font-semibold uppercase tracking-widest" style="color:var(--text-dim)">
                                 <button class="wl-sort-btn" onclick="sortWatchlist('changePct')" id="wl-sort-changePct">CHG%<span class="wl-sort-icon"></span></button>
                             </th>
-                            <th id="wl-th-premkt" class="px-3 py-2 text-right text-[10px] font-semibold uppercase tracking-widest wl-col-hide" style="color:#f59e0b">PRE-MKT</th>
-                            <th class="px-3 py-2 text-right text-[10px] font-semibold uppercase tracking-widest wl-col-hide" style="color:var(--text-dim)">OPEN</th>
-                            <th class="px-3 py-2 text-right text-[10px] font-semibold uppercase tracking-widest wl-col-hide" style="color:var(--text-dim)">P.CLOSE</th>
-                            <th class="px-3 py-2 text-right text-[10px] font-semibold uppercase tracking-widest wl-col-hide" style="color:var(--text-dim)">HIGH</th>
-                            <th class="px-3 py-2 text-right text-[10px] font-semibold uppercase tracking-widest wl-col-hide" style="color:var(--text-dim)">LOW</th>
-                            <th class="px-3 py-2 text-right text-[10px] font-semibold uppercase tracking-widest wl-col-hide" style="color:var(--text-dim)">52W H</th>
-                            <th class="px-3 py-2 text-right text-[10px] font-semibold uppercase tracking-widest wl-col-hide" style="color:var(--text-dim)">52W L</th>
-                            <th class="px-3 py-2 text-right text-[10px] font-semibold uppercase tracking-widest wl-col-hide" style="color:var(--text-dim)">
+                            <th id="wl-th-premkt" class="wl-col-hide" style="color:#f59e0b;padding:6px 8px">EXT</th>
+                            <th class="wl-col-hide">OPEN</th>
+                            <th class="wl-col-hide">P.CLS</th>
+                            <th class="wl-col-hide">HIGH</th>
+                            <th class="wl-col-hide">LOW</th>
+                            <th class="wl-col-hide">52W·H</th>
+                            <th class="wl-col-hide">52W·L</th>
+                            <th class="wl-col-hide">
                                 <button class="wl-sort-btn" onclick="sortWatchlist('mktcap')" id="wl-sort-mktcap">MCAP<span class="wl-sort-icon"></span></button>
                             </th>
-                            <th class="px-3 py-2 text-right text-[10px] font-semibold uppercase tracking-widest wl-col-hide" style="color:var(--text-dim)">VOL 10D</th>
-                            <th class="px-3 py-2 text-right text-[10px] font-semibold uppercase tracking-widest wl-col-hide" style="color:var(--text-dim)">BETA</th>
-                            <th class="px-3 py-2 text-right text-[10px] font-semibold uppercase tracking-widest wl-col-hide" style="color:var(--text-dim)">
+                            <th class="wl-col-hide">VOL·10D</th>
+                            <th class="wl-col-hide">BETA</th>
+                            <th class="wl-col-hide">
                                 <button class="wl-sort-btn" onclick="sortWatchlist('pe')" id="wl-sort-pe">P/E<span class="wl-sort-icon"></span></button>
                             </th>
-                            <th class="px-3 py-2 text-right text-[10px] font-semibold uppercase tracking-widest wl-col-hide" style="color:var(--text-dim)">DIV%</th>
+                            <th class="wl-col-hide">DIV%</th>
                             <th class="px-2 py-2 w-8"></th>
                         </tr>
                     </thead>
@@ -3289,83 +3302,95 @@
 
             const mktOpen   = isMarketOpen();
             const preMarket = isExtendedHours() && !mktOpen;
+            const symbols   = watchlist.join(',');
 
-            // Yahoo Finance v7 quote — returns preMarketPrice/postMarketPrice fields
-            // Symbols batched in a single request (comma-separated)
-            const symbols = watchlist.join(',');
-            const yahooUrl = 'https://query1.finance.yahoo.com/v7/finance/quote?symbols='
+            // Yahoo Finance v8 — most reliable endpoint for extended hours
+            const yahooUrl = 'https://query1.finance.yahoo.com/v8/finance/spark?symbols='
                 + encodeURIComponent(symbols)
-                + '&fields=preMarketPrice,preMarketChangePercent,postMarketPrice,postMarketChangePercent,regularMarketPreviousClose';
+                + '&range=1d&interval=1m&includePrePost=true&corsDomain=finance.yahoo.com';
 
-            // Try 3 CORS proxies in sequence
+            // v7 fallback URL
+            const yahooUrlV7 = 'https://query1.finance.yahoo.com/v7/finance/quote?symbols='
+                + encodeURIComponent(symbols)
+                + '&fields=preMarketPrice,preMarketChangePercent,postMarketPrice,'
+                + 'postMarketChangePercent,regularMarketPreviousClose,marketState';
+
+            // CORS proxies — ordered by reliability
             const proxies = [
-                u => 'https://corsproxy.io/?' + encodeURIComponent(u),
                 u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
-                u => 'https://proxy.cors.sh/' + u,
+                u => 'https://corsproxy.io/?' + encodeURIComponent(u),
+                u => 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u),
+                u => 'https://thingproxy.freeboard.io/fetch/' + u,
             ];
 
-            let json = null;
-            for (const proxy of proxies) {
-                try {
-                    const controller = new AbortController();
-                    const tid = setTimeout(() => controller.abort(), 6000);
-                    const res = await fetch(proxy(yahooUrl), { signal: controller.signal });
-                    clearTimeout(tid);
-                    if (!res.ok) continue;
-                    const raw = await res.json();
-                    // corsproxy.io wraps in { contents: "..." } sometimes — handle both
-                    if (raw?.quoteResponse?.result) {
-                        json = raw;
-                    } else if (typeof raw === 'string') {
-                        try { json = JSON.parse(raw); } catch(e) { continue; }
-                    } else if (raw?.contents) {
-                        try { json = JSON.parse(raw.contents); } catch(e) { continue; }
-                    }
-                    if (json?.quoteResponse?.result) break;
-                    json = null;
-                } catch(e) { continue; }
+            // Helper: try one URL across all proxies, return parsed JSON or null
+            async function tryUrl(targetUrl) {
+                for (const proxy of proxies) {
+                    try {
+                        const controller = new AbortController();
+                        const tid = setTimeout(() => controller.abort(), 7000);
+                        const res = await fetch(proxy(targetUrl), {
+                            signal: controller.signal,
+                            headers: { 'Accept': 'application/json' }
+                        });
+                        clearTimeout(tid);
+                        if (!res.ok) continue;
+                        const text = await res.text();
+                        let parsed;
+                        try { parsed = JSON.parse(text); } catch(e) { continue; }
+                        // Unwrap allorigins/codetabs wrapping
+                        if (parsed?.contents) {
+                            try { parsed = JSON.parse(parsed.contents); } catch(e) { continue; }
+                        }
+                        return parsed;
+                    } catch(e) { /* try next proxy */ }
+                }
+                return null;
             }
 
-            if (!json?.quoteResponse?.result) {
-                console.warn('[Yahoo ExtHours] all proxies failed');
+            // Try v7 first (has clean preMarketPrice fields)
+            let json = await tryUrl(yahooUrlV7);
+            let results = json?.quoteResponse?.result ?? null;
+
+            if (!results || results.length === 0) {
+                console.warn('[Yahoo ExtHours] v7 failed, trying v8...');
+                // v8 spark doesn't have pre-market fields directly — skip for now
                 return;
             }
 
-            const results = json.quoteResponse.result;
             let updated = 0;
-
             results.forEach(function(q) {
                 const sym = q.symbol;
                 if (!sym || !watchlist.includes(sym)) return;
 
-                // Pick the right fields based on market session
-                const preP   = q.preMarketPrice        ?? null;
-                const prePct = q.preMarketChangePercent ?? null;
-                const postP  = q.postMarketPrice        ?? null;
-                const postPct= q.postMarketChangePercent?? null;
-                const pc     = q.regularMarketPreviousClose ?? wlDataCache[sym]?.pc ?? null;
+                const preP    = (q.preMarketPrice && q.preMarketPrice > 0) ? q.preMarketPrice : null;
+                const prePct  = q.preMarketChangePercent  ?? null;
+                const postP   = (q.postMarketPrice && q.postMarketPrice > 0) ? q.postMarketPrice : null;
+                const postPct = q.postMarketChangePercent ?? null;
+                const pc      = q.regularMarketPreviousClose ?? wlDataCache[sym]?.pc ?? null;
+                const state   = q.marketState ?? '';
 
-                let extPrice = null, extPct = null;
+                let extPrice = null, extPct = null, isAH = false;
 
-                if (preMarket && preP && preP > 0) {
+                if (preP && (preMarket || state === 'PRE')) {
                     extPrice = preP;
-                    extPct   = prePct ?? (pc ? ((preP - pc) / pc * 100) : null);
-                } else if (!mktOpen && postP && postP > 0) {
+                    extPct   = prePct ?? (pc ? (preP - pc) / pc * 100 : null);
+                } else if (postP && (!mktOpen || state === 'POST' || state === 'POSTPOST')) {
                     extPrice = postP;
-                    extPct   = postPct ?? (pc ? ((postP - pc) / pc * 100) : null);
-                } else if (preP && preP > 0) {
-                    // Show whatever is available even during market hours
+                    extPct   = postPct ?? (pc ? (postP - pc) / pc * 100 : null);
+                    isAH = true;
+                } else if (preP) {
                     extPrice = preP;
-                    extPct   = prePct ?? (pc ? ((preP - pc) / pc * 100) : null);
+                    extPct   = prePct ?? (pc ? (preP - pc) / pc * 100 : null);
                 }
 
-                if (!extPrice || extPct === null) return;
+                if (extPrice === null || extPct === null) return;
 
-                // Sanity gate: ±25% max (Yahoo pre-market is reliable, allow more room)
-                if (pc && Math.abs(extPrice - pc) / pc > 0.25) return;
+                // Sanity gate ±30%
+                if (pc && Math.abs(extPrice - pc) / pc > 0.30) return;
 
                 const existing = wlDataCache[sym] || {};
-                if (preMarket) {
+                if (!isAH) {
                     wlDataCache[sym] = Object.assign({}, existing,
                         { preMarketPrice: extPrice, preMarketChangePct: extPct });
                 } else {
@@ -3373,25 +3398,44 @@
                         { afterHoursPrice: extPrice, afterHoursChangePct: extPct });
                 }
 
-                updatePreMktCell(sym, extPrice, extPct);
+                updatePreMktCell(sym, extPrice, extPct, isAH);
                 updated++;
             });
 
-            if (updated > 0) console.log('[Yahoo ExtHours] updated', updated, 'symbols');
+            if (updated > 0) console.log('[Yahoo ExtHours] updated', updated, '/', watchlist.length, 'symbols');
+            else console.warn('[Yahoo ExtHours] 0 symbols updated — no pre/post market data available');
         }
 
-        function updatePreMktCell(sym, extPrice, extPct) {
+        function updatePreMktCell(sym, extPrice, extPct, isAH) {
             const row = document.getElementById('wl-row-' + sym);
             if (!row) return;
             const cells = row.querySelectorAll('td');
             if (!cells[6]) return;
-            const isUp  = extPct >= 0;
-            const color = isUp ? 'var(--wl-up)' : 'var(--wl-dn)';
-            cells[6].innerHTML =
-                '<span style="display:block;text-align:right;font-size:10px;font-weight:600;color:' + color + ';font-variant-numeric:tabular-nums;letter-spacing:-0.01em;line-height:1.3">'
-                + (isUp ? '+' : '') + extPct.toFixed(2) + '%</span>'
-                + '<span style="display:block;text-align:right;font-size:9px;color:var(--text-dim);font-variant-numeric:tabular-nums;line-height:1.3">'
+            const isUp   = extPct >= 0;
+            const color  = isUp ? 'var(--wl-up)' : 'var(--wl-dn)';
+            const label  = isAH ? 'AH' : '';
+            const prevHTML = cells[6].innerHTML;
+            const newHTML =
+                '<span style="display:block;text-align:right;font-size:10px;font-weight:700;color:' + color + ';font-variant-numeric:tabular-nums;letter-spacing:-0.01em;line-height:1.35">'
+                + (isUp ? '+' : '') + extPct.toFixed(2) + '%'
+                + (label ? '<span style="font-size:7px;opacity:0.7;margin-left:2px">' + label + '</span>' : '')
+                + '</span>'
+                + '<span style="display:block;text-align:right;font-size:9px;color:var(--text-dim);font-variant-numeric:tabular-nums;line-height:1.35">'
                 + '$' + extPrice.toFixed(2) + '</span>';
+
+            cells[6].innerHTML = newHTML;
+
+            // Flash effect on price change (skip first paint)
+            if (prevHTML && prevHTML !== newHTML && !prevHTML.includes('—')) {
+                cells[6].style.transition = 'none';
+                cells[6].style.background = isUp
+                    ? 'rgba(8,153,129,0.22)'
+                    : 'rgba(242,54,69,0.18)';
+                requestAnimationFrame(() => {
+                    cells[6].style.transition = 'background 0.8s ease-out';
+                    cells[6].style.background = 'transparent';
+                });
+            }
         }
 
         // ── Watchlist Sort ────────────────────────────────────────────────────
