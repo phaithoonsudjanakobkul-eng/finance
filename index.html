@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PS Smart Finance v2026.03.03-r89</title>
+    <title>PS Smart Finance - Secured</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
@@ -1423,7 +1423,7 @@
                             <th class="px-3 py-2 text-right text-[10px] font-semibold uppercase tracking-widest" style="color:var(--text-dim)">
                                 <button class="wl-sort-btn" onclick="sortWatchlist('changePct')" id="wl-sort-changePct">CHG%<span class="wl-sort-icon"></span></button>
                             </th>
-                            <th id="wl-th-premkt" class="wl-col-hide" style="color:#f59e0b;padding:6px 8px;font-size:10px;font-weight:600;letter-spacing:0.05em">PRE-MKT</th>
+                            <th id="wl-th-premkt" class="wl-col-hide" style="color:#f59e0b;padding:6px 8px;font-size:10px;font-weight:700;letter-spacing:.05em">PRE-MKT</th>
                             <th class="wl-col-hide">OPEN</th>
                             <th class="wl-col-hide">P.CLS</th>
                             <th class="wl-col-hide">HIGH</th>
@@ -2442,18 +2442,12 @@
             });
         }
 
-        // ── Extended Hours: TradingView Scanner API ──────────────────────────────
-        // No API key required! TV Scanner is publicly accessible with CORS support.
-        // POST to scanner.tradingview.com/america/scan with symbols filter.
-        // Fields: premarket_price, premarket_change, postmarket_price, postmarket_change
-        // Falls back to FMP (if key set) if TV Scanner returns no data.
+        // ── Extended Hours: TradingView Scanner API (no key needed) ─────────────
+        // Same data source as the TV widget — premarket_price / postmarket_price fields
         let _extLastBatchTs = 0;
-        let _fmpEndpointIdx = 0;
-        let _fmpAllFailed  = false;  // true when key has no pre/post access (all 403)
-        let _fmp403Count   = 0;      // consecutive 403 counter
-        function getFmpKey() { return localStorage.getItem('ps_fmp_key') || ''; }
+        function getFmpKey() { return localStorage.getItem('ps_fmp_key') || ''; } // kept for Settings UI compat
 
-        // ── updatePreMktCell: surgically update PRE-MKT cell (col[6]) ────────────
+        // ── updatePreMktCell: write price+pct directly into col[6] ───────────────
         function updatePreMktCell(sym, extPrice, extPct, isAH) {
             const row = document.getElementById('wl-row-' + sym);
             if (!row) return;
@@ -2462,153 +2456,70 @@
             const isUp  = extPct >= 0;
             const color = isUp ? 'var(--wl-up)' : 'var(--wl-dn)';
             const sign  = isUp ? '+' : '';
-            const tag   = isAH
-                ? '<span style="font-size:7px;margin-left:2px;opacity:0.6;vertical-align:middle">AH</span>'
-                : '<span style="font-size:7px;margin-left:2px;opacity:0.6;vertical-align:middle">PM</span>';
+            const label = isAH ? 'AH' : 'PM';
             cells[6].innerHTML =
-                '<span style="display:block;text-align:right;font-size:10px;font-weight:700;color:' + color + ';font-variant-numeric:tabular-nums;line-height:1.3">'
-                + sign + extPct.toFixed(2) + '%</span>'
-                + '<span style="display:block;text-align:right;font-size:9px;color:var(--text-dim);font-variant-numeric:tabular-nums;line-height:1.3">'
-                + '$' + extPrice.toFixed(2) + tag + '</span>';
+                '<div style="text-align:right;line-height:1.4">'
+              + '<span style="display:block;font-size:10px;font-weight:700;color:' + color + ';font-variant-numeric:tabular-nums">'
+              + sign + extPct.toFixed(2) + '%</span>'
+              + '<span style="display:block;font-size:9px;color:var(--text-dim);font-variant-numeric:tabular-nums">'
+              + '$' + extPrice.toFixed(2)
+              + '<span style="font-size:7px;margin-left:2px;opacity:0.6">' + label + '</span></span>'
+              + '</div>';
         }
 
-        // ── TV Scanner batch fetch (primary — no API key needed) ─────────────────
+        // ── TV Scanner batch — same backend the TV widget reads from ─────────────
         async function fetchTVScannerBatch(symbols) {
-            // TV Scanner API — correct payload format
-            // "ticker" field with "in_range" matches NASDAQ:NVDA, NYSE:AAPL etc.
-            // We also try "name" field (pure ticker) as fallback mapping
-            const payload = {
-                columns: [
-                    'name',             // pure ticker e.g. "NVDA"
-                    'close',
-                    'premarket_price',
-                    'premarket_change',
-                    'premarket_change_abs',
-                    'postmarket_price',
-                    'postmarket_change',
-                    'postmarket_change_abs'
-                ],
-                // No filter = get broad universe, then we pick our symbols
-                // With filter: TV uses "ticker" (NASDAQ:NVDA) not bare "name"
-                // Safest: send no filter, get top results, match by name
-                filter: [{
-                    left: 'type',
-                    operation: 'in_range',
-                    right: ['stock', 'dr', 'fund']
-                }],
-                markets: ['america'],
-                sort: { sortBy: 'market_cap_basic', sortOrder: 'desc' },
-                range: [0, 250]   // top 250 by mktcap covers most watchlists
-            };
-
-            const ctrl = new AbortController();
-            const tid  = setTimeout(function(){ ctrl.abort(); }, 9000);
-            const res  = await fetch('https://scanner.tradingview.com/america/scan', {
-                method:  'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body:    JSON.stringify(payload),
-                signal:  ctrl.signal
-            });
-            clearTimeout(tid);
-            if (!res.ok) throw new Error('TV Scanner HTTP ' + res.status);
-            const json = await res.json();
-            if (!json || !json.data) return {};
-
-            // Build lookup by pure ticker name
-            const result = {};
             const symSet = new Set(symbols);
-            json.data.forEach(function(row) {
-                const d   = row.d || [];
-                const sym = d[0];  // "NVDA", "AAPL", etc.
-                if (!sym || !symSet.has(sym)) return;
-                result[sym] = {
-                    close:                d[1] ?? null,
-                    premarket_price:      d[2] ?? null,
-                    premarket_change:     d[3] ?? null,
-                    premarket_change_abs: d[4] ?? null,
-                    postmarket_price:     d[5] ?? null,
-                    postmarket_change:    d[6] ?? null,
-                    postmarket_change_abs:d[7] ?? null
-                };
+            const result = {};
+
+            // Pass 1: top 300 by market cap
+            const r1 = await fetch('https://scanner.tradingview.com/america/scan', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    columns: ['name','close','premarket_price','premarket_change','postmarket_price','postmarket_change'],
+                    filter:  [{ left:'type', operation:'in_range', right:['stock','dr','fund'] }],
+                    markets: ['america'],
+                    sort:    { sortBy:'market_cap_basic', sortOrder:'desc' },
+                    range:   [0, 300]
+                }),
+                signal: AbortSignal.timeout(10000)
+            });
+            if (!r1.ok) throw new Error('TV Scanner ' + r1.status);
+            (await r1.json()).data?.forEach(row => {
+                const d = row.d || [];
+                if (d[0] && symSet.has(d[0]))
+                    result[d[0]] = { close:d[1], preP:d[2], prePct:d[3], postP:d[4], postPct:d[5] };
             });
 
-            const found = Object.keys(result).length;
-            const missing = symbols.filter(function(s){ return !result[s]; });
-            console.log('[PRE-MKT] TV Scanner: found=' + found + '/' + symbols.length
-                + (missing.length ? ' | missing: ' + missing.join(',') : ''));
-
-            // If many symbols missing from top-250 (e.g. small caps), fetch them separately
-            if (missing.length > 0 && missing.length <= 30) {
+            // Pass 2: any missing (small/mid caps not in top-300)
+            const missing = symbols.filter(s => !result[s]);
+            if (missing.length) {
                 try {
-                    const payload2 = {
-                        columns: ['name','close','premarket_price','premarket_change',
-                                  'premarket_change_abs','postmarket_price','postmarket_change',
-                                  'postmarket_change_abs'],
-                        filter: [{ left: 'name', operation: 'in_range', right: missing }],
-                        markets: ['america'],
-                        sort: { sortBy: 'name', sortOrder: 'asc' },
-                        range: [0, missing.length + 5]
-                    };
-                    const res2 = await fetch('https://scanner.tradingview.com/america/scan', {
+                    const r2 = await fetch('https://scanner.tradingview.com/america/scan', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload2)
+                        body: JSON.stringify({
+                            columns: ['name','close','premarket_price','premarket_change','postmarket_price','postmarket_change'],
+                            filter:  [{ left:'name', operation:'in_range', right: missing }],
+                            markets: ['america'],
+                            sort:    { sortBy:'name', sortOrder:'asc' },
+                            range:   [0, missing.length + 5]
+                        }),
+                        signal: AbortSignal.timeout(8000)
                     });
-                    if (res2.ok) {
-                        const json2 = await res2.json();
-                        (json2.data || []).forEach(function(row) {
-                            const d = row.d || [];
-                            const sym = d[0];
-                            if (!sym) return;
-                            result[sym] = {
-                                close: d[1]??null, premarket_price: d[2]??null,
-                                premarket_change: d[3]??null, premarket_change_abs: d[4]??null,
-                                postmarket_price: d[5]??null, postmarket_change: d[6]??null,
-                                postmarket_change_abs: d[7]??null
-                            };
-                        });
-                        console.log('[PRE-MKT] TV Scanner pass-2 filled ' + Object.keys(result).length + ' total');
-                    }
-                } catch(e2) { /* ignore pass-2 errors */ }
+                    if (r2.ok) (await r2.json()).data?.forEach(row => {
+                        const d = row.d || [];
+                        if (d[0] && symSet.has(d[0]))
+                            result[d[0]] = { close:d[1], preP:d[2], prePct:d[3], postP:d[4], postPct:d[5] };
+                    });
+                } catch(e) {}
             }
+            console.log('[PRE-MKT] TV Scanner found=' + Object.keys(result).length + '/' + symbols.length
+                + (missing.length ? ' missing=[' + missing.slice(0,5).join(',') + ']' : ''));
             return result;
         }
 
-        // ── FMP fallback fetch for one symbol ─────────────────────────────────────
-        const FMP_ENDPOINTS = [
-            function(s, k){ return 'https://financialmodelingprep.com/api/v3/pre-post-market-hours/' + s + '?apikey=' + k; },
-            function(s, k){ return 'https://financialmodelingprep.com/api/v3/pre-post-market/' + s + '?apikey=' + k; },
-            function(s, k){ return 'https://financialmodelingprep.com/api/v3/quote/' + s + '?apikey=' + k; }
-        ];
-        async function fmpFetchSym(sym, fmpKey) {
-            const order = [_fmpEndpointIdx, ...[0,1,2].filter(function(i){ return i !== _fmpEndpointIdx; })];
-            for (let t = 0; t < order.length; t++) {
-                const idx = order[t];
-                try {
-                    const ctrl = new AbortController();
-                    const tid  = setTimeout(function(){ ctrl.abort(); }, 7000);
-                    const res  = await fetch(FMP_ENDPOINTS[idx](sym, fmpKey), { signal: ctrl.signal });
-                    clearTimeout(tid);
-                    if (res.status === 403) {
-                        _fmp403Count++;
-                        if (_fmp403Count >= 9) {
-                            _fmpAllFailed = true;
-                            console.warn('[PRE-MKT] FMP disabled — key has no pre/post-market access (403 all endpoints)');
-                        }
-                        continue;
-                    }
-                    if (!res.ok) { console.warn('[PRE-MKT] FMP[' + idx + '] HTTP ' + res.status); continue; }
-                    const data = await res.json();
-                    const q    = Array.isArray(data) ? data[0] : data;
-                    if (!q || typeof q !== 'object' || q['Error Message']) continue;
-                    if (idx !== _fmpEndpointIdx) { _fmpEndpointIdx = idx; }
-                    return q;
-                } catch(e) { if (e && e.name !== 'AbortError') console.warn('[PRE-MKT] FMP[' + idx + '] err:', e.message); }
-            }
-            return null;
-        }
-
-        // ── Main extended-hours batch orchestrator ────────────────────────────────
         async function fetchYahooExtendedBatch() {
             if (watchlist.length === 0) return;
             if (document.hidden) return;
@@ -2616,143 +2527,45 @@
             if (now - _extLastBatchTs < 12000) return;
             _extLastBatchTs = now;
 
-            const mktOpen = isMarketOpen();
-            let updated = 0;
-
-            // ── TV Scanner (primary — no API key, no CORS issues) ─────────────────
             try {
-                const tvData = await fetchTVScannerBatch(watchlist);
-                const tvKeys = Object.keys(tvData);
-                console.log('[PRE-MKT] TV Scanner symbols=' + tvKeys.length + ' mktOpen=' + mktOpen);
+                const data = await fetchTVScannerBatch(watchlist);
+                let updated = 0;
 
-                tvKeys.forEach(function(sym) {
-                    if (watchlist.indexOf(sym) === -1) return;
-                    const q   = tvData[sym];
-                    const pc  = (wlDataCache[sym] && wlDataCache[sym].pc) ? wlDataCache[sym].pc : (q.close || null);
-
-                    const preP   = q.premarket_price  || null;
-                    const prePct = q.premarket_change != null ? q.premarket_change : null;
-                    const postP  = q.postmarket_price || null;
-                    const postPct= q.postmarket_change != null ? q.postmarket_change : null;
-
+                watchlist.forEach(sym => {
+                    const q = data[sym];
+                    if (!q) return;
+                    const pc = wlDataCache[sym]?.pc ?? q.close ?? null;
                     let extPrice = null, extPct = null, isAH = false;
 
-                    // Show pre-market if available; otherwise show after-hours
-                    if (preP && preP > 0) {
-                        extPrice = preP;
-                        extPct   = prePct != null ? prePct : (pc && pc > 0 ? (preP - pc)/pc*100 : null);
+                    if (q.preP && q.preP > 0) {
+                        extPrice = q.preP;
+                        extPct   = q.prePct ?? (pc ? (q.preP - pc) / pc * 100 : null);
                         isAH     = false;
-                    } else if (postP && postP > 0) {
-                        extPrice = postP;
-                        extPct   = postPct != null ? postPct : (pc && pc > 0 ? (postP - pc)/pc*100 : null);
+                    } else if (q.postP && q.postP > 0) {
+                        extPrice = q.postP;
+                        extPct   = q.postPct ?? (pc ? (q.postP - pc) / pc * 100 : null);
                         isAH     = true;
                     }
 
                     if (!extPrice || extPct === null) return;
-                    if (pc && pc > 0 && Math.abs(extPrice - pc)/pc > 0.30) return;
+                    if (pc && Math.abs(extPrice - pc) / pc > 0.30) return;
 
                     const existing = wlDataCache[sym] || {};
-                    if (!isAH) {
-                        wlDataCache[sym] = Object.assign({}, existing,
-                            { preMarketPrice: extPrice, preMarketChangePct: extPct,
-                              afterHoursPrice: null, afterHoursChangePct: null });
-                    } else {
-                        wlDataCache[sym] = Object.assign({}, existing,
-                            { afterHoursPrice: extPrice, afterHoursChangePct: extPct,
-                              preMarketPrice: null, preMarketChangePct: null });
-                    }
+                    wlDataCache[sym] = Object.assign({}, existing, isAH
+                        ? { afterHoursPrice: extPrice, afterHoursChangePct: extPct, preMarketPrice: null, preMarketChangePct: null }
+                        : { preMarketPrice: extPrice, preMarketChangePct: extPct, afterHoursPrice: null, afterHoursChangePct: null });
+
                     updatePreMktCell(sym, extPrice, extPct, isAH);
                     updated++;
                 });
 
-                if (updated > 0) {
-                    console.log('[PRE-MKT] TV Scanner updated ' + updated + '/' + watchlist.length);
-                    return;
-                }
-                if (mktOpen) {
-                    console.info('[PRE-MKT] Market OPEN — pre/post prices only available before 21:30 or after 04:00 Thai time');
-                } else {
-                    console.info('[PRE-MKT] TV Scanner: ' + tvKeys.length + ' symbols found, 0 have pre/post prices yet');
-                }
+                if (updated > 0) console.log('[PRE-MKT] Updated ' + updated + '/' + watchlist.length);
+                else console.info('[PRE-MKT] No pre/post prices'
+                    + (isMarketOpen() ? ' (market OPEN — data shows before 21:30 or after 04:00 Thai)' : ''));
             } catch(e) {
-                console.warn('[PRE-MKT] TV Scanner error:', e && e.message);
+                console.warn('[PRE-MKT] Error:', e?.message);
             }
-
-            // ── FMP fallback (skip if all endpoints 403'd) ────────────────────────
-            const fmpKey = getFmpKey();
-            if (!fmpKey || _fmpAllFailed) {
-                if (_fmpAllFailed) console.info('[PRE-MKT] FMP disabled — all endpoints returned 403 (key has no pre/post access)');
-                return;
-            }
-            const chunks = [];
-            for (let i = 0; i < watchlist.length; i += 5) chunks.push(watchlist.slice(i, i + 5));
-            for (let ci = 0; ci < chunks.length; ci++) {
-                await Promise.all(chunks[ci].map(async function(sym) {
-                    try {
-                        const q  = await fmpFetchSym(sym, fmpKey);
-                        if (!q) return;
-                        const pc = (wlDataCache[sym] && wlDataCache[sym].pc) ? wlDataCache[sym].pc : null;
-                        let extPrice = null, extPct = null, isAH = false;
-                        const preP   = q.pre != null ? q.pre : (q.preMarketPrice != null ? q.preMarketPrice : null);
-                        const postP  = q.post != null ? q.post : (q.afterHoursPrice != null ? q.afterHoursPrice : (q.postMarketPrice || null));
-                        const prePct = q.preChangesPercentage != null ? q.preChangesPercentage : (q.preMarketChangesPercentage || null);
-                        const postPct= q.postChangesPercentage != null ? q.postChangesPercentage : (q.afterHoursChangesPercentage || null);
-                        if (preP && preP > 0) {
-                            extPrice = preP; extPct = prePct != null ? prePct : (pc && pc > 0 ? (preP-pc)/pc*100 : null); isAH = false;
-                        } else if (postP && postP > 0) {
-                            extPrice = postP; extPct = postPct != null ? postPct : (pc && pc > 0 ? (postP-pc)/pc*100 : null); isAH = true;
-                        }
-                        if (!extPrice || extPct === null) return;
-                        if (pc && pc > 0 && Math.abs(extPrice-pc)/pc > 0.30) return;
-                        const existing = wlDataCache[sym] || {};
-                        wlDataCache[sym] = Object.assign({}, existing, isAH
-                            ? { afterHoursPrice: extPrice, afterHoursChangePct: extPct, preMarketPrice: null, preMarketChangePct: null }
-                            : { preMarketPrice: extPrice, preMarketChangePct: extPct, afterHoursPrice: null, afterHoursChangePct: null });
-                        updatePreMktCell(sym, extPrice, extPct, isAH);
-                        updated++;
-                    } catch(e) {}
-                }));
-                if (ci < chunks.length - 1) await new Promise(function(r){ setTimeout(r, 200); });
-            }
-            if (updated > 0) console.log('[PRE-MKT] FMP updated ' + updated + '/' + watchlist.length);
         }
-        // ── PRE-MKT Debug Helper (call from browser console) ─────────────────────
-        // Usage: debugPreMkt()           — run TV Scanner now and show results
-        // Usage: debugPreMkt(['NVDA'])   — test specific symbols
-        window.debugPreMkt = async function(syms) {
-            const list = syms || watchlist;
-            console.group('[PRE-MKT Debug]');
-            console.log('Symbols:', list);
-            console.log('isMarketOpen:', isMarketOpen(), '| isExtendedHours:', isExtendedHours());
-            try {
-                console.log('▶ Fetching TV Scanner...');
-                const tv = await fetchTVScannerBatch(list);
-                console.log('TV Scanner result:', tv);
-                const tvHasData = Object.values(tv).some(function(v){
-                    return v.premarket_price || v.postmarket_price;
-                });
-                console.log('TV Scanner has pre/post data:', tvHasData);
-                if (!tvHasData) {
-                    console.warn('TV Scanner returned no extended-hours prices. This means:');
-                    console.warn(' 1. Market is currently OPEN (pre/post data clears during regular hours)');
-                    console.warn(' 2. OR scanner returned null for pre/post fields — normal during market hours');
-                    console.warn('Raw first entry:', Object.values(tv)[0]);
-                }
-            } catch(e) {
-                console.error('TV Scanner error:', e.message);
-                console.warn('Possible CORS block — check Network tab for scanner.tradingview.com request');
-            }
-            const fmpKey = getFmpKey();
-            if (fmpKey) {
-                console.log('▶ FMP key present, testing first symbol...');
-                const q = await fmpFetchSym(list[0], fmpKey);
-                console.log('FMP result for ' + list[0] + ':', q);
-            } else {
-                console.log('No FMP key set (optional fallback)');
-            }
-            console.groupEnd();
-        };
-
         async function fetchQuote(symbol) {
             const key = getFinnhubKey();
             const now = Date.now();
@@ -4859,8 +4672,7 @@ Analysis guidelines:
             }
             updateAiStatus();
             updateSettingsBadges();
-            // Start pre/after-market polling (TV Scanner — no key needed)
-            startExtHoursPolling();
+            startExtHoursPolling(); // TV Scanner — no API key needed
         };
 
         // ── Auto-save: 2-tier smart sync ──────────────────────────────────────
