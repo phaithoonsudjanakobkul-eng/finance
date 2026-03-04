@@ -460,31 +460,35 @@
         }
         .news-tile {
             display: flex;
-            flex-direction: column;
-            gap: 8px;
-            padding: 12px;
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 6px;
+            flex-direction: row;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 12px;
+            background: transparent;
+            border: none;
+            border-bottom: 1px solid var(--border);
+            border-radius: 0;
             cursor: pointer;
-            transition: background 0.15s, border-color 0.15s;
+            transition: background 0.12s;
             text-align: left;
+            width: 100%;
         }
         .news-tile:hover {
             background: var(--bg-card2);
-            border-color: rgba(8,153,129,0.3);
         }
         .news-tile-img {
-            width: 100%;
-            aspect-ratio: 16/9;
+            width: 64px;
+            height: 44px;
             object-fit: cover;
             border-radius: 4px;
+            flex-shrink: 0;
             display: block;
         }
         .news-tile-no-img {
-            width: 100%;
-            aspect-ratio: 16/9;
+            width: 64px;
+            height: 44px;
             border-radius: 4px;
+            flex-shrink: 0;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -941,6 +945,30 @@
         html.dark #watchlist-table span.wl-neutral { color: var(--text-dim); }
         </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+    <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+    <style>
+        @keyframes lwc-pulse-ring {
+            0%   { transform:scale(1);   opacity:0.5; }
+            100% { transform:scale(3.5); opacity:0;   }
+        }
+        #lwc-live-dot {
+            position:absolute;width:9px;height:9px;border-radius:50%;
+            background:#10b981;pointer-events:none;z-index:15;
+            transform:translate(-50%,-50%);
+            box-shadow:0 0 0 2px rgba(16,185,129,0.25);
+        }
+        #lwc-live-dot::after {
+            content:'';
+            position:absolute;
+            top:50%;left:50%;
+            width:9px;height:9px;
+            margin-top:-4.5px;margin-left:-4.5px;
+            border-radius:50%;
+            background:#10b981;
+            animation:lwc-pulse-ring 1.8s ease-out infinite;
+            transform-origin:center center;
+        }
+    </style>
 </head>
 
     <!-- Dummy hidden fields to prevent Chrome autofill on real inputs -->
@@ -1019,7 +1047,7 @@
                         <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
                         <div id="db-name-display" class="text-[10px] font-bold uppercase tracking-widest leading-none" style="color:var(--text-dim);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ready</div>
                     </div>
-                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.03-r112</div>
+                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.04-r115</div>
                 </div>
             </div>
             
@@ -1389,7 +1417,7 @@
                         autocomplete="off">
                     <div id="ticker-dropdown" class="hidden absolute top-full left-0 right-0 mt-1 rounded-xl shadow-2xl z-50 overflow-hidden max-h-64 overflow-y-auto" style="background:var(--bg-card);border:1px solid var(--border)"></div>
                 </div>
-                <button onclick="addTicker()" class="px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider flex-shrink-0 transition-all" style="background:#14b8a6;color:#fff;font-family:var(--font-main)">Add</button>
+                <button onclick="addTicker(document.getElementById('ticker-input').value.trim())" class="px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider flex-shrink-0 transition-all" style="background:#14b8a6;color:#fff;font-family:var(--font-main)">Add</button>
                 <button onclick="closeAddTicker()" class="flex-shrink-0 transition-colors" style="color:var(--text-dim)">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
@@ -1462,98 +1490,82 @@
             </div><!-- /wl-table-panel -->
 
             <!-- Quick Chart Panel -->
-            <div id="quick-chart-panel" class="glass-card overflow-hidden flex flex-col">
+            <div id="quick-chart-panel" class="glass-card flex flex-col" style="overflow-x:hidden;overflow-y:visible">
 
-                <!-- ── Header Bar ── -->
-                <div class="flex items-center gap-3 px-4 pt-3 pb-2 flex-shrink-0" style="border-bottom:1px solid var(--border);background:var(--bg-card)">
-                    <button onclick="closeQuickChart()" 
-                        class="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-md transition-all hover:scale-110"
-                        style="background:var(--bg-card2);border:1px solid var(--border);color:var(--text-secondary)"
-                        title="Close chart">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg>
-                    </button>
-                    <div class="w-8 h-8 flex-shrink-0 relative">
-                        <img id="qc-logo" src="" 
-                            class="w-8 h-8 rounded-full absolute inset-0 transition-opacity duration-150"
-                            style="opacity:0;object-fit:contain;background:white;padding:2px;border:1px solid #e2e8f0;"
-                            onerror="this.style.opacity='0'">
-                    </div>
-                    <div class="flex-1 min-w-0">
-                        <div class="flex items-center gap-1.5">
-                            <span id="qc-symbol" class="text-sm font-semibold" style="color:var(--text-primary)"></span>
-                            <span id="qc-exchange-badge" class="text-[8px] font-semibold px-1.5 py-0.5 rounded" style="background:var(--bg-card2);color:var(--text-dim)"></span>
+                <!-- ── Header (compact) ── -->
+                <div class="flex-shrink-0" style="background:var(--bg-card);border-bottom:1px solid var(--border)">
+
+                    <!-- Row 1: back + logo + symbol+name + TV -->
+                    <div class="flex items-center gap-2.5 px-3 pt-2 pb-1.5">
+                        <button onclick="closeQuickChart()"
+                            class="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded"
+                            style="background:var(--bg-card2);border:1px solid var(--border);color:var(--text-secondary)" title="Back">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg>
+                        </button>
+                        <div class="w-10 h-10 flex-shrink-0 relative rounded-full overflow-hidden" style="background:var(--bg-card2)">
+                            <img id="qc-logo" src="" class="w-10 h-10 absolute inset-0 transition-opacity duration-150" style="opacity:0;object-fit:cover;width:100%;height:100%;" onerror="this.style.opacity='0'">
+                            <div id="qc-logo-fallback" class="w-10 h-10 absolute inset-0 flex items-center justify-center" style="display:none">
+                                <span id="qc-logo-initials" class="text-sm font-black" style="color:var(--text-primary)"></span>
+                            </div>
                         </div>
-                        <div id="qc-name" class="text-[10px] leading-none mt-0.5 truncate" style="color:var(--text-dim);max-width:220px"></div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-1.5">
+                                <span id="qc-symbol" class="text-2xl font-bold" style="color:var(--text-primary);letter-spacing:-0.03em;line-height:1"></span>
+                                <span id="qc-exchange-badge" class="text-[8px] font-semibold px-1 py-0.5 rounded" style="background:var(--bg-card2);color:var(--text-dim);border:1px solid var(--border)"></span>
+                            </div>
+                            <div id="qc-name" class="text-xs truncate mt-0.5" style="color:var(--text-dim)"></div>
+                        </div>
+                        <a id="qc-tv-link" href="#" target="_blank"
+                           class="flex-shrink-0 flex items-center gap-1 px-2 py-1 rounded text-[8px] font-semibold uppercase tracking-widest"
+                           style="background:rgba(37,99,235,0.08);color:#3b82f6;border:1px solid rgba(37,99,235,0.15)">
+                            <svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 24 24"><path d="M10 6v2H5v11h11v-5h2v7H3V6h7zm11-3v8l-3-3-7 7-1.5-1.5 7-7-3-3h8z"/></svg>TV
+                        </a>
                     </div>
-                    <a id="qc-tv-link" href="#" target="_blank"
-                       class="flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[9px] font-semibold uppercase tracking-widest transition-all"
-                       style="background:rgba(37,99,235,0.08);color:#3b82f6;border:1px solid rgba(37,99,235,0.15)">
-                        <svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 24 24"><path d="M10 6v2H5v11h11v-5h2v7H3V6h7zm11-3v8l-3-3-7 7-1.5-1.5 7-7-3-3h8z"/></svg>
-                        TV
-                    </a>
-                </div>
 
-                <!-- ── Price Hero ── -->
-                <div id="qc-price-hero-section" class="px-4 py-3 flex-shrink-0" style="border-bottom:1px solid var(--border)">
-                    <div class="flex items-center gap-3 flex-wrap">
-                        <span id="qc-price-hero" class="text-4xl font-medium leading-none" style="color:var(--text-primary);font-variant-numeric:tabular-nums;letter-spacing:-0.03em"></span>
-                        <div class="flex items-center gap-2">
-                            <span id="qc-change-hero" class="text-sm font-medium px-2 py-0.5 rounded-md" style="font-variant-numeric:tabular-nums"></span>
-                            <span id="qc-price-label" class="text-[9px] font-medium uppercase tracking-widest" style="color:var(--text-dim)">Last Price</span>
+                    <!-- Row 2: Price hero (left) + stats inline (right) -->
+                    <div class="flex items-center gap-3 px-3 pb-1.5" style="border-top:1px solid var(--border);padding-top:6px">
+                        <!-- Price block -->
+                        <div class="flex items-baseline gap-2 flex-shrink-0">
+                            <span id="qc-price-hero" class="text-3xl font-bold" style="color:var(--text-primary);font-variant-numeric:tabular-nums;letter-spacing:-0.03em;line-height:1"></span>
+                            <span id="qc-change-hero" class="text-sm font-semibold px-1.5 py-0.5 rounded" style="font-variant-numeric:tabular-nums"></span>
+                            <span id="qc-price-label" class="text-[8px] font-medium uppercase tracking-widest" style="color:var(--text-dim)">Last Price</span>
+                        </div>
+                        <div class="flex-1"></div>
+                        <!-- Stats inline -->
+                        <div id="qc-stats-grid" class="flex items-center gap-0 flex-shrink-0" style="border-left:1px solid var(--border);padding-left:12px">
+                            <div class="qc-stat-cell"><span class="qc-stat-label">Open</span><span id="qcs-open" class="qc-stat-value">—</span></div>
+                            <div class="qc-stat-cell"><span class="qc-stat-label">Prev Close</span><span id="qcs-prev" class="qc-stat-value">—</span></div>
+                            <div class="qc-stat-cell"><span class="qc-stat-label">Day Range</span><span id="qcs-range" class="qc-stat-value">—</span></div>
+                            <div class="qc-stat-cell"><span class="qc-stat-label">Mkt Cap</span><span id="qcs-mktcap" class="qc-stat-value">—</span></div>
+                            <div class="qc-stat-cell"><span class="qc-stat-label">P/E</span><span id="qcs-pe" class="qc-stat-value">—</span></div>
+                            <div class="qc-stat-cell" style="border-right:none"><span class="qc-stat-label">Div</span><span id="qcs-div" class="qc-stat-value">—</span></div>
                         </div>
                     </div>
-                    <!-- Hidden legacy elements for JS compat -->
-                    <span id="qc-price" style="display:none"></span>
-                    <span id="qc-change" style="display:none"></span>
-                    <span id="qc-symbol-hidden" style="display:none"></span>
-                </div>
 
-                <!-- ── Stats Grid (3-col with border dividers) ── -->
-                <div id="qc-stats-grid" class="qc-stat-grid flex-shrink-0">
-                    <div class="qc-stat-cell">
-                        <span class="qc-stat-label">Open</span>
-                        <span id="qcs-open" class="qc-stat-value">—</span>
-                    </div>
-                    <div class="qc-stat-cell">
-                        <span class="qc-stat-label">Prev Close</span>
-                        <span id="qcs-prev" class="qc-stat-value">—</span>
-                    </div>
-                    <div class="qc-stat-cell">
-                        <span class="qc-stat-label">Day Range</span>
-                        <span id="qcs-range" class="qc-stat-value">—</span>
-                    </div>
-                    <div class="qc-stat-cell">
-                        <span class="qc-stat-label">Mkt Cap</span>
-                        <span id="qcs-mktcap" class="qc-stat-value">—</span>
-                    </div>
-                    <div class="qc-stat-cell">
-                        <span class="qc-stat-label">P/E Ratio</span>
-                        <span id="qcs-pe" class="qc-stat-value">—</span>
-                    </div>
-                    <div class="qc-stat-cell">
-                        <span class="qc-stat-label">Div Yield</span>
-                        <span id="qcs-div" class="qc-stat-value">—</span>
-                    </div>
-                    <!-- 52W Range spanning full row -->
-                    <div class="qc-stat-cell span-full">
-                        <div class="flex items-center justify-between">
+                    <!-- Row 3: 52-week bar -->
+                    <div id="qc-price-hero-section" class="px-3 pb-2 flex-shrink-0">
+                        <div class="flex items-center justify-between mb-1">
                             <span class="qc-stat-label">52-Week Range</span>
-                            <div class="flex items-center gap-3">
+                            <div class="flex items-center gap-2">
                                 <span id="qcs-52wl" class="qc-stat-value" style="color:var(--danger)">—</span>
                                 <span class="qc-stat-label">Low</span>
                                 <span id="qcs-52wh" class="qc-stat-value" style="color:var(--accent)">—</span>
                                 <span class="qc-stat-label">High</span>
                             </div>
                         </div>
-                        <div class="range-bar-track" style="margin-top:6px">
+                        <div class="range-bar-track">
                             <div id="qcs-52w-fill" class="range-bar-fill" style="width:0%"></div>
                             <div id="qcs-52w-dot" class="range-bar-dot" style="left:0%"></div>
                         </div>
                     </div>
+
+                    <span id="qc-price" style="display:none"></span>
+                    <span id="qc-change" style="display:none"></span>
+                    <span id="qc-symbol-hidden" style="display:none"></span>
                 </div>
 
                 <!-- ── TradingView Widget ── -->
-                <div id="qc-tv-container" class="flex-shrink-0" style="height:min(55vh, 480px);min-height:260px"></div>
+                <div id="qc-tv-container" class="flex-shrink-0" style="height:min(55vh, 480px);min-height:260px;overflow:visible"></div>
 
                 <!-- ── Chart.js (Historical, with Volume overlay) ── -->
                 <div id="qc-chartjs-area" class="flex-shrink-0 flex flex-col" style="display:none!important">
@@ -2216,6 +2228,63 @@
             table.classList.toggle('hidden', isEmpty);
         }
 
+        function showAddTickerInput() {
+            const bar = document.getElementById('add-ticker-bar');
+            bar.classList.remove('hidden');
+            setTimeout(() => document.getElementById('ticker-input')?.focus(), 50);
+        }
+
+        function closeAddTicker() {
+            const bar = document.getElementById('add-ticker-bar');
+            bar.classList.add('hidden');
+            const inp = document.getElementById('ticker-input');
+            if (inp) inp.value = '';
+            const dd = document.getElementById('ticker-dropdown');
+            if (dd) dd.classList.add('hidden');
+        }
+
+        let _tickerSearchTimer = null;
+        function onTickerInput(val) {
+            const dd = document.getElementById('ticker-dropdown');
+            if (!val || val.length < 1) { dd.classList.add('hidden'); return; }
+            clearTimeout(_tickerSearchTimer);
+            _tickerSearchTimer = setTimeout(() => searchTickerSymbol(val.toUpperCase()), 300);
+        }
+
+        function onTickerKeydown(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const val = document.getElementById('ticker-input')?.value?.trim();
+                if (val) { addTicker(val); closeAddTicker(); }
+            } else if (e.key === 'Escape') {
+                closeAddTicker();
+            }
+        }
+
+        async function searchTickerSymbol(q) {
+            const dd = document.getElementById('ticker-dropdown');
+            const key = getFinnhubKey();
+            if (!key || q.length < 1) { dd.classList.add('hidden'); return; }
+            try {
+                const r = await fetch(`https://finnhub.io/api/v1/search?q=${encodeURIComponent(q)}&token=${key}`);
+                const data = r.ok ? await r.json() : {};
+                const results = (data.result || [])
+                    .filter(x => x.type === 'Common Stock' || x.type === 'ETP')
+                    .slice(0, 7);
+                if (!results.length) { dd.classList.add('hidden'); return; }
+                dd.innerHTML = results.map(x => `
+                    <button onclick="addTicker('${x.symbol}');closeAddTicker()"
+                        class="w-full flex items-center gap-3 px-3 py-2 text-left transition-colors"
+                        style="border-bottom:1px solid var(--border);background:transparent"
+                        onmouseover="this.style.background='var(--bg-card2)'"
+                        onmouseout="this.style.background='transparent'">
+                        <span class="text-xs font-bold" style="color:var(--text-primary);min-width:52px">${x.symbol}</span>
+                        <span class="text-xs truncate" style="color:var(--text-dim)">${x.description || ''}</span>
+                    </button>`).join('');
+                dd.classList.remove('hidden');
+            } catch(e) { dd.classList.add('hidden'); }
+        }
+
         async function addTicker(symbolRaw) {
             if (!symbolRaw) return;
             const symbol = symbolRaw.toUpperCase().trim();
@@ -2874,7 +2943,7 @@
             }
         }
 
-        function openQuickChart(symbol, scroll = true) {
+        async function openQuickChart(symbol, scroll = true) {
             qcCurrentSymbol = symbol;
             const d = wlDataCache[symbol];
             const panel = document.getElementById('quick-chart-panel');
@@ -2903,14 +2972,19 @@
             document.getElementById('qc-name').innerText = d?.name ?? '';
 
             const logo = d?.logo ?? '';
-            const logoEl = document.getElementById('qc-logo');
+            const logoEl       = document.getElementById('qc-logo');
+            const logoFallback = document.getElementById('qc-logo-fallback');
+            const logoInitials = document.getElementById('qc-logo-initials');
             logoEl.style.opacity = '0';
+            if (logoFallback) logoFallback.style.display = 'none';
             logoEl.src = '';
             if (logo) {
-                logoEl.onload  = () => { logoEl.style.opacity = '1'; };
-                logoEl.onerror = () => { logoEl.style.opacity = '0'; };
+                logoEl.onload  = () => { logoEl.style.opacity = '1'; if (logoFallback) logoFallback.style.display = 'none'; };
+                logoEl.onerror = () => { logoEl.style.opacity = '0'; if (logoFallback) { logoFallback.style.display = 'flex'; if (logoInitials) logoInitials.textContent = symbol.slice(0,2); } };
                 logoEl.src = logo;
                 if (logoEl.complete && logoEl.naturalWidth > 0) logoEl.style.opacity = '1';
+            } else {
+                if (logoFallback) { logoFallback.style.display = 'flex'; if (logoInitials) logoInitials.textContent = symbol.slice(0,2); }
             }
 
             const price     = d?.c ?? null;
@@ -2966,42 +3040,603 @@
             // TradingView link
             document.getElementById('qc-tv-link').href = `https://www.tradingview.com/symbols/${symbol}/`;
 
-            // Render TradingView Advanced Chart Widget
+            // Render Lightweight Charts with Alpaca IEX data
             const isDark = document.documentElement.classList.contains('dark');
             const container = document.getElementById('qc-tv-container');
-            container.innerHTML = '';
-            const script = document.createElement('script');
-            script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
-            script.async = true;
-            script.innerHTML = JSON.stringify({
-                symbol: symbol,
-                interval: 'D',
-                timezone: 'Asia/Bangkok',
-                theme: isDark ? 'dark' : 'light',
-                style: '3',
-                locale: 'en',
-                backgroundColor: isDark ? '#161a1e' : '#ffffff',
-                gridColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)',
-                hide_top_toolbar: false,
-                hide_legend: false,
-                save_image: false,
-                calendar: false,
-                hide_volume: true,
-                studies: ['STD;Volume'],
-                autosize: true,
-                support_host: 'https://www.tradingview.com',
-                width: '100%',
-                height: '100%',
-            });
-            container.appendChild(script);
+            container.innerHTML = '<div id="lwc-inner" style="width:100%;height:100%;display:flex;flex-direction:column"></div>';
+            await renderLightweightChart(symbol, isDark);
 
             // Fetch news for this symbol
             fetchStockNews(symbol);
         }
 
+        // ── Lightweight Charts + Alpaca IEX ────────────────────────────────────
+        const _saveLwcPrefs = () => {
+            // Save only persistent settings: type, ema toggles, autoScroll
+            // Do NOT persist range/res — always reset to 1D/5Min on load
+            try { localStorage.setItem('ps_lwc_prefs', JSON.stringify({type:_lwcType,ema:_lwcEMA,autoScroll:_lwcAutoScroll})); } catch(e){}
+        };
+        const _lwcPrefs = (() => { try { return JSON.parse(localStorage.getItem('ps_lwc_prefs')||'{}'); } catch(e){return{};} })();
+        let _lwcChart = null, _lwcSymbol = null, _lwcLiveDotFn = null;
+        let _lwcRange = '1D';           // always start fresh at 1D
+        let _lwcType  = _lwcPrefs.type  || 'candle';   // remember chart type
+        let _lwcAutoScroll = _lwcPrefs.autoScroll !== undefined ? _lwcPrefs.autoScroll : true;
+        let _lwcRes = null;             // always start fresh at default res (5Min for 1D)
+        const _lwcResOptions = {
+            '1D': ['1Min','5Min','15Min'],
+            '5D': ['1Min','5Min','15Min'],
+            '1M': ['1Hour'],
+            '3M': ['1Hour'],
+            '6M': ['1Day'],
+            '1Y': ['1Day'],
+            '5Y': ['1Week'],
+        };
+        // Default resolution per range — always 5Min for 1D/5D on fresh load
+        const _lwcResDefault = {
+            '1D':'5Min','5D':'5Min','1M':'1Hour','3M':'1Hour',
+            '6M':'1Day','1Y':'1Day','5Y':'1Week',
+        };
+        let _lwcCandleSeries = null, _lwcLastCandle = null, _lwcLastTime = null;
+        let _lwcCurrentTf = '5Min';
+        let _lwcEMA = Object.assign({20:true,50:true,200:true}, _lwcPrefs.ema||{}), _lwcEmaSeriesMap = null;
+        const _emaColors = { 20: '#f59e0b', 50: '#60a5fa', 200: '#f472b6' };
+
+        async function renderLightweightChart(symbol, isDark) {
+            _lwcSymbol = symbol;
+            const aKey = getAlpacaKey(), aSecret = getAlpacaSecret();
+            const wrap = document.getElementById('lwc-inner');
+            if (!wrap) return;
+
+            // Build UI: timeframe buttons + chart div
+            wrap.innerHTML = `
+                <div id="lwc-tf-bar" style="display:flex;flex-direction:column;background:transparent;border-bottom:1px solid var(--border)">
+                    <!-- Row 1: Timeframe + Chart type -->
+                    <div style="display:flex;align-items:center;gap:3px;padding:5px 10px 4px">
+                    ${['1D','5D','1M','3M','6M','1Y','5Y'].map(r =>
+                        `<button onclick="lwcSetRange('${r}')" id="lwc-btn-${r}"
+                            style="font-size:10px;font-weight:700;padding:2px 9px;border-radius:4px;cursor:pointer;border:1px solid var(--border);white-space:nowrap;
+                            background:${r===_lwcRange?'var(--accent,#4285f4)':'var(--bg-card2)'};
+                            color:${r===_lwcRange?'#fff':'var(--text-dim)'};transition:all 0.15s">${r}</button>`
+                    ).join('')}
+                    <div style="flex:1"></div>
+                    ${[['🕯','candle'],['📈','line'],['🏔','area']].map(([icon,type]) =>
+                        `<button onclick="lwcSetType('${type}')" id="lwc-type-${type}" title="${type}"
+                            style="font-size:12px;padding:2px 6px;border-radius:4px;cursor:pointer;border:1px solid var(--border);
+                            background:${type===_lwcType?'var(--accent,#4285f4)':'var(--bg-card2)'};
+                            transition:all 0.15s">${icon}</button>`
+                    ).join('')}
+                    </div>
+                    <!-- Row 2: Resolution + LIVE + EMA -->
+                    <div style="display:flex;align-items:center;gap:3px;padding:3px 10px 5px">
+                    <div id="lwc-res-bar" style="display:contents"></div>
+                    <div style="flex:1"></div>
+                    <button onclick="lwcToggleAutoScroll()" id="lwc-autoscroll-btn"
+                        title="Auto-scroll to latest"
+                        style="font-size:9px;font-weight:700;padding:2px 8px;border-radius:4px;cursor:pointer;
+                        border:1px solid var(--border);transition:all 0.15s;
+                        background:${_lwcAutoScroll?'rgba(66,133,244,0.2)':'var(--bg-card2)'};
+                        color:${_lwcAutoScroll?'#4285f4':'var(--text-dim)'}">⟳ LIVE</button>
+                    <div style="width:1px;height:12px;background:var(--border);margin:0 2px"></div>
+                    ${[20,50,200].map(p =>
+                        `<button onclick="lwcToggleEMA(${p})" id="lwc-ema-${p}"
+                            style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;cursor:pointer;
+                            border:1px solid ${_emaColors[p]};
+                            background:${_lwcEMA[p]?_emaColors[p]+'33':'transparent'};
+                            color:${_emaColors[p]};transition:all 0.15s">EMA${p}</button>`
+                    ).join('')}
+                    </div>
+                </div>
+                <div id="lwc-canvas" style="width:100%;flex:1;min-height:0"></div>`;
+
+            _lwcRenderResBtns(_lwcRange);
+            await _lwcDraw(symbol, _lwcRange, isDark, aKey, aSecret);
+        }
+
+        async function _lwcDraw(symbol, range, isDark, aKey, aSecret) {
+            const canvas = document.getElementById('lwc-canvas');
+            if (!canvas) return;
+
+            // ── Timeframe / resolution params ────────────────────────────────
+            // displayDays = what user wants to see
+            // fetchDays   = extra lookback so EMA200 has enough warmup bars
+            const rangeMap = {
+                '1D': { tf:'1Min',  displayDays:2,    fetchDays:7    }, // 5min*390bars=~2days trading, fetch 1wk for EMA warmup
+                '5D': { tf:'5Min',  displayDays:8,    fetchDays:60   }, // fetch 2mo for EMA200 warmup at 5min
+                '1M': { tf:'1Hour', displayDays:35,   fetchDays:120  }, // fetch 4mo for EMA200 hourly warmup
+                '3M': { tf:'1Day',  displayDays:100,  fetchDays:400  }, // fetch >200 trading days for EMA200
+                '6M': { tf:'1Day',  displayDays:190,  fetchDays:680  }, // 200 trading days + 6mo display
+                '1Y': { tf:'1Day',  displayDays:380,  fetchDays:650  },
+                '5Y': { tf:'1Week', displayDays:1850, fetchDays:2200 },
+            };
+            const entry    = rangeMap[range] || rangeMap['6M'];
+            const _defRes  = _lwcResDefault[range] || entry.tf;
+            const tf       = (_lwcRes && (_lwcResOptions[range]||[]).includes(_lwcRes)) ? _lwcRes : _defRes;
+            _lwcCurrentTf = tf;
+            const isIntra  = ['1Min','5Min','15Min','1Hour'].includes(tf);
+            const toTime   = t => isIntra ? Math.floor(new Date(t).getTime()/1000) : t.split('T')[0];
+            const now      = new Date();
+            const end           = now.toISOString();
+            const displayCutoff = new Date(now - (entry.displayDays || entry.days || 2) * 86400000);
+            const start         = new Date(now - (entry.fetchDays  || entry.days || 7) * 86400000).toISOString();
+
+            // ── Spinner (lives in wrapper, survives chart.remove()) ───────────
+            const wrap = canvas.parentElement;
+            if (wrap) wrap.style.position = 'relative';
+            let spin = document.getElementById('lwc-spin');
+            if (!spin && wrap) {
+                spin = document.createElement('div');
+                spin.id = 'lwc-spin';
+                spin.style.cssText = 'position:absolute;inset:0;z-index:30;display:none;align-items:center;justify-content:center;pointer-events:none;';
+                spin.innerHTML = '<div style="width:22px;height:22px;border:2px solid rgba(255,255,255,0.12);border-top-color:#10b981;border-radius:50%;animation:lwc-spin 0.7s linear infinite"></div>';
+                wrap.appendChild(spin);
+            }
+            const showSpin = v => { if (spin) spin.style.display = v ? 'flex' : 'none'; };
+            showSpin(true);
+
+            // ── Fetch bars ───────────────────────────────────────────────────
+            let bars = [];
+            try {
+                let pt = null;
+                do {
+                    const u = new URL(`https://data.alpaca.markets/v2/stocks/${symbol}/bars`);
+                    u.searchParams.set('timeframe', tf);
+                    u.searchParams.set('start', start);
+                    u.searchParams.set('end', end);
+                    u.searchParams.set('limit', '1000');
+                    u.searchParams.set('feed', 'iex');
+                    u.searchParams.set('adjustment', 'split'); // split-adjusted prices
+                    u.searchParams.set('sort', 'asc');
+                    if (pt) u.searchParams.set('page_token', pt);
+                    const r = await fetch(u.toString(), { headers: { 'APCA-API-KEY-ID': aKey, 'APCA-API-SECRET-KEY': aSecret } });
+                    const j = await r.json();
+                    bars = bars.concat(j.bars || []);
+                    pt = j.next_page_token || null;
+                } while (pt);
+            } catch(e) {
+                showSpin(false);
+                canvas.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#e11d48;font-size:12px">${e.message}</div>`;
+                return;
+            }
+            if (!bars.length) {
+                showSpin(false);
+                canvas.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#64748b;font-size:12px">ไม่มีข้อมูล</div>';
+                return;
+            }
+
+            // ── Destroy old chart, cleanup ────────────────────────────────────
+            if (_lwcChart) { try { _lwcChart.remove(); } catch(e){} _lwcChart = null; }
+            if (window._lwcScrollTimer) { clearInterval(window._lwcScrollTimer); window._lwcScrollTimer = null; }
+            const oldDot = document.getElementById('lwc-live-dot'); if (oldDot) oldDot.remove();
+            _lwcLiveDotFn = null;
+
+            // ── Create chart ─────────────────────────────────────────────────
+            const bg   = isDark ? '#161a1e' : '#ffffff';
+            const text = isDark ? '#94a3b8' : '#64748b';
+            const grid = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)';
+            const up = '#10b981', dn = '#e11d48';
+
+            _lwcChart = LightweightCharts.createChart(canvas, {
+                width:  canvas.clientWidth  || wrap?.clientWidth  || 800,
+                height: canvas.clientHeight || wrap?.clientHeight || 400,
+                layout: { background: { color: bg }, textColor: text, fontSize: 11 },
+                grid:   { vertLines: { color: grid }, horzLines: { color: grid } },
+                crosshair: { mode: LightweightCharts.CrosshairMode.Magnet },
+                rightPriceScale: { borderColor: grid },
+                timeScale: {
+                    borderColor: grid,
+                    timeVisible: true,
+                    secondsVisible: false,
+                    rightOffset: 5,
+                    barSpacing: 6,
+                    fixLeftEdge: true,
+                    fixRightEdge: false,
+                    tickMarkFormatter: (time, tickType, locale) => {
+                        const d = new Date(time * 1000);
+                        const h = d.getUTCHours().toString().padStart(2,'0');
+                        const m = d.getUTCMinutes().toString().padStart(2,'0');
+                        const mo = d.toLocaleString('en-US',{month:'short',timeZone:'UTC'});
+                        const day = d.getUTCDate();
+                        // Show date when it's a new day, time otherwise
+                        if (h === '00' && m === '00') return `${mo} ${day}`;
+                        if (m === '00') return `${h}:00`;
+                        return `${h}:${m}`;
+                    },
+                },
+            });
+
+            // ── Series ───────────────────────────────────────────────────────
+            let cSeries;
+            if (_lwcType === 'candle') {
+                cSeries = _lwcChart.addCandlestickSeries({ upColor:up, downColor:dn, borderUpColor:up, borderDownColor:dn, wickUpColor:up, wickDownColor:dn, lastValueVisible:false, priceLineVisible:false });
+            } else if (_lwcType === 'line') {
+                cSeries = _lwcChart.addLineSeries({ color:up, lineWidth:2, lineType:2, priceLineVisible:false, lastValueVisible:false });
+            } else {
+                cSeries = _lwcChart.addAreaSeries({ lineColor:'#10b981', topColor:'rgba(16,185,129,0.55)', bottomColor:'rgba(16,185,129,0.04)', lineWidth:2, lineType:2, priceLineVisible:false, lastValueVisible:false });
+            }
+            const vSeries = _lwcChart.addHistogramSeries({ priceFormat:{type:'volume'}, priceScaleId:'vol', lastValueVisible:false, priceLineVisible:false });
+            vSeries.priceScale().applyOptions({ scaleMargins: { top: 0.78, bottom: 0 } });
+            _lwcEmaSeriesMap = {};
+            const emaSeriesMap = _lwcEmaSeriesMap;
+            [20,50,200].forEach(p => {
+                emaSeriesMap[p] = _lwcChart.addLineSeries({
+                    color: _emaColors[p],
+                    lineWidth: p===200 ? 2 : 1.5,
+                    lineType: 2, // Curved — smoother EMA line
+                    priceLineVisible: false,
+                    lastValueVisible: false,
+                    visible: _lwcEMA[p],
+                    autoscaleInfoProvider: () => null,
+                });
+            });
+
+            // ── Set data ─────────────────────────────────────────────────────
+            const displayBars   = bars.filter(b => new Date(b.t) >= displayCutoff);
+            const barsForDisplay = displayBars.length > 0 ? displayBars : bars;
+            const tfSec = { '1Min':60, '5Min':300, '15Min':900, '1Hour':3600 }[tf] || 300;
+
+            // Detect session boundaries (gap > 4h for intraday)
+            const isSessionGap = (a, b) => isIntra && (new Date(b.t) - new Date(a.t)) / 1000 > 4 * 3600;
+
+            const candles  = barsForDisplay.map(b => ({ time:toTime(b.t), open:b.o, high:b.h, low:b.l, close:b.c }));
+            const lineData = barsForDisplay.map(b => ({ time:toTime(b.t), value:b.c }));
+            cSeries.setData(_lwcType === 'candle' ? candles : lineData);
+            _lwcCandleSeries = cSeries;
+            _lwcLastCandle   = candles.length ? {...candles[candles.length-1]} : null;
+            _lwcLastTime     = _lwcLastCandle?.time ?? null;
+            vSeries.setData(barsForDisplay.map(b => ({
+                time:  toTime(b.t),
+                value: b.v,
+                color: b.c >= b.o ? 'rgba(16,185,129,0.3)' : 'rgba(225,29,72,0.3)'
+            })));
+
+            // ── EMA Calculation ───────────────────────────────────────────────
+            // Strategy: calculate on ALL fetched bars (warmup), split into per-session
+            // segments for display — no connecting line across market close
+            [20, 50, 200].forEach(p => {
+                const k = 2 / (p + 1);
+                let prev = null;
+
+                // Pass 1: calculate EMA value for every bar (full warmup on all fetched bars)
+                const emaValues = new Map(); // bar index → ema value
+                for (let i = 0; i < bars.length; i++) {
+                    if (prev === null) {
+                        if (i < p - 1) continue;
+                        let sum = 0;
+                        for (let j = 0; j < p; j++) sum += bars[j].c;
+                        prev = sum / p;
+                    } else {
+                        prev = bars[i].c * k + prev * (1 - k);
+                    }
+                    emaValues.set(i, prev);
+                }
+
+                // Pass 2: build display segments — split at session gaps
+                // Each segment = continuous trading session, no overnight connections
+                const segments = [[]]; // array of arrays
+                for (let i = 0; i < bars.length; i++) {
+                    if (!emaValues.has(i)) continue;
+                    if (new Date(bars[i].t) < displayCutoff) continue;
+
+                    // Start new segment if gap detected
+                    if (segments[segments.length-1].length > 0 && i > 0 && emaValues.has(i-1)) {
+                        if (isSessionGap(bars[i-1], bars[i])) {
+                            segments.push([]);
+                        }
+                    }
+                    segments[segments.length-1].push({ time: toTime(bars[i].t), value: emaValues.get(i) });
+                }
+
+                // Flatten segments with a gap marker between them
+                // LWC v4.1: whitespace point = { time } with no other fields
+                const finalData = [];
+                segments.forEach((seg, si) => {
+                    if (seg.length === 0) return;
+                    if (si > 0 && finalData.length > 0) {
+                        // Insert one whitespace point at the gap to break the line
+                        // Use time = last point of previous segment + 1 tick
+                        const lastTime = finalData[finalData.length - 1].time;
+                        finalData.push({ time: lastTime + 1 }); // whitespace — no value field
+                    }
+                    seg.forEach(pt => finalData.push(pt));
+                });
+
+                const btnEl = document.getElementById('lwc-ema-' + p);
+                if (finalData.filter(d => d.value !== undefined).length === 0) {
+                    if (btnEl) { btnEl.style.opacity = '0.35'; btnEl.title = 'Need more data for EMA' + p; }
+                    emaSeriesMap[p].setData([]);
+                } else {
+                    if (btnEl) { btnEl.style.opacity = '1'; btnEl.title = ''; }
+                    emaSeriesMap[p].setData(finalData);
+                }
+
+                emaSeriesMap[p]._lastEma = prev;
+                emaSeriesMap[p]._emaK    = k;
+            });
+
+            // ── Live price overlay ────────────────────────────────────────────
+            const liveP = wlDataCache[symbol]?.c;
+            // Store priceLine ref so WS updates can move it in sync with series.update()
+            let _livePriceLine = null;
+            window._lwcLivePriceLine = null;
+            window._lwcLiveSeries    = cSeries;
+            if (liveP && candles.length) {
+                const last = candles[candles.length-1];
+                _livePriceLine = cSeries.createPriceLine({
+                    price: liveP, color:'#4285f4', lineWidth:1,
+                    lineStyle: LightweightCharts.LineStyle.Dashed,
+                    axisLabelVisible: true, title: 'LIVE'
+                });
+                window._lwcLivePriceLine = _livePriceLine;
+                if (_lwcType === 'candle') {
+                    const lc = { time:last.time, open:last.open, high:Math.max(last.high,liveP), low:Math.min(last.low,liveP), close:liveP };
+                    cSeries.update(lc); _lwcLastCandle = lc;
+                } else {
+                    cSeries.update({ time:last.time, value:liveP });
+                }
+                [20,50,200].forEach(p => {
+                    try {
+                        const s = emaSeriesMap[p];
+                        if (!s || s._lastEma === null) return;
+                        // Proper EMA continuation: liveP*k + prevEMA*(1-k)
+                        const newEma = liveP * s._emaK + s._lastEma * (1 - s._emaK);
+                        s.update({ time: last.time, value: newEma });
+                        // Don't overwrite _lastEma here — live price is provisional
+                    } catch(e) {}
+                });
+            }
+
+            // ── fitContent — after data set ───────────────────────────────────
+            showSpin(false);
+            requestAnimationFrame(() => {
+                if (!_lwcChart) return;
+                const w = canvas.clientWidth || wrap?.clientWidth || 800;
+                const h = canvas.clientHeight || wrap?.clientHeight || 400;
+                if (w > 0) _lwcChart.applyOptions({ width: w, height: h });
+                _lwcChart.timeScale().fitContent();
+            });
+
+            if (window.ResizeObserver) {
+                const ro = new ResizeObserver(() => {
+                    if (!_lwcChart) return;
+                    const w2 = canvas.clientWidth || wrap?.clientWidth || 800;
+                    const h2 = canvas.clientHeight || wrap?.clientHeight || 400;
+                    if (w2 > 0) { _lwcChart.applyOptions({ width:w2, height:h2 }); _lwcChart.timeScale().fitContent(); }
+                });
+                ro.observe(wrap || canvas);
+            }
+
+            // ── Live dot: HTML overlay synced via subscribeCrosshairMove ─────
+            // We keep the div but position it via a SEPARATE overlay div on wrap
+            // (canvas is LWC-owned, we can't reliably appendChild to it)
+            const oldDotEl = document.getElementById('lwc-live-dot');
+            if (oldDotEl) oldDotEl.remove();
+
+            if (liveP && isMarketOpen()) {
+                // Mount dot on wrap (not canvas) — wrap is our container div
+                const dotWrap = wrap || canvas;
+                if (dotWrap.style.position !== 'relative' && dotWrap.style.position !== 'absolute')
+                    dotWrap.style.position = 'relative';
+                const dot = document.createElement('div');
+                dot.id = 'lwc-live-dot';
+                dotWrap.appendChild(dot);
+
+                // Offset of canvas inside wrap
+                const getCanvasOffset = () => {
+                    if (!wrap) return { ox:0, oy:0 };
+                    const wRect = wrap.getBoundingClientRect();
+                    const cRect = canvas.getBoundingClientRect();
+                    return { ox: cRect.left - wRect.left, oy: cRect.top - wRect.top };
+                };
+
+                const placeDot = () => {
+                    if (!_lwcChart || !dot.isConnected) return;
+                    try {
+                        const price = wlDataCache[_lwcSymbol]?.c ?? liveP;
+                        const y = cSeries.priceToCoordinate(price);
+                        if (y === null) { dot.style.display='none'; return; }
+                        const x = _lwcLastTime ? _lwcChart.timeScale().timeToCoordinate(_lwcLastTime) : null;
+                        if (x === null || x < 2) { dot.style.display='none'; return; }
+                        // timeToCoordinate returns x within the chart PANE (excludes price scale)
+                        // pane width = canvas width - price scale width (~65px)
+                        const priceScaleW = 65;
+                        const paneW = canvas.clientWidth - priceScaleW;
+                        // Hide dot when last bar is at/near right edge of pane — LIVE badge covers it
+                        if (x > paneW - 8) { dot.style.display='none'; return; }
+                        const { ox, oy } = getCanvasOffset();
+                        dot.style.left    = (ox + x) + 'px';
+                        dot.style.top     = (oy + y) + 'px';
+                        dot.style.display = 'block';
+                    } catch(e) { dot.style.display='none'; }
+                };
+
+                // Subscribe to BOTH logical range AND crosshair for maximum sync
+                const updateDot = () => { placeDot(); };
+                _lwcChart.timeScale().subscribeVisibleLogicalRangeChange(updateDot);
+                // crosshairMove fires on every mousemove pixel — catches drag perfectly
+                _lwcChart.subscribeCrosshairMove(() => placeDot());
+                placeDot();
+                _lwcLiveDotFn = updateDot;
+            } else {
+                _lwcLiveDotFn = null;
+            }
+
+            // ── Auto-scroll timer ─────────────────────────────────────────────
+            if (window._lwcScrollTimer) clearInterval(window._lwcScrollTimer);
+            window._lwcScrollTimer = setInterval(() => {
+                if (!_lwcAutoScroll || !_lwcChart || !isMarketOpen()) return;
+                try { _lwcChart.timeScale().scrollToRealTime(); } catch(e) {}
+                if (_lwcLiveDotFn) _lwcLiveDotFn();
+            }, 2000);
+
+            // ── Tooltip ───────────────────────────────────────────────────────
+            const oldTip = document.getElementById('lwc-tip');
+            if (oldTip) oldTip.remove();
+            const tip = document.createElement('div');
+            tip.id = 'lwc-tip';
+            tip.style.cssText = 'position:absolute;pointer-events:none;z-index:99;display:none;' +
+                'background:' + (isDark?'rgba(15,18,23,0.97)':'rgba(255,255,255,0.98)') + ';' +
+                'border:1px solid '+(isDark?'rgba(255,255,255,0.12)':'rgba(0,0,0,0.12)')+';' +
+                'border-radius:8px;padding:8px 14px;font-size:12px;' +
+                'color:'+(isDark?'#e2e8f0':'#1e293b')+';white-space:nowrap;' +
+                'box-shadow:0 8px 24px rgba(0,0,0,0.45);min-width:150px;';
+            // Attach to wrap so it sits above chart canvas
+            if (wrap) { wrap.style.position='relative'; wrap.appendChild(tip); }
+            else { canvas.style.position='relative'; canvas.appendChild(tip); }
+
+            let _tipRafId = null;
+            _lwcChart.subscribeCrosshairMove(param => {
+                // Throttle tooltip rendering to one rAF per crosshair event
+                if (_tipRafId) cancelAnimationFrame(_tipRafId);
+                _tipRafId = requestAnimationFrame(() => { _tipRafId = null; _tipInner(param); });
+            });
+            const _tipInner = (param => {
+                if (!param?.point || param.point.x < 0 || !param.time) { tip.style.display='none'; return; }
+                const d = param.seriesData?.get(cSeries);
+                if (!d) { tip.style.display='none'; return; }
+
+                const dimC = isDark?'#64748b':'#94a3b8';
+                const bold = isDark?'#f1f5f9':'#0f172a';
+                const fmtP = v => `<span style="color:${bold};font-weight:700">$${(+v).toFixed(2)}</span>`;
+
+                let dateStr;
+                if (isIntra) {
+                    const dt = new Date(param.time * 1000);
+                    dateStr = dt.toLocaleDateString('en-US',{day:'2-digit',month:'short',year:'2-digit'}) + ' ' +
+                              dt.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:false});
+                } else {
+                    const dt = new Date(param.time + 'T12:00:00Z');
+                    dateStr = dt.toLocaleDateString('en-US',{day:'2-digit',month:'short',year:'numeric'});
+                }
+
+                const vd = param.seriesData?.get(vSeries);
+                const vol = vd?.value ?? 0;
+                const volStr = vol>=1e6?(vol/1e6).toFixed(2)+'M':vol>=1e3?(vol/1e3).toFixed(1)+'K':vol.toFixed(0);
+
+                if (_lwcType === 'candle') {
+                    const chg = d.close-d.open, pct = d.open?(chg/d.open*100):0;
+                    const col = chg>=0?'#10b981':'#e11d48';
+                    tip.innerHTML =
+                        `<div style="font-size:10px;color:${dimC};margin-bottom:4px">${dateStr}</div>` +
+                        `<div style="display:grid;grid-template-columns:auto auto;gap:1px 14px;font-size:11px;line-height:1.6">` +
+                        `<span style="color:${dimC}">O</span>${fmtP(d.open)}` +
+                        `<span style="color:#10b981">H</span>${fmtP(d.high)}` +
+                        `<span style="color:#e11d48">L</span>${fmtP(d.low)}` +
+                        `<span style="color:${dimC}">C</span>${fmtP(d.close)}` +
+                        `</div>` +
+                        `<div style="margin-top:4px;border-top:1px solid ${isDark?'rgba(255,255,255,0.07)':'rgba(0,0,0,0.06)'};padding-top:4px;font-size:10px">` +
+                        `<span style="color:${col};font-weight:600">${chg>=0?'▲':'▼'} ${Math.abs(chg).toFixed(2)} (${Math.abs(pct).toFixed(2)}%)</span>` +
+                        (vol?`<span style="color:${dimC};margin-left:8px">Vol ${volStr}</span>`:'') +
+                        `</div>`;
+                } else {
+                    const val = d.value ?? d.close ?? 0;
+                    tip.innerHTML =
+                        `<div style="font-size:10px;color:${dimC};margin-bottom:3px">${dateStr}</div>` +
+                        `<div style="font-size:16px;font-weight:700;color:${bold}">$${(+val).toFixed(2)}</div>` +
+                        (vol?`<div style="font-size:10px;color:${dimC};margin-top:3px">Volume <b style="color:${isDark?'#94a3b8':'#475569'}">${volStr}</b></div>`:'');
+                }
+
+                tip.style.display = 'block';
+                const pw = (wrap||canvas).clientWidth, ph = (wrap||canvas).clientHeight;
+                const tw = tip.offsetWidth||160, th = tip.offsetHeight||80;
+                let x = param.point.x + 16, y = param.point.y - th - 12;
+                if (x + tw + 8 > pw) x = param.point.x - tw - 16;
+                if (y < 8) y = param.point.y + 16;
+                if (y + th + 8 > ph) y = ph - th - 8;
+                tip.style.left = Math.max(4, x) + 'px';
+                tip.style.top  = Math.max(4, y) + 'px';
+            }); // end _tipInner
+        }
+        function _lwcRenderResBtns(range) {
+            const bar = document.getElementById('lwc-res-bar');
+            if (!bar) return;
+            const resOpts = _lwcResOptions[range] || [];
+            const activeRes = (_lwcRes && resOpts.includes(_lwcRes)) ? _lwcRes : (_lwcResDefault[range] || resOpts[0]);
+            const divider = '<div style="width:1px;height:14px;background:var(--border);margin:0 4px;display:inline-block;vertical-align:middle"></div>';
+            bar.innerHTML = resOpts.length
+                ? divider + resOpts.map(r => {
+                    const on = r === activeRes;
+                    return `<button onclick="lwcSetRes('${r}')" id="lwc-res-${r}"
+                        style="font-size:9px;font-weight:700;padding:2px 8px;border-radius:4px;cursor:pointer;
+                        border:1px solid ${on?'rgba(255,255,255,0.4)':'var(--border)'};
+                        background:${on?'rgba(255,255,255,0.18)':'var(--bg-card2)'};
+                        color:${on?'var(--text-primary)':'var(--text-dim)'};transition:all 0.15s">${r}</button>`;
+                }).join('')
+                : '';
+        }
+
+        async function lwcSetRange(range) {
+            _lwcRange = range; _lwcRes = null; _saveLwcPrefs();
+            const isDark = document.documentElement.classList.contains('dark');
+            const aKey = getAlpacaKey(), aSecret = getAlpacaSecret();
+            ['1D','5D','1M','3M','6M','1Y','5Y'].forEach(r => {
+                const btn = document.getElementById('lwc-btn-' + r);
+                if (!btn) return;
+                btn.style.background = r===range ? 'var(--accent,#4285f4)' : 'var(--bg-card2)';
+                btn.style.color = r===range ? '#fff' : 'var(--text-dim)';
+            });
+            await _lwcDraw(_lwcSymbol, range, isDark, aKey, aSecret);
+            _lwcRenderResBtns(range);
+        }
+
+        async function lwcSetRes(res) {
+            _lwcRes = res;
+            _saveLwcPrefs();
+            // Update button highlight immediately
+            (_lwcResOptions[_lwcRange]||[]).forEach(r => {
+                const btn = document.getElementById('lwc-res-' + r);
+                if (!btn) return;
+                btn.style.background = r===res ? 'rgba(255,255,255,0.2)' : 'var(--bg-card2)';
+                btn.style.color = r===res ? 'var(--text-primary)' : 'var(--text-dim)';
+                btn.style.borderColor = r===res ? 'rgba(255,255,255,0.4)' : 'var(--border)';
+            });
+            _lwcRenderResBtns(_lwcRange);
+            const isDark = document.documentElement.classList.contains('dark');
+            const aKey = getAlpacaKey(), aSecret = getAlpacaSecret();
+            await _lwcDraw(_lwcSymbol, _lwcRange, isDark, aKey, aSecret);
+        }
+
+        function lwcToggleAutoScroll() {
+            _lwcAutoScroll = !_lwcAutoScroll;
+            _saveLwcPrefs();
+            const btn = document.getElementById('lwc-autoscroll-btn');
+            if (btn) {
+                btn.style.background = _lwcAutoScroll ? 'rgba(66,133,244,0.2)' : 'var(--bg-card2)';
+                btn.style.color = _lwcAutoScroll ? '#4285f4' : 'var(--text-dim)';
+            }
+            if (_lwcAutoScroll && _lwcChart) {
+                try { _lwcChart.timeScale().scrollToRealTime(); } catch(e) {}
+            }
+        }
+
+        function lwcToggleEMA(period) {
+            _lwcEMA[period] = !_lwcEMA[period]; _saveLwcPrefs();
+            const btn = document.getElementById('lwc-ema-' + period);
+            if (btn) btn.style.background = _lwcEMA[period] ? _emaColors[period]+'33' : 'transparent';
+            // Just toggle visibility — no redraw needed
+            if (_lwcEmaSeriesMap && _lwcEmaSeriesMap[period]) {
+                _lwcEmaSeriesMap[period].applyOptions({ visible: _lwcEMA[period] });
+            }
+        }
+
+        async function lwcSetType(type) {
+            _lwcType = type; _saveLwcPrefs();
+            const isDark = document.documentElement.classList.contains('dark');
+            const aKey = getAlpacaKey(), aSecret = getAlpacaSecret();
+            ['candle','line','area'].forEach(t => {
+                const btn = document.getElementById('lwc-type-' + t);
+                if (!btn) return;
+                btn.style.background = t===type ? 'var(--accent,#4285f4)' : 'var(--bg-card2)';
+            });
+            await _lwcDraw(_lwcSymbol, _lwcRange, isDark, aKey, aSecret);
+        }
+
         function closeQuickChart() {
             document.getElementById('wl-split-wrap').classList.remove('chart-open');
             setCompactHeaders(false);
+            if (_lwcChart) { try { _lwcChart.remove(); } catch(e){} _lwcChart = null; }
+            _lwcLiveDotFn = null;
+            const _cDot = document.getElementById('lwc-live-dot'); if (_cDot) _cDot.remove();
+            if (window._lwcScrollTimer) { clearInterval(window._lwcScrollTimer); window._lwcScrollTimer = null; }
             document.getElementById('qc-tv-container').innerHTML = '';
             document.getElementById('qc-news-list').innerHTML = '';
             if (qcChart) { qcChart.destroy(); qcChart = null; }
@@ -3028,15 +3663,15 @@
             ).join('');
             return `<button data-news-idx="${idx}" onclick="openNewsModal(${idx})" class="news-tile">
                 ${img
-                    ? `<img src="${img}" alt="" class="news-tile-img" onerror="this.parentElement.querySelector('.news-tile-no-img')&&(this.style.display='none')">`
-                    : `<div class="news-tile-no-img"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:var(--text-dim)"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/></svg></div>`}
-                <div class="flex-1 flex flex-col gap-1.5" style="min-width:0">
-                    <p style="font-size:12px;font-weight:600;line-height:1.35;color:var(--text-primary);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${a.headline || ''}</p>
-                    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:auto">
+                    ? `<img src="${img}" alt="" class="news-tile-img" loading="lazy" onerror="this.style.display='none'">`
+                    : `<div class="news-tile-no-img"><svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:var(--text-dim)"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/></svg></div>`}
+                <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">
+                    <p style="font-size:11.5px;font-weight:600;line-height:1.4;color:var(--text-primary);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin:0">${a.headline || ''}</p>
+                    <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap">
                         <span style="font-size:9px;font-weight:700;color:#089981;letter-spacing:0.04em">${source}</span>
-                        <span style="color:var(--border)">·</span>
+                        <span style="color:var(--border);font-size:9px">·</span>
                         <span style="font-size:9px;color:var(--text-dim)">${timeStr}</span>
-                        ${badges ? `<span style="color:var(--border)">·</span>${badges}` : ''}
+                        ${badges ? `<span style="color:var(--border);font-size:9px">·</span>${badges}` : ''}
                     </div>
                 </div>
             </button>`;
@@ -3119,6 +3754,8 @@
                     return;
                 }
                 grid.className = 'grid grid-cols-2 lg:grid-cols-3 gap-3 p-3';
+                grid.style.display = 'flex';
+                grid.style.flexDirection = 'column';
                 grid.innerHTML = items.map(a => renderNewsRow(a)).join('');
             } catch(e) {
                 grid.innerHTML = `<div class="flex flex-col items-center py-6 gap-2">
@@ -4206,7 +4843,6 @@ ${contextSections}
             else connectFinnhubWs();
         }
 
-        // ── Alpaca WebSocket ────────────────────────────────────────────────────
         let alpWs = null, alpWsReconnectTimer = null, alpWsBackoff = 5000, alpWsSubscribed = new Set();
 
         function connectAlpacaWs(apiKey, apiSecret) {
@@ -4256,6 +4892,8 @@ ${contextSections}
         let _rafPending = false;
         function _flushTrades() {
             _rafPending = false;
+            // Skip DOM update if user is hovering over lwc chart (avoid interrupting crosshair paint)
+            const _lwcHovered = document.getElementById('lwc-canvas')?.matches(':hover');
             for (const [sym, newPrice] of Object.entries(_pendingTrades)) {
                 delete _pendingTrades[sym];
                 const cached = wlDataCache[sym]; if (!cached) continue;
@@ -4263,16 +4901,63 @@ ${contextSections}
                 const change = newPrice - prevClose, changePct = prevClose ? (change/prevClose)*100 : 0;
                 const updated = { ...cached, c: newPrice, d: change, dp: changePct };
                 wlDataCache[sym] = updated;
-                updateWatchlistPriceCells(sym, updated);
+                // Don't re-render watchlist DOM while user drags crosshair on chart
+                if (!_lwcHovered || sym === _lwcSymbol) updateWatchlistPriceCells(sym, updated);
                 const row = document.getElementById('wl-row-' + sym);
                 if (row && !row._bgTimer) {
-                    row.style.transition = 'background 0.1s';
-                    row.style.background = change >= 0 ? 'rgba(5,150,105,0.08)' : 'rgba(225,29,72,0.08)';
                     row._bgTimer = setTimeout(() => { row.style.background = ''; row._bgTimer = null; }, 600);
+                    row.style.background = change >= 0 ? 'rgba(5,150,105,0.08)' : 'rgba(225,29,72,0.08)';
                 }
                 if (qcCurrentSymbol === sym) {
                     const heroEl = document.getElementById('qc-price-hero');
                     if (heroEl) { heroEl.textContent = '$' + newPrice.toFixed(2); heroEl.style.color = change >= 0 ? 'var(--qc-up)' : 'var(--qc-dn)'; }
+                    if (_lwcLiveDotFn) _lwcLiveDotFn();
+                    // Update live candle/line/area in real-time
+                    if (_lwcCandleSeries && _lwcLastCandle && _lwcLastTime !== null) {
+                        try {
+                            const _activeTf = _lwcEmaSeriesMap ? (Object.keys(_lwcEmaSeriesMap).length ? _lwcCurrentTf : null) : null;
+                            const isIntraLive = ['1Min','5Min','15Min','1Hour'].includes(_lwcCurrentTf || '');
+                            // Resolution in minutes for current tf
+                            const _tfMin = {'1Min':1,'5Min':5,'15Min':15,'1Hour':60}[_lwcCurrentTf] || 0;
+                            const nowSec = _tfMin ? Math.floor(Date.now() / (_tfMin*60000)) * (_tfMin*60) : 0;
+
+                            if (_lwcType === 'candle') {
+                                if (isIntraLive && _tfMin && nowSec > _lwcLastTime) {
+                                    // New candle for this resolution interval
+                                    const newCandle = { time:nowSec, open:newPrice, high:newPrice, low:newPrice, close:newPrice };
+                                    _lwcCandleSeries.update(newCandle);
+                                    _lwcLastCandle = newCandle; _lwcLastTime = nowSec;
+                                } else {
+                                    // Update current candle
+                                    const lc = _lwcLastCandle;
+                                    const updated = { time:lc.time, open:lc.open,
+                                        high:Math.max(lc.high,newPrice), low:Math.min(lc.low,newPrice), close:newPrice };
+                                    _lwcCandleSeries.update(updated);
+                                    _lwcLastCandle = updated;
+                                }
+                            } else {
+                                if (isIntraLive && _tfMin && nowSec > _lwcLastTime) {
+                                    // New point for this interval
+                                    _lwcCandleSeries.update({ time:nowSec, value:newPrice });
+                                    _lwcLastTime = nowSec;
+                                    _lwcLastCandle = { time:nowSec, open:newPrice, high:newPrice, low:newPrice, close:newPrice };
+                                } else {
+                                    _lwcCandleSeries.update({ time:_lwcLastTime, value:newPrice });
+                                }
+                            }
+                            // Update EMA last point — proper EMA formula, not raw price
+                            if (_lwcEmaSeriesMap) {
+                                Object.values(_lwcEmaSeriesMap).forEach(s => {
+                                    try {
+                                        if (s._lastEma == null) return;
+                                        const newEma = newPrice * s._emaK + s._lastEma * (1 - s._emaK);
+                                        s.update({ time:_lwcLastTime, value:newEma });
+                                    } catch(e) {}
+                                });
+                            }
+                            if (_lwcLiveDotFn) _lwcLiveDotFn();
+                        } catch(e) {}
+                    }
                 }
             }
             const _now = Date.now();
@@ -4684,6 +5369,7 @@ ${contextSections}
             try {
                 const exportData = {
                     meta: { avatar: db.avatar, dark: document.documentElement.classList.contains('dark') },
+                    chartPrefs: (() => { try { return JSON.parse(localStorage.getItem('ps_lwc_prefs')||'{}'); } catch(e){return{};} })(),
                     records,
                     watchlist
                 };
@@ -4884,7 +5570,10 @@ ${contextSections}
                             setAvatarImage(db.avatar);
                         }
                         // Restore dark mode
-                        if (data.meta?.dark !== undefined) {
+                        if (data.chartPrefs) {
+                    try { localStorage.setItem('ps_lwc_prefs', JSON.stringify(data.chartPrefs)); } catch(e){}
+                }
+                if (data.meta?.dark !== undefined) {
                             if (data.meta.dark) document.documentElement.classList.add('dark');
                             else document.documentElement.classList.remove('dark');
                         }
@@ -5134,6 +5823,42 @@ ${contextSections}
                 refreshWatchlist();
             }, 60 * 1000);
 
+            // Alpaca Snapshot safety-net poll every 15s — ONLY during market hours
+            // Uses latestTrade.p (real-time) when market open
+            setInterval(async () => {
+                const wlVisible = !document.getElementById('tab-watchlist').classList.contains('hidden');
+                if (!wlVisible || watchlist.length === 0 || !isMarketOpen()) return;
+                const aKey2 = getAlpacaKey(), aSecret2 = getAlpacaSecret();
+                if (!aKey2 || !aSecret2) return;
+                try {
+                    const u2 = new URL('https://data.alpaca.markets/v2/stocks/snapshots');
+                    u2.searchParams.set('symbols', watchlist.join(','));
+                    u2.searchParams.set('feed', 'iex');
+                    const r2 = await fetch(u2.toString(), {
+                        headers: { 'APCA-API-KEY-ID': aKey2, 'APCA-API-SECRET-KEY': aSecret2 }
+                    });
+                    if (!r2.ok) return;
+                    const sd = await r2.json();
+                    watchlist.forEach(sym => {
+                        const sn = sd[sym]; if (!sn) return;
+                        const lp = sn.latestTrade?.p ?? null; // real-time during market hours
+                        if (!lp || !wlDataCache[sym]) return;
+                        const prev = wlDataCache[sym];
+                        const snapTs = sn.latestTrade?.t ? new Date(sn.latestTrade.t).getTime() : 0;
+                        if (prev._snapTs && snapTs <= prev._snapTs) return;
+                        const pc = prev.pc ?? sn.prevDailyBar?.c ?? lp;
+                        const chg = lp - pc, pct = pc ? (chg/pc)*100 : 0;
+                        const updated = { ...prev, c:lp, d:chg, dp:pct, _snapTs:snapTs };
+                        wlDataCache[sym] = updated;
+                        updateWatchlistPriceCells(sym, updated);
+                        // Sync priceLine if this is the active chart symbol
+                        if (sym === _lwcSymbol && window._lwcLivePriceLine) {
+                            try { window._lwcLivePriceLine.applyOptions({ price: lp }); } catch(e){}
+                        }
+                    });
+                } catch(e) {}
+            }, 15000);
+
             updateMarketStatus();
 
             // Clear old incompatible AI keys — never migrate them to OpenRouter
@@ -5170,6 +5895,7 @@ ${contextSections}
             const token = getGistToken();
             const exportData = {
                 meta: { avatar: db.avatar, dark: document.documentElement.classList.contains('dark') },
+                    chartPrefs: (() => { try { return JSON.parse(localStorage.getItem('ps_lwc_prefs')||'{}'); } catch(e){return{};} })(),
                 records,
                 watchlist
             };
@@ -5231,7 +5957,8 @@ ${contextSections}
         // ── Save on tab close / navigate away ─────────────────────────────────
         window.addEventListener('beforeunload', () => {
             if (getGistToken() && (records.length > 0 || watchlist.length > 0)) {
-                const exportData = { meta: { avatar: db.avatar, dark: document.documentElement.classList.contains('dark') }, records, watchlist };
+                const exportData = { meta: { avatar: db.avatar, dark: document.documentElement.classList.contains('dark') },
+                    chartPrefs: (() => { try { return JSON.parse(localStorage.getItem('ps_lwc_prefs')||'{}'); } catch(e){return{};} })(), records, watchlist };
                 const token = getGistToken();
                 fetch(`https://api.github.com/gists/${GIST_ID}`, {
                     method: 'PATCH',
