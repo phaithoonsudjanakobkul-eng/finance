@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PS Smart Finance - Secured</title>
+    <title>PS Smart Finance</title>
+    <link id="ps-favicon" rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230f1318'/%3E%3Cpolyline points='4,24 10,16 15,20 21,10 28,14' fill='none' stroke='%2310b981' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='28' cy='14' r='2.5' fill='%2310b981'/%3E%3C/svg%3E">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
@@ -45,13 +46,13 @@
             --bg-card: #161a1e;
             --bg-card2: #1c2127;
             --border: rgba(255,255,255,0.08);
-            --accent: #089981;
-            --accent2: #0cbbaa;
+            --accent: #10b981;
+            --accent2: #34d399;
             --danger: #f23645;
             --warning: #f0a500;
-            --text-primary: #d1d4dc;
-            --text-secondary: #787b86;
-            --text-dim: #4c525e;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-dim: #64748b;
             --qc-up: #089981;
             --qc-dn: #f23645;
             --chart-up: #089981;
@@ -102,7 +103,7 @@
         html.dark .bg-gray-100 { background-color: #1c2127 !important; }
         html.dark .tab-active {
             background: #131722 !important;
-            color: #089981 !important;
+            color: var(--accent) !important;
         }
 
         html.dark #tab-dashboard {
@@ -120,7 +121,7 @@
         html.dark .dash-select {
             background: #0b0e11 !important;
             border-color: rgba(255,255,255,0.08) !important;
-            color: #089981 !important;
+            color: var(--accent)!important;
         }
         html.dark .dash-label { color: var(--text-secondary) !important; }
         html.dark .dash-value:not(.dash-green):not(.dash-red):not(.dash-yellow) { color: var(--text-primary) !important; }
@@ -136,13 +137,20 @@
         }
         html.dark .border-gray-100 { border-color: rgba(255,255,255,0.07) !important; }
         html.dark .border-gray-200 { border-color: rgba(255,255,255,0.07) !important; }
-        html.dark .text-gray-900 { color: #d1d4dc !important; }
-        html.dark .text-gray-700 { color: #9598a1 !important; }
-        html.dark .text-gray-600 { color: #787b86 !important; }
-        html.dark .text-gray-500 { color: #4c525e !important; }
-        html.dark .text-gray-400 { color: #3c4148 !important; }
-        html.dark .text-gray-300 { color: #2d3139 !important; }
+        html.dark .text-gray-900 { color: #e2e8f0 !important; }
+        html.dark .text-gray-700 { color: #cbd5e1 !important; }
+        html.dark .text-gray-600 { color: #94a3b8 !important; }
+        html.dark .text-gray-500 { color: #64748b !important; }
+        html.dark .text-gray-400 { color: #475569 !important; }
+        html.dark .text-gray-300 { color: #334155 !important; }
 
+        /* AI chat message body — fixed readable color, not theme accent */
+        .ai-msg-body, .msgbody {
+            color: #1e293b !important;  /* light mode: dark slate */
+        }
+        html.dark .ai-msg-body, html.dark .msgbody {
+            color: #e2e8f0 !important;  /* dark mode: near-white */
+        }
         /* INPUTS */
         html.dark input[type="text"],
         html.dark input[type="number"],
@@ -172,8 +180,10 @@
         }
         html.dark #paydayDisplay {
             background-color: transparent !important;
-            color: #089981 !important;
         }
+        /* Income input: fixed readable color per mode — never follows theme accent */
+        .ps-income-input { color: #1e293b; }         /* light: dark slate */
+        html.dark .ps-income-input { color: #f1f5f9 !important; } /* dark: near-white */
         html.dark #month-picker-wrap {
             background-color: #0b0e11 !important;
         }
@@ -196,7 +206,13 @@
         /* BADGES */
         html.dark .bg-blue-50 { background-color: rgba(59,130,246,0.12) !important; }
         html.dark .bg-rose-50 { background-color: rgba(242,54,69,0.12) !important; }
-        html.dark .bg-emerald-50 { background-color: rgba(8,153,129,0.1) !important; }
+        html.dark .bg-emerald-50 { background-color: rgba(16,185,129,0.08) !important; }
+        html.dark .text-blue-600 { color: var(--accent) !important; }
+        html.dark .bg-blue-50 { background-color: color-mix(in srgb,var(--accent) 8%,transparent) !important; }
+        html.dark .hover\:bg-blue-100:hover { background-color: color-mix(in srgb,var(--accent) 12%,transparent) !important; }
+        html.dark .focus\:border-teal-400:focus { border-color: var(--accent)!important; }
+        html.dark .border-teal-400 { border-color: var(--accent)!important; }
+        html.dark .text-teal-500 { color: var(--accent)!important; }
         html.dark .bg-purple-50 { background-color: rgba(168,85,247,0.12) !important; }
         html.dark .bg-teal-50 { background-color: rgba(8,153,129,0.1) !important; }
         html.dark .bg-gray-900 { background-color: #0b0e11 !important; }
@@ -219,6 +235,27 @@
             flex: 1 1 auto;
             min-width: 0;
             transition: flex-basis 0.3s cubic-bezier(0.4,0,0.2,1), max-width 0.3s cubic-bezier(0.4,0,0.2,1);
+        }
+        /* Chart header — gradient dark mode only */
+        html.dark #qc-header-bar {
+            background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 12%, var(--bg-card)) 0%, var(--bg-card) 60%);
+            border-bottom-color: color-mix(in srgb, var(--accent) 25%, var(--border));
+        }
+        html:not(.dark) #qc-header-bar {
+            background: var(--bg-card);
+            border-bottom-color: var(--border);
+        }
+
+        /* Scrollable watchlist table — normal state (no chart open) */
+        #wl-table-panel .glass-card {
+            max-height: calc(100vh - 180px);
+            overflow: hidden;
+        }
+        #wl-table-panel .glass-card > div {
+            max-height: calc(100vh - 180px);
+            overflow-y: auto;
+            overflow-x: auto;
+            overscroll-behavior: contain;
         }
         #quick-chart-panel {
             flex: 0 0 0px;
@@ -243,14 +280,21 @@
             max-width: 280px;
             display: flex;
             flex-direction: column;
+            align-self: stretch; /* ยืดให้เท่ากับ chart panel */
         }
-        /* Table card fills left panel */
+        /* Table card fills left panel when chart open */
         #wl-split-wrap.chart-open #wl-table-panel .glass-card {
             flex: 1 1 auto;
-            height: calc(100vh - 98px);
+            min-height: 0;
+            height: 100%;
+            max-height: calc(100vh - 98px) !important;
+            overflow: hidden;
+        }
+        #wl-split-wrap.chart-open #wl-table-panel .glass-card > div {
             max-height: calc(100vh - 98px);
             overflow-y: auto;
-            overflow-x: hidden;
+            overflow-x: auto;
+            overscroll-behavior: contain;
         }
         /* Chart panel: sticky, scrollable internally */
         #wl-split-wrap.chart-open #quick-chart-panel {
@@ -278,10 +322,10 @@
             height: min(45vh, 380px);
             min-height: 220px;
         }
-        /* News: min 300px, scrollable within itself, never cut off */
+        /* News: fills remaining space in chart panel, scrollable */
         #qc-news-panel {
-            flex-shrink: 0;
-            min-height: 300px;
+            flex-shrink: 1;
+            min-height: 0;
             border-top: 1px solid var(--border);
         }
         #qc-news-list {
@@ -461,7 +505,7 @@
         .news-tile {
             display: flex;
             flex-direction: row;
-            align-items: center;
+            align-items: flex-start;
             gap: 10px;
             padding: 8px 12px;
             background: transparent;
@@ -476,14 +520,7 @@
         .news-tile:hover {
             background: var(--bg-card2);
         }
-        .news-tile-img {
-            width: 64px;
-            height: 44px;
-            object-fit: cover;
-            border-radius: 4px;
-            flex-shrink: 0;
-            display: block;
-        }
+
         .news-tile-no-img {
             width: 64px;
             height: 44px;
@@ -563,7 +600,7 @@
             box-shadow: 0 1px 3px rgba(0,0,0,0.2);
         }
         html.dark .dark-toggle {
-            background: #089981;
+            background: var(--accent);
         }
         html.dark .dark-toggle::after {
             transform: translateX(18px);
@@ -586,6 +623,14 @@
             width: 100%;
         }
         /* ALL th: right-aligned by default, left only for text columns */
+        /* Sticky header when watchlist scrolls */
+        #wl-table-panel .glass-card thead tr th {
+            position: sticky;
+            top: 0;
+            z-index: 4;
+            background: var(--bg-card);
+            box-shadow: 0 1px 0 var(--border);
+        }
         #watchlist-table th {
             font-family: var(--font-main);
             font-weight: 700;
@@ -640,12 +685,27 @@
         html.dark #watchlist-table tbody tr.wl-row:hover {
             background: rgba(255,255,255,0.03) !important;
         }
-        /* Symbol cell — bold, bright white in dark mode */
+        /* ── Watchlist fixed color vars — never change with theme ── */
+        :root {
+            --wl-sym-light:   #0f2030;
+            --wl-sym-dark:    #e2e8f0;
+            --wl-text-light:  #64748b;
+            --wl-text-dark:   #787b86;
+            --wl-dim-light:   #94a3b8;
+            --wl-dim-dark:    #4c525e;
+            --wl-text-secondary: var(--wl-text-light);
+            --wl-text-dim:       var(--wl-dim-light);
+        }
+        html.dark {
+            --wl-text-secondary: var(--wl-text-dark);
+            --wl-text-dim:       var(--wl-dim-dark);
+        }
+        /* Symbol cell — bold */
         #watchlist-table .sym-cell {
             font-size: 12.5px;
             font-weight: 700;
             letter-spacing: 0.02em;
-            color: var(--text-primary);
+            color: var(--wl-sym-light);
         }
         html.dark #watchlist-table .sym-cell { color: #e2e8f0; }
         /* Company name — dim, xs */
@@ -737,7 +797,7 @@
             position: absolute;
             top: 0; left: 0; right: 0;
             height: 2px;
-            background: linear-gradient(90deg, #089981, #0cbbaa, #089981);
+            background: linear-gradient(90deg, var(--accent), var(--accent2), var(--accent));
             opacity: 0.4;
         }
 
@@ -758,8 +818,8 @@
             line-height: 1;
         }
 
-        .dash-accent { color: #089981; }
-        .dash-green { color: #089981; }
+        .dash-accent { color: var(--accent); }
+        .dash-green { color: var(--accent); }
         .dash-red { color: #f23645; }
         .dash-yellow { color: #d97706; }
 
@@ -777,7 +837,7 @@
         .dash-select {
             background: #f0f4f8;
             border: 1px solid #d0dce8;
-            color: #089981;
+            color: var(--accent);
             font-family: var(--font-mono);
             font-size: 10px;
             font-weight: 600;
@@ -799,7 +859,7 @@
 
         .ticker-line {
             height: 1px;
-            background: linear-gradient(90deg, #089981 0%, #0cbbaa 50%, transparent 100%);
+            background: linear-gradient(90deg, var(--accent) 0%, var(--accent2) 50%, transparent 100%);
             opacity: 0.3;
             margin-bottom: 1.5rem;
         }
@@ -813,7 +873,7 @@
         
         .tab-active { 
             background: white; 
-            color: #089981; 
+            color: var(--accent); 
             box-shadow: 0 1px 4px rgba(0,0,0,0.08); 
         }
 
@@ -901,19 +961,19 @@
         
         /* ── Watchlist badge & row ───────────────────────────────── */
         .wl-badge-up {
-            color: #089981;
+            color: var(--wl-up);
             background: rgba(8, 153, 129, 0.12);
         }
         .wl-badge-dn {
-            color: #f23645;
+            color: var(--wl-dn);
             background: rgba(242, 54, 69, 0.12);
         }
         html.dark .wl-badge-up {
-            color: #089981;
+            color: var(--wl-up);
             background: rgba(8, 153, 129, 0.15);
         }
         html.dark .wl-badge-dn {
-            color: #f23645;
+            color: var(--wl-dn);
             background: rgba(242, 54, 69, 0.15);
         }
         html.dark .wl-row:hover {
@@ -929,24 +989,17 @@
         /* ── Watchlist data color classes — TradingView palette ───── */
         #watchlist-table td.wl-up,
         #watchlist-table td.wl-up span,
-        #watchlist-table span.wl-up      { color: #089981; }
+        #watchlist-table span.wl-up      { color: var(--wl-up) !important; }
         #watchlist-table td.wl-dn,
         #watchlist-table td.wl-dn span,
-        #watchlist-table span.wl-dn      { color: #f23645; }
+        #watchlist-table span.wl-dn      { color: var(--wl-dn) !important; }
         #watchlist-table td.wl-neutral,
-        #watchlist-table span.wl-neutral { color: var(--text-dim); }
-        html.dark #watchlist-table td.wl-up,
-        html.dark #watchlist-table td.wl-up span,
-        html.dark #watchlist-table span.wl-up      { color: #089981; }
-        html.dark #watchlist-table td.wl-dn,
-        html.dark #watchlist-table td.wl-dn span,
-        html.dark #watchlist-table span.wl-dn      { color: #f23645; }
-        html.dark #watchlist-table td.wl-neutral,
-        html.dark #watchlist-table span.wl-neutral { color: var(--text-dim); }
+        #watchlist-table span.wl-neutral { color: var(--wl-text-dim) !important; }
         </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <style>
+        @keyframes lwc-spin { to { transform: rotate(360deg); } }
         @keyframes lwc-pulse-ring {
             0%   { transform:scale(1);   opacity:0.5; }
             100% { transform:scale(3.5); opacity:0;   }
@@ -1033,8 +1086,8 @@
             <!-- Left: Avatar + brand -->
             <div class="flex items-center gap-3 flex-shrink-0">
                 <div onclick="document.getElementById('avatarInput').click()" title="Click to change profile picture"
-                    style="width:88px;height:88px;border-radius:50%;border:2.5px solid #2563eb;overflow:hidden;cursor:pointer;flex-shrink:0;background:#eff6ff;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 12px rgba(37,99,235,0.2);"
-                    onmouseover="this.style.borderColor='#1d4ed8'" onmouseout="this.style.borderColor='#2563eb'">
+                    style="width:88px;height:88px;border-radius:50%;border:2.5px solid var(--accent);overflow:hidden;cursor:pointer;flex-shrink:0;background:color-mix(in srgb,var(--accent) 8%,transparent);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 12px color-mix(in srgb,var(--accent) 15%,transparent);"
+                    onmouseover="this.style.borderColor='var(--accent2)'" onmouseout="this.style.borderColor='var(--accent)'">
                     <img id="avatarImg" src="" alt="avatar" style="width:100%;height:100%;object-fit:cover;display:none;">
                     <svg id="avatarPlaceholder" xmlns="http://www.w3.org/2000/svg" style="width:44px;height:44px;color:#93c5fd;" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
@@ -1042,12 +1095,12 @@
                 </div>
                 <input type="file" id="avatarInput" accept="image/*" style="display:none;" onchange="handleAvatar(event)">
                 <div>
-                    <div class="font-black text-base tracking-tight leading-none uppercase" style="color:#2563eb;font-family:var(--font-main)">PS SMART FINANCE</div>
+                    <div class="font-black text-base tracking-tight leading-none uppercase" style="color:var(--accent);font-family:var(--font-main)">PS SMART FINANCE</div>
                     <div class="flex items-center gap-1.5 mt-1">
-                        <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
+                        <div class="w-1.5 h-1.5 rounded-full animate-pulse" style="background:var(--accent)"></div>
                         <div id="db-name-display" class="text-[10px] font-bold uppercase tracking-widest leading-none" style="color:var(--text-dim);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ready</div>
                     </div>
-                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.04-r115</div>
+                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.05-r120</div>
                 </div>
             </div>
             
@@ -1189,16 +1242,16 @@
             <div class="flex flex-wrap gap-4 items-center justify-between bg-white p-4 rounded-3xl border border-gray-100" id="records-toolbar">
                 <div class="flex items-center gap-4">
                     <div class="flex items-center bg-gray-50 rounded-xl px-2" id="month-picker-wrap">
-                        <button onclick="stepMonth(-1)" class="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors">
+                        <button onclick="stepMonth(-1)" class="p-2 rounded-lg transition-colors" style="color:var(--accent)">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
                         </button>
-                        <input type="month" id="monthInput" onchange="loadMonth(this.value)" class="bg-transparent border-none font-black text-blue-600 outline-none text-lg px-2">
-                        <button onclick="stepMonth(1)" class="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors">
+                        <input type="month" id="monthInput" onchange="loadMonth(this.value)" class="bg-transparent border-none font-black outline-none text-lg px-2" style="color:var(--accent)">
+                        <button onclick="stepMonth(1)" class="p-2 rounded-lg transition-colors" style="color:var(--accent)">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
                         </button>
                     </div>
                     <div class="flex gap-1">
-                        <button onclick="clonePreviousMonth()" class="text-blue-600 text-[10px] font-bold px-3 py-1.5 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors uppercase">Pull Last Data</button>
+                        <button onclick="clonePreviousMonth()" class="text-[10px] font-bold px-3 py-1.5 rounded-lg transition-colors uppercase" style="color:#10b981;background:rgba(16,185,129,0.1)">Pull Last Data</button>
                         
                         <div class="relative group">
                             <!-- Clear Button with Tooltip/Lock mechanism -->
@@ -1216,10 +1269,10 @@
             <div class="glass-card overflow-hidden">
                 <div class="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-gray-100" id="financial-bar">
                     <div class="p-6" id="income-cell">
-                        <p class="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1">Monthly Income (รายรับ)</p>
+                        <p class="text-[10px] font-black uppercase tracking-widest mb-1" style="color:var(--accent)">Monthly Income (รายรับ)</p>
                         <div class="flex items-center gap-2">
-                            <span class="text-xl font-black text-blue-600">฿</span>
-                            <input type="text" autocomplete="off" id="paydayDisplay" oninput="handleCurrencyInput(this, 'paydayVal')" onpaste="handlePaste(event, this, 'paydayVal')" onblur="handleBlur(this, 'paydayVal')" class="w-full text-2xl font-black text-blue-600 outline-none bg-transparent" placeholder="0.00">
+                            <span class="text-xl font-black" style="color:var(--accent)">฿</span>
+                            <input type="text" autocomplete="off" id="paydayDisplay" oninput="handleCurrencyInput(this, 'paydayVal')" onpaste="handlePaste(event, this, 'paydayVal')" onblur="handleBlur(this, 'paydayVal')" class="w-full text-2xl font-black outline-none bg-transparent ps-income-input" placeholder="0.00">
                             <input type="hidden" id="paydayVal">
                         </div>
                     </div>
@@ -1257,7 +1310,7 @@
                         </div>
                         <div class="flex flex-col items-end gap-1" style="min-width:120px">
                             <span id="sum-fixed" class="summary-badge w-full text-center text-rose-500 bg-rose-50 border border-rose-100">฿ 0.00</span>
-                            <div id="paid-fixed-badge" class="w-full text-center text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100" style="visibility:hidden">PAID: ฿ 0.00</div>
+                            <div id="paid-fixed-badge" class="w-full text-center text-[10px] font-bold px-2 py-0.5 rounded" style="visibility:hidden;color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,transparent);border:1px solid color-mix(in srgb,var(--accent) 20%,transparent)">PAID: ฿ 0.00</div>
                         </div>
                     </div>
                     <div id="fixed-list" class="space-y-2"></div>
@@ -1277,7 +1330,7 @@
                         </div>
                         <div class="flex flex-col items-end gap-1" style="min-width:120px">
                             <span id="sum-dynamic" class="summary-badge w-full text-center text-rose-500 bg-rose-50 border border-rose-100">฿ 0.00</span>
-                            <div id="paid-dynamic-badge" class="w-full text-center text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100" style="visibility:hidden">PAID: ฿ 0.00</div>
+                            <div id="paid-dynamic-badge" class="w-full text-center text-[10px] font-bold px-2 py-0.5 rounded" style="visibility:hidden;color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,transparent);border:1px solid color-mix(in srgb,var(--accent) 20%,transparent)">PAID: ฿ 0.00</div>
                         </div>
                     </div>
                     <div id="dynamic-list" class="space-y-2"></div>
@@ -1304,7 +1357,7 @@
                         <input type="password" autocomplete="off" id="erapi-key-input" placeholder="xxxxxxxxxxxxxxxxxxxxxxxx" class="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm font-medium outline-none focus:border-blue-400 transition-all">
                     </div>
                     <div class="flex flex-col gap-2">
-                        <button onclick="saveFinnhubKey()" class="w-full py-4 bg-teal-600 hover:bg-teal-700 text-white rounded-md font-semibold transition-all active:scale-95 uppercase text-xs tracking-widest">บันทึกและเชื่อมต่อ</button>
+                        <button onclick="saveFinnhubKey()" class="w-full py-4 text-white rounded-md font-semibold transition-all active:scale-95 uppercase text-xs tracking-widest" style="background:var(--accent)">บันทึกและเชื่อมต่อ</button>
                         <button onclick="document.getElementById('finnhub-modal').classList.add('hidden')" class="w-full py-4 bg-gray-100 hover:bg-gray-200 text-gray-500 rounded-md font-semibold transition-all uppercase text-xs tracking-widest">ยกเลิก</button>
                     </div>
                 </div>
@@ -1313,10 +1366,23 @@
             <!-- Header — 2-row responsive layout -->
             <div class="flex flex-col gap-2">
 
-                <!-- Row 1: Title + FX + Action buttons -->
+                <!-- Row 1: Search + FX + AI + Status -->
                 <div class="flex items-center gap-2 flex-wrap">
 
-                    <!-- Title + Status — fixed, no shrink -->
+                    <!-- Inline Symbol Search — leftmost, always visible -->
+                    <div class="relative flex-shrink-0" id="wl-search-wrap" style="width:200px">
+                        <div class="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" style="color:var(--text-dim)">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                        </div>
+                        <input type="text" id="ticker-input" placeholder="Search & add symbol…"
+                            class="w-full pl-8 pr-3 outline-none text-[11px] font-semibold rounded-lg"
+                            style="background:var(--bg-card2);border:1.5px solid var(--border);color:var(--text-primary);font-family:var(--font-main);height:34px;text-transform:uppercase;letter-spacing:0.03em"
+                            onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"
+                            oninput="onTickerInput(this.value)" onkeydown="onTickerKeydown(event)" autocomplete="off">
+                        <div id="ticker-dropdown" class="hidden absolute top-full left-0 right-0 mt-1 rounded-xl shadow-2xl z-50 overflow-hidden max-h-64 overflow-y-auto" style="background:var(--bg-card);border:1px solid var(--border)"></div>
+                    </div>
+
+                    <!-- Title + Status -->
                     <div class="flex items-center gap-2 flex-shrink-0">
                         <h3 class="font-black text-sm uppercase tracking-tight" style="color:var(--text-primary);font-family:var(--font-main)">Watchlist</h3>
                         <span id="wl-last-update" class="text-[9px] font-bold uppercase tracking-widest" style="color:var(--text-dim);min-width:68px;display:inline-block"></span>
@@ -1330,7 +1396,7 @@
                             style="background:var(--bg-card2);border-color:var(--border);height:34px;width:148px;overflow:hidden;flex-shrink:0;white-space:nowrap">
                             <div class="flex items-center gap-1">
                                 <span class="text-[8px] font-semibold leading-none" style="color:var(--text-dim)">USD → THB</span>
-                                <span id="fx-src-badge" class="text-[7px] font-bold px-1 rounded" style="background:rgba(16,185,129,0.15);color:#10b981;display:none"></span>
+                                <span id="fx-src-badge" class="text-[7px] font-bold px-1 rounded" style="background:color-mix(in srgb,var(--accent) 15%,transparent);color:var(--accent);display:none"></span>
                             </div>
                             <div class="flex items-baseline gap-1 mt-0.5" style="overflow:hidden">
                                 <span id="fx-change" class="text-[9px] font-bold flex-shrink-0" style="color:#22c55e;font-family:var(--font-mono)">↑ 0.00%</span>
@@ -1343,12 +1409,11 @@
                             style="background:var(--bg-card2);border-color:var(--border);height:34px;width:148px;overflow:hidden;flex-shrink:0;white-space:nowrap">
                             <div class="flex items-center gap-1">
                                 <span class="text-[8px] font-semibold leading-none" style="color:var(--text-dim)">THB → USD</span>
-                                <span id="fx-src-badge2" class="text-[7px] font-bold px-1 rounded" style="background:rgba(16,185,129,0.15);color:#10b981;display:none"></span>
+                                <span id="fx-src-badge2" class="text-[7px] font-bold px-1 rounded" style="background:color-mix(in srgb,var(--accent) 15%,transparent);color:var(--accent);display:none"></span>
                             </div>
                             <div class="flex items-baseline gap-1 mt-0.5" style="overflow:hidden">
                                 <span id="fx-change-inv" class="text-[9px] font-bold flex-shrink-0" style="color:#22c55e;font-family:var(--font-mono)">↑ 0.00%</span>
                                 <span id="fx-rate-inv" class="text-[11px] font-black leading-none flex-shrink-0" style="color:var(--text-primary);font-family:var(--font-mono);font-variant-numeric:tabular-nums;letter-spacing:-0.03em">—</span>
-                                <span class="text-[8px] font-semibold flex-shrink-0" style="color:var(--text-dim)">THB</span>
                             </div>
                         </div>
                     </div>
@@ -1363,12 +1428,12 @@
                             style="background:linear-gradient(135deg,#1a73e8,#34a853);color:white">บันทึก</button>
                     </div>
 
-                    <!-- AI Chatbox — inline same row as FX, grows to fill -->
-                    <div class="flex items-center gap-2 flex-1 min-w-0 rounded-xl px-3 border" style="background:var(--bg-card2);border-color:var(--border);height:34px">
-                        <div class="w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0" style="background:linear-gradient(135deg,#6366f1,#8b5cf6)">
-                            <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.347.347a3.5 3.5 0 01-4.95 0l-.347-.347z"/></svg>
+                    <!-- AI Chatbox — half width -->
+                    <div class="flex items-center gap-2 rounded-xl px-3 border" style="background:var(--bg-card2);border-color:var(--border);height:34px;min-width:0;max-width:320px;flex:1">
+                        <div class="w-4 h-4 rounded flex items-center justify-center flex-shrink-0" style="background:linear-gradient(135deg,#6366f1,#8b5cf6)">
+                            <svg class="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.347.347a3.5 3.5 0 01-4.95 0l-.347-.347z"/></svg>
                         </div>
-                        <input id="ai-input" type="text" autocomplete="off" placeholder="ถาม AI นักวิเคราะห์... เช่น แนวรับ NVDA, outlook TSLA สัปดาห์นี้"
+                        <input id="ai-input" type="text" autocomplete="off" placeholder="ถาม AI… เช่น แนวรับ NVDA"
                             class="flex-1 min-w-0 text-xs outline-none bg-transparent"
                             style="color:var(--text-primary);font-family:var(--font-main)"
                             onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendAiMessage()}">
@@ -1380,48 +1445,11 @@
                         </button>
                     </div>
 
-                    <!-- Action buttons — always right-aligned, never shrink -->
-                    <div class="flex items-center gap-2 flex-shrink-0">
-                        <button onclick="refreshWatchlist()"
-                            class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all uppercase tracking-wider"
-                            style="background:var(--bg-card2);color:var(--text-secondary);border:1px solid var(--border);font-family:var(--font-main)">
-                            <svg id="wl-refresh-icon" class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-                            </svg>
-                            Refresh
-                        </button>
-                        <button onclick="showAddTickerInput()"
-                            class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all uppercase tracking-wider"
-                            style="background:#14b8a6;color:#fff;font-family:var(--font-main)">
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-                            </svg>
-                            Add
-                        </button>
-                    </div>
+<!-- Refresh + Add replaced by inline search -->
                 </div>
 
 
-<!-- Add ticker input — Webull style -->
-            <div id="add-ticker-bar" class="hidden rounded-xl p-3 flex items-center gap-2 relative" style="background:var(--bg-card2);border:1px solid var(--border)">
-                <div class="flex-grow relative">
-                    <div class="absolute left-3 top-1/2 -translate-y-1/2" style="color:var(--text-dim)">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                    </div>
-                    <input type="text" id="ticker-input" placeholder="Search symbol e.g. NVDA, AAPL, SPY"
-                        class="w-full pl-10 pr-4 py-2 rounded-lg text-sm font-semibold outline-none transition-all"
-                        style="background:var(--bg-card);border:1.5px solid var(--border);color:var(--text-primary);font-family:var(--font-main);text-transform:uppercase;letter-spacing:0.03em"
-                        onfocus="this.style.borderColor='#14b8a6'" onblur="this.style.borderColor='var(--border)'"
-                        oninput="onTickerInput(this.value)"
-                        onkeydown="onTickerKeydown(event)"
-                        autocomplete="off">
-                    <div id="ticker-dropdown" class="hidden absolute top-full left-0 right-0 mt-1 rounded-xl shadow-2xl z-50 overflow-hidden max-h-64 overflow-y-auto" style="background:var(--bg-card);border:1px solid var(--border)"></div>
-                </div>
-                <button onclick="addTicker(document.getElementById('ticker-input').value.trim())" class="px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider flex-shrink-0 transition-all" style="background:#14b8a6;color:#fff;font-family:var(--font-main)">Add</button>
-                <button onclick="closeAddTicker()" class="flex-shrink-0 transition-colors" style="color:var(--text-dim)">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                </button>
-            </div>
+<!-- add-ticker-bar removed — inline search replaces it -->
 
             <!-- Watchlist Split Layout -->
             <div id="wl-split-wrap">
@@ -1429,7 +1457,7 @@
             <!-- Watchlist Table -->
             <div id="wl-table-panel">
             <div class="glass-card overflow-hidden">
-                <div style="overflow-x:auto;overflow-y:hidden;scrollbar-gutter:auto">
+                <div style="overflow-x:auto;overflow-y:auto;scrollbar-gutter:auto;max-height:inherit">
                 <table id="watchlist-table" class="w-full min-w-[800px]">
                     <colgroup>
                         <col style="width:30px"> <col style="width:72px"> <col style="width:130px">
@@ -1493,7 +1521,7 @@
             <div id="quick-chart-panel" class="glass-card flex flex-col" style="overflow-x:hidden;overflow-y:visible">
 
                 <!-- ── Header (compact) ── -->
-                <div class="flex-shrink-0" style="background:var(--bg-card);border-bottom:1px solid var(--border)">
+                <div class="flex-shrink-0" id="qc-header-bar" style="border-bottom:1px solid var(--border)">
 
                     <!-- Row 1: back + logo + symbol+name + TV -->
                     <div class="flex items-center gap-2.5 px-3 pt-2 pb-1.5">
@@ -1513,7 +1541,7 @@
                                 <span id="qc-symbol" class="text-2xl font-bold" style="color:var(--text-primary);letter-spacing:-0.03em;line-height:1"></span>
                                 <span id="qc-exchange-badge" class="text-[8px] font-semibold px-1 py-0.5 rounded" style="background:var(--bg-card2);color:var(--text-dim);border:1px solid var(--border)"></span>
                             </div>
-                            <div id="qc-name" class="text-xs truncate mt-0.5" style="color:var(--text-dim)"></div>
+                            <div id="qc-name" class="text-xs mt-0.5" style="color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px"></div>
                         </div>
                         <a id="qc-tv-link" href="#" target="_blank"
                            class="flex-shrink-0 flex items-center gap-1 px-2 py-1 rounded text-[8px] font-semibold uppercase tracking-widest"
@@ -1523,7 +1551,7 @@
                     </div>
 
                     <!-- Row 2: Price hero (left) + stats inline (right) -->
-                    <div class="flex items-center gap-3 px-3 pb-1.5" style="border-top:1px solid var(--border);padding-top:6px">
+                    <div class="flex items-center gap-3 px-3 pb-1.5" style="border-top:1px solid color-mix(in srgb, var(--accent) 20%, var(--border));padding-top:6px">
                         <!-- Price block -->
                         <div class="flex items-baseline gap-2 flex-shrink-0">
                             <span id="qc-price-hero" class="text-3xl font-bold" style="color:var(--text-primary);font-variant-numeric:tabular-nums;letter-spacing:-0.03em;line-height:1"></span>
@@ -1535,7 +1563,8 @@
                         <div id="qc-stats-grid" class="flex items-center gap-0 flex-shrink-0" style="border-left:1px solid var(--border);padding-left:12px">
                             <div class="qc-stat-cell"><span class="qc-stat-label">Open</span><span id="qcs-open" class="qc-stat-value">—</span></div>
                             <div class="qc-stat-cell"><span class="qc-stat-label">Prev Close</span><span id="qcs-prev" class="qc-stat-value">—</span></div>
-                            <div class="qc-stat-cell"><span class="qc-stat-label">Day Range</span><span id="qcs-range" class="qc-stat-value">—</span></div>
+                            <div class="qc-stat-cell"><span class="qc-stat-label">Day Low</span><span id="qcs-low" class="qc-stat-value" style="color:#ef4444">—</span></div>
+                            <div class="qc-stat-cell"><span class="qc-stat-label">Day High</span><span id="qcs-high" class="qc-stat-value" style="color:#10b981">—</span></div>
                             <div class="qc-stat-cell"><span class="qc-stat-label">Mkt Cap</span><span id="qcs-mktcap" class="qc-stat-value">—</span></div>
                             <div class="qc-stat-cell"><span class="qc-stat-label">P/E</span><span id="qcs-pe" class="qc-stat-value">—</span></div>
                             <div class="qc-stat-cell" style="border-right:none"><span class="qc-stat-label">Div</span><span id="qcs-div" class="qc-stat-value">—</span></div>
@@ -1549,7 +1578,7 @@
                             <div class="flex items-center gap-2">
                                 <span id="qcs-52wl" class="qc-stat-value" style="color:var(--danger)">—</span>
                                 <span class="qc-stat-label">Low</span>
-                                <span id="qcs-52wh" class="qc-stat-value" style="color:var(--accent)">—</span>
+                                <span id="qcs-52wh" class="qc-stat-value" style="color:#10b981">—</span>
                                 <span class="qc-stat-label">High</span>
                             </div>
                         </div>
@@ -1592,7 +1621,7 @@
                     <div class="flex items-center justify-between px-4 py-2 flex-shrink-0" style="background:var(--bg-card2);border-bottom:1px solid var(--border)">
                         <div class="flex items-center gap-2">
                             <span class="text-[9px] font-semibold uppercase tracking-widest" style="color:var(--text-dim)">News</span>
-                            <span id="qc-news-symbol" class="text-[9px] font-semibold uppercase tracking-widest px-1.5 py-0.5 rounded" style="background:rgba(8,153,129,0.12);color:#089981"></span>
+                            <span id="qc-news-symbol" class="text-[9px] font-semibold uppercase tracking-widest px-1.5 py-0.5 rounded" style="background:rgba(16,185,129,0.15);color:#10b981"></span>
                         </div>
                         <span id="qc-news-status" class="text-[9px]" style="color:var(--text-dim)"></span>
                     </div>
@@ -1652,7 +1681,7 @@
                     <div class="flex items-center gap-3">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:var(--text-dim)"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/></svg>
                         <span class="text-xs font-bold uppercase tracking-widest" style="color:var(--text-primary);font-family:var(--font-main)">Market News</span>
-                        <span class="text-[9px] font-medium px-2 py-0.5 rounded-full" style="background:rgba(20,184,166,0.12);color:#14b8a6">US Markets</span>
+                        <span class="text-[9px] font-medium px-2 py-0.5 rounded-full" style="background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--accent)">US Markets</span>
                     </div>
                     <div class="flex items-center gap-2">
                         <span id="market-news-status" class="text-[9px]" style="color:var(--text-dim)"></span>
@@ -1683,7 +1712,7 @@
             <div class="flex items-start justify-between p-4 border-b flex-shrink-0" style="border-color:var(--border)">
                 <div class="flex-1 pr-3">
                     <div class="flex items-center gap-2 mb-1.5">
-                        <span id="nm-source" class="text-[9px] font-black uppercase tracking-widest text-teal-500"></span>
+                        <span id="nm-source" class="text-[9px] font-black uppercase tracking-widest" style="color:var(--accent)"></span>
                         <span class="text-[9px]" style="color:var(--border)">·</span>
                         <span id="nm-time" class="text-[9px]" style="color:var(--text-dim)"></span>
                     </div>
@@ -1709,7 +1738,7 @@
                 <!-- Read More -->
                 <a id="nm-link" href="#" target="_blank" rel="noopener"
                    class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold self-start"
-                   style="background:rgba(20,184,166,0.12);color:#14b8a6">
+                   style="background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--accent)">
                     <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M10 6v2H5v11h11v-5h2v7H3V6h7zm11-3v8l-3-3-7 7-1.5-1.5 7-7-3-3h8z"/></svg>
                     Read full article
                 </a>
@@ -2236,12 +2265,21 @@
 
         function closeAddTicker() {
             const bar = document.getElementById('add-ticker-bar');
-            bar.classList.add('hidden');
+            if (bar) bar.classList.add('hidden');
             const inp = document.getElementById('ticker-input');
             if (inp) inp.value = '';
             const dd = document.getElementById('ticker-dropdown');
             if (dd) dd.classList.add('hidden');
         }
+
+        // Close dropdown when clicking outside search wrap
+        document.addEventListener('click', (e) => {
+            const wrap = document.getElementById('wl-search-wrap');
+            if (wrap && !wrap.contains(e.target)) {
+                const dd = document.getElementById('ticker-dropdown');
+                if (dd) dd.classList.add('hidden');
+            }
+        }, true);
 
         let _tickerSearchTimer = null;
         function onTickerInput(val) {
@@ -2376,7 +2414,7 @@
                                 <circle cx="5" cy="8" r="1.2"/><circle cx="11" cy="8" r="1.2"/>
                                 <circle cx="5" cy="12" r="1.2"/><circle cx="11" cy="12" r="1.2"/>
                             </svg>
-                            <span class="wl-idx" style="font-size:10px;color:var(--text-dim);font-weight:500;min-width:14px;text-align:center">${idx}</span>
+                            <span class="wl-idx" style="font-size:10px;color:var(--wl-text-dim);font-weight:500;min-width:14px;text-align:center">${idx}</span>
                         </div>
                     </td>
                     <td class="td-stack" style="text-align:left">
@@ -2391,7 +2429,7 @@
                             </div>
                         </div>
                     </td>
-                    <td class="wl-col-hide" style="text-align:left;font-size:11px;color:var(--text-dim);overflow:hidden;text-overflow:ellipsis">${sk(80) ?? name}</td>
+                    <td class="wl-col-hide" style="text-align:left;font-size:11px;color:var(--wl-text-dim);overflow:hidden;text-overflow:ellipsis">${sk(80) ?? name}</td>
                     <td class="price-cell ${priceColor}" style="text-align:right">${sk(52) ?? (price !== null ? '$' + fmt(price) : '—')}</td>
                     <td class="num-cell ${changeColor} wl-col-hide" style="text-align:right;font-size:11px">${sk(40) ?? (change !== null ? (isUp ? '+' : '') + fmt(change) : '—')}</td>
                     <td style="text-align:center">${sk(56) ??
@@ -2401,18 +2439,18 @@
                     }</td>
                     <td class="td-stack wl-col-hide" style="text-align:right">${preMktHtml}</td>
                     <td class="wl-col-hide ${openColor}" style="text-align:right;font-size:11px">${sk(48) ?? (open !== null ? '$' + fmt(open) : '—')}</td>
-                    <td class="wl-col-hide" style="text-align:right;font-size:11px;color:var(--text-secondary)">${sk(48) ?? (prevClose !== null ? '$' + fmt(prevClose) : '—')}</td>
+                    <td class="wl-col-hide" style="text-align:right;font-size:11px;color:var(--wl-text-secondary)">${sk(48) ?? (prevClose !== null ? '$' + fmt(prevClose) : '—')}</td>
                     <td class="wl-col-hide wl-up" style="text-align:right;font-size:11px">${sk(48) ?? (high !== null ? '$' + fmt(high) : '—')}</td>
                     <td class="wl-col-hide wl-dn" style="text-align:right;font-size:11px">${sk(48) ?? (low  !== null ? '$' + fmt(low)  : '—')}</td>
-                    <td class="wl-col-hide" style="text-align:right;font-size:11px;color:var(--text-secondary)">${sk(52) ?? (d?.week52High != null ? '$' + fmt(d.week52High) : '—')}</td>
-                    <td class="wl-col-hide" style="text-align:right;font-size:11px;color:var(--text-secondary)">${sk(52) ?? (d?.week52Low  != null ? '$' + fmt(d.week52Low)  : '—')}</td>
-                    <td class="wl-col-hide" style="text-align:right;font-size:11px;color:var(--text-secondary)">${sk(44) ?? (d?.marketCap  != null ? fmtCap(d.marketCap)     : '—')}</td>
-                    <td class="wl-col-hide" style="text-align:right;font-size:11px;color:var(--text-secondary)">${sk(44) ?? (d?.avgVol10d  != null ? fmtVol(d.avgVol10d)     : '—')}</td>
-                    <td class="wl-col-hide" style="text-align:right;font-size:11px;color:var(--text-secondary)">${sk(28) ?? (d?.beta       != null ? d.beta.toFixed(2)        : '—')}</td>
-                    <td class="wl-col-hide" style="text-align:right;font-size:11px;color:var(--text-secondary)">${sk(28) ?? (d?.pe         != null ? d.pe.toFixed(1)          : '—')}</td>
-                    <td class="wl-col-hide" style="text-align:right;font-size:11px;color:var(--text-secondary)">${sk(32) ?? (d?.divYield   != null ? d.divYield.toFixed(2)+'%': '—')}</td>
+                    <td class="wl-col-hide" style="text-align:right;font-size:11px;color:var(--wl-text-secondary)">${sk(52) ?? (d?.week52High != null ? '$' + fmt(d.week52High) : '—')}</td>
+                    <td class="wl-col-hide" style="text-align:right;font-size:11px;color:var(--wl-text-secondary)">${sk(52) ?? (d?.week52Low  != null ? '$' + fmt(d.week52Low)  : '—')}</td>
+                    <td class="wl-col-hide" style="text-align:right;font-size:11px;color:var(--wl-text-secondary)">${sk(44) ?? (d?.marketCap  != null ? fmtCap(d.marketCap)     : '—')}</td>
+                    <td class="wl-col-hide" style="text-align:right;font-size:11px;color:var(--wl-text-secondary)">${sk(44) ?? (d?.avgVol10d  != null ? fmtVol(d.avgVol10d)     : '—')}</td>
+                    <td class="wl-col-hide" style="text-align:right;font-size:11px;color:var(--wl-text-secondary)">${sk(28) ?? (d?.beta       != null ? d.beta.toFixed(2)        : '—')}</td>
+                    <td class="wl-col-hide" style="text-align:right;font-size:11px;color:var(--wl-text-secondary)">${sk(28) ?? (d?.pe         != null ? d.pe.toFixed(1)          : '—')}</td>
+                    <td class="wl-col-hide" style="text-align:right;font-size:11px;color:var(--wl-text-secondary)">${sk(32) ?? (d?.divYield   != null ? d.divYield.toFixed(2)+'%': '—')}</td>
                     <td style="text-align:right">
-                        <button onclick="removeTicker('${symbol}')" style="color:var(--border);opacity:0;transition:opacity 0.15s" class="group-hover:!opacity-100 hover:!text-rose-400">
+                        <button onclick="event.stopPropagation();removeTicker('${symbol}')" style="color:var(--border);opacity:0;transition:opacity 0.15s" class="group-hover:!opacity-100 hover:!text-rose-400">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                         </button>
                     </td>
@@ -2486,6 +2524,27 @@
         const profileCache = {};
         const PROFILE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 
+        // Silent background fundamentals refresh every 30 min — one symbol at a time, low priority
+        async function _silentRefreshFundamentals() {
+            if (!getFinnhubKey() || watchlist.length === 0 || isWlRefreshing) return;
+            const now = Date.now();
+            const stale = watchlist.filter(s => {
+                const p = profileCache[s];
+                return !p || (now - p._ts > PROFILE_TTL);
+            });
+            if (stale.length === 0) return;
+            // One symbol at a time with 2s gap — never competes with WS trade flush
+            for (const symbol of stale) {
+                if (isWlRefreshing) break; // yield if manual refresh started
+                try {
+                    const data = await fetchQuote(symbol);
+                    if (data) renderWatchlistRow(symbol, data);
+                } catch(e) {}
+                await new Promise(r => setTimeout(r, 2000)); // 2s between requests
+            }
+        }
+        setInterval(_silentRefreshFundamentals, 30 * 60 * 1000);
+
         // Quote cache TTL — skip re-fetch if refreshed very recently
         const QUOTE_MIN_INTERVAL = 30 * 1000; // 30 seconds
 
@@ -2541,105 +2600,65 @@
               + '</div>';
         }
 
-        // ── TV Scanner batch — same backend the TV widget reads from ─────────────
-        async function fetchTVScannerBatch(symbols) {
-            const symSet = new Set(symbols);
-            const result = {};
-
-            // Pass 1: top 300 by market cap
-            const r1 = await fetch('https://scanner.tradingview.com/america/scan', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    columns: ['name','close','premarket_price','premarket_change','postmarket_price','postmarket_change'],
-                    filter:  [{ left:'type', operation:'in_range', right:['stock','dr','fund'] }],
-                    markets: ['america'],
-                    sort:    { sortBy:'market_cap_basic', sortOrder:'desc' },
-                    range:   [0, 300]
-                }),
-                signal: AbortSignal.timeout(10000)
-            });
-            if (!r1.ok) throw new Error('TV Scanner ' + r1.status);
-            (await r1.json()).data?.forEach(row => {
-                const d = row.d || [];
-                if (d[0] && symSet.has(d[0]))
-                    result[d[0]] = { close:d[1], preP:d[2], prePct:d[3], postP:d[4], postPct:d[5] };
-            });
-
-            // Pass 2: any missing (small/mid caps not in top-300)
-            const missing = symbols.filter(s => !result[s]);
-            if (missing.length) {
-                try {
-                    const r2 = await fetch('https://scanner.tradingview.com/america/scan', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            columns: ['name','close','premarket_price','premarket_change','postmarket_price','postmarket_change'],
-                            filter:  [{ left:'name', operation:'in_range', right: missing }],
-                            markets: ['america'],
-                            sort:    { sortBy:'name', sortOrder:'asc' },
-                            range:   [0, missing.length + 5]
-                        }),
-                        signal: AbortSignal.timeout(8000)
-                    });
-                    if (r2.ok) (await r2.json()).data?.forEach(row => {
-                        const d = row.d || [];
-                        if (d[0] && symSet.has(d[0]))
-                            result[d[0]] = { close:d[1], preP:d[2], prePct:d[3], postP:d[4], postPct:d[5] };
-                    });
-                } catch(e) {}
-            }
-            console.log('[PRE-MKT] TV Scanner found=' + Object.keys(result).length + '/' + symbols.length
-                + (missing.length ? ' missing=[' + missing.slice(0,5).join(',') + ']' : ''));
-            return result;
-        }
-
+        // ── Extended Hours via Alpaca snapshot (premarket_price / afterhours_price) ──
+        // Alpaca free tier includes extended hours in snapshot response
         async function fetchYahooExtendedBatch() {
             if (watchlist.length === 0) return;
             if (document.hidden) return;
             const now = Date.now();
-            if (now - _extLastBatchTs < 12000) return;
+            if (now - _extLastBatchTs < 15000) return; // max once per 15s
             _extLastBatchTs = now;
 
+            const aKey = getAlpacaKey(), aSecret = getAlpacaSecret();
+            if (!aKey || !aSecret) return; // no Alpaca key — skip silently
+
             try {
-                const data = await fetchTVScannerBatch(watchlist);
+                const url = new URL('https://data.alpaca.markets/v2/stocks/snapshots');
+                url.searchParams.set('symbols', watchlist.join(','));
+                url.searchParams.set('feed', 'iex');
+                const res = await fetch(url.toString(), {
+                    headers: { 'APCA-API-KEY-ID': aKey, 'APCA-API-SECRET-KEY': aSecret },
+                    signal: AbortSignal.timeout(8000)
+                });
+                if (!res.ok) return;
+                const data = await res.json();
                 let updated = 0;
 
                 watchlist.forEach(sym => {
-                    const q = data[sym];
-                    if (!q) return;
-                    const pc = wlDataCache[sym]?.pc ?? q.close ?? null;
-                    let extPrice = null, extPct = null, isAH = false;
+                    const sn = data[sym]; if (!sn) return;
+                    const pc = wlDataCache[sym]?.pc ?? sn.prevDailyBar?.c ?? null;
 
-                    if (q.preP && q.preP > 0) {
-                        extPrice = q.preP;
-                        extPct   = q.prePct ?? (pc ? (q.preP - pc) / pc * 100 : null);
-                        isAH     = false;
-                    } else if (q.postP && q.postP > 0) {
-                        extPrice = q.postP;
-                        extPct   = q.postPct ?? (pc ? (q.postP - pc) / pc * 100 : null);
-                        isAH     = true;
-                    }
+                    // Alpaca snapshot: minuteBar is latest minute (includes pre/after-hours)
+                    // dailyBar covers regular session, prevDailyBar = yesterday close
+                    const preP  = sn.minuteBar?.c ?? null;  // latest trade price (any session)
+                    const dayC  = sn.dailyBar?.c  ?? null;  // today's regular close (null pre-open)
 
-                    if (!extPrice || extPct === null) return;
-                    if (pc && Math.abs(extPrice - pc) / pc > 0.30) return;
+                    // Determine if extended hours: minute bar exists but regular session not open
+                    if (!preP || !pc) return;
+                    const pct = (preP - pc) / pc * 100;
+                    if (Math.abs(pct) > 0.30 * 100) return; // sanity: skip >30% moves
+
+                    // isAH = after regular close, isPM = before open
+                    const thaiHour = new Date().getUTCHours() + 7; // Thai time
+                    const h = thaiHour % 24;
+                    // Thai: market open 21:30-04:00, pre-market ~19:00-21:30, AH 04:00-09:00
+                    const isAH = h >= 4 && h < 19;
 
                     const existing = wlDataCache[sym] || {};
                     wlDataCache[sym] = Object.assign({}, existing, isAH
-                        ? { afterHoursPrice: extPrice, afterHoursChangePct: extPct, preMarketPrice: null, preMarketChangePct: null }
-                        : { preMarketPrice: extPrice, preMarketChangePct: extPct, afterHoursPrice: null, afterHoursChangePct: null });
+                        ? { afterHoursPrice: preP, afterHoursChangePct: pct, preMarketPrice: null, preMarketChangePct: null }
+                        : { preMarketPrice: preP, preMarketChangePct: pct, afterHoursPrice: null, afterHoursChangePct: null });
 
-                    updatePreMktCell(sym, extPrice, extPct, isAH);
+                    updatePreMktCell(sym, preP, pct, isAH);
                     updated++;
                 });
 
-                if (updated > 0) console.log('[PRE-MKT] Updated ' + updated + '/' + watchlist.length);
-                else console.info('[PRE-MKT] No pre/post prices'
-                    + (isMarketOpen() ? ' (market OPEN — data shows before 21:30 or after 04:00 Thai)' : ''));
+                if (updated > 0) console.log('[PRE-MKT] Alpaca snapshot updated ' + updated + '/' + watchlist.length);
             } catch(e) {
-                console.warn('[PRE-MKT] Error:', e?.message);
+                // Silent — extended hours is best-effort
             }
         }
+
         async function fetchQuote(symbol) {
             const key = getFinnhubKey();
             const now = Date.now();
@@ -2719,7 +2738,7 @@
             if (watchlist.length === 0) { checkWlEmpty(); isWlRefreshing = false; return; }
 
             const icon = document.getElementById('wl-refresh-icon');
-            icon.style.animation = 'spin 1s linear infinite';
+            if (icon) icon.style.animation = 'spin 1s linear infinite';
 
             // Show all skeletons immediately — user sees the list right away
             watchlist.forEach(s => {
@@ -2727,7 +2746,10 @@
             });
 
             const now = Date.now();
-            const wsLive = fhWs && fhWs.readyState === 1;
+            // wsLive = WS connected AND market is open (closed market = no streaming data)
+            const _fhLive  = fhWs  && fhWs.readyState  === 1;
+            const _alpLive = alpWs && alpWs.readyState  === 1;
+            const wsLive   = (_fhLive || _alpLive) && isMarketOpen();
 
             // Phase A: symbols needing full profile (new or >24h stale)
             // Sequential 3 reqs per symbol, 2 symbols at a time = max ~6 req in-flight
@@ -2797,6 +2819,9 @@
                     const r = await finnhubFetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${key}`);
                     if (!r.ok) return null;
                     const q = await r.json();
+                    // Finnhub: c=current, pc=prev close, o=open, h=high, l=low
+                    // When market closed: c may be 0 — use pc as fallback for LAST price
+                    if (!q.c || q.c === 0) q.c = q.pc;
                     const preData = await fetchExtendedHours(symbol, q.c);
                     return { symbol, data: { ...profileCache[symbol], ...wlDataCache[symbol], ...q, ...preData } };
                 }));
@@ -2813,12 +2838,13 @@
                 });
             }
 
-            icon.style.animation = '';
+            if (icon) icon.style.animation = '';
             document.getElementById('wl-last-update').innerText =
                 `Updated ${new Date().toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'})}`;
             isWlRefreshing = false;
             saveWlCache(); // persist for instant load next time
-            if (isMarketOpen()) connectWs();
+            // WS already connected at startup — only reconnect if dropped
+            if (isMarketOpen() && !alpWs && !fhWs) connectWs();
             updateMarketStatus();
             loadMarketNews();
         }
@@ -2951,14 +2977,16 @@
             const isAlreadyOpen = wrap.classList.contains('chart-open');
             wrap.classList.add('chart-open');
             setCompactHeaders(true);
-            if (scroll && !isAlreadyOpen) {
-                setTimeout(() => {
-                    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                }, 80);
-            } else if (scroll && isAlreadyOpen) {
-                // Already open — scroll panel to top for new stock
-                setTimeout(() => panel.scrollTop = 0, 50);
-            }
+            // Scroll window so quick-chart-panel top aligns just below fixed navbar
+            setTimeout(() => {
+                if (panel) {
+                    const nav  = document.querySelector('nav');
+                    const navH = nav ? nav.getBoundingClientRect().height : 96;
+                    const top  = panel.getBoundingClientRect().top + window.scrollY - navH;
+                    window.scrollTo({ top: Math.max(0, top), behavior: scroll ? 'smooth' : 'auto' });
+                    panel.scrollTop = 0;
+                }
+            }, 120);
 
             // ── Fade-in the detail panel content ──
             const heroSection = document.getElementById('qc-price-hero-section');
@@ -3003,6 +3031,7 @@
                 const arrow = isUp ? '▲' : '▼';
                 const absStr = changeAbs !== null ? (isUp ? '+' : '') + changeAbs.toFixed(2) + ' ' : '';
                 changeHeroEl.innerText = `${arrow} ${absStr}(${isUp?'+':''}${changePct.toFixed(2)}%)`;
+                _psSetTabTitle(symbol, price, changePct);
                 changeHeroEl.className = 'text-sm font-medium px-2 py-0.5 rounded-md ' + (isUp ? 'wl-badge-up' : 'wl-badge-dn');
             }
 
@@ -3021,14 +3050,15 @@
             const set = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val; };
             set('qcs-open',   d?.o   != null ? fmt(d.o)   : '—');
             set('qcs-prev',   d?.pc  != null ? fmt(d.pc)  : '—');
-            set('qcs-range',  (d?.l != null && d?.h != null) ? fmt(d.l) + ' – ' + fmt(d.h) : '—');
+            set('qcs-low',  d?.l != null ? '$' + fmt(d.l) : '—');
+            set('qcs-high', d?.h != null ? '$' + fmt(d.h) : '—');
             set('qcs-mktcap', d?.marketCap != null ? fmtCap(d.marketCap) : '—');
             set('qcs-pe',     d?.pe        != null ? d.pe.toFixed(1)     : '—');
             set('qcs-div',    d?.divYield  != null ? d.divYield.toFixed(2) + '%' : '—');
             // 52W range bar
             const w52h = d?.week52High; const w52l = d?.week52Low;
             set('qcs-52wl', w52l != null ? fmt(w52l) : '—');
-            set('qcs-52wh', w52h != null ? fmt(w52h) : '—');
+            set('qcs-52wh', w52h != null ? fmt(w52h) : '—'); const _52whEl = document.getElementById('qcs-52wh'); if(_52whEl) _52whEl.style.color='#10b981';
             if (w52h && w52l && price && w52h > w52l) {
                 const pct = Math.min(100, Math.max(0, ((price - w52l) / (w52h - w52l)) * 100));
                 const fillEl = document.getElementById('qcs-52w-fill');
@@ -3054,7 +3084,7 @@
         const _saveLwcPrefs = () => {
             // Save only persistent settings: type, ema toggles, autoScroll
             // Do NOT persist range/res — always reset to 1D/5Min on load
-            try { localStorage.setItem('ps_lwc_prefs', JSON.stringify({type:_lwcType,ema:_lwcEMA,autoScroll:_lwcAutoScroll})); } catch(e){}
+            try { localStorage.setItem('ps_lwc_prefs', JSON.stringify({type:_lwcType,autoScroll:_lwcAutoScroll})); } catch(e){}
         };
         const _lwcPrefs = (() => { try { return JSON.parse(localStorage.getItem('ps_lwc_prefs')||'{}'); } catch(e){return{};} })();
         let _lwcChart = null, _lwcSymbol = null, _lwcLiveDotFn = null;
@@ -3077,9 +3107,9 @@
             '6M':'1Day','1Y':'1Day','5Y':'1Week',
         };
         let _lwcCandleSeries = null, _lwcLastCandle = null, _lwcLastTime = null;
+        let _lwcCandles = null, _lwcLineData = null; // cached for type swap without redraw
         let _lwcCurrentTf = '5Min';
-        let _lwcEMA = Object.assign({20:true,50:true,200:true}, _lwcPrefs.ema||{}), _lwcEmaSeriesMap = null;
-        const _emaColors = { 20: '#f59e0b', 50: '#60a5fa', 200: '#f472b6' };
+        let _lwcEmaSeriesMap = null;
 
         async function renderLightweightChart(symbol, isDark) {
             _lwcSymbol = symbol;
@@ -3116,14 +3146,6 @@
                         border:1px solid var(--border);transition:all 0.15s;
                         background:${_lwcAutoScroll?'rgba(66,133,244,0.2)':'var(--bg-card2)'};
                         color:${_lwcAutoScroll?'#4285f4':'var(--text-dim)'}">⟳ LIVE</button>
-                    <div style="width:1px;height:12px;background:var(--border);margin:0 2px"></div>
-                    ${[20,50,200].map(p =>
-                        `<button onclick="lwcToggleEMA(${p})" id="lwc-ema-${p}"
-                            style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;cursor:pointer;
-                            border:1px solid ${_emaColors[p]};
-                            background:${_lwcEMA[p]?_emaColors[p]+'33':'transparent'};
-                            color:${_emaColors[p]};transition:all 0.15s">EMA${p}</button>`
-                    ).join('')}
                     </div>
                 </div>
                 <div id="lwc-canvas" style="width:100%;flex:1;min-height:0"></div>`;
@@ -3167,7 +3189,7 @@
                 spin = document.createElement('div');
                 spin.id = 'lwc-spin';
                 spin.style.cssText = 'position:absolute;inset:0;z-index:30;display:none;align-items:center;justify-content:center;pointer-events:none;';
-                spin.innerHTML = '<div style="width:22px;height:22px;border:2px solid rgba(255,255,255,0.12);border-top-color:#10b981;border-radius:50%;animation:lwc-spin 0.7s linear infinite"></div>';
+                spin.innerHTML = '<div style="width:22px;height:22px;border:2px solid rgba(255,255,255,0.12);border-top-color:var(--accent);border-radius:50%;animation:lwc-spin 0.7s linear infinite"></div>';
                 wrap.appendChild(spin);
             }
             const showSpin = v => { if (spin) spin.style.display = v ? 'flex' : 'none'; };
@@ -3213,7 +3235,7 @@
             const bg   = isDark ? '#161a1e' : '#ffffff';
             const text = isDark ? '#94a3b8' : '#64748b';
             const grid = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)';
-            const up = '#10b981', dn = '#e11d48';
+            const up = '#10b981', dn = '#e11d48'; // fixed TV palette — never changes with theme
 
             _lwcChart = LightweightCharts.createChart(canvas, {
                 width:  canvas.clientWidth  || wrap?.clientWidth  || 800,
@@ -3231,15 +3253,22 @@
                     fixLeftEdge: true,
                     fixRightEdge: false,
                     tickMarkFormatter: (time, tickType, locale) => {
-                        const d = new Date(time * 1000);
-                        const h = d.getUTCHours().toString().padStart(2,'0');
-                        const m = d.getUTCMinutes().toString().padStart(2,'0');
+                        let d;
+                        if (typeof time === 'string') {
+                            d = new Date(time + 'T00:00:00Z'); // daily/weekly: 'YYYY-MM-DD'
+                        } else {
+                            d = new Date(time * 1000); // intraday: unix seconds
+                        }
+                        if (isNaN(d.getTime())) return '';
+                        const h  = d.getUTCHours().toString().padStart(2,'0');
+                        const m  = d.getUTCMinutes().toString().padStart(2,'0');
                         const mo = d.toLocaleString('en-US',{month:'short',timeZone:'UTC'});
-                        const day = d.getUTCDate();
-                        // Show date when it's a new day, time otherwise
-                        if (h === '00' && m === '00') return `${mo} ${day}`;
-                        if (m === '00') return `${h}:00`;
-                        return `${h}:${m}`;
+                        const dy = d.getUTCDate();
+                        const yr = d.getUTCFullYear();
+                        if (typeof time === 'string') return mo+' '+dy+" '"+String(yr).slice(2);
+                        if (h === '00' && m === '00') return mo+' '+dy;
+                        if (m === '00') return h+':00';
+                        return h+':'+m;
                     },
                 },
             });
@@ -3247,27 +3276,14 @@
             // ── Series ───────────────────────────────────────────────────────
             let cSeries;
             if (_lwcType === 'candle') {
-                cSeries = _lwcChart.addCandlestickSeries({ upColor:up, downColor:dn, borderUpColor:up, borderDownColor:dn, wickUpColor:up, wickDownColor:dn, lastValueVisible:false, priceLineVisible:false });
+                cSeries = _lwcChart.addCandlestickSeries({ upColor:'#10b981', downColor:'#e11d48', borderUpColor:'#10b981', borderDownColor:'#e11d48', wickUpColor:'#10b981', wickDownColor:'#e11d48', lastValueVisible:false, priceLineVisible:false });
             } else if (_lwcType === 'line') {
-                cSeries = _lwcChart.addLineSeries({ color:up, lineWidth:2, lineType:2, priceLineVisible:false, lastValueVisible:false });
+                cSeries = _lwcChart.addLineSeries({ color:'#10b981', lineWidth:2, lineType:2, priceLineVisible:false, lastValueVisible:false });
             } else {
-                cSeries = _lwcChart.addAreaSeries({ lineColor:'#10b981', topColor:'rgba(16,185,129,0.55)', bottomColor:'rgba(16,185,129,0.04)', lineWidth:2, lineType:2, priceLineVisible:false, lastValueVisible:false });
+                cSeries = _lwcChart.addAreaSeries({ lineColor:'#10b981', topColor:'rgba(16,185,129,0.28)', bottomColor:'rgba(16,185,129,0.02)', lineWidth:2, lineType:2, priceLineVisible:false, lastValueVisible:false });
             }
             const vSeries = _lwcChart.addHistogramSeries({ priceFormat:{type:'volume'}, priceScaleId:'vol', lastValueVisible:false, priceLineVisible:false });
             vSeries.priceScale().applyOptions({ scaleMargins: { top: 0.78, bottom: 0 } });
-            _lwcEmaSeriesMap = {};
-            const emaSeriesMap = _lwcEmaSeriesMap;
-            [20,50,200].forEach(p => {
-                emaSeriesMap[p] = _lwcChart.addLineSeries({
-                    color: _emaColors[p],
-                    lineWidth: p===200 ? 2 : 1.5,
-                    lineType: 2, // Curved — smoother EMA line
-                    priceLineVisible: false,
-                    lastValueVisible: false,
-                    visible: _lwcEMA[p],
-                    autoscaleInfoProvider: () => null,
-                });
-            });
 
             // ── Set data ─────────────────────────────────────────────────────
             const displayBars   = bars.filter(b => new Date(b.t) >= displayCutoff);
@@ -3279,6 +3295,8 @@
 
             const candles  = barsForDisplay.map(b => ({ time:toTime(b.t), open:b.o, high:b.h, low:b.l, close:b.c }));
             const lineData = barsForDisplay.map(b => ({ time:toTime(b.t), value:b.c }));
+            _lwcCandles  = candles;  // cache for instant type swap
+            _lwcLineData = lineData;
             cSeries.setData(_lwcType === 'candle' ? candles : lineData);
             _lwcCandleSeries = cSeries;
             _lwcLastCandle   = candles.length ? {...candles[candles.length-1]} : null;
@@ -3288,70 +3306,6 @@
                 value: b.v,
                 color: b.c >= b.o ? 'rgba(16,185,129,0.3)' : 'rgba(225,29,72,0.3)'
             })));
-
-            // ── EMA Calculation ───────────────────────────────────────────────
-            // Strategy: calculate on ALL fetched bars (warmup), split into per-session
-            // segments for display — no connecting line across market close
-            [20, 50, 200].forEach(p => {
-                const k = 2 / (p + 1);
-                let prev = null;
-
-                // Pass 1: calculate EMA value for every bar (full warmup on all fetched bars)
-                const emaValues = new Map(); // bar index → ema value
-                for (let i = 0; i < bars.length; i++) {
-                    if (prev === null) {
-                        if (i < p - 1) continue;
-                        let sum = 0;
-                        for (let j = 0; j < p; j++) sum += bars[j].c;
-                        prev = sum / p;
-                    } else {
-                        prev = bars[i].c * k + prev * (1 - k);
-                    }
-                    emaValues.set(i, prev);
-                }
-
-                // Pass 2: build display segments — split at session gaps
-                // Each segment = continuous trading session, no overnight connections
-                const segments = [[]]; // array of arrays
-                for (let i = 0; i < bars.length; i++) {
-                    if (!emaValues.has(i)) continue;
-                    if (new Date(bars[i].t) < displayCutoff) continue;
-
-                    // Start new segment if gap detected
-                    if (segments[segments.length-1].length > 0 && i > 0 && emaValues.has(i-1)) {
-                        if (isSessionGap(bars[i-1], bars[i])) {
-                            segments.push([]);
-                        }
-                    }
-                    segments[segments.length-1].push({ time: toTime(bars[i].t), value: emaValues.get(i) });
-                }
-
-                // Flatten segments with a gap marker between them
-                // LWC v4.1: whitespace point = { time } with no other fields
-                const finalData = [];
-                segments.forEach((seg, si) => {
-                    if (seg.length === 0) return;
-                    if (si > 0 && finalData.length > 0) {
-                        // Insert one whitespace point at the gap to break the line
-                        // Use time = last point of previous segment + 1 tick
-                        const lastTime = finalData[finalData.length - 1].time;
-                        finalData.push({ time: lastTime + 1 }); // whitespace — no value field
-                    }
-                    seg.forEach(pt => finalData.push(pt));
-                });
-
-                const btnEl = document.getElementById('lwc-ema-' + p);
-                if (finalData.filter(d => d.value !== undefined).length === 0) {
-                    if (btnEl) { btnEl.style.opacity = '0.35'; btnEl.title = 'Need more data for EMA' + p; }
-                    emaSeriesMap[p].setData([]);
-                } else {
-                    if (btnEl) { btnEl.style.opacity = '1'; btnEl.title = ''; }
-                    emaSeriesMap[p].setData(finalData);
-                }
-
-                emaSeriesMap[p]._lastEma = prev;
-                emaSeriesMap[p]._emaK    = k;
-            });
 
             // ── Live price overlay ────────────────────────────────────────────
             const liveP = wlDataCache[symbol]?.c;
@@ -3373,16 +3327,6 @@
                 } else {
                     cSeries.update({ time:last.time, value:liveP });
                 }
-                [20,50,200].forEach(p => {
-                    try {
-                        const s = emaSeriesMap[p];
-                        if (!s || s._lastEma === null) return;
-                        // Proper EMA continuation: liveP*k + prevEMA*(1-k)
-                        const newEma = liveP * s._emaK + s._lastEma * (1 - s._emaK);
-                        s.update({ time: last.time, value: newEma });
-                        // Don't overwrite _lastEma here — live price is provisional
-                    } catch(e) {}
-                });
             }
 
             // ── fitContent — after data set ───────────────────────────────────
@@ -3411,7 +3355,7 @@
             const oldDotEl = document.getElementById('lwc-live-dot');
             if (oldDotEl) oldDotEl.remove();
 
-            if (liveP && isMarketOpen()) {
+            if (liveP && isMarketOpen() && _lwcType !== 'candle') {
                 // Mount dot on wrap (not canvas) — wrap is our container div
                 const dotWrap = wrap || canvas;
                 if (dotWrap.style.position !== 'relative' && dotWrap.style.position !== 'absolute')
@@ -3483,68 +3427,79 @@
             if (wrap) { wrap.style.position='relative'; wrap.appendChild(tip); }
             else { canvas.style.position='relative'; canvas.appendChild(tip); }
 
-            let _tipRafId = null;
-            _lwcChart.subscribeCrosshairMove(param => {
-                // Throttle tooltip rendering to one rAF per crosshair event
-                if (_tipRafId) cancelAnimationFrame(_tipRafId);
-                _tipRafId = requestAnimationFrame(() => { _tipRafId = null; _tipInner(param); });
-            });
-            const _tipInner = (param => {
-                if (!param?.point || param.point.x < 0 || !param.time) { tip.style.display='none'; return; }
-                const d = param.seriesData?.get(cSeries);
-                if (!d) { tip.style.display='none'; return; }
+            // Tooltip: 2-layer for smooth tracking
+            // mousemove  = position (every pixel, instant)
+            // crosshairMove = content (every bar, via rAF)
+            let _tipRafId  = null;
+            let _tipVisible = false;
+            let _tipW = 160, _tipH = 80;
 
-                const dimC = isDark?'#64748b':'#94a3b8';
-                const bold = isDark?'#f1f5f9':'#0f172a';
-                const fmtP = v => `<span style="color:${bold};font-weight:700">$${(+v).toFixed(2)}</span>`;
-
-                let dateStr;
-                if (isIntra) {
-                    const dt = new Date(param.time * 1000);
-                    dateStr = dt.toLocaleDateString('en-US',{day:'2-digit',month:'short',year:'2-digit'}) + ' ' +
-                              dt.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:false});
-                } else {
-                    const dt = new Date(param.time + 'T12:00:00Z');
-                    dateStr = dt.toLocaleDateString('en-US',{day:'2-digit',month:'short',year:'numeric'});
-                }
-
-                const vd = param.seriesData?.get(vSeries);
-                const vol = vd?.value ?? 0;
-                const volStr = vol>=1e6?(vol/1e6).toFixed(2)+'M':vol>=1e3?(vol/1e3).toFixed(1)+'K':vol.toFixed(0);
-
-                if (_lwcType === 'candle') {
-                    const chg = d.close-d.open, pct = d.open?(chg/d.open*100):0;
-                    const col = chg>=0?'#10b981':'#e11d48';
-                    tip.innerHTML =
-                        `<div style="font-size:10px;color:${dimC};margin-bottom:4px">${dateStr}</div>` +
-                        `<div style="display:grid;grid-template-columns:auto auto;gap:1px 14px;font-size:11px;line-height:1.6">` +
-                        `<span style="color:${dimC}">O</span>${fmtP(d.open)}` +
-                        `<span style="color:#10b981">H</span>${fmtP(d.high)}` +
-                        `<span style="color:#e11d48">L</span>${fmtP(d.low)}` +
-                        `<span style="color:${dimC}">C</span>${fmtP(d.close)}` +
-                        `</div>` +
-                        `<div style="margin-top:4px;border-top:1px solid ${isDark?'rgba(255,255,255,0.07)':'rgba(0,0,0,0.06)'};padding-top:4px;font-size:10px">` +
-                        `<span style="color:${col};font-weight:600">${chg>=0?'▲':'▼'} ${Math.abs(chg).toFixed(2)} (${Math.abs(pct).toFixed(2)}%)</span>` +
-                        (vol?`<span style="color:${dimC};margin-left:8px">Vol ${volStr}</span>`:'') +
-                        `</div>`;
-                } else {
-                    const val = d.value ?? d.close ?? 0;
-                    tip.innerHTML =
-                        `<div style="font-size:10px;color:${dimC};margin-bottom:3px">${dateStr}</div>` +
-                        `<div style="font-size:16px;font-weight:700;color:${bold}">$${(+val).toFixed(2)}</div>` +
-                        (vol?`<div style="font-size:10px;color:${dimC};margin-top:3px">Volume <b style="color:${isDark?'#94a3b8':'#475569'}">${volStr}</b></div>`:'');
-                }
-
-                tip.style.display = 'block';
-                const pw = (wrap||canvas).clientWidth, ph = (wrap||canvas).clientHeight;
-                const tw = tip.offsetWidth||160, th = tip.offsetHeight||80;
-                let x = param.point.x + 16, y = param.point.y - th - 12;
-                if (x + tw + 8 > pw) x = param.point.x - tw - 16;
-                if (y < 8) y = param.point.y + 16;
-                if (y + th + 8 > ph) y = ph - th - 8;
+            const _lwcCont = wrap || canvas;
+            if (_lwcCont._mh) _lwcCont.removeEventListener('mousemove', _lwcCont._mh);
+            _lwcCont._mh = e => {
+                if (!_tipVisible) return;
+                const rc = _lwcCont.getBoundingClientRect();
+                const mx = e.clientX - rc.left, my = e.clientY - rc.top;
+                const pw = _lwcCont.clientWidth,  ph = _lwcCont.clientHeight;
+                const x  = mx + 16 + _tipW + 8 > pw ? mx - _tipW - 16 : mx + 16;
+                const y  = my - _tipH - 12 < 8      ? my + 16           : my - _tipH - 12;
                 tip.style.left = Math.max(4, x) + 'px';
                 tip.style.top  = Math.max(4, y) + 'px';
-            }); // end _tipInner
+            };
+            _lwcCont.addEventListener('mousemove', _lwcCont._mh, { passive: true });
+
+            _lwcChart.subscribeCrosshairMove(param => {
+                if (!param?.point || param.point.x < 0 || !param.time) {
+                    tip.style.display = 'none'; _tipVisible = false; return;
+                }
+                if (_tipRafId) cancelAnimationFrame(_tipRafId);
+                _tipRafId = requestAnimationFrame(() => {
+                    _tipRafId = null;
+                    const d = param.seriesData?.get(cSeries);
+                    if (!d) { tip.style.display='none'; _tipVisible=false; return; }
+                    const dimC = isDark?'#64748b':'#94a3b8';
+                    const bold = isDark?'#f1f5f9':'#0f172a';
+                    const fmtP = v => '<span style="color:'+bold+';font-weight:700">$'+(+v).toFixed(2)+'</span>';
+                    let dateStr;
+                    if (isIntra) {
+                        const dt = new Date(param.time * 1000);
+                        dateStr = dt.toLocaleDateString('en-US',{day:'2-digit',month:'short',year:'2-digit'})+' '+
+                                  dt.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:false});
+                    } else {
+                        const dt = new Date(param.time+'T12:00:00Z');
+                        dateStr = dt.toLocaleDateString('en-US',{day:'2-digit',month:'short',year:'numeric'});
+                    }
+                    const vd = param.seriesData?.get(vSeries);
+                    const vol = vd?.value ?? 0;
+                    const volStr = vol>=1e6?(vol/1e6).toFixed(2)+'M':vol>=1e3?(vol/1e3).toFixed(1)+'K':vol.toFixed(0);
+                    if (_lwcType === 'candle') {
+                        const chg = d.close-d.open, pct = d.open?(chg/d.open*100):0;
+                        const col = chg>=0?'#10b981':'#e11d48';
+                        tip.innerHTML =
+                            '<div style="font-size:10px;color:'+dimC+';margin-bottom:4px">'+dateStr+'</div>'+
+                            '<div style="display:grid;grid-template-columns:auto auto;gap:1px 14px;font-size:11px;line-height:1.6">'+
+                            '<span style="color:'+dimC+'">O</span>'+fmtP(d.open)+
+                            '<span style="color:#10b981">H</span>'+fmtP(d.high)+
+                            '<span style="color:#e11d48">L</span>'+fmtP(d.low)+
+                            '<span style="color:'+dimC+'">C</span>'+fmtP(d.close)+
+                            '</div>'+
+                            '<div style="margin-top:4px;border-top:1px solid '+(isDark?'rgba(255,255,255,0.07)':'rgba(0,0,0,0.06)')+';padding-top:4px;font-size:10px">'+
+                            '<span style="color:'+col+';font-weight:600">'+(chg>=0?'▲':'▼')+' '+Math.abs(chg).toFixed(2)+' ('+Math.abs(pct).toFixed(2)+'%)</span>'+
+                            (vol?'<span style="color:'+dimC+';margin-left:8px">Vol '+volStr+'</span>':'')+
+                            '</div>';
+                    } else {
+                        const val = d.value ?? d.close ?? 0;
+                        tip.innerHTML =
+                            '<div style="font-size:10px;color:'+dimC+';margin-bottom:3px">'+dateStr+'</div>'+
+                            '<div style="font-size:16px;font-weight:700;color:'+bold+'">$'+(+val).toFixed(2)+'</div>'+
+                            (vol?'<div style="font-size:10px;color:'+dimC+';margin-top:3px">Volume <b style="color:'+(isDark?'#94a3b8':'#475569')+'">'+volStr+'</b></div>':'');
+                    }
+                    tip.style.display = 'block';
+                    _tipVisible = true;
+                    _tipW = tip.offsetWidth  || 160;
+                    _tipH = tip.offsetHeight || 80;
+                });
+            });
         }
         function _lwcRenderResBtns(range) {
             const bar = document.getElementById('lwc-res-bar');
@@ -3608,30 +3563,102 @@
             }
         }
 
-        function lwcToggleEMA(period) {
-            _lwcEMA[period] = !_lwcEMA[period]; _saveLwcPrefs();
-            const btn = document.getElementById('lwc-ema-' + period);
-            if (btn) btn.style.background = _lwcEMA[period] ? _emaColors[period]+'33' : 'transparent';
-            // Just toggle visibility — no redraw needed
-            if (_lwcEmaSeriesMap && _lwcEmaSeriesMap[period]) {
-                _lwcEmaSeriesMap[period].applyOptions({ visible: _lwcEMA[period] });
-            }
-        }
 
         async function lwcSetType(type) {
             _lwcType = type; _saveLwcPrefs();
-            const isDark = document.documentElement.classList.contains('dark');
-            const aKey = getAlpacaKey(), aSecret = getAlpacaSecret();
+            // Update button styles
             ['candle','line','area'].forEach(t => {
                 const btn = document.getElementById('lwc-type-' + t);
                 if (!btn) return;
                 btn.style.background = t===type ? 'var(--accent,#4285f4)' : 'var(--bg-card2)';
             });
+            // If chart + cached data exist — swap series instantly, no redraw
+            if (_lwcChart && _lwcCandles && _lwcLineData && _lwcCandleSeries) {
+                try {
+                    const isDark = document.documentElement.classList.contains('dark');
+                    const up = '#10b981', dn = '#e11d48'; // fixed TV palette — never changes with theme
+                    _lwcChart.removeSeries(_lwcCandleSeries);
+                    let newSeries;
+                    if (type === 'candle') {
+                        newSeries = _lwcChart.addCandlestickSeries({ upColor:'#10b981', downColor:'#e11d48', borderUpColor:'#10b981', borderDownColor:'#e11d48', wickUpColor:'#10b981', wickDownColor:'#e11d48', lastValueVisible:false, priceLineVisible:false });
+                        newSeries.setData(_lwcCandles);
+                    } else if (type === 'line') {
+                        newSeries = _lwcChart.addLineSeries({ color:'#10b981', lineWidth:2, lineType:2, priceLineVisible:false, lastValueVisible:false });
+                        newSeries.setData(_lwcLineData);
+                    } else {
+                        newSeries = _lwcChart.addAreaSeries({ lineColor:'#10b981', topColor:'rgba(16,185,129,0.28)', bottomColor:'rgba(16,185,129,0.02)', lineWidth:2, lineType:2, priceLineVisible:false, lastValueVisible:false });
+                        newSeries.setData(_lwcLineData);
+                    }
+                    _lwcCandleSeries = newSeries;
+                    window._lwcLiveSeries = newSeries;
+                    // Restore live price line
+                    const _liveP = wlDataCache[_lwcSymbol]?.c ?? null;
+                    window._lwcLivePriceLine = null;
+                    if (_liveP && _lwcLastCandle) {
+                        window._lwcLivePriceLine = newSeries.createPriceLine({
+                            price: _liveP, color:'#10b981', lineWidth:1,
+                            lineStyle: LightweightCharts.LineStyle.Dashed,
+                            axisLabelVisible:true, title:'LIVE'
+                        });
+                        // Update last candle/point with live price
+                        if (type === 'candle') {
+                            const lc = _lwcLastCandle;
+                            const upd = { time:lc.time, open:lc.open, high:Math.max(lc.high,_liveP), low:Math.min(lc.low,_liveP), close:_liveP };
+                            newSeries.update(upd); _lwcLastCandle = upd;
+                        } else {
+                            newSeries.update({ time:_lwcLastTime, value:_liveP });
+                        }
+                    }
+                    // Rebuild live dot — only for line/area, not candle
+                    const _oldDot = document.getElementById('lwc-live-dot');
+                    if (_oldDot) _oldDot.remove();
+                    _lwcLiveDotFn = null;
+                    if (_liveP && isMarketOpen() && type !== 'candle') {
+                        const _canvas = document.getElementById('lwc-canvas');
+                        const _wrap = _canvas?.parentElement;
+                        const _dotWrap = _wrap || _canvas;
+                        if (_dotWrap) {
+                            if (_dotWrap.style.position !== 'relative') _dotWrap.style.position = 'relative';
+                            const _dot = document.createElement('div');
+                            _dot.id = 'lwc-live-dot';
+                            _dotWrap.appendChild(_dot);
+                            const _placeDot = () => {
+                                if (!_lwcChart || !_dot.isConnected) return;
+                                try {
+                                    const _price = wlDataCache[_lwcSymbol]?.c ?? _liveP;
+                                    const _y = newSeries.priceToCoordinate(_price);
+                                    if (_y === null) { _dot.style.display='none'; return; }
+                                    const _x = _lwcLastTime ? _lwcChart.timeScale().timeToCoordinate(_lwcLastTime) : null;
+                                    if (_x === null || _x < 2) { _dot.style.display='none'; return; }
+                                    const _paneW = (_canvas?.clientWidth || 800) - 65;
+                                    if (_x > _paneW - 8) { _dot.style.display='none'; return; }
+                                    const _wRect = _dotWrap.getBoundingClientRect();
+                                    const _cRect = (_canvas||_dotWrap).getBoundingClientRect();
+                                    _dot.style.left = (_cRect.left - _wRect.left + _x) + 'px';
+                                    _dot.style.top  = (_cRect.top  - _wRect.top  + _y) + 'px';
+                                    _dot.style.display = 'block';
+                                } catch(e) { _dot.style.display='none'; }
+                            };
+                            _lwcChart.timeScale().subscribeVisibleLogicalRangeChange(_placeDot);
+                            _lwcChart.subscribeCrosshairMove(() => _placeDot());
+                            _placeDot();
+                            _lwcLiveDotFn = _placeDot;
+                        }
+                    }
+                    return; // done — no redraw needed
+                } catch(e) {}
+            }
+            // Fallback: full redraw (first load or error)
+            const isDark = document.documentElement.classList.contains('dark');
+            const aKey = getAlpacaKey(), aSecret = getAlpacaSecret();
             await _lwcDraw(_lwcSymbol, _lwcRange, isDark, aKey, aSecret);
         }
 
         function closeQuickChart() {
+            _psSetTabTitle(null);
             document.getElementById('wl-split-wrap').classList.remove('chart-open');
+            // Scroll to top of page
+            window.scrollTo({ top: 0, behavior: 'smooth' });
             setCompactHeaders(false);
             if (_lwcChart) { try { _lwcChart.remove(); } catch(e){} _lwcChart = null; }
             _lwcLiveDotFn = null;
@@ -3659,16 +3686,16 @@
             const img = a.image || '';
             const symbols = (a.related || '').split(',').map(s => s.trim()).filter(Boolean).slice(0, 3);
             const badges = symbols.map(s =>
-                `<span style="background:rgba(8,153,129,0.12);color:#089981;font-size:8px;font-weight:600;padding:1px 5px;border-radius:3px">${s}</span>`
+                `<span style="background:rgba(16,185,129,0.15);color:#10b981;font-size:8px;font-weight:600;padding:1px 5px;border-radius:3px">${s}</span>`
             ).join('');
             return `<button data-news-idx="${idx}" onclick="openNewsModal(${idx})" class="news-tile">
                 ${img
-                    ? `<img src="${img}" alt="" class="news-tile-img" loading="lazy" onerror="this.style.display='none'">`
+                    ? `<div style="width:64px;height:44px;flex-shrink:0;border-radius:4px;overflow:hidden"><img src="${img}" alt="" style="width:100%;height:100%;object-fit:cover;object-position:center;display:block" loading="lazy" onerror="this.parentElement.style.display='none'"></div>`
                     : `<div class="news-tile-no-img"><svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:var(--text-dim)"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/></svg></div>`}
                 <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">
                     <p style="font-size:11.5px;font-weight:600;line-height:1.4;color:var(--text-primary);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin:0">${a.headline || ''}</p>
                     <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap">
-                        <span style="font-size:9px;font-weight:700;color:#089981;letter-spacing:0.04em">${source}</span>
+                        <span style="font-size:9px;font-weight:700;color:var(--accent);letter-spacing:0.04em">${source}</span>
                         <span style="color:var(--border);font-size:9px">·</span>
                         <span style="font-size:9px;color:var(--text-dim)">${timeStr}</span>
                         ${badges ? `<span style="color:var(--border);font-size:9px">·</span>${badges}` : ''}
@@ -3703,7 +3730,7 @@
                 ? symbols.map(s =>
                     `<button onclick="closeNewsModal();if(watchlist.includes('${s}'))openQuickChart('${s}')"
                      class="text-[9px] font-black px-2 py-1 rounded-lg transition-colors"
-                     style="background:rgba(20,184,166,0.12);color:#14b8a6"
+                     style="background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--accent)"
                      onmouseover="this.style.background='rgba(20,184,166,0.25)'" onmouseout="this.style.background='rgba(20,184,166,0.12)'">${s}</button>`
                 ).join('')
                 : '<span class="text-[9px]" style="color:var(--text-dim)">—</span>';
@@ -3892,7 +3919,7 @@
                 const isDark  = document.documentElement.classList.contains('dark');
 
                 // Price line colors — TradingView palette
-                const lineColor = isUp ? '#089981' : '#f23645';
+                const lineColor = isUp ? (getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()||'#089981') : '#f23645';
                 const fillColor = isUp ? 'rgba(8,153,129,0.08)' : 'rgba(242,54,69,0.08)';
 
                 // Volume bar colors — direction-aware, per-bar
@@ -4341,7 +4368,7 @@
                     </div>
                     <div class="flex-1">
                         <div class="text-[10px] font-bold mb-1.5" style="color:#4285f4">AI ANALYST</div>
-                        <div class="text-sm leading-relaxed" style="color:var(--text-secondary)">สวัสดีครับ ถามได้เลยเรื่องแนวรับ/แนวต้าน, ข่าวล่าสุด หรือ outlook ของหุ้นใดก็ได้ครับ</div>
+                        <div class="text-sm leading-relaxed ai-msg-body">สวัสดีครับ ถามได้เลยเรื่องแนวรับ/แนวต้าน, ข่าวล่าสุด หรือ outlook ของหุ้นใดก็ได้ครับ</div>
                     </div>
                 </div>`;
         }
@@ -4365,7 +4392,7 @@
                             <span class="text-[10px] font-bold" style="color:#4285f4">AI ANALYST</span>
                             <span class="text-[9px]" style="color:var(--text-dim)">${ts}</span>
                         </div>
-                        <div class="ai-msg-body text-sm leading-relaxed" style="color:var(--text-secondary);white-space:pre-wrap">${isLoading ? '<span class="ai-typing">กำลังวิเคราะห์<span class="dots">...</span></span>' : escHtml(text)}</div>
+                        <div class="ai-msg-body text-sm leading-relaxed" style="white-space:pre-wrap">${isLoading ? '<span class="ai-typing">กำลังวิเคราะห์<span class="dots">...</span></span>' : escHtml(text)}</div>
                     </div>
                    </div>`;
             container.insertAdjacentHTML('beforeend', html);
@@ -4576,7 +4603,7 @@
                         <span class="text-[10px] font-bold" style="color:#4285f4">AI ANALYST</span>
                         <span class="text-[9px]" style="color:var(--text-dim)">${ts}</span>
                     </div>
-                    <div class="msgbody text-sm leading-relaxed" style="color:var(--text-secondary);white-space:pre-wrap">
+                    <div class="msgbody text-sm leading-relaxed" style="white-space:pre-wrap">
                         <span style="color:var(--text-dim)">⏳ กำลังเชื่อมต่อ...</span>
                     </div>
                 </div>`;
@@ -4886,89 +4913,95 @@ ${contextSections}
             if (alpWs) { alpWs.close(); alpWs = null; } alpWsSubscribed.clear();
         }
 
-        // ── Shared trade handler ────────────────────────────────────────────────
-        // rAF batch: accumulate trades, flush once per frame (max 60fps)
+        // ── Shared trade handler — two separate paths for min latency ──────────
+        // PATH A (Chart):    synchronous in WS onmessage — zero rAF delay
+        // PATH B (Watchlist): rAF batch — max 60fps DOM writes
         const _pendingTrades = {};
         let _rafPending = false;
+
+        // Inline chart updater — called directly from WS, no rAF
+        function _updateChartDirect(sym, newPrice) {
+            if (sym !== qcCurrentSymbol) return;
+            // Header price
+            const heroEl = document.getElementById('qc-price-hero');
+            if (heroEl) {
+                const cached = wlDataCache[sym];
+                const prevClose = cached?.pc ?? cached?.c ?? newPrice;
+                const isUp = newPrice >= prevClose;
+                heroEl.textContent = '$' + newPrice.toFixed(2);
+                heroEl.style.color = isUp ? 'var(--qc-up)' : 'var(--qc-dn)';
+            }
+            // Live tab title
+            { var _cached = wlDataCache[sym]; var _pc = _cached && (_cached.pc || _cached.c); var _pct = _pc ? (newPrice - _pc) / _pc * 100 : null; _psSetTabTitle(sym, newPrice, _pct); }
+            // Live price line — sync with header
+            if (window._lwcLivePriceLine) {
+                try { window._lwcLivePriceLine.applyOptions({ price: newPrice }); } catch(e) {}
+            }
+            // Series update
+            if (_lwcCandleSeries && _lwcLastCandle && _lwcLastTime !== null) {
+                try {
+                    const _tfMin = {'1Min':1,'5Min':5,'15Min':15,'1Hour':60}[_lwcCurrentTf] || 0;
+                    const isIntra = _tfMin > 0;
+                    const nowSec = isIntra ? Math.floor(Date.now() / (_tfMin*60000)) * (_tfMin*60) : 0;
+                    if (_lwcType === 'candle') {
+                        if (isIntra && nowSec > _lwcLastTime) {
+                            const nc = { time:nowSec, open:newPrice, high:newPrice, low:newPrice, close:newPrice };
+                            _lwcCandleSeries.update(nc); _lwcLastCandle = nc; _lwcLastTime = nowSec;
+                        } else {
+                            const lc = _lwcLastCandle;
+                            const uc = { time:lc.time, open:lc.open, high:Math.max(lc.high,newPrice), low:Math.min(lc.low,newPrice), close:newPrice };
+                            _lwcCandleSeries.update(uc); _lwcLastCandle = uc;
+                        }
+                    } else {
+                        if (isIntra && nowSec > _lwcLastTime) {
+                            _lwcCandleSeries.update({ time:nowSec, value:newPrice });
+                            _lwcLastTime = nowSec;
+                            _lwcLastCandle = { time:nowSec, open:newPrice, high:newPrice, low:newPrice, close:newPrice };
+                        } else {
+                            _lwcCandleSeries.update({ time:_lwcLastTime, value:newPrice });
+                        }
+                    }
+                    if (_lwcType !== 'candle' && _lwcLiveDotFn) _lwcLiveDotFn();
+                } catch(e) {}
+            }
+        }
+
+        // rAF flush — watchlist DOM only (no chart work here)
         function _flushTrades() {
             _rafPending = false;
-            // Skip DOM update if user is hovering over lwc chart (avoid interrupting crosshair paint)
-            const _lwcHovered = document.getElementById('lwc-canvas')?.matches(':hover');
-            for (const [sym, newPrice] of Object.entries(_pendingTrades)) {
+            const _lwcHovered = _lwcCanvasHovered;
+            for (const sym of Object.keys(_pendingTrades)) {
+                const newPrice = _pendingTrades[sym];
                 delete _pendingTrades[sym];
                 const cached = wlDataCache[sym]; if (!cached) continue;
                 const prevClose = cached.pc ?? cached.c ?? newPrice;
                 const change = newPrice - prevClose, changePct = prevClose ? (change/prevClose)*100 : 0;
                 const updated = { ...cached, c: newPrice, d: change, dp: changePct };
                 wlDataCache[sym] = updated;
-                // Don't re-render watchlist DOM while user drags crosshair on chart
                 if (!_lwcHovered || sym === _lwcSymbol) updateWatchlistPriceCells(sym, updated);
                 const row = document.getElementById('wl-row-' + sym);
                 if (row && !row._bgTimer) {
                     row._bgTimer = setTimeout(() => { row.style.background = ''; row._bgTimer = null; }, 600);
                     row.style.background = change >= 0 ? 'rgba(5,150,105,0.08)' : 'rgba(225,29,72,0.08)';
                 }
-                if (qcCurrentSymbol === sym) {
-                    const heroEl = document.getElementById('qc-price-hero');
-                    if (heroEl) { heroEl.textContent = '$' + newPrice.toFixed(2); heroEl.style.color = change >= 0 ? 'var(--qc-up)' : 'var(--qc-dn)'; }
-                    if (_lwcLiveDotFn) _lwcLiveDotFn();
-                    // Update live candle/line/area in real-time
-                    if (_lwcCandleSeries && _lwcLastCandle && _lwcLastTime !== null) {
-                        try {
-                            const _activeTf = _lwcEmaSeriesMap ? (Object.keys(_lwcEmaSeriesMap).length ? _lwcCurrentTf : null) : null;
-                            const isIntraLive = ['1Min','5Min','15Min','1Hour'].includes(_lwcCurrentTf || '');
-                            // Resolution in minutes for current tf
-                            const _tfMin = {'1Min':1,'5Min':5,'15Min':15,'1Hour':60}[_lwcCurrentTf] || 0;
-                            const nowSec = _tfMin ? Math.floor(Date.now() / (_tfMin*60000)) * (_tfMin*60) : 0;
-
-                            if (_lwcType === 'candle') {
-                                if (isIntraLive && _tfMin && nowSec > _lwcLastTime) {
-                                    // New candle for this resolution interval
-                                    const newCandle = { time:nowSec, open:newPrice, high:newPrice, low:newPrice, close:newPrice };
-                                    _lwcCandleSeries.update(newCandle);
-                                    _lwcLastCandle = newCandle; _lwcLastTime = nowSec;
-                                } else {
-                                    // Update current candle
-                                    const lc = _lwcLastCandle;
-                                    const updated = { time:lc.time, open:lc.open,
-                                        high:Math.max(lc.high,newPrice), low:Math.min(lc.low,newPrice), close:newPrice };
-                                    _lwcCandleSeries.update(updated);
-                                    _lwcLastCandle = updated;
-                                }
-                            } else {
-                                if (isIntraLive && _tfMin && nowSec > _lwcLastTime) {
-                                    // New point for this interval
-                                    _lwcCandleSeries.update({ time:nowSec, value:newPrice });
-                                    _lwcLastTime = nowSec;
-                                    _lwcLastCandle = { time:nowSec, open:newPrice, high:newPrice, low:newPrice, close:newPrice };
-                                } else {
-                                    _lwcCandleSeries.update({ time:_lwcLastTime, value:newPrice });
-                                }
-                            }
-                            // Update EMA last point — proper EMA formula, not raw price
-                            if (_lwcEmaSeriesMap) {
-                                Object.values(_lwcEmaSeriesMap).forEach(s => {
-                                    try {
-                                        if (s._lastEma == null) return;
-                                        const newEma = newPrice * s._emaK + s._lastEma * (1 - s._emaK);
-                                        s.update({ time:_lwcLastTime, value:newEma });
-                                    } catch(e) {}
-                                });
-                            }
-                            if (_lwcLiveDotFn) _lwcLiveDotFn();
-                        } catch(e) {}
-                    }
-                }
             }
             const _now = Date.now();
             if (!_flushTrades._lastStatus || _now - _flushTrades._lastStatus > 5000) {
-                _flushTrades._lastStatus = _now;
-                updateMarketStatus(true);
+                _flushTrades._lastStatus = _now; updateMarketStatus(true);
             }
         }
+
+        // Cache lwc-canvas hover via pointer events — no DOM query per frame
+        let _lwcCanvasHovered = false;
+        document.addEventListener('mouseover', e => { if (e.target?.id==='lwc-canvas') _lwcCanvasHovered=true; }, true);
+        document.addEventListener('mouseout',  e => { if (e.target?.id==='lwc-canvas') _lwcCanvasHovered=false; }, true);
+
         function _handleTrade(sym, newPrice) {
             if (!wlDataCache[sym] || !newPrice) return;
-            _pendingTrades[sym] = newPrice; // latest price wins
+            // PATH A: chart — synchronous, zero latency
+            if (sym === qcCurrentSymbol) _updateChartDirect(sym, newPrice);
+            // PATH B: watchlist DOM — rAF batched
+            _pendingTrades[sym] = newPrice;
             if (!_rafPending) { _rafPending = true; requestAnimationFrame(_flushTrades); }
         }
 
@@ -5088,8 +5121,8 @@ ${contextSections}
 
             // Retail spread constants (mid-market → Thai retail bank rate)
             // ERAPI/Finnhub give mid-market; Thai banks add ~0.77% sell spread
-            const SELL_SPREAD = 1.0077;
-            const BUY_SPREAD  = 1.0077 * 1.004;
+            const SELL_SPREAD = 1.0;
+            const BUY_SPREAD  = 1.0;
 
             let midRate = null;
             let prevMid = null;
@@ -5172,8 +5205,8 @@ ${contextSections}
 
             if (!midRate) {
                 const noKey = !fKey && !erapiKey;
-                rateEl.textContent    = noKey ? 'ใส่ Key' : '— THB';
-                rateInvEl.textContent = noKey ? 'Settings' : '— THB';
+                rateEl.textContent    = noKey ? 'ใส่ Key' : '—';
+                rateInvEl.textContent = noKey ? 'Settings' : '—';
                 rateEl.style.fontSize = noKey ? '9px' : '';
                 rateInvEl.style.fontSize = noKey ? '9px' : '';
                 return;
@@ -5184,14 +5217,14 @@ ${contextSections}
             const buyRate  = midRate * BUY_SPREAD;
             console.log('[FX] sell:', sellRate.toFixed(4), 'buy:', buyRate.toFixed(4), '['+src+']');
 
-            rateEl.textContent    = sellRate.toFixed(4) + ' THB';
-            rateInvEl.textContent = buyRate.toFixed(4)  + ' THB';
+            rateEl.textContent    = sellRate.toFixed(2);
+            rateInvEl.textContent = buyRate.toFixed(2);
             rateEl.style.fontSize = '';
             rateInvEl.style.fontSize = '';
 
             const ts = new Date().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
-            rateEl.title    = `mid ${midRate.toFixed(4)} × ${SELL_SPREAD} = ${sellRate.toFixed(4)} · [${src}] ${ts}`;
-            rateInvEl.title = `mid ${midRate.toFixed(4)} × ${BUY_SPREAD.toFixed(5)} = ${buyRate.toFixed(4)} · [${src}] ${ts}`;
+            rateEl.title    = `mid ${midRate.toFixed(4)} × ${SELL_SPREAD} = ${sellRate.toFixed(2)} · [${src}] ${ts}`;
+            rateInvEl.title = `mid ${midRate.toFixed(4)} × ${BUY_SPREAD.toFixed(5)} = ${buyRate.toFixed(2)} · [${src}] ${ts}`;
 
             // Source badge on both cards
             const badge1 = document.getElementById('fx-src-badge');
@@ -5237,12 +5270,225 @@ ${contextSections}
         }
 
         // --- Dark Mode ---
+
+        // ── Theme System ─────────────────────────────────────────────────────
+        const _THEMES = {
+            // ── DARK ─────────────────────────────────────────────────────────
+            'tv': {
+                name:'TradingView', mode:'dark', accent:'#10b981',
+                swatches:['#0b0e11','#161a1e','#10b981'],
+                vars:{ '--bg-dark':'#0b0e11','--bg-main':'#0f1318','--bg-card':'#161a1e','--bg-card2':'#1c2127',
+                       '--border':'rgba(255,255,255,0.08)','--text-primary':'#e2e8f0','--text-secondary':'#94a3b8',
+                       '--text-dim':'#64748b','--accent':'#10b981','--accent2':'#34d399' }
+            },
+            'obsidian': {
+                name:'Obsidian', mode:'dark', accent:'#a855f7',
+                swatches:['#09090b','#18181b','#a855f7'],
+                vars:{ '--bg-dark':'#09090b','--bg-main':'#0d0d10','--bg-card':'#18181b','--bg-card2':'#1f1f23',
+                       '--border':'rgba(168,85,247,0.15)','--text-primary':'#fafafa','--text-secondary':'#a1a1aa',
+                       '--text-dim':'#52525b','--accent':'#a855f7','--accent2':'#c084fc' }
+            },
+            'bloomberg': {
+                name:'Bloomberg', mode:'dark', accent:'#f59e0b',
+                swatches:['#000000','#0a0a0a','#f59e0b'],
+                vars:{ '--bg-dark':'#000000','--bg-main':'#050505','--bg-card':'#0f0f0f','--bg-card2':'#1a1a1a',
+                       '--border':'rgba(245,158,11,0.2)','--text-primary':'#fef3c7','--text-secondary':'#d97706',
+                       '--text-dim':'#78716c','--accent':'#f59e0b','--accent2':'#fbbf24' }
+            },
+            'midnight': {
+                name:'Midnight Blue', mode:'dark', accent:'#3b82f6',
+                swatches:['#0a0f1e','#0f172a','#3b82f6'],
+                vars:{ '--bg-dark':'#080d1a','--bg-main':'#0a1020','--bg-card':'#0d1528','--bg-card2':'#162040',
+                       '--border':'rgba(59,130,246,0.22)','--text-primary':'#f0f4ff','--text-secondary':'#7ea8e8',
+                       '--text-dim':'#3d5a8a','--accent':'#3b82f6','--accent2':'#2563eb' }
+            },
+            'forest': {
+                name:'Forest', mode:'dark', accent:'#4ade80',
+                swatches:['#0a130a','#0f1f0f','#4ade80'],
+                vars:{ '--bg-dark':'#0a130a','--bg-main':'#0d1a0d','--bg-card':'#122012','--bg-card2':'#1a2e1a',
+                       '--border':'rgba(74,222,128,0.15)','--text-primary':'#dcfce7','--text-secondary':'#86efac',
+                       '--text-dim':'#4b7c4b','--accent':'#4ade80','--accent2':'#86efac' }
+            },
+            'webull': {
+                name:'Webull', mode:'dark', accent:'#00c087',
+                swatches:['#0d0f0f','#141a1a','#00c087'],
+                vars:{ '--bg-dark':'#0d0f0f','--bg-main':'#101515','--bg-card':'#141a1a','--bg-card2':'#1a2222',
+                       '--border':'rgba(0,192,135,0.18)','--text-primary':'#d4ede8','--text-secondary':'#7ab8ad',
+                       '--text-dim':'#3d6660','--accent':'#00c087','--accent2':'#00e5a0' }
+            },
+            'facebook': {
+                name:'Facebook Dark', mode:'dark', accent:'#1877f2',
+                swatches:['#18191a','#242526','#1877f2'],
+                vars:{ '--bg-dark':'#18191a','--bg-main':'#18191a','--bg-card':'#242526','--bg-card2':'#3a3b3c',
+                       '--border':'rgba(255,255,255,0.1)','--text-primary':'#e4e6eb','--text-secondary':'#b0b3b8',
+                       '--text-dim':'#6a6b6e','--accent':'#1877f2','--accent2':'#4599ff' }
+            },
+            // ── LIGHT ────────────────────────────────────────────────────────
+            'white': {
+                name:'Clean White', mode:'light', accent:'#089981',
+                swatches:['#f8fafc','#ffffff','#089981'],
+                vars:{ '--bg-dark':'#f0f4f8','--bg-main':'#f8fafc','--bg-card':'#ffffff','--bg-card2':'#e8eef5',
+                       '--border':'#d0dce8','--text-primary':'#0f2030','--text-secondary':'#64748b',
+                       '--text-dim':'#94a3b8','--accent':'#089981','--accent2':'#0f766e' }
+            },
+            'arctic': {
+                name:'Arctic', mode:'light', accent:'#2563eb',
+                swatches:['#eff6ff','#f0f9ff','#2563eb'],
+                vars:{ '--bg-dark':'#dbeafe','--bg-main':'#eff6ff','--bg-card':'#f0f9ff','--bg-card2':'#e0f2fe',
+                       '--border':'#bfdbfe','--text-primary':'#1e3a5f','--text-secondary':'#3b82f6',
+                       '--text-dim':'#93c5fd','--accent':'#2563eb','--accent2':'#1d4ed8' }
+            },
+            'notion': {
+                name:'Soft Gray', mode:'light', accent:'#0f9d58',
+                swatches:['#f7f6f3','#ffffff','#0f9d58'],
+                vars:{ '--bg-dark':'#e9e9e4','--bg-main':'#f7f6f3','--bg-card':'#ffffff','--bg-card2':'#f1f0ec',
+                       '--border':'#e3e2de','--text-primary':'#37352f','--text-secondary':'#6b7280',
+                       '--text-dim':'#9ca3af','--accent':'#0f9d58','--accent2':'#059669' }
+            },
+            'paper': {
+                name:'Warm Paper', mode:'light', accent:'#b45309',
+                swatches:['#fdf6e3','#fefce8','#b45309'],
+                vars:{ '--bg-dark':'#f5e6c8','--bg-main':'#fdf6e3','--bg-card':'#fefce8','--bg-card2':'#fef9c3',
+                       '--border':'#fde68a','--text-primary':'#1c1917','--text-secondary':'#78350f',
+                       '--text-dim':'#d97706','--accent':'#b45309','--accent2':'#92400e' }
+            },
+            'apple': {
+                name:'Minimalist Grey', mode:'light', accent:'#007aff',
+                swatches:['#f5f5f7','#ffffff','#007aff'],
+                vars:{ '--bg-dark':'#e5e5ea','--bg-main':'#f5f5f7','--bg-card':'#ffffff','--bg-card2':'#f2f2f7',
+                       '--border':'#d1d1d6','--text-primary':'#1d1d1f','--text-secondary':'#6e6e73',
+                       '--text-dim':'#aeaeb2','--accent':'#007aff','--accent2':'#0056d6' }
+            },
+        };
+
+        let _activeTheme = localStorage.getItem('ps_theme') || 'tv';
+
+
+        // Tab title and favicon
+        function _psSetTabTitle(sym, price, changePct) {
+            if (!sym) { document.title = "PS Smart Finance"; _psSetFavicon(null); return; }
+            var isUp  = (changePct || 0) >= 0;
+            var arrow = isUp ? "\u25b2" : "\u25bc";
+            var sign  = isUp ? "+" : "";
+            var pStr  = price      != null ? price.toFixed(2)               : "-";
+            var cStr  = changePct  != null ? sign + changePct.toFixed(2) + "%" : "";
+            document.title = sym + " " + pStr + " " + arrow + cStr + " \u00b7 PS Finance";
+            _psSetFavicon(isUp);
+        }
+        function _psSetFavicon(isUp) {
+            var col = (isUp === null || isUp) ? "%2310b981" : "%23e11d48";
+            var s = "%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E"
+                  + "%3Crect width=%2732%27 height=%2732%27 rx=%278%27 fill=%27%230f1318%27/%3E"
+                  + "%3Cpolyline points=%274,24 10,16 15,20 21,10 28,14%27 fill=%27none%27 stroke=%27" + col + "%27 stroke-width=%272.5%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27/%3E"
+                  + "%3Ccircle cx=%2728%27 cy=%2714%27 r=%272.5%27 fill=%27" + col + "%27/%3E"
+                  + "%3C/svg%3E";
+            var link = document.getElementById("ps-favicon");
+            if (link) link.href = "data:image/svg+xml," + s;
+        }
+        function _applyTheme(id) {
+            const t = _THEMES[id];
+            if (!t) return;
+            _activeTheme = id;
+            localStorage.setItem('ps_theme', id);
+            // Remember last theme per mode for toggle button
+            localStorage.setItem(t.mode === 'dark' ? 'ps_theme_dark' : 'ps_theme_light', id);
+            // Set dark/light class
+            if (t.mode === 'dark') {
+                document.documentElement.classList.add('dark');
+                localStorage.setItem('ps_dark', '1');
+            } else {
+                document.documentElement.classList.remove('dark');
+                localStorage.setItem('ps_dark', '0');
+            }
+            // Apply CSS variables
+            const root = document.documentElement;
+            Object.entries(t.vars).forEach(([k, v]) => root.style.setProperty(k, v));
+            // Update LWC chart bg — applyOptions only, never redraw
+            if (_lwcChart) {
+                const isDark = t.mode === 'dark';
+                const lwcBg   = t.vars['--bg-card'] || (isDark ? '#161a1e' : '#ffffff');
+                const lwcText = isDark ? '#94a3b8' : '#64748b';
+                const lwcGrid = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)';
+                try {
+                    _lwcChart.applyOptions({
+                        layout: { background: { color: lwcBg }, textColor: lwcText },
+                        grid:   { vertLines: { color: lwcGrid }, horzLines: { color: lwcGrid } },
+                        rightPriceScale: { borderColor: lwcGrid },
+                        timeScale: { borderColor: lwcGrid },
+                    });
+                    const lwcCanvas = document.getElementById('lwc-canvas');
+                    if (lwcCanvas) lwcCanvas.style.background = lwcBg;
+                } catch(e) {
+                    // Chart was destroyed — redraw once on next frame
+                    if (_lwcSymbol && qcCurrentSymbol) {
+                        requestAnimationFrame(() => openQuickChart(qcCurrentSymbol, false));
+                    }
+                }
+            }
+            // Update dynamic accent elements that can't use CSS variables
+            const accentColor = t.vars['--accent'];
+            // Avatar border
+            const avatarWrap = document.querySelector('[onmouseout*="borderColor"]');
+            if (avatarWrap) {
+                avatarWrap.style.borderColor = accentColor;
+                avatarWrap.style.boxShadow = '0 2px 12px color-mix(in srgb,'+accentColor+' 15%,transparent)';
+            }
+            // Spinner (if visible)
+            const spinDiv = document.querySelector('#lwc-spin div');
+            if (spinDiv) spinDiv.style.borderTopColor = accentColor;
+            // Refresh theme grid UI
+            _renderThemeGrids();
+        }
+
+        function _renderThemeGrids() {
+            ['dark','light'].forEach(mode => {
+                const grid = document.getElementById(mode + '-theme-grid');
+                if (!grid) return;
+                grid.innerHTML = Object.entries(_THEMES)
+                    .filter(([,t]) => t.mode === mode)
+                    .map(([id, t]) => {
+                        const active = id === _activeTheme;
+                        const [c1, c2, c3] = t.swatches;
+                        return '<button onclick="_applyTheme(\''+id+'\')" ' +
+                            'style="display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding:10px;border-radius:10px;cursor:pointer;transition:all 0.15s;' +
+                            'background:'+(active?'rgba(255,255,255,0.08)':'var(--bg-main)')+';' +
+                            'border:1.5px solid '+(active?t.swatches[2]:'var(--border)')+';' +
+                            'outline:none;text-align:left;width:100%">' +
+                                '<div style="display:flex;gap:3px;width:100%">' +
+                                    '<div style="height:20px;flex:2;border-radius:4px;background:'+c1+'"></div>' +
+                                    '<div style="height:20px;flex:1;border-radius:4px;background:'+c2+'"></div>' +
+                                    '<div style="height:20px;width:14px;border-radius:4px;background:'+c3+'"></div>' +
+                                '</div>' +
+                                '<span style="font-size:9px;font-weight:800;letter-spacing:0.05em;text-transform:uppercase;color:'+(active?t.swatches[2]:'var(--text-secondary)')+'">'+t.name+'</span>' +
+                                (active ? '<div style="width:16px;height:2px;border-radius:2px;background:'+t.swatches[2]+'"></div>' : '') +
+                            '</button>';
+                    }).join('');
+            });
+        }
+
+        // Init theme on load
+        (function() {
+            const saved = localStorage.getItem('ps_theme');
+            if (saved && _THEMES[saved]) _applyTheme(saved);
+            else {
+                const isDark = localStorage.getItem('ps_dark') === '1';
+                _applyTheme(isDark ? 'tv' : 'white');
+            }
+        })();
+
+
         function toggleDarkMode() {
             const isDark = document.documentElement.classList.toggle('dark');
             localStorage.setItem('ps_dark', isDark ? '1' : '0');
+            // _applyTheme handles everything: CSS vars, LWC applyOptions, accent elements
+            const key = isDark ? 'ps_theme_dark' : 'ps_theme_light';
+            const saved = localStorage.getItem(key);
+            const themeId = (saved && _THEMES[saved] && _THEMES[saved].mode === (isDark ? 'dark' : 'light'))
+                ? saved : (isDark ? 'tv' : 'white');
+            _applyTheme(themeId);
+            // updateChartThemes handles Chart.js (compareChart/distChart) only
             updateChartThemes(isDark);
-            // Re-render TradingView widget with new theme if open
-            if (qcCurrentSymbol) openQuickChart(qcCurrentSymbol, false);
+            // NO openQuickChart here — _applyTheme already updated LWC via applyOptions
         }
 
         function applyDarkMode(isDark) {
@@ -5291,15 +5537,19 @@ ${contextSections}
                 chart.update('none');
             });
 
-            // qcChart (line) — re-open to pick up new lineColor/fillColor
-            if (qcCurrentSymbol) {
-                openQuickChart(qcCurrentSymbol, false);
-            } else if (qcChart) {
+            // LWC chart — handled by _applyTheme, skip here to avoid double update
+
+            // qcChart colors — update in-place, no full redraw
+            if (qcChart) {
                 if (qcChart.options.scales) {
                     Object.values(qcChart.options.scales).forEach(scale => {
                         if (scale.grid) scale.grid.color = gridColor;
                         if (scale.ticks) scale.ticks.color = tickColor;
                     });
+                }
+                if (qcChart.options.plugins?.tooltip) {
+                    qcChart.options.plugins.tooltip.backgroundColor = tooltipBg;
+                    qcChart.options.plugins.tooltip.borderColor = tooltipBorder;
                 }
                 qcChart.update('none');
             }
@@ -5368,7 +5618,7 @@ ${contextSections}
             try { localStorage.setItem('ps_watchlist', JSON.stringify(watchlist)); } catch(e) {}
             try {
                 const exportData = {
-                    meta: { avatar: db.avatar, dark: document.documentElement.classList.contains('dark') },
+                    meta: { avatar: db.avatar, dark: document.documentElement.classList.contains('dark'), theme: _activeTheme },
                     chartPrefs: (() => { try { return JSON.parse(localStorage.getItem('ps_lwc_prefs')||'{}'); } catch(e){return{};} })(),
                     records,
                     watchlist
@@ -5444,8 +5694,9 @@ ${contextSections}
                         setAvatarImage(db.avatar);
                         try { localStorage.setItem('ps_avatar', db.avatar); } catch(e) {}
                     }
-                    if (typeof data.meta?.dark === 'boolean') {
-                        // localStorage always wins — only apply Gist dark if no local preference
+                    if (data.meta?.theme && _THEMES[data.meta.theme]) {
+                        _applyTheme(data.meta.theme);
+                    } else if (typeof data.meta?.dark === 'boolean') {
                         const localPref = localStorage.getItem('ps_dark');
                         if (localPref === null) {
                             applyDarkMode(data.meta.dark);
@@ -5573,10 +5824,12 @@ ${contextSections}
                         if (data.chartPrefs) {
                     try { localStorage.setItem('ps_lwc_prefs', JSON.stringify(data.chartPrefs)); } catch(e){}
                 }
-                if (data.meta?.dark !== undefined) {
-                            if (data.meta.dark) document.documentElement.classList.add('dark');
-                            else document.documentElement.classList.remove('dark');
-                        }
+                if (data.meta?.theme && _THEMES[data.meta.theme]) {
+                        _applyTheme(data.meta.theme);
+                    } else if (data.meta?.dark !== undefined) {
+                        if (data.meta.dark) document.documentElement.classList.add('dark');
+                        else document.documentElement.classList.remove('dark');
+                    }
 
                         // Restore ALL API keys and settings (version 2 format)
                         if (data.settings && typeof data.settings === 'object') {
@@ -5629,8 +5882,24 @@ ${contextSections}
         function getAlpacaKey()    { return localStorage.getItem('ps_alpaca_key')    || ''; }
         function getAlpacaSecret() { return localStorage.getItem('ps_alpaca_secret') || ''; }
 
+        function switchSettingsTab(tab) {
+            ['api','sync','theme'].forEach(t => {
+                const panel = document.getElementById('stab-' + t);
+                const btn   = document.getElementById('stab-btn-' + t);
+                if (!panel || !btn) return;
+                const active = t === tab;
+                panel.classList.toggle('hidden', !active);
+                btn.style.borderBottom = active ? '2px solid var(--accent)' : '2px solid transparent';
+                btn.style.color = active ? 'var(--accent)' : 'var(--text-dim)';
+            });
+            if (tab === 'theme') _renderThemeGrids();
+            localStorage.setItem('ps_settings_tab', tab); // remember last tab
+        }
+
         function openSettingsModal() {
             document.getElementById('settings-modal').classList.remove('hidden');
+            const lastTab = localStorage.getItem('ps_settings_tab') || 'api';
+            switchSettingsTab(lastTab); // restore last tab
             const fill = (inputId, key) => {
                 const el = document.getElementById(inputId);
                 if (el) el.value = localStorage.getItem(key) || '';
@@ -5776,7 +6045,9 @@ ${contextSections}
                     checkWlEmpty();
                     fetchFxRate();
                 }
-                // Step 2: Sync from Gist in background — updates data, then refreshWatchlist once
+                // Step 2: Connect WS immediately — don't wait for Gist sync
+                if (isMarketOpen()) connectWs();
+                // Step 3: Sync from Gist in background — updates data, then refreshWatchlist once
                 syncFromGist(true); // isInitialLoad=true → skips re-render, just refreshes prices
             } else {
                 // No Gist token — render from localStorage (local-file mode)
@@ -5788,6 +6059,8 @@ ${contextSections}
                     checkWlEmpty();
                     if (getFinnhubKey()) {
                         fetchFxRate();
+                        // Connect WS first — flash starts immediately while Finnhub fetch runs
+                        if (isMarketOpen()) connectWs();
                         refreshWatchlist();
                     }
                 }
@@ -5894,7 +6167,7 @@ ${contextSections}
             _isSaving = true;
             const token = getGistToken();
             const exportData = {
-                meta: { avatar: db.avatar, dark: document.documentElement.classList.contains('dark') },
+                meta: { avatar: db.avatar, dark: document.documentElement.classList.contains('dark'), theme: _activeTheme },
                     chartPrefs: (() => { try { return JSON.parse(localStorage.getItem('ps_lwc_prefs')||'{}'); } catch(e){return{};} })(),
                 records,
                 watchlist
@@ -5957,7 +6230,7 @@ ${contextSections}
         // ── Save on tab close / navigate away ─────────────────────────────────
         window.addEventListener('beforeunload', () => {
             if (getGistToken() && (records.length > 0 || watchlist.length > 0)) {
-                const exportData = { meta: { avatar: db.avatar, dark: document.documentElement.classList.contains('dark') },
+                const exportData = { meta: { avatar: db.avatar, dark: document.documentElement.classList.contains('dark'), theme: _activeTheme },
                     chartPrefs: (() => { try { return JSON.parse(localStorage.getItem('ps_lwc_prefs')||'{}'); } catch(e){return{};} })(), records, watchlist };
                 const token = getGistToken();
                 fetch(`https://api.github.com/gists/${GIST_ID}`, {
@@ -6032,7 +6305,7 @@ ${contextSections}
                     </div>
                     <div class="flex-1">
                         <div class="text-[10px] font-bold mb-1" style="color:#4285f4">AI ANALYST</div>
-                        <div class="text-sm leading-relaxed" style="color:var(--text-secondary)">สวัสดีครับ ถามได้เลยเรื่องแนวรับ/แนวต้าน, ข่าวล่าสุด หรือ outlook ของหุ้นใดก็ได้ครับ</div>
+                        <div class="text-sm leading-relaxed ai-msg-body">สวัสดีครับ ถามได้เลยเรื่องแนวรับ/แนวต้าน, ข่าวล่าสุด หรือ outlook ของหุ้นใดก็ได้ครับ</div>
                     </div>
                 </div>
             </div>
@@ -6062,226 +6335,149 @@ ${contextSections}
 
     <!-- ── Settings Modal ──────────────────────────────────────────────── -->
     <div id="settings-modal" class="fixed inset-0 z-[200] hidden flex items-center justify-center p-4">
-        <div class="fixed inset-0" style="background:rgba(0,0,0,0.6);backdrop-filter:blur(4px)"
-            onclick="closeSettingsModal()"></div>
-        <div class="relative z-10 w-full max-w-lg rounded-md shadow-2xl overflow-hidden"
-            style="background:var(--bg-main);border:1px solid var(--border)">
+        <div class="fixed inset-0" style="background:rgba(0,0,0,0.5)" onclick="closeSettingsModal()"></div>
+        <div class="relative z-10 w-full max-w-lg rounded-xl shadow-2xl overflow-hidden flex flex-col" style="background:var(--bg-main);border:1px solid var(--border);max-height:88vh">
 
             <!-- Header -->
-            <div class="flex items-center justify-between px-6 py-4 border-b" style="border-color:var(--border)">
+            <div class="flex items-center justify-between px-5 py-3.5 border-b flex-shrink-0" style="border-color:var(--border)">
                 <div class="flex items-center gap-3">
-                    <div class="w-8 h-8 rounded-xl flex items-center justify-center" style="background:linear-gradient(135deg,#0f2030,#1e3a5f)">
-                        <svg class="w-4 h-4 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                        </svg>
+                    <div class="w-7 h-7 rounded-lg flex items-center justify-center" style="background:linear-gradient(135deg,#0f2030,#1e3a5f)">
+                        <svg class="w-3.5 h-3.5 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                     </div>
-                    <div>
-                        <h2 class="text-sm font-black" style="color:var(--text-primary);font-family:var(--font-main)">Settings</h2>
-                        <p class="text-[10px]" style="color:var(--text-dim)">API Keys จะถูกเก็บเฉพาะใน browser ของคุณเท่านั้น</p>
-                    </div>
+                    <h2 class="text-sm font-black" style="color:var(--text-primary);font-family:var(--font-main)">Settings</h2>
                 </div>
-                <button onclick="closeSettingsModal()" class="w-7 h-7 rounded-lg flex items-center justify-center transition-all"
-                    style="color:var(--text-dim);background:var(--bg-card2)"
-                    onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-dim)'">
+                <button onclick="closeSettingsModal()" class="w-7 h-7 rounded-lg flex items-center justify-center" style="color:var(--text-dim);background:var(--bg-card2)" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-dim)'">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
             </div>
 
-            <!-- Body -->
-            <div class="px-6 py-5 space-y-5 overflow-y-auto" style="max-height:70vh">
+            <!-- Tab Bar -->
+            <div class="flex border-b flex-shrink-0" style="border-color:var(--border);background:var(--bg-card2)">
+                <button id="stab-btn-api" onclick="switchSettingsTab('api')"
+                    class="flex-1 py-2.5 text-[10px] font-black uppercase tracking-widest transition-all"
+                    style="border-bottom:2px solid var(--accent);color:var(--accent)">🔑 API Keys</button>
+                <button id="stab-btn-sync" onclick="switchSettingsTab('sync')"
+                    class="flex-1 py-2.5 text-[10px] font-black uppercase tracking-widest transition-all"
+                    style="border-bottom:2px solid transparent;color:var(--text-dim)">☁️ Sync</button>
+                <button id="stab-btn-theme" onclick="switchSettingsTab('theme')"
+                    class="flex-1 py-2.5 text-[10px] font-black uppercase tracking-widest transition-all"
+                    style="border-bottom:2px solid transparent;color:var(--text-dim)">🎨 Theme</button>
+            </div>
 
+            <!-- Tab: API Keys -->
+            <div id="stab-api" class="overflow-y-auto flex-1 px-5 py-4 space-y-3">
                 <!-- Finnhub -->
-                <div class="rounded-md p-4" style="background:var(--bg-card2);border:1px solid var(--border)">
-                    <div class="flex items-center justify-between mb-3">
+                <div class="rounded-lg p-3.5" style="background:var(--bg-card2);border:1px solid var(--border)">
+                    <div class="flex items-center justify-between mb-2.5">
                         <div class="flex items-center gap-2">
-                            <div class="w-6 h-6 rounded-lg flex items-center justify-center" style="background:#0f9d58">
-                                <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
-                            </div>
-                            <div>
-                                <p class="text-xs font-bold" style="color:var(--text-primary)">Finnhub</p>
-                                <p class="text-[10px]" style="color:var(--text-dim)">ราคาหุ้น real-time · finnhub.io</p>
-                            </div>
+                            <div class="w-6 h-6 rounded-md flex items-center justify-center" style="background:#0f9d58"><svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg></div>
+                            <div><p class="text-xs font-bold" style="color:var(--text-primary)">Finnhub</p><p class="text-[10px]" style="color:var(--text-dim)">ราคาหุ้น real-time · finnhub.io</p></div>
                         </div>
                         <span id="s-finnhub-badge" class="text-[9px] font-bold px-2 py-0.5 rounded-full"></span>
                     </div>
                     <div class="flex gap-2">
-                        <input id="s-finnhub-input" type="password" autocomplete="off" placeholder="xxxxxxxxxxxxxxxxxxxxxxxx"
-                            class="flex-1 text-xs px-3 py-2 rounded-lg outline-none"
-                            style="background:var(--bg-main);border:1px solid var(--border);color:var(--text-primary);font-family:var(--font-mono)"
-                            onkeydown="if(event.key==='Enter')saveAllSettings()">
-                        <button onclick="toggleVisibility('s-finnhub-input')" class="px-2.5 rounded-lg text-[10px]"
-                            style="background:var(--bg-main);border:1px solid var(--border);color:var(--text-dim)">👁</button>
+                        <input id="s-finnhub-input" type="password" autocomplete="off" placeholder="xxxxxxxxxxxxxxxxxxxxxxxx" class="flex-1 text-xs px-3 py-2 rounded-lg outline-none" style="background:var(--bg-main);border:1px solid var(--border);color:var(--text-primary);font-family:var(--font-mono)" onkeydown="if(event.key==='Enter')saveAllSettings()">
+                        <button onclick="toggleVisibility('s-finnhub-input')" class="px-2.5 rounded-lg text-[10px]" style="background:var(--bg-main);border:1px solid var(--border);color:var(--text-dim)">👁</button>
                     </div>
-                    <p class="text-[9px] mt-2" style="color:var(--text-dim)">
-                        สมัครฟรีที่ <a href="https://finnhub.io" target="_blank" class="underline" style="color:#0f9d58">finnhub.io</a>
-                        · 60 req/min · ไม่ต้องผูกบัตร
-                    </p>
+                    <p class="text-[9px] mt-1.5" style="color:var(--text-dim)">สมัครฟรีที่ <a href="https://finnhub.io" target="_blank" class="underline" style="color:#0f9d58">finnhub.io</a> · 60 req/min</p>
                 </div>
-
                 <!-- ExchangeRate-API -->
-                <div class="rounded-md p-4" style="background:var(--bg-card2);border:1px solid var(--border)">
-                    <div class="flex items-center justify-between mb-3">
+                <div class="rounded-lg p-3.5" style="background:var(--bg-card2);border:1px solid var(--border)">
+                    <div class="flex items-center justify-between mb-2.5">
                         <div class="flex items-center gap-2">
-                            <div class="w-6 h-6 rounded-lg flex items-center justify-center" style="background:#1a73e8">
-                                <span class="text-white text-[10px] font-black">FX</span>
-                            </div>
-                            <div>
-                                <p class="text-xs font-bold" style="color:var(--text-primary)">ExchangeRate-API</p>
-                                <p class="text-[10px]" style="color:var(--text-dim)">อัตราแลกเปลี่ยน USD/THB · exchangerate-api.com</p>
-                            </div>
+                            <div class="w-6 h-6 rounded-md flex items-center justify-center" style="background:#1a73e8"><span class="text-white text-[10px] font-black">FX</span></div>
+                            <div><p class="text-xs font-bold" style="color:var(--text-primary)">ExchangeRate-API</p><p class="text-[10px]" style="color:var(--text-dim)">อัตราแลกเปลี่ยน USD/THB</p></div>
                         </div>
                         <span id="s-erapi-badge" class="text-[9px] font-bold px-2 py-0.5 rounded-full"></span>
                     </div>
                     <div class="flex gap-2">
-                        <input id="s-erapi-input" type="password" autocomplete="off" placeholder="xxxxxxxxxxxxxxxxxxxxxxxx"
-                            class="flex-1 text-xs px-3 py-2 rounded-lg outline-none"
-                            style="background:var(--bg-main);border:1px solid var(--border);color:var(--text-primary);font-family:var(--font-mono)"
-                            onkeydown="if(event.key==='Enter')saveAllSettings()">
-                        <button onclick="toggleVisibility('s-erapi-input')" class="px-2.5 rounded-lg text-[10px]"
-                            style="background:var(--bg-main);border:1px solid var(--border);color:var(--text-dim)">👁</button>
+                        <input id="s-erapi-input" type="password" autocomplete="off" placeholder="xxxxxxxxxxxxxxxxxxxxxxxx" class="flex-1 text-xs px-3 py-2 rounded-lg outline-none" style="background:var(--bg-main);border:1px solid var(--border);color:var(--text-primary);font-family:var(--font-mono)" onkeydown="if(event.key==='Enter')saveAllSettings()">
+                        <button onclick="toggleVisibility('s-erapi-input')" class="px-2.5 rounded-lg text-[10px]" style="background:var(--bg-main);border:1px solid var(--border);color:var(--text-dim)">👁</button>
                     </div>
-                    <p class="text-[9px] mt-2" style="color:var(--text-dim)">
-                        สมัครฟรีที่ <a href="https://app.exchangerate-api.com" target="_blank" class="underline" style="color:#1a73e8">app.exchangerate-api.com</a>
-                        · 1,500 req/month · ฟรีตลอดชีพ
-                    </p>
+                    <p class="text-[9px] mt-1.5" style="color:var(--text-dim)">สมัครฟรีที่ <a href="https://app.exchangerate-api.com" target="_blank" class="underline" style="color:#1a73e8">app.exchangerate-api.com</a> · 1,500 req/month</p>
                 </div>
-
-                <!-- OpenRouter AI -->
-                <div class="rounded-md p-4" style="background:var(--bg-card2);border:1px solid var(--border)">
-                    <div class="flex items-center justify-between mb-3">
+                <!-- OpenRouter -->
+                <div class="rounded-lg p-3.5" style="background:var(--bg-card2);border:1px solid var(--border)">
+                    <div class="flex items-center justify-between mb-2.5">
                         <div class="flex items-center gap-2">
-                            <div class="w-6 h-6 rounded-lg flex items-center justify-center" style="background:linear-gradient(135deg,#6366f1,#8b5cf6)">
-                                <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
-                            </div>
-                            <div>
-                                <p class="text-xs font-bold" style="color:var(--text-primary)">OpenRouter AI</p>
-                                <p class="text-[10px]" style="color:var(--text-dim)">AI Stock Analyst · openrouter.ai</p>
-                            </div>
+                            <div class="w-6 h-6 rounded-md flex items-center justify-center" style="background:linear-gradient(135deg,#6366f1,#8b5cf6)"><svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg></div>
+                            <div><p class="text-xs font-bold" style="color:var(--text-primary)">OpenRouter AI</p><p class="text-[10px]" style="color:var(--text-dim)">AI Stock Analyst · openrouter.ai</p></div>
                         </div>
                         <span id="s-openrouter-badge" class="text-[9px] font-bold px-2 py-0.5 rounded-full"></span>
                     </div>
                     <div class="flex gap-2">
-                        <input id="s-openrouter-input" type="password" autocomplete="off" placeholder="sk-or-v1-..."
-                            class="flex-1 text-xs px-3 py-2 rounded-lg outline-none"
-                            style="background:var(--bg-main);border:1px solid var(--border);color:var(--text-primary);font-family:var(--font-mono)"
-                            onkeydown="if(event.key==='Enter')saveAllSettings()">
-                        <button onclick="toggleVisibility('s-openrouter-input')" class="px-2.5 rounded-lg text-[10px]"
-                            style="background:var(--bg-main);border:1px solid var(--border);color:var(--text-dim)">👁</button>
+                        <input id="s-openrouter-input" type="password" autocomplete="off" placeholder="sk-or-v1-..." class="flex-1 text-xs px-3 py-2 rounded-lg outline-none" style="background:var(--bg-main);border:1px solid var(--border);color:var(--text-primary);font-family:var(--font-mono)" onkeydown="if(event.key==='Enter')saveAllSettings()">
+                        <button onclick="toggleVisibility('s-openrouter-input')" class="px-2.5 rounded-lg text-[10px]" style="background:var(--bg-main);border:1px solid var(--border);color:var(--text-dim)">👁</button>
                     </div>
-                    <p class="text-[9px] mt-2" style="color:var(--text-dim)">
-                        สมัครฟรีที่ <a href="https://openrouter.ai" target="_blank" class="underline" style="color:#6366f1">openrouter.ai</a>
-                        → API Keys → Create Key · ต้องขึ้นต้นด้วย <strong>sk-or-v1-</strong>
-                    </p>
+                    <p class="text-[9px] mt-1.5" style="color:var(--text-dim)"><a href="https://openrouter.ai" target="_blank" class="underline" style="color:#6366f1">openrouter.ai</a> → API Keys → Create Key · ต้องขึ้นต้นด้วย <strong>sk-or-v1-</strong></p>
                 </div>
-
-                <!-- FMP — Pre/After-hours data -->
-                <div class="rounded-md p-4" style="background:var(--bg-card2);border:1px solid var(--border)">
-                    <div class="flex items-center justify-between mb-3">
+                <!-- FMP -->
+                <div class="rounded-lg p-3.5" style="background:var(--bg-card2);border:1px solid var(--border)">
+                    <div class="flex items-center justify-between mb-2.5">
                         <div class="flex items-center gap-2">
-                            <div class="w-6 h-6 rounded-lg flex items-center justify-center" style="background:#6366f1">
-                                <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                            </div>
-                            <div>
-                                <p class="text-xs font-bold" style="color:var(--text-primary)">Pre-Market / After-Hours <span class="text-[9px] font-bold px-1.5 py-0.5 rounded ml-1" style="background:rgba(99,102,241,0.15);color:#818cf8">FMP</span></p>
-                                <p class="text-[10px]" style="color:var(--text-dim)">Financial Modeling Prep · ฟรี 250 req/วัน</p>
-                            </div>
+                            <div class="w-6 h-6 rounded-md flex items-center justify-center" style="background:#6366f1"><svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
+                            <div><p class="text-xs font-bold" style="color:var(--text-primary)">Pre-Market / After-Hours <span class="text-[9px] font-bold px-1.5 py-0.5 rounded ml-1" style="background:rgba(99,102,241,0.15);color:#818cf8">FMP</span></p><p class="text-[10px]" style="color:var(--text-dim)">Financial Modeling Prep · ฟรี 250 req/วัน</p></div>
                         </div>
                     </div>
-                    <div class="flex gap-2 mb-2">
-                        <input id="s-fmp-key-input" type="password" autocomplete="off" placeholder="FMP API Key (พิมพ์ demo เพื่อทดสอบ)"
-                            class="flex-1 text-xs px-3 py-2 rounded-lg outline-none"
-                            style="background:var(--bg-main);border:1px solid var(--border);color:var(--text-primary);font-family:var(--font-mono)"
-                            onkeydown="if(event.key==='Enter')saveAllSettings()">
-                        <button onclick="toggleVisibility('s-fmp-key-input')" class="px-2.5 rounded-lg text-[10px]"
-                            style="background:var(--bg-main);border:1px solid var(--border);color:var(--text-dim)">👁</button>
+                    <div class="flex gap-2">
+                        <input id="s-fmp-key-input" type="password" autocomplete="off" placeholder="FMP API Key (พิมพ์ demo เพื่อทดสอบ)" class="flex-1 text-xs px-3 py-2 rounded-lg outline-none" style="background:var(--bg-main);border:1px solid var(--border);color:var(--text-primary);font-family:var(--font-mono)" onkeydown="if(event.key==='Enter')saveAllSettings()">
+                        <button onclick="toggleVisibility('s-fmp-key-input')" class="px-2.5 rounded-lg text-[10px]" style="background:var(--bg-main);border:1px solid var(--border);color:var(--text-dim)">👁</button>
                     </div>
-                    <p class="text-[9px] mt-1" style="color:var(--text-dim);line-height:1.6">
-                        สมัครฟรีที่ <a href="https://financialmodelingprep.com" target="_blank" class="underline" style="color:#818cf8">financialmodelingprep.com</a>
-                        → Register → Get Free API Key · อัพเดต pre-market ทุก 15 วินาที
-                    </p>
+                    <p class="text-[9px] mt-1.5" style="color:var(--text-dim)"><a href="https://financialmodelingprep.com" target="_blank" class="underline" style="color:#818cf8">financialmodelingprep.com</a> → Register → Get Free API Key</p>
                 </div>
-
-                <!-- Alpaca Markets WebSocket -->
-                <div class="rounded-md p-4" style="background:var(--bg-card2);border:1px solid var(--border)">
-                    <div class="flex items-center justify-between mb-3">
+                <!-- Alpaca -->
+                <div class="rounded-lg p-3.5" style="background:var(--bg-card2);border:1px solid var(--border)">
+                    <div class="flex items-center justify-between mb-2.5">
                         <div class="flex items-center gap-2">
-                            <div class="w-6 h-6 rounded-lg flex items-center justify-center" style="background:#FFCD00">
-                                <span style="font-size:10px;font-weight:900;color:#000">A</span>
-                            </div>
-                            <div>
-                                <p class="text-xs font-bold" style="color:var(--text-primary)">Alpaca Markets <span class="text-[9px] font-bold px-1.5 py-0.5 rounded ml-1" style="background:rgba(255,205,0,0.15);color:#FFCD00">WebSocket</span></p>
-                                <p class="text-[10px]" style="color:var(--text-dim)">Real-time price ~200-500ms · Paper หรือ Live key</p>
-                            </div>
+                            <div class="w-6 h-6 rounded-md flex items-center justify-center" style="background:#FFCD00"><span style="font-size:10px;font-weight:900;color:#000">A</span></div>
+                            <div><p class="text-xs font-bold" style="color:var(--text-primary)">Alpaca Markets <span class="text-[9px] font-bold px-1.5 py-0.5 rounded ml-1" style="background:rgba(255,205,0,0.15);color:#FFCD00">WebSocket</span></p><p class="text-[10px]" style="color:var(--text-dim)">Real-time price ~200-500ms</p></div>
                         </div>
                         <span id="s-alpaca-badge" class="text-[9px] font-bold px-2 py-0.5 rounded-full"></span>
                     </div>
                     <div class="flex gap-2 mb-2">
-                        <input id="s-alpaca-key-input" type="password" autocomplete="off" placeholder="Alpaca API Key ID"
-                            class="flex-1 text-xs px-3 py-2 rounded-lg outline-none"
-                            style="background:var(--bg-main);border:1px solid var(--border);color:var(--text-primary);font-family:var(--font-mono)"
-                            onkeydown="if(event.key==='Enter')saveAllSettings()">
-                        <button onclick="toggleVisibility('s-alpaca-key-input')" class="px-2.5 rounded-lg text-[10px]"
-                            style="background:var(--bg-main);border:1px solid var(--border);color:var(--text-dim)">👁</button>
+                        <input id="s-alpaca-key-input" type="password" autocomplete="off" placeholder="Alpaca API Key ID" class="flex-1 text-xs px-3 py-2 rounded-lg outline-none" style="background:var(--bg-main);border:1px solid var(--border);color:var(--text-primary);font-family:var(--font-mono)" onkeydown="if(event.key==='Enter')saveAllSettings()">
+                        <button onclick="toggleVisibility('s-alpaca-key-input')" class="px-2.5 rounded-lg text-[10px]" style="background:var(--bg-main);border:1px solid var(--border);color:var(--text-dim)">👁</button>
                     </div>
-                    <div class="flex gap-2 mb-2">
-                        <input id="s-alpaca-secret-input" type="password" autocomplete="off" placeholder="Alpaca Secret Key"
-                            class="flex-1 text-xs px-3 py-2 rounded-lg outline-none"
-                            style="background:var(--bg-main);border:1px solid var(--border);color:var(--text-primary);font-family:var(--font-mono)"
-                            onkeydown="if(event.key==='Enter')saveAllSettings()">
-                        <button onclick="toggleVisibility('s-alpaca-secret-input')" class="px-2.5 rounded-lg text-[10px]"
-                            style="background:var(--bg-main);border:1px solid var(--border);color:var(--text-dim)">👁</button>
+                    <div class="flex gap-2">
+                        <input id="s-alpaca-secret-input" type="password" autocomplete="off" placeholder="Alpaca Secret Key" class="flex-1 text-xs px-3 py-2 rounded-lg outline-none" style="background:var(--bg-main);border:1px solid var(--border);color:var(--text-primary);font-family:var(--font-mono)" onkeydown="if(event.key==='Enter')saveAllSettings()">
+                        <button onclick="toggleVisibility('s-alpaca-secret-input')" class="px-2.5 rounded-lg text-[10px]" style="background:var(--bg-main);border:1px solid var(--border);color:var(--text-dim)">👁</button>
                     </div>
-                    <p class="text-[9px] mt-1" style="color:var(--text-dim);line-height:1.6">
-                        สมัครฟรีที่ <a href="https://alpaca.markets" target="_blank" class="underline" style="color:#FFCD00">alpaca.markets</a>
-                        → Paper Trading หรือ Live → API Keys · ถ้ามี key นี้จะใช้แทน Finnhub WebSocket อัตโนมัติ
-                    </p>
+                    <p class="text-[9px] mt-1.5" style="color:var(--text-dim)"><a href="https://alpaca.markets" target="_blank" class="underline" style="color:#FFCD00">alpaca.markets</a> → Paper Trading หรือ Live → API Keys</p>
                 </div>
+            </div>
 
-                <!-- GitHub Gist Sync -->
-                <div class="rounded-md p-4" style="background:var(--bg-card2);border:1px solid var(--border)">
-                    <div class="flex items-center justify-between mb-3">
+            <!-- Tab: Sync (Gist) -->
+            <div id="stab-sync" class="overflow-y-auto flex-1 px-5 py-4 space-y-3 hidden">
+                <div class="rounded-lg p-3.5" style="background:var(--bg-card2);border:1px solid var(--border)">
+                    <div class="flex items-center justify-between mb-2.5">
                         <div class="flex items-center gap-2">
-                            <div class="w-6 h-6 rounded-lg flex items-center justify-center" style="background:#24292e">
-                                <svg class="w-3.5 h-3.5 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
-                            </div>
-                            <div>
-                                <p class="text-xs font-bold" style="color:var(--text-primary)">GitHub Gist Sync</p>
-                                <p class="text-[10px]" style="color:var(--text-dim)">สำรองข้อมูลอัตโนมัติ · github.com</p>
-                            </div>
+                            <div class="w-6 h-6 rounded-md flex items-center justify-center" style="background:#24292e"><svg class="w-3.5 h-3.5 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg></div>
+                            <div><p class="text-xs font-bold" style="color:var(--text-primary)">GitHub Gist Sync</p><p class="text-[10px]" style="color:var(--text-dim)">สำรองข้อมูลอัตโนมัติ · github.com</p></div>
                         </div>
                         <span id="s-gist-badge" class="text-[9px] font-bold px-2 py-0.5 rounded-full"></span>
                     </div>
                     <div class="flex gap-2">
-                        <input id="s-gist-input" type="password" autocomplete="off" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
-                            class="flex-1 text-xs px-3 py-2 rounded-lg outline-none"
-                            style="background:var(--bg-main);border:1px solid var(--border);color:var(--text-primary);font-family:var(--font-mono)"
-                            onkeydown="if(event.key==='Enter')saveAllSettings()">
-                        <button onclick="toggleVisibility('s-gist-input')" class="px-2.5 rounded-lg text-[10px]"
-                            style="background:var(--bg-main);border:1px solid var(--border);color:var(--text-dim)">👁</button>
+                        <input id="s-gist-input" type="password" autocomplete="off" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" class="flex-1 text-xs px-3 py-2 rounded-lg outline-none" style="background:var(--bg-main);border:1px solid var(--border);color:var(--text-primary);font-family:var(--font-mono)" onkeydown="if(event.key==='Enter')saveAllSettings()">
+                        <button onclick="toggleVisibility('s-gist-input')" class="px-2.5 rounded-lg text-[10px]" style="background:var(--bg-main);border:1px solid var(--border);color:var(--text-dim)">👁</button>
                     </div>
-                    <p class="text-[9px] mt-2" style="color:var(--text-dim)">
-                        GitHub → Settings → Developer settings → Personal access tokens (Classic) · เลือก scope: <strong>gist</strong>
-                    </p>
+                    <p class="text-[9px] mt-2" style="color:var(--text-dim)">GitHub → Settings → Developer settings → Personal access tokens (Classic) · เลือก scope: <strong>gist</strong></p>
                 </div>
+            </div>
 
+            <!-- Tab: Theme -->
+            <div id="stab-theme" class="overflow-y-auto flex-1 px-5 py-4 hidden">
+                <p class="text-[9px] font-black uppercase tracking-widest mb-2.5" style="color:var(--text-dim)">🌙 Dark</p>
+                <div class="grid grid-cols-3 gap-2 mb-4" id="dark-theme-grid"></div>
+                <p class="text-[9px] font-black uppercase tracking-widest mb-2.5" style="color:var(--text-dim)">☀️ Light</p>
+                <div class="grid grid-cols-3 gap-2" id="light-theme-grid"></div>
             </div>
 
             <!-- Footer -->
-            <div class="flex items-center justify-between px-6 py-4 border-t" style="border-color:var(--border)">
-                <button onclick="clearAllSettings()" class="text-[10px] font-bold px-3 py-2 rounded-lg uppercase tracking-wider transition-all"
-                    style="color:var(--text-dim);background:var(--bg-card2);border:1px solid var(--border)"
-                    onmouseover="this.style.color='#f43f5e'" onmouseout="this.style.color='var(--text-dim)'">
-                    ล้างทั้งหมด
-                </button>
+            <div class="flex items-center justify-between px-5 py-3 border-t flex-shrink-0" style="border-color:var(--border)">
+                <button onclick="clearAllSettings()" class="text-[10px] font-bold px-3 py-2 rounded-lg uppercase tracking-wider transition-all" style="color:var(--text-dim);background:var(--bg-card2);border:1px solid var(--border)" onmouseover="this.style.color='#f43f5e'" onmouseout="this.style.color='var(--text-dim)'">ล้างทั้งหมด</button>
                 <div class="flex gap-2">
-                    <button onclick="closeSettingsModal()" class="text-[10px] font-bold px-4 py-2 rounded-lg uppercase tracking-wider"
-                        style="color:var(--text-dim);background:var(--bg-card2);border:1px solid var(--border)">ยกเลิก</button>
-                    <button onclick="saveAllSettings()" class="text-[10px] font-semibold px-5 py-2 rounded-md uppercase tracking-wider text-white transition-all active:scale-95"
-                        style="background:#089981">
-                        บันทึกทั้งหมด
-                    </button>
+                    <button onclick="closeSettingsModal()" class="text-[10px] font-bold px-4 py-2 rounded-lg uppercase tracking-wider" style="color:var(--text-dim);background:var(--bg-card2);border:1px solid var(--border)">ยกเลิก</button>
+                    <button onclick="saveAllSettings()" class="text-[10px] font-semibold px-5 py-2 rounded-md uppercase tracking-wider text-white transition-all active:scale-95" style="background:var(--accent)">บันทึกทั้งหมด</button>
                 </div>
             </div>
         </div>
