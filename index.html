@@ -2110,24 +2110,31 @@
                     <!-- STEP 2: ตั้งชื่อ + API keys -->
                     <div id="wz-step-2" class="hidden">
                         <p style="color:var(--text-primary);" class="font-bold text-sm mb-1">ขั้นตอนที่ 2 — ตั้งค่าโปรไฟล์และเชื่อมต่อ API</p>
-                        <p style="color:var(--text-dim);" class="text-xs mb-4">ข้าม API ได้ถ้ายังไม่พร้อม สามารถกรอกในหน้าตั้งค่าภายหลัง</p>
+
+                        <!-- Optional notice -->
+                        <div class="flex items-start gap-2 p-3 rounded-xl mb-4" style="background:rgba(59,130,246,0.07);border:1px solid rgba(59,130,246,0.2);">
+                            <svg class="w-3.5 h-3.5 flex-shrink-0 mt-0.5" fill="none" stroke="#3b82f6" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            <p style="color:var(--text-secondary);" class="text-xs leading-relaxed"><span style="color:var(--text-primary);" class="font-bold">ทุกช่องในขั้นตอนนี้ไม่บังคับทั้งหมด</span> — ถ้าใช้แค่บันทึกรายรับ-รายจ่าย ข้ามไปขั้นตอนถัดไปได้เลย โดยไม่ต้องกรอก API ใดๆ</p>
+                        </div>
 
                         <!-- Profile name -->
                         <div class="mb-4">
-                            <label style="color:var(--text-secondary);" class="text-xs font-bold block mb-1.5">ชื่อที่แสดง (ไม่บังคับ)</label>
+                            <label style="color:var(--text-secondary);" class="text-xs font-bold block mb-1.5">ชื่อที่แสดง <span style="color:var(--text-dim);" class="font-normal">(ไม่บังคับ)</span></label>
                             <input id="wz-profile-name" type="text" placeholder="เช่น PS, นาย ก, หรือชื่อเล่น" class="w-full text-sm px-3 py-2.5 rounded-xl outline-none" style="background:var(--bg-main);border:1px solid var(--border);color:var(--text-primary);">
                         </div>
 
                         <!-- API keys — show only relevant ones -->
-                        <div id="wz-api-section" class="space-y-2.5 mb-6">
+                        <div id="wz-api-section" class="space-y-3 mb-6">
                             <!-- OpenRouter — show if AI selected -->
                             <div class="wz-api-row hidden" id="wz-api-openrouter">
                                 <label style="color:var(--text-secondary);" class="text-xs font-bold block mb-1">OpenRouter API Key <span style="color:var(--text-dim);" class="font-normal">(สำหรับ AI วิเคราะห์)</span></label>
-                                <div class="flex gap-2">
+                                <div class="flex gap-2 mb-1.5">
                                     <input id="wz-or-key" type="password" placeholder="sk-or-v1-..." class="flex-1 text-xs px-3 py-2 rounded-lg outline-none" style="background:var(--bg-main);border:1px solid var(--border);color:var(--text-primary);font-family:var(--font-mono)">
                                     <button onclick="wzToggleVis('wz-or-key')" class="px-2.5 rounded-lg text-[10px]" style="background:var(--bg-main);border:1px solid var(--border);color:var(--text-dim)">👁</button>
                                 </div>
+                                <p style="color:var(--text-dim);" class="text-[10px]">สมัครฟรีที่ <a href="https://openrouter.ai" target="_blank" style="color:#6366f1;" class="underline">openrouter.ai</a> → Sign Up → API Keys → Create Key</p>
                             </div>
+
                             <!-- Alpaca — show if market selected -->
                             <div class="wz-api-row hidden" id="wz-api-alpaca">
                                 <label style="color:var(--text-secondary);" class="text-xs font-bold block mb-1">Alpaca API Key <span style="color:var(--text-dim);" class="font-normal">(ราคาหุ้น real-time)</span></label>
@@ -2135,22 +2142,29 @@
                                     <input id="wz-alpaca-key" type="password" placeholder="Alpaca Key ID" class="flex-1 text-xs px-3 py-2 rounded-lg outline-none" style="background:var(--bg-main);border:1px solid var(--border);color:var(--text-primary);font-family:var(--font-mono)">
                                     <button onclick="wzToggleVis('wz-alpaca-key')" class="px-2.5 rounded-lg text-[10px]" style="background:var(--bg-main);border:1px solid var(--border);color:var(--text-dim)">👁</button>
                                 </div>
-                                <div class="flex gap-2">
+                                <div class="flex gap-2 mb-1.5">
                                     <input id="wz-alpaca-secret" type="password" placeholder="Alpaca Secret" class="flex-1 text-xs px-3 py-2 rounded-lg outline-none" style="background:var(--bg-main);border:1px solid var(--border);color:var(--text-primary);font-family:var(--font-mono)">
                                     <button onclick="wzToggleVis('wz-alpaca-secret')" class="px-2.5 rounded-lg text-[10px]" style="background:var(--bg-main);border:1px solid var(--border);color:var(--text-dim)">👁</button>
                                 </div>
+                                <p style="color:var(--text-dim);" class="text-[10px]">สมัครฟรีที่ <a href="https://alpaca.markets" target="_blank" style="color:#FFCD00;" class="underline">alpaca.markets</a> → Create Account → Paper Trading → API Keys · ใช้ได้โดยไม่ต้องฝากเงิน</p>
                             </div>
+
                             <!-- FMP — show if market/news selected -->
                             <div class="wz-api-row hidden" id="wz-api-fmp">
                                 <label style="color:var(--text-secondary);" class="text-xs font-bold block mb-1">FMP API Key <span style="color:var(--text-dim);" class="font-normal">(ข้อมูลตลาดและข่าว)</span></label>
-                                <div class="flex gap-2">
+                                <div class="flex gap-2 mb-1.5">
                                     <input id="wz-fmp-key" type="password" placeholder="FMP API Key..." class="flex-1 text-xs px-3 py-2 rounded-lg outline-none" style="background:var(--bg-main);border:1px solid var(--border);color:var(--text-primary);font-family:var(--font-mono)">
                                     <button onclick="wzToggleVis('wz-fmp-key')" class="px-2.5 rounded-lg text-[10px]" style="background:var(--bg-main);border:1px solid var(--border);color:var(--text-dim)">👁</button>
                                 </div>
+                                <p style="color:var(--text-dim);" class="text-[10px]">สมัครฟรีที่ <a href="https://financialmodelingprep.com/developer/docs" target="_blank" style="color:#f59e0b;" class="underline">financialmodelingprep.com</a> → Register → Dashboard → API Key · ฟรี 250 req/วัน ไม่ต้องใส่บัตรเครดิต</p>
                             </div>
-                            <!-- No API needed message -->
+
+                            <!-- No API needed -->
                             <div id="wz-no-api-msg" class="hidden">
-                                <p style="color:var(--text-dim);" class="text-xs text-center py-3">ฟีเจอร์ที่เลือกไม่จำเป็นต้องใช้ API Key สามารถไปขั้นตอนถัดไปได้เลย</p>
+                                <div class="flex items-center gap-2 p-3 rounded-xl" style="background:rgba(34,197,94,0.07);border:1px solid rgba(34,197,94,0.2);">
+                                    <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="#22c55e" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                    <p style="color:var(--text-secondary);" class="text-xs">ฟีเจอร์ที่เลือกไม่จำเป็นต้องใช้ API Key — กดถัดไปได้เลย</p>
+                                </div>
                             </div>
                         </div>
 
@@ -10642,7 +10656,7 @@ ${_clip(contextSections, 2600)}`;
             },
         };
 
-        let _activeTheme = localStorage.getItem('ps_theme') || 'tv';
+        let _activeTheme = localStorage.getItem('ps_theme') || 'apple';
 
 
         // Tab title and favicon
