@@ -2493,7 +2493,12 @@
                                 </div>
                             </label>
                         </div>
-                        <div class="flex justify-end">
+                        <div class="flex items-center justify-between">
+                            <!-- ผู้ใช้เดิม: import หรือ skip -->
+                            <div class="flex gap-2">
+                                <button onclick="document.getElementById('fileInput').click()" style="background:var(--bg-card2);color:var(--text-secondary);border:1px solid var(--border);font-family:var(--font-mono);" class="px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest transition-all active:scale-95">📂 Import JSON</button>
+                                <button onclick="localStorage.setItem('ps_wizard_done','1');document.getElementById('empty-state').classList.add('hidden');showTab('edit');" style="background:var(--bg-card2);color:var(--text-dim);border:1px solid var(--border);" class="px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest transition-all active:scale-95">ข้าม</button>
+                            </div>
                             <button onclick="wzNext(1)" id="wz-btn-1" style="background:#3b82f6;color:#fff;opacity:0.4;pointer-events:none;" class="px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all active:scale-95">ถัดไป →</button>
                         </div>
                     </div>
@@ -3669,6 +3674,20 @@
 
         function updateDashboard() {
             const validRecords = records.filter(r => r.payday > 0 || (r.fixed && r.fixed.length > 0) || (r.dynamic && r.dynamic.length > 0));
+
+            // ผู้ใช้เดิม: มีข้อมูลจริงๆ → ข้าม wizard อัตโนมัติ
+            if (localStorage.getItem('ps_wizard_done') !== '1') {
+                const hasRecords = validRecords.length > 0;
+                const hasWatchlist = (() => { try { const w = JSON.parse(localStorage.getItem('ps_watchlist')||'[]'); return w.length > 0; } catch(e){ return false; } })();
+                const hasApiKey = !!(localStorage.getItem('ps_gist_token') ||
+                                     localStorage.getItem('ps_alpaca_key') ||
+                                     localStorage.getItem('ps_fmp_key') ||
+                                     localStorage.getItem('ps_openrouter_key'));
+                if (hasRecords || hasWatchlist || hasApiKey) {
+                    localStorage.setItem('ps_wizard_done', '1');
+                }
+            }
+
             if (validRecords.length === 0) {
                 const emptyEl = document.getElementById('empty-state');
                 const contentEl = document.getElementById('dash-content');
