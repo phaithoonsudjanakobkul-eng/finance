@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PS Smart Finance</title>
-    <link id="ps-favicon" rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230f1318'/%3E%3Cpolyline points='4,24 10,16 15,20 21,10 28,14' fill='none' stroke='%2310b981' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='28' cy='14' r='2.5' fill='%2310b981'/%3E%3C/svg%3E">
+    <title>PSLink</title>
+    <link id="ps-favicon" rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20viewBox=%270%200%2032%2032%27%3E%3Crect%20width=%2732%27%20height=%2732%27%20rx=%278%27%20fill=%27%230a0f1e%27/%3E%3Ccircle%20cx=%2716%27%20cy=%2716%27%20r=%275.5%27%20fill=%27none%27%20stroke=%27%233b82f6%27%20stroke-width=%271.2%27%20opacity=%270.6%27/%3E%3Ccircle%20cx=%2716%27%20cy=%2716%27%20r=%273.5%27%20fill=%27%233b82f6%27/%3E%3Cpath%20d=%27M16,4%20A12,12%200%200,1%2027.8,16%27%20fill=%27none%27%20stroke=%27%233b82f6%27%20stroke-width=%272.4%27%20stroke-linecap=%27round%27%20opacity=%270.95%27/%3E%3Cpath%20d=%27M27.8,16%20A12,12%200%200,1%2016,28%27%20fill=%27none%27%20stroke=%27%233b82f6%27%20stroke-width=%272.4%27%20stroke-linecap=%27round%27%20opacity=%270.55%27/%3E%3Cpath%20d=%27M16,28%20A12,12%200%200,1%204.2,16%27%20fill=%27none%27%20stroke=%27%233b82f6%27%20stroke-width=%272.4%27%20stroke-linecap=%27round%27%20opacity=%270.28%27/%3E%3Cpath%20d=%27M4.2,16%20A12,12%200%200,1%2016,4%27%20fill=%27none%27%20stroke=%27%233b82f6%27%20stroke-width=%272.4%27%20stroke-linecap=%27round%27%20opacity=%270.68%27/%3E%3C/svg%3E">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
@@ -1434,6 +1434,10 @@
         /* Neutral: soft off-white in dark, muted gray in light */
         #watchlist-table .wl-sig-neu { color: #64748b; }
         html.dark #watchlist-table .wl-sig-neu { color: #cbd5e1; opacity: 0.82; }
+        #watchlist-table .wl-sig-lean-bull { color: var(--wl-up); opacity: 0.65; }
+        html.dark #watchlist-table .wl-sig-lean-bull { color: var(--wl-up); opacity: 0.7; }
+        #watchlist-table .wl-sig-lean-bear { color: var(--wl-dn); opacity: 0.65; }
+        html.dark #watchlist-table .wl-sig-lean-bear { color: var(--wl-dn); opacity: 0.7; }
         /* EXT (pre/after hours) cell flash animation */
         @keyframes extFlashUp { 0%{background:rgba(8,153,129,0.25)} 100%{background:transparent} }
         @keyframes extFlashDn { 0%{background:rgba(242,54,69,0.2)} 100%{background:transparent} }
@@ -1886,12 +1890,12 @@
                 </div>
                 <input type="file" id="avatarInput" accept="image/*" style="display:none;" onchange="handleAvatar(event)">
                 <div>
-                    <div class="font-black text-base tracking-tight leading-none uppercase ps-brand-title" style="font-family:var(--font-main)">PS SMART FINANCE</div>
+                    <div class="font-black text-base tracking-tight leading-none ps-brand-title" style="font-family:var(--font-main)">PSLink</div>
                     <div class="flex items-center gap-1.5 mt-1">
                         <div class="w-1.5 h-1.5 rounded-full animate-pulse" style="background:var(--accent)"></div>
                         <div id="db-name-display" class="text-[10px] font-bold uppercase tracking-widest leading-none" style="color:var(--text-dim);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Ready</div>
                     </div>
-                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.11-r205</div>
+                    <div class="text-[8px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--text-dim);opacity:0.5">v2026.03.11-r221</div>
                 </div>
             </div>
             
@@ -3861,6 +3865,98 @@
             }
         }
 
+        const _alpacaDailyBarsCache = {};
+        const _alpacaDailyBarsInflight = {};
+        const ALPACA_DAILY_TTL_MS = 8 * 60 * 1000;
+        async function fetchAlpacaDailyBars(symbol) {
+            const sym = String(symbol || '').toUpperCase();
+            const now = Date.now();
+            const cached = _alpacaDailyBarsCache[sym];
+            if (cached && (now - cached.ts) < ALPACA_DAILY_TTL_MS) return cached.data;
+            if (_alpacaDailyBarsInflight[sym]) return _alpacaDailyBarsInflight[sym];
+            _alpacaDailyBarsInflight[sym] = (async () => {
+                try {
+                    const aKey = getAlpacaKey();
+                    const aSecret = getAlpacaSecret();
+                    if (!aKey || !aSecret) return null;
+                    const end = new Date();
+                    const mkParams = (u, start, feed, adjustment) => {
+                        u.searchParams.set('timeframe', '1Day');
+                        u.searchParams.set('start', start.toISOString());
+                        u.searchParams.set('end', end.toISOString());
+                        u.searchParams.set('limit', '200');
+                        if (adjustment) u.searchParams.set('adjustment', adjustment);
+                        if (feed) u.searchParams.set('feed', feed);
+                        u.searchParams.set('sort', 'asc');
+                    };
+                    const baseUrls = [
+                        `https://data.alpaca.markets/v2/stocks/${encodeURIComponent(sym)}/bars`,
+                        `https://data.alpaca.markets/v2/stocks/bars?symbols=${encodeURIComponent(sym)}`,
+                    ];
+                    const cfgs = [
+                        { days: 420, feed: 'iex', adjustment: 'raw' },
+                        { days: 420, feed: null, adjustment: 'raw' },
+                        { days: 420, feed: null, adjustment: 'split' },
+                        { days: 180, feed: null, adjustment: 'raw' },
+                        { days: 90, feed: null, adjustment: 'raw' },
+                    ];
+                    let bars = [];
+                    let lastJson = null;
+                    for (const cfg of cfgs) {
+                        const start = new Date(end.getTime() - (cfg.days * 24 * 60 * 60 * 1000));
+                        for (const base of baseUrls) {
+                            const u = new URL(base);
+                            mkParams(u, start, cfg.feed, cfg.adjustment);
+                            const res = await fetch(u.toString(), {
+                                headers: {
+                                    'APCA-API-KEY-ID': aKey,
+                                    'APCA-API-SECRET-KEY': aSecret,
+                                },
+                                signal: AbortSignal.timeout(7000),
+                            });
+                            if (!res.ok) continue;
+                            const json = await res.json();
+                            lastJson = json;
+                            const barsRaw = json?.bars;
+                            bars = Array.isArray(barsRaw)
+                                ? barsRaw
+                                : (barsRaw && typeof barsRaw === 'object' && !Array.isArray(barsRaw))
+                                    ? (Array.isArray(barsRaw[sym])
+                                        ? barsRaw[sym]
+                                        : Array.isArray(barsRaw[sym.toUpperCase()])
+                                            ? barsRaw[sym.toUpperCase()]
+                                            : (Array.isArray(barsRaw[Object.keys(barsRaw)[0]]) ? barsRaw[Object.keys(barsRaw)[0]] : []))
+                                    : [];
+                            if (bars.length >= 20) break;
+                        }
+                        if (bars.length >= 20) break;
+                    }
+                    if (bars.length < 20) {
+                        return null;
+                    }
+                    if (bars.length < 20) return null;
+                    const out = {
+                        s: 'ok',
+                        o: bars.map(b => Number(b?.o)).filter(v => Number.isFinite(v)),
+                        h: bars.map(b => Number(b?.h)).filter(v => Number.isFinite(v)),
+                        l: bars.map(b => Number(b?.l)).filter(v => Number.isFinite(v)),
+                        c: bars.map(b => Number(b?.c)).filter(v => Number.isFinite(v)),
+                        v: bars.map(b => Number(b?.v || 0)),
+                        t: bars.map(b => b?.t)
+                    };
+                    const n = out.c.length;
+                    if (n < 20 || out.h.length !== n || out.l.length !== n || out.v.length !== n) return null;
+                    _alpacaDailyBarsCache[sym] = { ts: Date.now(), data: out };
+                    return out;
+                } catch(e) {
+                    return null;
+                } finally {
+                    delete _alpacaDailyBarsInflight[sym];
+                }
+            })();
+            return _alpacaDailyBarsInflight[sym];
+        }
+
         async function fetchAlpacaIntraday(symbol) {
             const aKey = getAlpacaKey();
             const aSecret = getAlpacaSecret();
@@ -3885,7 +3981,13 @@
                 });
                 if (!res.ok) return null;
                 const json = await res.json();
-                const bars = Array.isArray(json?.bars) ? json.bars : [];
+                const sym = String(symbol || '').toUpperCase();
+                const barsRaw = json?.bars;
+                const bars = Array.isArray(barsRaw)
+                    ? barsRaw
+                    : (barsRaw && typeof barsRaw === 'object')
+                        ? (barsRaw[sym] || barsRaw[Object.keys(barsRaw)[0]] || [])
+                        : [];
                 if (bars.length < 20) return null;
                 const tail = bars.slice(-48);
                 const closes = tail.map(b => Number(b?.c)).filter(v => Number.isFinite(v) && v > 0);
@@ -5307,6 +5409,7 @@
         function getNewsImpactScore(symbol) {
             const sym = String(symbol || '').trim().toUpperCase();
             const impactMemo = (window.__newsImpactMemo ||= {});
+            const earningsCalCache = (window.__earningsCalCache ||= {});
             const prev = impactMemo[sym] || null;
             const items = (_newsFeedCache?.[sym]?.items || []);
             if (!Array.isArray(items) || items.length === 0) {
@@ -5317,7 +5420,7 @@
             const nowMs = Date.now();
             let items24 = 0, items72 = 0;
             let score = 0;
-            const hiWords = /(earnings|guidance|downgrade|upgrade|sec|lawsuit|investigation|acquire|acquisition|merger|bankruptcy|fda|profit warning|recall|layoff|cut jobs|dividend cut|ceo resign)/i;
+            const hiWords = /(earnings|guidance|downgrade|upgrade|sec|lawsuit|investigation|acquire|acquisition|merger|bankruptcy|fda|profit warning|recall|layoff|cut jobs|dividend cut|ceo resign|gtc|ces|wwdc|earnings call|investor day|product launch|keynote|conference)/i;
             const medWords = /(partnership|contract|launch|product|forecast|target price|analyst|rating|beat|miss|buyback|regulatory|tariff|macro|inflation|rate cut|rate hike)/i;
             const sentiWords = /(surge|jump|rally|bullish|strong|record high|selloff|plunge|drop|weak|bearish|risk-off)/i;
             for (const a of items.slice(0, 24)) {
@@ -5331,11 +5434,40 @@
                 else if (medWords.test(txt)) score += 0.9 * w;
                 if (sentiWords.test(txt)) score += 0.4 * w;
             }
+            let catalystDays = null;
+            const calCache = earningsCalCache[sym] || null;
+            const calFresh = !!(calCache && (Date.now() - Number(calCache.ts || 0) <= 86400000));
+            const calItems = (calFresh && Array.isArray(calCache?.items)) ? calCache.items : [];
+            if (calItems.length) {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                let nearestDays = Infinity;
+                for (const ev of calItems.slice(0, 20)) {
+                    const dRaw = String(ev?.date || ev?.datetime || '').slice(0, 10);
+                    if (!dRaw) continue;
+                    const evDate = new Date(`${dRaw}T00:00:00`);
+                    if (!Number.isFinite(evDate.getTime())) continue;
+                    const diffDays = Math.ceil((evDate.getTime() - today.getTime()) / 86400000);
+                    if (diffDays >= 0 && diffDays < nearestDays) nearestDays = diffDays;
+                }
+                if (Number.isFinite(nearestDays)) {
+                    catalystDays = nearestDays;
+                    if (nearestDays <= 3) score += 3.5;
+                    else if (nearestDays <= 7) score += 2.0;
+                }
+            }
             score += Math.min(2.8, (items24 * 0.42) + (items72 * 0.18));
             let out;
-            if (score >= 4.2) out = { label: 'High', cls: 'wl-impact-high', score: +score.toFixed(2), reason: `${items24} stories/24h` };
-            else if (score >= 2.2) out = { label: 'Med', cls: 'wl-impact-med', score: +score.toFixed(2), reason: `${items24} stories/24h` };
-            else out = { label: 'Low', cls: 'wl-impact-low', score: +score.toFixed(2), reason: `${items24} stories/24h` };
+            const isEventHigh = (catalystDays != null && catalystDays <= 7);
+            if (score >= 4.2) {
+                out = isEventHigh
+                    ? { label: 'High', cls: 'wl-impact-high', score: +score.toFixed(2), reason: `event in ${catalystDays}d | ${items24} stories/24h` }
+                    : { label: 'High', cls: 'wl-impact-high', score: +score.toFixed(2), reason: `high news density | ${items24} stories/24h` };
+            } else if (score >= 2.2) {
+                out = { label: 'Med', cls: 'wl-impact-med', score: +score.toFixed(2), reason: `${items24} stories/24h` };
+            } else {
+                out = { label: 'Low', cls: 'wl-impact-low', score: +score.toFixed(2), reason: `${items24} stories/24h` };
+            }
             impactMemo[sym] = { ts: Date.now(), value: out };
             return out;
         }
@@ -5599,12 +5731,11 @@
             const thPrice = document.getElementById('wl-th-price');
             if (!thName || !thPrice) return;
             if (compact) {
-                // Compact watchlist: ใช้ header เดิม แล้วให้ CSS ซ่อนคอลัมน์ที่ไม่ต้องการ
                 thName.textContent  = 'Name';
                 thPrice.textContent = 'Price';
             } else {
-                thName.textContent  = 'Name';
-                thPrice.textContent = 'Price';
+                thName.textContent  = 'NAME';
+                thPrice.innerHTML = '<button class="wl-sort-btn" onclick="sortWatchlist(\'price\')" id="wl-sort-price">LAST<span class="wl-sort-icon"></span></button>';
             }
         }
 
@@ -6592,7 +6723,7 @@ ${sourceText}`;
                                 'Content-Type': 'application/json',
                                 'Authorization': `Bearer ${key}`,
                                 'HTTP-Referer': location.origin,
-                                'X-Title': 'PS Smart Finance'
+                                'X-Title': 'PSLink'
                             },
                             signal: reqCtrl.signal,
                             body: JSON.stringify({
@@ -6629,7 +6760,7 @@ ${sourceText}`;
                                             'Content-Type': 'application/json',
                                             'Authorization': `Bearer ${key}`,
                                             'HTTP-Referer': location.origin,
-                                            'X-Title': 'PS Smart Finance'
+                                            'X-Title': 'PSLink'
                                         },
                                         signal: ctrl.signal,
                                         body: JSON.stringify({
@@ -7763,11 +7894,7 @@ ${sourceText}`;
 
         async function fetchTechnicals(symbol, finnhubKey) {
             try {
-                const to   = Math.floor(Date.now() / 1000);
-                const from = to - 90 * 24 * 3600; // 90 days
-                const url  = `https://finnhub.io/api/v1/stock/candle?symbol=${symbol}&resolution=D&from=${from}&to=${to}&token=${finnhubKey}`;
-                const res  = await fetch(url);
-                const d    = await res.json();
+                const d = await fetchAlpacaDailyBars(symbol);
                 if (!d || d.s !== 'ok' || !d.c?.length) return null;
 
                 const closes = Array.isArray(d.c) ? d.c : [];
@@ -7775,21 +7902,6 @@ ${sourceText}`;
                 const lows = Array.isArray(d.l) ? d.l : [];
                 const vols = Array.isArray(d.v) ? d.v : [];
                 const n = closes.length;
-                const highsValid = highs.length === n && highs.every(v => Number.isFinite(Number(v)));
-                const lowsValid = lows.length === n && lows.every(v => Number.isFinite(Number(v)));
-                const warmup14 = n >= 15 && highs.length >= 15 && lows.length >= 15;
-                const atr14Probe = (highsValid && lowsValid && warmup14) ? _calcTrueAtr(highs, lows, closes, 14) : null;
-                const entryRefProbe = Number(closes[n - 1] || 0);
-                const entryFloorProbe = entryRefProbe > 0 ? (entryRefProbe * 0.005) : 0;
-                const reliableProbe = Number.isFinite(atr14Probe) && atr14Probe > entryFloorProbe;
-                console.log(`[ATR Debug] ${symbol}:
-  n=${n},
-  atr14_d1=${Number.isFinite(atr14Probe) ? atr14Probe.toFixed(4) : 'N/A'},
-  entry_floor=${entryFloorProbe > 0 ? entryFloorProbe.toFixed(4) : 'N/A'},
-  reliable=${reliableProbe},
-  highs_valid=${highsValid},
-  lows_valid=${lowsValid},
-  warmup14=${warmup14}`);
                 if (n < 20) return null;
 
                 // SMA
@@ -7901,6 +8013,8 @@ ${sourceText}`;
                 const nodeAvg = vpBuckets.reduce((s, v) => s + v, 0) / Math.max(1, vpBuckets.filter(v => v > 0).length || vpBins);
                 const nodeStrength = nodeAvg > 0 ? +(curNodeVol / nodeAvg).toFixed(2) : 1;
                 const nodeLabel = nodeStrength >= 1.35 ? 'High-volume node' : nodeStrength <= 0.8 ? 'Low-volume node' : 'Balanced-volume node';
+                const pocIdx = vpBuckets.indexOf(Math.max(...vpBuckets));
+                const poc = +(vpMin + (pocIdx + 0.5) * vpSize).toFixed(2);
                 const avg20Vol = vols.slice(-20).reduce((s, v) => s + Number(v || 0), 0) / Math.max(1, Math.min(20, vols.length));
                 const recentVol = Number(vols[n - 1] || 0);
                 const recentVolRatio = avg20Vol > 0 ? +(recentVol / avg20Vol).toFixed(2) : null;
@@ -7920,7 +8034,10 @@ ${sourceText}`;
                     stoch_rsi_k: Number.isFinite(stochObj?.k) ? stochObj.k : null,
                     stoch_rsi_d: Number.isFinite(stochObj?.d) ? stochObj.d : null,
                     stoch_rsi_label: stochObj?.label || 'neutral',
-                    volumeProfile: { nodeStrength, nodeLabel, recentVolRatio }
+                    volumeProfile: { nodeStrength, nodeLabel, recentVolRatio, poc },
+                    rsiSource: 'strict-api',
+                    divSource: 'strict-api',
+                    vpSource: 'strict-api'
                 };
             } catch(e) {
                 return null;
@@ -8000,6 +8117,10 @@ ${sourceText}`;
 
             // Upcoming earnings date
             const upcomingList = earningsCal?.earningsCalendar || [];
+            (window.__earningsCalCache ||= {})[String(symbol || '').toUpperCase()] = {
+                ts: Date.now(),
+                items: Array.isArray(upcomingList) ? upcomingList : []
+            };
             if (upcomingList.length) {
                 const next = upcomingList[0];
                 out += `\nNEXT EARNINGS DATE: ${next.date||'N/A'} | Est EPS: $${next.epsEstimate??'N/A'} | Est Revenue: $${next.revenueEstimate!=null?(next.revenueEstimate/1e9).toFixed(2)+'B':'N/A'}`;
@@ -8209,11 +8330,7 @@ ${sourceText}`;
             if (_aiTechInflight[sym]) return _aiTechInflight[sym];
             _aiTechInflight[sym] = (async () => {
             try {
-                const to   = Math.floor(Date.now() / 1000);
-                const from = to - 90 * 24 * 3600; // 90 days
-                const url  = `https://finnhub.io/api/v1/stock/candle?symbol=${sym}&resolution=D&from=${from}&to=${to}&token=${finnhubKey}`;
-                const res  = await fetch(url);
-                const d    = await res.json();
+                const d = await fetchAlpacaDailyBars(sym);
                 if (!d || d.s !== 'ok' || !d.c?.length) return null;
 
                 const closes = Array.isArray(d.c) ? d.c : [];
@@ -8221,21 +8338,6 @@ ${sourceText}`;
                 const lows = Array.isArray(d.l) ? d.l : [];
                 const vols = Array.isArray(d.v) ? d.v : [];
                 const n = closes.length;
-                const highsValid = highs.length === n && highs.every(v => Number.isFinite(Number(v)));
-                const lowsValid = lows.length === n && lows.every(v => Number.isFinite(Number(v)));
-                const warmup14 = n >= 15 && highs.length >= 15 && lows.length >= 15;
-                const atr14_d1 = (highsValid && lowsValid && warmup14) ? _calcTrueAtr(highs, lows, closes, 14) : null;
-                const entryRef = Number(closes[n - 1] || 0);
-                const entryFloor = entryRef > 0 ? (entryRef * 0.005) : 0;
-                const reliable = Number.isFinite(atr14_d1) && atr14_d1 > entryFloor;
-                console.log(`[ATR Debug] ${sym}:
-  n=${n},
-  atr14_d1=${Number.isFinite(atr14_d1) ? atr14_d1.toFixed(4) : 'N/A'},
-  entry_floor=${entryFloor > 0 ? entryFloor.toFixed(4) : 'N/A'},
-  reliable=${reliable},
-  highs_valid=${highsValid},
-  lows_valid=${lowsValid},
-  warmup14=${warmup14}`);
                 if (n < 20) return null;
 
                 // SMA
@@ -8344,6 +8446,8 @@ ${sourceText}`;
                 const nodeAvg = vpBuckets.reduce((s, v) => s + v, 0) / Math.max(1, vpBuckets.filter(v => v > 0).length || vpBins);
                 const nodeStrength = nodeAvg > 0 ? +(curNodeVol / nodeAvg).toFixed(2) : 1;
                 const nodeLabel = nodeStrength >= 1.35 ? 'High-volume node' : nodeStrength <= 0.8 ? 'Low-volume node' : 'Balanced-volume node';
+                const pocIdx = vpBuckets.indexOf(Math.max(...vpBuckets));
+                const poc = +(vpMin + (pocIdx + 0.5) * vpSize).toFixed(2);
                 const avg20Vol = vols.slice(-20).reduce((s, v) => s + Number(v || 0), 0) / Math.max(1, Math.min(20, vols.length));
                 const recentVol = Number(vols[n - 1] || 0);
                 const recentVolRatio = avg20Vol > 0 ? +(recentVol / avg20Vol).toFixed(2) : null;
@@ -8352,7 +8456,7 @@ ${sourceText}`;
                     sma20, sma50, sma200, fib, hvLevel, pivots,
                     swingHigh: +swingHigh.toFixed(2), swingLow: +swingLow.toFixed(2),
                     rsi14, bullishDivergence, bullishDivText,
-                    volumeProfile: { nodeStrength, nodeLabel, recentVolRatio }
+                    volumeProfile: { nodeStrength, nodeLabel, recentVolRatio, poc }
                 };
                 _aiTechCache[sym] = { ts: Date.now(), data: out };
                 return out;
@@ -8438,6 +8542,10 @@ ${sourceText}`;
 
             // Upcoming earnings date
             const upcomingList = earningsCal?.earningsCalendar || [];
+            (window.__earningsCalCache ||= {})[String(symbol || '').toUpperCase()] = {
+                ts: Date.now(),
+                items: Array.isArray(upcomingList) ? upcomingList : []
+            };
             if (upcomingList.length) {
                 const next = upcomingList[0];
                 out += `\nNEXT EARNINGS DATE: ${next.date||'N/A'} | Est EPS: $${next.epsEstimate??'N/A'} | Est Revenue: $${next.revenueEstimate!=null?(next.revenueEstimate/1e9).toFixed(2)+'B':'N/A'}`;
@@ -8624,9 +8732,9 @@ ${sourceText}`;
             // Fetch technical/news context for cloud analysis.
             let techSections = '';
             let contextSections = '';
-            const asksNews = /ข่าว|news|sentiment|งบ|earning|earnings|upgrade|downgrade|ปัจจัย/i.test(userText);
+            const asksContext = /ข่าว|news|sentiment|งบ|earning|earnings|upgrade|downgrade|ปัจจัย|เปรียบเทียบ|compare|vs|กับ|แผน|plan|scenario|ถ้า.*หลุด|ถ้า.*ขึ้น|พอร์ต|portfolio|สรุป.*วันนี้|ภาพรวม/i.test(userText);
             const cloudTargets = (requestedSyms.length ? requestedSyms : mentionedSyms).slice(0, 2);
-            if ((deepMode || forceCloud || asksNews) && cloudTargets.length > 0 && fKey) {
+            if ((deepMode || forceCloud || asksContext) && cloudTargets.length > 0 && fKey) {
                 setInfo(deepMode ? '📊 กำลังดึงข้อมูล Technical + News...' : '📰 กำลังดึงบริบทข่าวล่าสุด...');
                 try {
                     const techTask = deepMode
@@ -8646,7 +8754,12 @@ ${sourceText}`;
                         const fibLines = Object.entries(t.fib).map(([k,v]) => `  Fib ${k}: $${v}`).join('\n');
                         const supports = t.pivots.supports.length ? t.pivots.supports.slice(-3).join(', ') : 'none';
                         const resists  = t.pivots.resistances.length ? t.pivots.resistances.slice(-3).join(', ') : 'none';
-                        return '\n' + sym + ' TECHNICAL ANALYSIS (90-day):\n  SMA20: $' + t.sma20 + (t.sma50?' | SMA50: $'+t.sma50:'') + (t.sma200?' | SMA200: $'+t.sma200:'') + '\n  90d Range: $' + t.swingLow + '–$' + t.swingHigh + '\n  Fibonacci:\n' + fibLines + '\n  High-Volume Level: $' + t.hvLevel + '\n  Pivot Supports: ' + supports + '\n  Pivot Resistances: ' + resists;
+                        return '\n' + sym + ' TECHNICAL ANALYSIS (90-day):\n  SMA20: $' + t.sma20 + (t.sma50?' | SMA50: $'+t.sma50:'') + (t.sma200?' | SMA200: $'+t.sma200:'') + '\n  90d Range: $' + t.swingLow + '–$' + t.swingHigh + '\n  Fibonacci:\n' + fibLines + '\n  High-Volume Level: $' + t.hvLevel + '\n  Pivot Supports: ' + supports + '\n  Pivot Resistances: ' + resists
+                            + (t.volumeProfile?.poc ? '\n  POC (Volume): $' + t.volumeProfile.poc : '')
+                            + (t.rsi14 != null ? '\n  RSI(14): ' + t.rsi14 : '')
+                            + (t.macd_d1 ? '\n  MACD D1: ' + (t.macd_d1.trend || t.macd_d1) : '')
+                            + (t.bb_d1 ? '\n  BB: ' + (t.bb_d1.pos || t.bb_d1) : '')
+                            + (t.divergenceLabel && t.divergenceLabel !== 'none' ? '\n  Divergence: ' + t.divergenceLabel : '');
                     }).join('\n');
                     contextSections = ctxResults.filter(Boolean).join('\n');
                 } catch(_te) { /* timeout or error — proceed without technical data */ }
@@ -8672,15 +8785,45 @@ ${sourceText}`;
                 return x.length > n ? (x.slice(0, n) + '\n...(truncated for stability)') : x;
             };
 
-            const sysPrompt = `You are a practical stock analyst.
-Answer in Thai if user writes Thai.
-Use only provided live data, no fabrication.
-Keep response concise and actionable.
-If user asks normal question: 1 short paragraph + key levels.
-If deepMode is true: include technical levels in more detail.
+            const displayMode = typeof getDisplayMode === 'function' ? getDisplayMode() : 'beginner';
+            const sysPrompt = `สำคัญมาก: ข้อมูลราคาหุ้นอยู่ใน LIVE DATA ด้านล่าง ห้ามใช้ราคาจากความจำของคุณเด็ดขาด ถ้าไม่เห็นราคาใน LIVE DATA ให้ตอบว่า 'ไม่มีข้อมูลราคาสำหรับหุ้นนี้' ห้ามเดาราคา
+
+คุณเป็น AI Stock Analyst ชื่อ PSLink AI
+ตอบเป็นภาษาไทย เว้นแต่ผู้ใช้ถามเป็นอังกฤษ
+ใช้เฉพาะข้อมูล LIVE DATA ด้านล่าง ห้ามแต่งข้อมูลขึ้นมาเอง
+ถ้าข้อมูลไม่พอให้บอกตรงๆ ว่า "ข้อมูลไม่เพียงพอ"
+
+คุณทำได้ 5 อย่าง:
+1. วิเคราะห์หุ้นรายตัว — ให้สถานะ (ซื้อ/ขาย/รอ), จุดเข้า, เป้าหมาย, จุดตัดขาดทุน, R:R ratio
+2. วิเคราะห์ข่าว — อธิบายผลกระทบของข่าวต่อราคาหุ้น ทั้งระยะสั้นและระยะกลาง
+3. เปรียบเทียบหุ้น — เทียบ Technical + Fundamental + Momentum ของ 2-3 ตัว แนะนำตัวที่น่าสนใจที่สุด
+4. สร้างแผนเทรด — วาง scenario: "ถ้าราคาขึ้นเหนือ X ทำอย่างไร / ถ้าหลุด Y ทำอย่างไร"
+5. อธิบายศัพท์/สถานการณ์ — อธิบายให้มือใหม่เข้าใจ เช่น RSI คืออะไร, ทำไมหุ้นตก
+
+กฎเหล็ก:
+- ทุกคำแนะนำซื้อ/ขายต้องมี "ยกเลิกแผนถ้า:" (Invalidation Point) เสมอ
+- ถ้า Risk/Reward < 1.5 ต้องเตือนว่า "ไม่คุ้มเสี่ยงที่จุดนี้"
+- ห้ามแนะนำ chase ราคาที่ RSI > 75
+- ระบุความเชื่อมั่น: สูง/กลาง/ต่ำ พร้อมเหตุผล
+
+${displayMode === 'beginner' ? `
+โหมดมือใหม่ — กฎเพิ่ม:
+- ห้ามใช้ศัพท์ MACD, RSI, Bollinger, Stochastic โดยไม่อธิบายความหมายสั้นๆ ต่อท้าย
+- ใช้ภาษาง่ายๆ เช่น "แรงซื้อเริ่มอ่อน" แทน "bearish divergence"
+- สรุปบรรทัดแรก: ควรทำอะไร (ซื้อ/ขาย/รอ) + เหตุผล 1 ประโยค
+- ถ้าผู้ใช้ถามศัพท์เทคนิค ให้อธิบายด้วยตัวอย่างเปรียบเทียบ
+` : `
+โหมดเทรดเดอร์ — กฎเพิ่ม:
+- แสดง Technical ครบ: RSI, MACD, BB, Volume Profile, Divergence, MTF
+- ใช้ศัพท์เทคนิคได้เลย ไม่ต้องอธิบาย
+- แสดงแผนเข้า-ออกเป็นตาราง: Entry, Target1, Target2, Stop Loss, R:R
+- วิเคราะห์ MTF Confluence: D1 vs 1H alignment
+`}
+
+วันนี้คือ ${new Date().toLocaleDateString('th-TH',{dateStyle:'full'})} ถ้าคุณตอบราคาที่ไม่ตรงกับ LIVE DATA แสดงว่าคุณกำลังแต่งข้อมูล
 
 LIVE DATA:
-${_clip(mkData || '(ไม่มีข้อมูล watchlist)', 2600)}
+${_clip(mkData || '(ไม่มีข้อมูล)', 2600)}
 ${_clip(techSections, 2400)}
 ${_clip(contextSections, 2600)}`;
 
@@ -8879,7 +9022,8 @@ ${_clip(contextSections, 2600)}`;
                         stoch_rsi_label: stochLocal?.label || 'neutral',
                         bullishDivText: bullishDivergence ? 'Local bullish divergence from intraday path' : (hasDensePrices ? '' : 'Insufficient intraday points for strict divergence'),
                         volumeProfile: { nodeStrength, nodeLabel, recentVolRatio },
-                        rsiSource: Number.isFinite(rsiVal) ? 'strict' : 'heuristic',
+                        hasDensePrices,
+                        rsiSource: Number.isFinite(rsiVal) ? 'local-approx' : 'heuristic',
                         divSource: hasDensePrices ? 'strict' : 'heuristic',
                         vpSource: prices60.length >= 20 ? 'strict' : 'heuristic',
                         pointDensity: prices.length >= 60 ? 'dense' : (hasDensePrices ? 'medium' : (hasSomePrices ? 'light' : 'sparse'))
@@ -8889,6 +9033,7 @@ ${_clip(contextSections, 2600)}`;
                 const blocks = [];
                 let hasUsable = false;
                 const aiLocalDebug = localStorage.getItem('ps_ai_local_debug') === '1';
+                const displayMode = (typeof getDisplayMode === 'function') ? getDisplayMode() : 'beginner';
                 syms.forEach(sym => {
                     const d = wlDataCache[sym];
                     if (!d || !d.c) {
@@ -8907,12 +9052,25 @@ ${_clip(contextSections, 2600)}`;
                     let t = techMap[sym] || null;
                     if (!t || t.rsi14 == null || !t.volumeProfile) {
                         const localT = _deriveLocalTech(sym, d);
-                        if (localT) t = Object.assign({}, t || {}, localT);
+                        if (localT) t = Object.assign({}, localT, t || {});
                     }
                     if (htfMap[sym]) t = Object.assign({}, t || {}, { htf: htfMap[sym] });
+                    // Prioritize Volume Profile จาก API (D1 + real volume)
+                    const vpFromApi = techMap[sym]?.volumeProfile || null;
+                    const vpFromLocal = t?.volumeProfile || null;
+                    if (t) {
+                        if (vpFromApi) {
+                            t.volumeProfile = vpFromApi;
+                            t.vpSource = 'strict-api';
+                        } else if (vpFromLocal) {
+                            t.vpSource = 'local-approx';
+                        } else {
+                            t.vpSource = 'none';
+                        }
+                    }
                     const rsiSource = t?.rsiSource || (t?.rsi14 != null ? 'strict-api' : 'heuristic');
                     const divSource = t?.divSource || (t?.bullishDivergence != null ? 'strict-api' : 'heuristic');
-                    const vpSource = t?.vpSource || (t?.volumeProfile ? 'strict-api' : 'heuristic');
+                    const vpSource = t?.vpSource || (t?.volumeProfile ? 'local-approx' : 'none');
                     const w52h = Number(d?.week52High || 0);
                     const w52l = Number(d?.week52Low || 0);
                     const has52w = Number.isFinite(w52h) && Number.isFinite(w52l) && w52h > w52l;
@@ -8990,6 +9148,16 @@ ${_clip(contextSections, 2600)}`;
                         supports = supports.filter(v => v <= mid);
                         resistances = resistances.filter(v => v >= mid);
                     }
+                    const poc = t?.volumeProfile?.poc;
+                    if (Number.isFinite(poc) && poc > 0) {
+                        if (poc < p && !supports.some(s => Math.abs(s - poc) < p * 0.003)) {
+                            supports.push(poc);
+                            supports.sort((a, b) => b - a);
+                        } else if (poc > p && !resistances.some(r => Math.abs(r - poc) < p * 0.003)) {
+                            resistances.push(poc);
+                            resistances.sort((a, b) => a - b);
+                        }
+                    }
                     const levelToZoneText = (v) => {
                         const idx = lv.findIndex(x => x === v);
                         const z = idx >= 0 ? clustered.zones[idx] : null;
@@ -9028,9 +9196,13 @@ ${_clip(contextSections, 2600)}`;
                     const atrFloor = (Number.isFinite(entryRef) && entryRef > 0) ? (entryRef * 0.02) : 0; // 2%
                     const atrD1Reliable = Number.isFinite(atrD1) && atrD1 >= atrReliabilityMin;
                     const atrPrimary = atrD1Reliable ? atrD1 : (atrFloor > 0 ? atrFloor : atrD1);
+                    const atrPrimaryRatio = (Number.isFinite(atrPrimary) && Number.isFinite(entryRef) && entryRef > 0)
+                        ? (atrPrimary / entryRef)
+                        : 0;
+                    const atrMultiplier = atrPrimaryRatio > 0.03 ? 1.0 : 1.5; // tighten stops on high-vol symbols
                     let cutRaw = null;
                     if (Number.isFinite(atrPrimary) && atrPrimary > 0 && Number.isFinite(entryRef) && entryRef > 0) {
-                        cutRaw = Number(entryRef) - (atrPrimary * 1.5); // primary with reliability floor
+                        cutRaw = Number(entryRef) - (atrPrimary * atrMultiplier); // adaptive ATR multiplier
                     } else if (Number.isFinite(atr1h) && atr1h > 0 && Number.isFinite(entryRef) && entryRef > 0) {
                         cutRaw = Number(entryRef) - (atr1h * 2.0); // fallback 1H
                     } else if (Number.isFinite(legacyAtr) && legacyAtr > 0 && Number.isFinite(entryRef) && entryRef > 0) {
@@ -9042,16 +9214,58 @@ ${_clip(contextSections, 2600)}`;
                     let cutNum = (cutRaw != null && Number.isFinite(cutRaw) && cutRaw > 0) ? cutRaw : null;
                     const cutWasCapped = !!(cutNum != null && cutFloor8 != null && cutNum < cutFloor8);
                     if (cutWasCapped) cutNum = cutFloor8;
+                    const cutPct = (cutNum != null && Number.isFinite(cutNum) && Number.isFinite(entryRef) && entryRef > 0)
+                        ? (((entryRef - cutNum) / entryRef) * 100)
+                        : null;
                     const cut = (cutNum != null && Number.isFinite(cutNum) && cutNum > 0) ? Number(cutNum).toFixed(2) : 'N/A';
-                    const target = resistances.length ? resistances[0].toFixed(2) : (h > 0 ? h.toFixed(2) : 'N/A');
+                    const targetShort = resistances.length ? resistances[0] : null;
+                    const targetMid = (() => {
+                        const fib382 = t?.fib?.['38.2'] || null;
+                        const sma20 = t?.sma20 || null;
+                        const vpPoc = t?.volumeProfile?.poc || null;
+                        const res2 = resistances.length >= 2 ? resistances[1] : null;
+                        const candidates = [fib382, sma20, vpPoc, res2]
+                            .filter(v => Number.isFinite(v) && v > p)
+                            .sort((a, b) => a - b);
+                        return candidates.length ? candidates[0] : null;
+                    })();
+                    const entryNum = supports.length ? supports[0] : p;
+                    const calcRR = (tgt) => {
+                        if (!Number.isFinite(tgt) || cutNum <= 0 || entryNum <= cutNum) return null;
+                        const reward = tgt - entryNum;
+                        const risk = entryNum - cutNum;
+                        return risk > 0 ? +(reward / risk).toFixed(1) : null;
+                    };
+                    const rrShort = calcRR(targetShort);
+                    const rrMid = calcRR(targetMid);
+                    const rrLabel = (rr) => {
+                        if (rr == null) return '';
+                        if (rr >= 2.0) return `R:R ${rr}x ✅ คุ้มเสี่ยง`;
+                        if (rr >= 1.5) return `R:R ${rr}x ⚠️ พอได้`;
+                        return `R:R ${rr}x ❌ ไม่คุ้มเสี่ยง`;
+                    };
+                    const shortPct = (Number.isFinite(targetShort) && Number.isFinite(entryNum) && entryNum > 0)
+                        ? (((targetShort - entryNum) / entryNum) * 100)
+                        : null;
+                    const midPct = (Number.isFinite(targetMid) && Number.isFinite(entryNum) && entryNum > 0)
+                        ? (((targetMid - entryNum) / entryNum) * 100)
+                        : null;
                     const newsTop = (_newsFeedCache?.[sym]?.items || [])[0]?.headline || '';
-                    const rsiTxt = (t?.rsi14 != null) ? `${t.rsi14.toFixed ? t.rsi14.toFixed(1) : t.rsi14}` : 'N/A';
+                    const rsiPrefix = rsiSource === 'strict-api' ? '' : '~';
+                    const rsiTxt = (t?.rsi14 != null) ? `${rsiPrefix}${t.rsi14.toFixed ? t.rsi14.toFixed(1) : t.rsi14}` : 'N/A';
                     const divTxt = (t?.divergenceLabel === 'bullish' || t?.bullishDivergence)
                         ? 'Bullish divergence'
                         : (t?.divergenceLabel === 'bearish' || t?.bearishDivergence)
                             ? 'Bearish divergence'
                             : (t ? 'No clear divergence' : 'N/A');
-                    const vpTxt = t?.volumeProfile?.nodeLabel || 'N/A';
+                    const pocTxt = Number.isFinite(t?.volumeProfile?.poc)
+                        ? ` | POC: $${t.volumeProfile.poc.toFixed(2)}`
+                        : '';
+                    const vpLabel = vpSource === 'strict-api'
+                        ? `${t?.volumeProfile?.nodeLabel || 'N/A'} (D1 60วัน)${pocTxt}`
+                        : vpSource === 'local-approx'
+                            ? `${t?.volumeProfile?.nodeLabel || 'N/A'} (ประมาณ)`
+                            : 'N/A';
                     const sigL = (sig?.label || '').toLowerCase();
                     const analystL = (analyst?.label || '').toLowerCase();
                     const sigDir = sigL.includes('buy') ? 1 : (sigL.includes('sell') ? -1 : 0);
@@ -9064,7 +9278,7 @@ ${_clip(contextSections, 2600)}`;
                     const htfVwapBias = String(t?.htf?.price_vs_vwap || 'near').toLowerCase();
                     const bbPos = String(t?.bb_d1?.pos || 'mid_band');
                     const stochLabel = String(t?.stoch_rsi_label || 'neutral');
-                    let mtfConfluence = 'Unknown';
+                    let mtfConfluence = 'Neutral';
                     let mtfGuide = '';
                     if (sigDir > 0 && htfTrend === 'bullish') {
                         mtfConfluence = 'Bullish-Aligned';
@@ -9149,15 +9363,30 @@ ${_clip(contextSections, 2600)}`;
                     const supportBreakPct = firstSupport && p > 0 ? ((firstSupport - p) / firstSupport) : 0;
                     const invalidated = !!(brokenSupport && supportBreakPct >= 0.003);
                     const invalidPenalty = invalidated ? Math.min(42, 24 + Math.round(supportBreakPct * 1000)) : 0;
-                    let confScore = _clamp(confScoreRaw - invalidPenalty, 0, 85);
-                    if (invalidated) confScore = Math.min(confScore, 54);
-                    const confGrade = confScore >= 78 ? 'A' : confScore >= 62 ? 'B' : 'C';
-                    const noTrade = confScore < 55 || (brokenSupport && !t?.bullishDivergence);
-                    const reversalWatch = !invalidated && confScore > 75 && rsiv < 30 && sigL.includes('sell');
+                    const htfAvailable = !!(t?.htf && (Number.isFinite(t?.htf?.rsi_1h) || Number.isFinite(t?.htf?.ema9_1h)));
+                    const newsAvailable = !!newsTop;
+                    const dataConf = Math.round(_clamp(
+                        (signalReliable ? 25 : 0) +
+                        (analystReliable ? 20 : 0) +
+                        (techReliable ? 25 : 0) +
+                        (htfAvailable ? 15 : 0) +
+                        (newsAvailable ? 15 : 0),
+                        0, 100
+                    ));
+                    let tradeScore = _clamp(confScoreRaw - invalidPenalty, 0, 85);
+                    const isAvoidAction = invalidated || (brokenSupport && !t?.bullishDivergence);
+                    const isWaitAction = (sigDir === 0) || hasSignalConflict || (htfVwapBias === 'below' && d1MacdTrend === 'bearish');
+                    if (isAvoidAction) tradeScore = Math.min(tradeScore, 30);
+                    if (isWaitAction && !isAvoidAction) tradeScore = Math.min(tradeScore, 50);
+                    const tradeGrade = tradeScore >= 70 ? 'A' : tradeScore >= 55 ? 'B' : 'C';
+                    const tradeGradeThai = tradeScore >= 70 ? 'สัญญาณชัด' : tradeScore >= 55 ? 'สัญญาณปานกลาง' : 'สัญญาณยังไม่ชัด';
+                    const noTrade = tradeScore < 35 || isAvoidAction;
+                    const reversalWatch = !isAvoidAction && tradeScore > 75 && rsiv < 30 && sigL.includes('sell');
+                    const confScore = tradeScore;
                     const displaySignal = reversalWatch ? 'Potential Reversal' : (sig?.label || 'Neutral');
-                    const setupTxt = reversalWatch
-                        ? 'Watch for Long'
-                        : (invalidated ? 'Invalidated' : (noTrade ? 'No Trade' : (confGrade === 'A' ? 'High-Conviction' : confGrade === 'B' ? 'Selective' : 'Tactical')));
+                    let setupTxt = reversalWatch
+                        ? 'จับตา อาจกลับตัว 👀'
+                        : (invalidated ? 'แผนล้ม ❌' : (noTrade ? 'ห้ามเข้า ❌' : (tradeGrade === 'A' ? 'สัญญาณชัด ✅' : tradeGrade === 'B' ? 'เข้าได้แต่ระวัง ⚠️' : 'เทรดสั้นเท่านั้น')));
                     if (reversalWatch) {
                         scenario = 'แรงขายก่อนหน้าเริ่มเข้าเขต oversold แต่ confluence สูง -> จับตาจังหวะกลับตัวฝั่ง Long เมื่อราคา reclaim แนวรับหลัก';
                     } else if (invalidated) {
@@ -9165,32 +9394,122 @@ ${_clip(contextSections, 2600)}`;
                     }
                     if (rsiv > 75) scenario += ` | ⚠️ RSI Overbought (${rsiv.toFixed(1)}) — เสี่ยงย่อ ไม่แนะนำ chase`;
                     else if (rsiv < 28) scenario += ` | RSI Oversold (${rsiv.toFixed(1)}) — จับตา reversal signal`;
-                    if (!atrD1Reliable && atrFloor > 0) scenario += ` | ใช้ ATR floor 2% เพราะ ATR D1 ต่ำผิดปกติ`;
+                    if (rsiSource !== 'strict-api') scenario += ` | RSI เป็นค่าประมาณ (intraday/local)`;
+                    const atrFloorApplied = (!atrD1Reliable && atrFloor > 0 && Number.isFinite(atrPrimary) && Math.abs(atrPrimary - atrFloor) < 1e-9);
+                    if (atrFloorApplied) scenario += ` | ใช้ ATR floor 2% เพราะ ATR D1 ต่ำผิดปกติ`;
                     if (cutWasCapped) scenario += ` | ⚠️ cut loss ถูก cap ที่ 8% จากจุดเข้าเพื่อกัน stop ที่ไกลเกินจริง`;
                     if (stochLabel === 'overbought') scenario += ` | Stoch RSI overbought`;
                     else if (stochLabel === 'oversold') scenario += ` | Stoch RSI oversold`;
                     if (conflictGuide) scenario += ` | ${conflictGuide}`;
                     if (mtfGuide) scenario += ` | ${mtfGuide}`;
                     const signalLower = String(displaySignal || '').toLowerCase();
-                    const signalEmoji = (signalLower.includes('buy') || signalLower.includes('long')) ? '🟢'
-                        : (signalLower.includes('sell') || signalLower.includes('short')) ? '🔴'
-                        : '⚪';
                     let actionTxt = 'Wait/Range';
-                    if (invalidated) actionTxt = 'Avoid (Invalidated)';
-                    else if (conflictGuide) actionTxt = 'Wait';
+                    if (isAvoidAction) actionTxt = 'Avoid (Invalidated)';
+                    else if (isWaitAction || conflictGuide) actionTxt = 'Wait';
                     else if (signalLower.includes('buy') || signalLower.includes('long')) actionTxt = 'Long Bias';
                     else if (signalLower.includes('sell') || signalLower.includes('short')) actionTxt = 'Short/Avoid';
                     if (actionTxt === 'Wait/Range' && (htfVwapBias === 'below' || d1MacdTrend === 'bearish')) actionTxt = 'Wait (Bearish pressure)';
                     if (actionTxt === 'Wait/Range' && (htfVwapBias === 'above' || d1MacdTrend === 'bullish')) actionTxt = 'Wait (Bullish pressure)';
-                    const keyCondition = rsiv > 75
-                        ? `RSI overbought ${rsiv.toFixed(1)}`
-                        : rsiv < 28
-                            ? `RSI oversold ${rsiv.toFixed(1)}`
-                            : (t?.bullishDivergence ? 'bullish divergence' : (d1MacdTrend !== 'neutral' ? `MACD D1 ${d1MacdTrend}` : 'รอ D1/1H confirm'));
-                    const quickSummary = `${sym}: ${actionTxt} — ${mtfConfluence}, ${keyCondition}`;
-                    const macdSummary = `MACD D1/1H: ${d1MacdTrend}/${htfMacdTrend}`;
-                    const vwapSummary = `VWAP 1H: ${Number.isFinite(t?.htf?.vwap_1h) ? t.htf.vwap_1h.toFixed(2) : 'N/A'} (${htfVwapBias})`;
-                    const bbSummary = `BB: ${bbPos}`;
+                    if (actionTxt.startsWith('Wait')) {
+                        setupTxt = 'รอสัญญาณยืนยัน';
+                    } else if (setupTxt === 'เทรดสั้นเท่านั้น' && !(actionTxt.includes('Long Bias') || actionTxt.includes('Short'))) {
+                        setupTxt = 'เข้าได้แต่ระวัง ⚠️';
+                    }
+                    const trendThai = mtfConfluence.includes('Bullish') || mtfConfluence.includes('bullish')
+                        ? 'แนวโน้มขาขึ้น'
+                        : (mtfConfluence.includes('Bearish') || mtfConfluence.includes('bearish'))
+                            ? 'แนวโน้มขาลง'
+                            : 'ยังไม่ชัดเจน';
+                    const actionThai = actionTxt.includes('Long')
+                        ? 'ซื้อได้'
+                        : (actionTxt.includes('Short') || actionTxt.includes('Avoid'))
+                            ? 'หลีกเลี่ยง/ขาย'
+                            : actionTxt.includes('Wait')
+                                ? 'รอจังหวะ'
+                                : 'รอดูก่อน';
+                    const entryPrice = entryNum;
+                    const warningItems = [];
+                    if (htfVwapBias === 'below') warningItems.push('ราคาต่ำกว่าค่าเฉลี่ยถ่วงน้ำหนัก');
+                    if (d1MacdTrend === 'bearish') warningItems.push('MACD รายวันยังเป็นลบ');
+                    if (rsiv > 70) warningItems.push(`RSI สูง (${rsiv.toFixed(0)}) เสี่ยงย่อ`);
+                    if (rsiv < 30) warningItems.push(`RSI ต่ำ (${rsiv.toFixed(0)}) อาจใกล้จุดกลับตัว`);
+                    if (lowRetestVol) warningItems.push('ทดสอบแนวรับด้วย volume น้อย ยังไม่น่าเชื่อถือ');
+                    if (brokenSupport) warningItems.push('ราคาหลุดแนวรับหลักแล้ว');
+                    if ((rrShort != null && rrShort < 1.5) && (rrMid == null || rrMid < 1.5)) {
+                        warningItems.push('Risk/Reward ไม่คุ้ม — ไม่แนะนำเข้าจุดนี้');
+                    }
+                    if ((impact?.label === 'High') && /\bevent\b/i.test(String(impact?.reason || ''))) {
+                        warningItems.push('มี event สำคัญใกล้ — ระวัง volatility สูง');
+                    } else if (impact?.label === 'High') {
+                        warningItems.push('ข่าวหนาแน่นผิดปกติ — ติดตามใกล้ชิด');
+                    }
+                    const warningBlock = warningItems.length
+                        ? `⚠️ สิ่งที่ต้องระวัง: ${warningItems.join(' | ')}`
+                        : '';
+                    const vwapSummary = `ราคาต่ำกว่าค่าเฉลี่ยถ่วงน้ำหนัก (${Number.isFinite(t?.htf?.vwap_1h) ? t.htf.vwap_1h.toFixed(2) : 'N/A'})`;
+                    const trendWordThai = (v) => {
+                        const s = String(v || '').toLowerCase();
+                        if (s.includes('bullish')) return 'ขาขึ้น';
+                        if (s.includes('bearish')) return 'ขาลง';
+                        if (s.includes('neutral')) return 'เป็นกลาง';
+                        return s || 'N/A';
+                    };
+                    const analystLabel = String(analyst?.label || 'N/A').toLowerCase();
+                    const analystThai = analystLabel.includes('strong buy') ? 'แนะนำซื้อแรง'
+                        : analystLabel.includes('buy') ? 'แนะนำซื้อ'
+                            : analystLabel.includes('strong sell') ? 'แนะนำขายแรง'
+                                : analystLabel.includes('sell') ? 'แนะนำขาย'
+                                    : analystLabel.includes('neutral') ? 'ถือ/กลาง'
+                                        : 'N/A';
+                    const impactReason = String(impact?.reason || '');
+                    const eventMatch = impactReason.match(/event in (\d+)d/i);
+                    const impactThai = (impact?.label === 'High')
+                        ? (eventMatch ? `สูง (มี event ใน ${eventMatch[1]} วัน)` : 'สูง (ข่าวหนาแน่น)')
+                        : (impact?.label === 'Med') ? 'กลาง' : 'ต่ำ';
+                    const translateScenarioThai = (text) => {
+                        let out = String(text || '');
+                        out = out.replace(/Wait\s*&\s*See/gi, 'รอดูก่อน');
+                        out = out.replace(/Bearish-leaning\s*รอ\s*D1\s*confirm/gi, 'แนวโน้มขาลง รอสัญญาณรายวันยืนยัน');
+                        out = out.replace(/Bullish-leaning\s*รอ\s*D1\s*confirm/gi, 'แนวโน้มขาขึ้น รอสัญญาณรายวันยืนยัน');
+                        out = out.replace(/bias\s*ระวังลงต่อ/gi, 'แนวโน้มลงต่อ');
+                        out = out.replace(/\blow\b/gi, 'ต่ำสุดของวัน');
+                        out = out.replace(/\bbearish\b/gi, 'ขาลง');
+                        out = out.replace(/\bbullish\b/gi, 'ขาขึ้น');
+                        return out;
+                    };
+                    const scenarioItems = String(scenario || '')
+                        .split('|')
+                        .map(s => s.trim())
+                        .filter(Boolean)
+                        .map(translateScenarioThai)
+                        .slice(0, 4);
+                    const scenarioBlock = scenarioItems.length
+                        ? `สถานการณ์:\n${scenarioItems.map(s => `• ${s}`).join('\n')}`
+                        : '';
+                    const quickBlock = [
+                        `**${sym}** $${p.toFixed(2)} (${dp >= 0 ? '+' : ''}${dp.toFixed(2)}%)`,
+                        `📊 สถานะ: ${actionThai} (${trendThai})`,
+                        `🎯 ถ้าจะเข้า: ซื้อใกล้ **$${entryPrice?.toFixed ? entryPrice.toFixed(2) : entryPrice}** | ตัดขาดทุน **$${cut}**`,
+                        `   เป้าสั้น (3วัน): **$${Number.isFinite(targetShort) ? targetShort.toFixed(2) : 'N/A'}** (${shortPct != null ? `${shortPct >= 0 ? '+' : ''}${shortPct.toFixed(1)}%` : 'N/A'})${rrLabel(rrShort) ? ` | ${rrLabel(rrShort)}` : ''}`,
+                        Number.isFinite(targetMid)
+                            ? `   เป้ากลาง (2สัปดาห์): **$${targetMid.toFixed(2)}** (${midPct != null ? `${midPct >= 0 ? '+' : ''}${midPct.toFixed(1)}%` : 'N/A'})${rrLabel(rrMid) ? ` | ${rrLabel(rrMid)}` : ''}`
+                            : '',
+                        `**ข้อมูล:** ${dataConf}% | **สัญญาณ:** ${confScore}/85 (${tradeGradeThai})`,
+                    ].join('\n');
+                    const invalidBlock = `❌ ยกเลิกแผนทันทีถ้า: ราคาหลุด **$${cut}** หรือ MACD D1 ไม่กลับบวกใน 3 วัน`;
+                    const detailBlock = [
+                        `---`,
+                        `**รายละเอียด:**`,
+                        `แนวรับ: ${sTxt} | แนวต้าน: ${rTxt}`,
+                        `RSI(14): **${rsiTxt}** (${rsiSource === 'strict-api' ? 'D1 แม่นยำ' : 'ค่าประมาณ'}) | RSI(1H): **${htfRsi}**`,
+                        `MACD: วัน=${trendWordThai(d1MacdTrend)} / 1ชม.=${trendWordThai(htfMacdTrend)} | ${vwapSummary}`,
+                        `Volume Profile: ${vpLabel}`,
+                        `Bollinger Band: ${bbPos === 'above_upper' ? 'เหนือกรอบบน' : bbPos === 'below_lower' ? 'ใต้กรอบล่าง' : bbPos === 'upper_band' ? 'โซนบน' : bbPos === 'lower_band' ? 'โซนล่าง' : 'กลางช่วง'}`,
+                        `สัญญาณ Divergence: ${divTxt === 'No clear divergence' ? 'ยังไม่พบสัญญาณกลับตัว' : divTxt}`,
+                        `นักวิเคราะห์: **${analystThai}** | ผลกระทบข่าว: **${impactThai}**`,
+                        newsTop ? `ข่าวล่าสุด: ${newsTop}` : '',
+                        `สัญญาณหลายกรอบเวลา: **${trendThai}**`,
+                    ].filter(Boolean).join('\n');
                     logSignalHistoryEntry({
                         symbol: sym,
                         price_at_signal: p,
@@ -9202,19 +9521,11 @@ ${_clip(contextSections, 2600)}`;
                         rsi_d1: t?.rsi14
                     });
 
-                    blocks.push(
-                        `**${quickSummary}**\n` +
-                        `**${sym}** ราคา **${p.toFixed(2)}** (${dp >= 0 ? '+' : ''}${dp.toFixed(2)}%) | Signal: ${signalEmoji} **${displaySignal}** | Analyst: **${analyst?.label || 'N/A'}** | News Impact: **${impact?.label || 'Low'}**\n` +
-                        `แนวรับ: ${sTxt} | แนวต้าน: ${rTxt}\n` +
-                        `RSI(14): **${rsiTxt}** | Divergence: **${divTxt}** | Volume Profile: **${vpTxt}**\n` +
-                        `1H Trend: **${htfTrend === 'bullish' ? 'Bullish' : htfTrend === 'bearish' ? 'Bearish' : 'Neutral/N.A.'}** | RSI(1H): **${htfRsi}** | MTF Confluence: **${mtfConfluence}**\n` +
-                        `Tech Summary: **${macdSummary}** | **${vwapSummary}** | **${bbSummary}**\n` +
-                        `Confluence: **${confScore}/85 (${confGrade})** | Setup: **${setupTxt}**\n` +
-                        `Action: **${actionTxt}**\n` +
-                        `แผนเข้า-ออก: ${entry}, เป้าสั้น **${target}**, cut loss ใต้ **${cut}**\n` +
-                        `สถานการณ์ที่กระทบ: ${scenario}${newsTop ? ` | ข่าวล่าสุด: ${newsTop}` : ''}` +
-                        (aiLocalDebug ? `\n[debug] points=${wlSparklineCache[sym]?.prices?.length || 0}, density=${t?.pointDensity || 'n/a'}, node=${t?.volumeProfile?.nodeStrength ?? 'n/a'}, reversal=${reversalWatch ? 1 : 0}, invalidated=${invalidated ? 1 : 0}, breakPct=${(supportBreakPct * 100).toFixed(2)}%, anchorFresh=${anchorFresh ? 1 : 0}, anchorMovePct=${(anchorMovePct * 100).toFixed(2)}%, signalReliable=${signalReliable ? 1 : 0}, analystReliable=${analystReliable ? 1 : 0}, techReliable=${techReliable ? 1 : 0}, fibSource=${fibSource}, htfTrend=${htfTrend}, htfRsi=${htfRsi}, htfVwap=${htfVwapBias}, d1Macd=${d1MacdTrend}, scoreRaw=${confScoreRaw}, penalty=${invalidPenalty}, scoreParts=${sigPts}/${rsiPts}/${divPts}/${volPts}/${analystPts}/${structurePts}/${macdPts}/${vwapPts}/${bbPts}/${stochPts}/${obvPts}` : '')
-                    );
+                    const outputParts = [quickBlock, warningBlock, invalidBlock];
+                    if (displayMode === 'trader') outputParts.push(detailBlock);
+                    outputParts.push(scenarioBlock);
+                    const debugTxt = (displayMode === 'trader' && aiLocalDebug) ? `\n[debug] points=${wlSparklineCache[sym]?.prices?.length || 0}, density=${t?.pointDensity || 'n/a'}, node=${t?.volumeProfile?.nodeStrength ?? 'n/a'}, reversal=${reversalWatch ? 1 : 0}, invalidated=${invalidated ? 1 : 0}, breakPct=${(supportBreakPct * 100).toFixed(2)}%, anchorFresh=${anchorFresh ? 1 : 0}, anchorMovePct=${(anchorMovePct * 100).toFixed(2)}%, signalReliable=${signalReliable ? 1 : 0}, analystReliable=${analystReliable ? 1 : 0}, techReliable=${techReliable ? 1 : 0}, htfAvailable=${htfAvailable ? 1 : 0}, newsAvailable=${newsAvailable ? 1 : 0}, dataConf=${dataConf}, waitCap=${isWaitAction ? 1 : 0}, avoidCap=${isAvoidAction ? 1 : 0}, fibSource=${fibSource}, htfTrend=${htfTrend}, htfRsi=${htfRsi}, htfVwap=${htfVwapBias}, d1Macd=${d1MacdTrend}, atrD1=${Number.isFinite(atrD1) ? atrD1.toFixed(2) : 'N/A'}, atr1h=${Number.isFinite(atr1h) ? atr1h.toFixed(2) : 'N/A'}, atrPrimary=${Number.isFinite(atrPrimary) ? atrPrimary.toFixed(2) : 'N/A'}, atrMul=${Number.isFinite(atrMultiplier) ? atrMultiplier.toFixed(2) : 'N/A'}, cutPct=${Number.isFinite(cutPct) ? cutPct.toFixed(2) : 'N/A'}%, scoreRaw=${confScoreRaw}, penalty=${invalidPenalty}, tradeScore=${tradeScore}, scoreParts=${sigPts}/${rsiPts}/${divPts}/${volPts}/${analystPts}/${structurePts}/${macdPts}/${vwapPts}/${bbPts}/${stochPts}/${obvPts}` : '';
+                    blocks.push(outputParts.filter(Boolean).join('\n') + debugTxt);
                 });
                 if (!hasUsable && requestedSyms.length) {
                     return `ยังไม่พบข้อมูลที่ใช้วิเคราะห์สำหรับ ${requestedSyms.map(s => `**${s}**`).join(', ')} ในตอนนี้\n\nลองเพิ่มหุ้นตัวนั้นใน watchlist หรือเช็ค symbol ให้ตรง (เช่น O, NVDA, TSLA) แล้วลองอีกครั้ง`;
@@ -9288,7 +9599,7 @@ ${_clip(contextSections, 2600)}`;
                                 "Content-Type":"application/json",
                                 "Authorization":`Bearer ${cleanKey}`,
                                 "HTTP-Referer": location.origin,
-                                "X-Title": "PS Smart Finance"
+                                "X-Title": "PSLink"
                             },
                             signal: reqCtrl.signal,
                             body: JSON.stringify({ model, messages:msgs, max_tokens:1100, temperature:0.24 })
@@ -9337,7 +9648,7 @@ ${_clip(contextSections, 2600)}`;
                                     'Content-Type': 'application/json',
                                     'Authorization': `Bearer ${cleanKey}`,
                                     'HTTP-Referer': location.origin,
-                                    'X-Title': 'PS Smart Finance'
+                                    'X-Title': 'PSLink'
                                 },
                                 signal: ctrl.signal,
                                 body: JSON.stringify({ model, messages: quickMsgs, max_tokens: 700, temperature: 0.2 })
@@ -9368,7 +9679,7 @@ ${_clip(contextSections, 2600)}`;
                                     'Content-Type':'application/json',
                                     'Authorization':`Bearer ${cleanKey}`,
                                     'HTTP-Referer': location.origin,
-                                    'X-Title': 'PS Smart Finance'
+                                    'X-Title': 'PSLink'
                                 },
                                 signal: ctrl.signal,
                                 body: JSON.stringify({ model, messages:contMsgs, max_tokens:1000, temperature:0.28 })
@@ -10103,13 +10414,13 @@ ${_clip(contextSections, 2600)}`;
 
         // Tab title and favicon
         function _psSetTabTitle(sym, price, changePct) {
-            if (!sym) { document.title = "PS Smart Finance"; _psSetFavicon(null); return; }
+            if (!sym) { document.title = "PSLink"; _psSetFavicon(null); return; }
             var isUp  = (changePct || 0) >= 0;
             var arrow = isUp ? "\u25b2" : "\u25bc";
             var sign  = isUp ? "+" : "";
             var pStr  = price      != null ? price.toFixed(2)               : "-";
             var cStr  = changePct  != null ? sign + changePct.toFixed(2) + "%" : "";
-            document.title = sym + " " + pStr + " " + arrow + cStr + " \u00b7 PS Finance";
+            document.title = sym + " " + pStr + " " + arrow + cStr + " \u00b7 PSLink";
             _psSetFavicon(isUp);
         }
         function _psSetFavicon(isUp) {
@@ -10663,7 +10974,7 @@ ${_clip(contextSections, 2600)}`;
         function getAlpacaSecret() { return localStorage.getItem('ps_alpaca_secret') || ''; }
 
         function switchSettingsTab(tab) {
-            ['api','sync','theme'].forEach(t => {
+            ['api','sync','theme','display'].forEach(t => {
                 const panel = document.getElementById('stab-' + t);
                 const btn   = document.getElementById('stab-btn-' + t);
                 if (!panel || !btn) return;
@@ -10673,7 +10984,28 @@ ${_clip(contextSections, 2600)}`;
                 btn.style.color = active ? 'var(--accent)' : 'var(--text-dim)';
             });
             if (tab === 'theme') _renderThemeGrids();
+            if (tab === 'display') _updateDisplayModeButtons();
             localStorage.setItem('ps_settings_tab', tab); // remember last tab
+        }
+
+        function getDisplayMode() { return localStorage.getItem('ps_display_mode') || 'beginner'; }
+        function setDisplayMode(mode) {
+            if (mode !== 'beginner' && mode !== 'trader') return;
+            localStorage.setItem('ps_display_mode', mode);
+            _updateDisplayModeButtons();
+        }
+        function _updateDisplayModeButtons() {
+            const m = getDisplayMode();
+            const bBeg = document.getElementById('disp-btn-beginner');
+            const bTra = document.getElementById('disp-btn-trader');
+            if (bBeg) {
+                bBeg.style.borderColor = m === 'beginner' ? 'var(--accent)' : 'var(--border)';
+                bBeg.style.background = m === 'beginner' ? 'rgba(16,185,129,0.12)' : 'var(--bg-card2)';
+            }
+            if (bTra) {
+                bTra.style.borderColor = m === 'trader' ? 'var(--accent)' : 'var(--border)';
+                bTra.style.background = m === 'trader' ? 'rgba(16,185,129,0.12)' : 'var(--bg-card2)';
+            }
         }
 
         function openSettingsModal() {
@@ -10692,6 +11024,7 @@ ${_clip(contextSections, 2600)}`;
             fill('s-openrouter-input', 'ps_openrouter_key');
             fill('s-gist-input',       'ps_gist_token');
             updateSettingsBadges();
+            _updateDisplayModeButtons();
         }
 
         function closeSettingsModal() {
@@ -11975,6 +12308,9 @@ ${_clip(contextSections, 2600)}`;
                 <button id="stab-btn-theme" onclick="switchSettingsTab('theme')"
                     class="flex-1 py-2.5 text-[10px] font-black uppercase tracking-widest transition-all"
                     style="border-bottom:2px solid transparent;color:var(--text-dim)">🎨 Theme</button>
+                <button id="stab-btn-display" onclick="switchSettingsTab('display')"
+                    class="flex-1 py-2.5 text-[10px] font-black uppercase tracking-widest transition-all"
+                    style="border-bottom:2px solid transparent;color:var(--text-dim)">📺 โหมดแสดงผล</button>
             </div>
 
             <!-- Tab: API Keys -->
@@ -12084,6 +12420,24 @@ ${_clip(contextSections, 2600)}`;
                 <div class="grid grid-cols-3 gap-2 mb-4" id="dark-theme-grid"></div>
                 <p class="text-[9px] font-black uppercase tracking-widest mb-2.5" style="color:var(--text-dim)">☀️ Light</p>
                 <div class="grid grid-cols-3 gap-2" id="light-theme-grid"></div>
+            </div>
+
+            <!-- Tab: Display Mode -->
+            <div id="stab-display" class="overflow-y-auto flex-1 px-5 py-4 hidden">
+                <p class="text-[9px] font-black uppercase tracking-widest mb-2.5" style="color:var(--text-dim)">โหมดการแสดงผล AI</p>
+                <div class="flex gap-2">
+                    <button id="disp-btn-beginner" onclick="setDisplayMode('beginner')"
+                        class="flex-1 py-2.5 px-3 rounded-lg text-[11px] font-bold transition-all"
+                        style="background:var(--bg-card2);border:2px solid var(--border);color:var(--text-primary)">
+                        🟢 มือใหม่ (Beginner)
+                    </button>
+                    <button id="disp-btn-trader" onclick="setDisplayMode('trader')"
+                        class="flex-1 py-2.5 px-3 rounded-lg text-[11px] font-bold transition-all"
+                        style="background:var(--bg-card2);border:2px solid var(--border);color:var(--text-primary)">
+                        🔵 เทรดเดอร์ (Trader)
+                    </button>
+                </div>
+                <p class="text-[9px] mt-2" style="color:var(--text-dim)">มือใหม่: สรุปสั้น + ภาษาไทย | เทรดเดอร์: Technical เต็ม + ศัพท์อังกฤษ</p>
             </div>
 
             <!-- Footer -->
