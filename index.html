@@ -1871,7 +1871,7 @@
             /* 2. Main content padding */
             main {
                 padding-top: calc(52px + var(--sat)) !important;
-                padding-bottom: calc(49px + var(--sab) + 8px) !important;
+                padding-bottom: calc(56px + var(--sab) + 8px) !important;
                 padding-left: 12px !important;
                 padding-right: 12px !important;
             }
@@ -1939,12 +1939,16 @@
                 margin-right: 0 !important;
             }
 
-            /* 10. AI Analyst + Toast: ขยับขึ้นเหนือ bottom nav */
+            /* 10. AI Analyst FAB + Toast: ขยับขึ้นเหนือ bottom nav */
             #ai-analyst-btn-wrap, [id*="ai-analyst"] {
-                bottom: calc(49px + var(--sab) + 12px) !important;
+                bottom: calc(56px + var(--sab) + 12px) !important;
+            }
+            /* AI FAB — ขยับขึ้นเหนือ bottom nav */
+            #ai-fab, #ai-popup {
+                bottom: calc(56px + var(--sab) + 12px) !important;
             }
             #wl-toast-wrap {
-                bottom: calc(49px + var(--sab) + 8px) !important;
+                bottom: calc(56px + var(--sab) + 8px) !important;
                 top: auto !important;
                 right: 12px !important;
                 left: 12px !important;
@@ -2168,42 +2172,42 @@
     <!-- Mobile Bottom Tab Bar (hidden on desktop) -->
     <div id="mobile-bottom-nav" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:50;background:var(--bg-card);border-top:1px solid var(--border);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);">
         <!-- Safe area spacer + tab row -->
-        <div style="display:flex;align-items:stretch;height:49px;">
+        <div style="display:flex;align-items:center;justify-content:center;height:56px;gap:0;width:100%;">
 
             <!-- หน้าหลัก -->
             <button onclick="showTab('dashboard')" id="mob-btn-dash"
-                style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border:none;background:transparent;cursor:pointer;padding:0;-webkit-tap-highlight-color:transparent;min-height:44px;">
-                <div id="mob-pip-dash" style="width:40px;height:28px;border-radius:14px;display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--accent) 15%,transparent);transition:background 0.15s;">
-                    <svg width="18" height="18" fill="none" stroke="var(--accent)" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+                style="width:80px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:none;background:transparent;cursor:pointer;padding:0;-webkit-tap-highlight-color:transparent;min-height:44px;">
+                <div id="mob-pip-dash" style="width:48px;height:32px;border-radius:16px;display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--accent) 15%,transparent);transition:background 0.15s;">
+                    <svg width="22" height="22" fill="none" stroke="var(--accent)" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
                 </div>
-                <span style="font-size:10px;font-weight:700;color:var(--accent);font-family:var(--font-main);line-height:1;">หน้าหลัก</span>
+                <span style="font-size:11px;font-weight:700;color:var(--accent);font-family:var(--font-main);line-height:1;">หน้าหลัก</span>
             </button>
 
             <!-- บันทึก -->
             <button onclick="showTab('edit')" id="mob-btn-edit"
-                style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border:none;background:transparent;cursor:pointer;padding:0;-webkit-tap-highlight-color:transparent;min-height:44px;">
-                <div id="mob-pip-edit" style="width:40px;height:28px;border-radius:14px;display:flex;align-items:center;justify-content:center;background:transparent;transition:background 0.15s;">
-                    <svg width="18" height="18" fill="none" stroke="var(--text-dim)" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                style="width:80px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:none;background:transparent;cursor:pointer;padding:0;-webkit-tap-highlight-color:transparent;min-height:44px;">
+                <div id="mob-pip-edit" style="width:48px;height:32px;border-radius:16px;display:flex;align-items:center;justify-content:center;background:transparent;transition:background 0.15s;">
+                    <svg width="22" height="22" fill="none" stroke="var(--text-dim)" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
                 </div>
-                <span style="font-size:10px;font-weight:600;color:var(--text-dim);font-family:var(--font-main);line-height:1;">บันทึก</span>
+                <span style="font-size:11px;font-weight:600;color:var(--text-dim);font-family:var(--font-main);line-height:1;">บันทึก</span>
             </button>
 
             <!-- ตลาด -->
             <button onclick="showTab('watchlist')" id="mob-btn-watchlist"
-                style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border:none;background:transparent;cursor:pointer;padding:0;-webkit-tap-highlight-color:transparent;min-height:44px;">
-                <div id="mob-pip-watchlist" style="width:40px;height:28px;border-radius:14px;display:flex;align-items:center;justify-content:center;background:transparent;transition:background 0.15s;">
-                    <svg width="18" height="18" fill="none" stroke="var(--text-dim)" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/></svg>
+                style="width:80px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:none;background:transparent;cursor:pointer;padding:0;-webkit-tap-highlight-color:transparent;min-height:44px;">
+                <div id="mob-pip-watchlist" style="width:48px;height:32px;border-radius:16px;display:flex;align-items:center;justify-content:center;background:transparent;transition:background 0.15s;">
+                    <svg width="22" height="22" fill="none" stroke="var(--text-dim)" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/></svg>
                 </div>
-                <span style="font-size:10px;font-weight:600;color:var(--text-dim);font-family:var(--font-main);line-height:1;">ตลาด</span>
+                <span style="font-size:11px;font-weight:600;color:var(--text-dim);font-family:var(--font-main);line-height:1;">ตลาด</span>
             </button>
 
             <!-- ข่าว -->
             <button onclick="showTab('news')" id="mob-btn-news"
-                style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border:none;background:transparent;cursor:pointer;padding:0;-webkit-tap-highlight-color:transparent;min-height:44px;">
-                <div id="mob-pip-news" style="width:40px;height:28px;border-radius:14px;display:flex;align-items:center;justify-content:center;background:transparent;transition:background 0.15s;">
-                    <svg width="18" height="18" fill="none" stroke="var(--text-dim)" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/></svg>
+                style="width:80px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:none;background:transparent;cursor:pointer;padding:0;-webkit-tap-highlight-color:transparent;min-height:44px;">
+                <div id="mob-pip-news" style="width:48px;height:32px;border-radius:16px;display:flex;align-items:center;justify-content:center;background:transparent;transition:background 0.15s;">
+                    <svg width="22" height="22" fill="none" stroke="var(--text-dim)" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/></svg>
                 </div>
-                <span style="font-size:10px;font-weight:600;color:var(--text-dim);font-family:var(--font-main);line-height:1;">ข่าว</span>
+                <span style="font-size:11px;font-weight:600;color:var(--text-dim);font-family:var(--font-main);line-height:1;">ข่าว</span>
             </button>
         </div>
         <!-- iOS home indicator safe area -->
@@ -3674,19 +3678,6 @@
 
         function updateDashboard() {
             const validRecords = records.filter(r => r.payday > 0 || (r.fixed && r.fixed.length > 0) || (r.dynamic && r.dynamic.length > 0));
-
-            // ผู้ใช้เดิม: มีข้อมูลจริงๆ → ข้าม wizard อัตโนมัติ
-            if (localStorage.getItem('ps_wizard_done') !== '1') {
-                const hasRecords = validRecords.length > 0;
-                const hasWatchlist = (() => { try { const w = JSON.parse(localStorage.getItem('ps_watchlist')||'[]'); return w.length > 0; } catch(e){ return false; } })();
-                const hasApiKey = !!(localStorage.getItem('ps_gist_token') ||
-                                     localStorage.getItem('ps_alpaca_key') ||
-                                     localStorage.getItem('ps_fmp_key') ||
-                                     localStorage.getItem('ps_openrouter_key'));
-                if (hasRecords || hasWatchlist || hasApiKey) {
-                    localStorage.setItem('ps_wizard_done', '1');
-                }
-            }
 
             if (validRecords.length === 0) {
                 const emptyEl = document.getElementById('empty-state');
