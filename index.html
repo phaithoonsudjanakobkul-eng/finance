@@ -1504,6 +1504,8 @@
             outline: 2px solid color-mix(in srgb, var(--accent) 60%, white 40%);
             outline-offset: 1px;
         }
+        /* Desktop: ซ่อน mobile card (ใช้ table layout) — !important เพื่อป้องกัน JS inline style override */
+        #watchlist-table .wl-mobile-card { display: none !important; }
         #wl-toast-wrap {
             position: fixed;
             top: 78px;
@@ -1580,13 +1582,34 @@
                 white-space: nowrap;
                 overflow: hidden;
                 text-overflow: ellipsis;
-                max-width: 120px;
+                max-width: 150px;
                 display: block;
             }
         }
         @media (min-width: 769px) {
             #watchlist-table .sym-name-stack .name-sub { display: none; }
         }
+
+        /* Watchlist column distribution — tablet/narrow viewport (769–1024px) */
+        @media (min-width: 769px) and (max-width: 1024px) {
+            #watchlist-table col:nth-child(1)  { width: 28px;  }
+            #watchlist-table col:nth-child(2)  { width: 100px; }
+            #watchlist-table col:nth-child(3)  { width: 100px; }
+            #watchlist-table col:nth-child(4)  { width: 88px;  }
+            #watchlist-table col:nth-child(5)  { width: 100px; }
+            #watchlist-table col:nth-child(6)  { width: 76px;  }
+            #watchlist-table col:nth-child(7)  { width: 76px;  }
+            #watchlist-table col:nth-child(8)  { width: 56px;  }
+            #watchlist-table col:nth-child(9)  { width: 76px;  }
+            #wl-th-analyst .wl-th-desktop { display: none; }
+            #wl-th-analyst .wl-th-mobile  { display: inline; }
+            #watchlist-table thead th { white-space: nowrap; }
+        }
+        @media (min-width: 1025px) {
+            #wl-th-analyst .wl-th-desktop { display: inline; }
+            #wl-th-analyst .wl-th-mobile  { display: none; }
+        }
+        #wl-th-analyst .wl-th-mobile { display: none; }
 
         #tab-dashboard {
             background: #f0f4f8;
@@ -1997,35 +2020,7 @@
                 line-height: 1.4 !important;
             }
 
-            /* ── WATCHLIST MOBILE — styling only, JS handles column show/hide ── */
-            .wl-col-hide { display: none !important; }
-
-            #watchlist-table th,
-            #watchlist-table td { padding: 8px 4px !important; overflow: hidden !important; }
-            #watchlist-table td:first-child,
-            #watchlist-table th:first-child { padding: 8px 2px 8px 6px !important; }
-
-            #watchlist-table td.td-stack > div > img,
-            #watchlist-table td.td-stack > div > div.w-6 { display: none !important; }
-            #watchlist-table td:first-child svg { display: none !important; }
-
-            #watchlist-table .sym-cell { font-size: 12px !important; font-weight: 700 !important; white-space: nowrap !important; }
-            #watchlist-table .name-sub { font-size: 9px !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; max-width: 88px !important; }
-            #watchlist-table .wl-idx { font-size: 9px !important; }
-            #watchlist-table .wl-signal-badge { font-size: 10px !important; white-space: nowrap !important; }
-            #watchlist-table .price-cell { font-size: 12px !important; white-space: nowrap !important; }
-            #watchlist-table .wl-badge-up,
-            #watchlist-table .wl-badge-dn,
-            #watchlist-table .wl-badge-neu { font-size: 10px !important; padding: 2px 4px !important; white-space: nowrap !important; }
-
-            #watchlist-table thead { display: table-header-group !important; }
-            #watchlist-table thead th { font-size: 9px !important; white-space: nowrap !important; }
-
-            #tab-watchlist, #wl-table-panel,
-            #wl-table-panel .glass-card,
-            #wl-table-panel .glass-card > div {
-                overflow-x: hidden !important;
-            }
+            /* Watchlist card layout → ใช้ block แยก @media (max-width: 1024px) ด้านล่าง */
 
             /* ── RECORDS TOOLBAR ──
             #records-toolbar {
@@ -2137,6 +2132,235 @@
 
             /* ── FIX 6: CLOSED badge — เพิ่ม tooltip hint ── */
             #wl-market-status { cursor: default !important; }
+        }
+
+        /* ── Mobile Watchlist: swipe-to-delete + long-press drag ── */
+        #watchlist-table .wl-mobile-card { position: relative !important; overflow: hidden !important; }
+        #watchlist-table .wl-swipe-bg {
+            position: absolute; inset: 0;
+            background: #dc2626;
+            display: flex; align-items: center; justify-content: flex-end;
+            padding-right: 22px; opacity: 0; z-index: 0; pointer-events: none;
+        }
+        #watchlist-table .wl-swipe-bg svg { width: 22px; height: 22px; stroke: #fff; flex-shrink: 0; }
+        #watchlist-table .wl-mob-card-inner { position: relative !important; z-index: 1 !important; background: var(--bg-card2, #111827) !important; will-change: transform; }
+        #watchlist-rows .wl-row.wl-drag-active { opacity: 0.35 !important; }
+        #watchlist-rows .wl-row.wl-drag-over .wl-mobile-card { border-top: 2px solid var(--accent, #3b82f6) !important; }
+        #wl-drag-clone {
+            position: fixed !important; pointer-events: none !important; z-index: 9999 !important;
+            box-shadow: 0 12px 40px rgba(0,0,0,.55) !important;
+            transform: scale(1.025) !important; border-radius: 4px !important; overflow: hidden !important;
+        }
+
+        /* Watchlist Webull card layout — tablet + phone (≤1200px) */
+        @media (max-width: 1200px) {
+            #watchlist-table .wl-mobile-card { display: block !important; }
+            #watchlist-table .wl-row td:not(.wl-mobile-card) { display: none !important; }
+            #watchlist-table thead { display: none !important; }
+            #watchlist-table colgroup,
+            #watchlist-table col { display: none !important; width: 0 !important; }
+            #watchlist-table { display: block !important; width: 100% !important; max-width: 100% !important; min-width: 0 !important; overflow-x: hidden !important; }
+            #watchlist-table tbody { display: block !important; width: 100% !important; min-width: 0 !important; }
+            #watchlist-table .wl-row {
+                display: flex !important; flex-direction: column !important;
+                width: 100% !important;
+                height: auto !important; max-height: none !important;
+                border-bottom: 1px solid var(--border) !important;
+                overflow: visible !important;
+                contain: none !important;
+            }
+            #watchlist-table .wl-row:last-child { margin-bottom: 0 !important; }
+            #watchlist-table .wl-mobile-card {
+                display: block !important; width: 100% !important; max-width: 100% !important;
+                padding: 0 !important; box-sizing: border-box !important;
+                overflow: visible !important;
+                min-height: 80px !important;
+            }
+            /* Webull-style: Logo | Symbol+Name | Sparkline | Price — สัดส่วนสมดุล ไม่แน่น */
+            #watchlist-table .wl-mob-card-inner {
+                display: flex !important;
+                align-items: center !important;
+                gap: 10px !important;
+                padding: 14px 12px !important;
+                min-height: 80px !important;
+                width: 100% !important;
+                min-width: 0 !important;
+                max-width: 100% !important;
+                box-sizing: border-box !important;
+                overflow: visible !important;
+            }
+            #watchlist-table .wl-mob-logo {
+                flex-shrink: 0 !important;
+                width: 44px !important;
+                height: 44px !important;
+                min-height: 44px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                overflow: visible !important;
+                padding: 0 !important;
+            }
+            #watchlist-table .wl-mob-logo img,
+            #watchlist-table .wl-mob-logo > div {
+                width: 44px !important;
+                height: 44px !important;
+                min-width: 44px !important;
+                min-height: 44px !important;
+                object-fit: contain !important;
+                object-position: center !important;
+                border-radius: 50% !important;
+            }
+            #watchlist-table .wl-mob-info {
+                flex: 1 1 0% !important;
+                min-width: 60px !important;
+                overflow: hidden !important;
+                display: flex !important;
+                flex-direction: column !important;
+                gap: 3px !important;
+                justify-content: center !important;
+            }
+            #watchlist-table .wl-mob-sym {
+                font-size: 16px !important;
+                font-weight: 900 !important;
+                color: var(--text-primary) !important;
+                font-family: var(--font-main) !important;
+                letter-spacing: -0.02em !important;
+                line-height: 1.3 !important;
+                white-space: nowrap !important;
+                overflow: hidden !important;
+                text-overflow: ellipsis !important;
+            }
+            #watchlist-table .wl-mob-etf {
+                font-size: 8px !important;
+                font-weight: 800 !important;
+                padding: 1px 4px !important;
+                border-radius: 4px !important;
+                background: rgba(139,92,246,0.12) !important;
+                color: #8b5cf6 !important;
+                margin-left: 4px !important;
+            }
+            #watchlist-table .wl-mob-name {
+                font-size: 11px !important;
+                color: var(--text-dim) !important;
+                white-space: nowrap !important;
+                overflow: hidden !important;
+                text-overflow: ellipsis !important;
+                line-height: 1.35 !important;
+                margin-top: 1px !important;
+            }
+            #watchlist-table .wl-mob-spark {
+                flex-shrink: 0 !important;
+                width: 88px !important;
+                height: 44px !important;
+                min-width: 88px !important;
+                display: block !important;
+                overflow: visible !important;
+            }
+            #watchlist-table .wl-mob-spark svg {
+                display: inline-block !important;
+                overflow: visible !important;
+            }
+            #watchlist-table .wl-mob-pricebox {
+                flex-shrink: 0 !important;
+                min-width: 88px !important;
+                max-width: 98px !important;
+                padding: 8px 10px !important;
+                border-radius: 10px !important;
+                text-align: right !important;
+                transition: background 0.3s !important;
+                display: flex !important;
+                flex-direction: column !important;
+                gap: 2px !important;
+                justify-content: center !important;
+            }
+            #watchlist-table .wl-mob-price {
+                font-size: 15px !important;
+                font-weight: 900 !important;
+                color: #fff !important;
+                font-variant-numeric: tabular-nums !important;
+                letter-spacing: -0.02em !important;
+                line-height: 1.2 !important;
+            }
+            #watchlist-table .wl-mob-chg {
+                font-size: 11px !important;
+                font-weight: 700 !important;
+                color: rgba(255,255,255,0.9) !important;
+                line-height: 1.2 !important;
+            }
+            #tab-watchlist, #wl-table-panel, #wl-table-panel .glass-card, #wl-table-panel .glass-card > div {
+                overflow-x: hidden !important;
+                max-width: 100% !important;
+            }
+            #watchlist-rows {
+                padding-bottom: 120px !important;
+            }
+        }
+
+        /* iPhone / จอแคบ (≤450px) — 1 row แบบ Webull: Logo | Symbol+Name | Sparkline | Price */
+        @media (max-width: 450px) {
+            #tab-watchlist, #wl-table-panel, #wl-table-panel .glass-card,
+            #wl-table-panel .glass-card > div, #watchlist-table {
+                min-width: 0 !important;
+            }
+            #watchlist-table .wl-mob-card-inner {
+                display: grid !important;
+                grid-template-columns: 44px minmax(0, 1fr) 88px 90px !important;
+                grid-template-rows: auto !important;
+                gap: 0 8px !important;
+                padding: 14px 12px !important;
+                min-height: 80px !important;
+                align-items: center !important;
+                overflow: visible !important;
+            }
+            #watchlist-table .wl-mob-logo {
+                grid-column: 1 !important;
+                width: 44px !important;
+                height: 44px !important;
+                min-height: 44px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                overflow: visible !important;
+            }
+            #watchlist-table .wl-mob-logo img,
+            #watchlist-table .wl-mob-logo > div {
+                width: 44px !important;
+                height: 44px !important;
+                min-width: 44px !important;
+                min-height: 44px !important;
+                object-fit: contain !important;
+                object-position: center !important;
+            }
+            #watchlist-table .wl-mob-info {
+                grid-column: 2 !important;
+                min-width: 0 !important;
+            }
+            #watchlist-table .wl-mob-spark {
+                grid-column: 3 !important;
+                width: 88px !important;
+                height: 44px !important;
+                min-height: 44px !important;
+                display: block !important;
+                overflow: visible !important;
+            }
+            #watchlist-table .wl-mob-spark svg {
+                display: inline-block !important;
+                overflow: visible !important;
+            }
+            #watchlist-table .wl-mob-spark .wl-sparkline-placeholder,
+            #watchlist-table .wl-mob-spark span {
+                font-size: 9px !important;
+                color: var(--text-dim) !important;
+            }
+            #watchlist-table .wl-mob-pricebox {
+                grid-column: 4 !important;
+                min-width: 88px !important;
+                max-width: 98px !important;
+                padding: 8px 10px !important;
+            }
+            #watchlist-table .wl-mob-price { font-size: 15px !important; }
+            #watchlist-table .wl-mob-chg { font-size: 11px !important; }
+            main { padding-left: 10px !important; padding-right: 10px !important; }
         }
 
     </style>
@@ -2916,7 +3140,7 @@
                             </th>
                             <th id="wl-th-name" class="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-widest" style="color:var(--text-dim)">NAME</th>
                             <th class="px-2 py-2 text-center text-[10px] font-semibold uppercase tracking-widest" style="color:var(--text-dim)">SIGNAL</th>
-                            <th class="px-2 py-2 text-center text-[10px] font-semibold uppercase tracking-widest" style="color:var(--text-dim)">ANALYST RATING</th>
+                            <th id="wl-th-analyst" class="px-2 py-2 text-center text-[10px] font-semibold uppercase tracking-widest" style="color:var(--text-dim)"><span class="wl-th-desktop">ANALYST RATING</span><span class="wl-th-mobile">RATING</span></th>
                             <th class="px-2 py-2 text-center text-[10px] font-semibold uppercase tracking-widest" style="color:var(--text-dim)">Movement</th>
                             <th id="wl-th-price" class="px-3 py-2 text-right text-[10px] font-semibold uppercase tracking-widest" style="color:var(--text-dim)">
                                 <button class="wl-sort-btn" onclick="sortWatchlist('price')" id="wl-sort-price">LAST<span class="wl-sort-icon"></span></button>
@@ -3413,7 +3637,7 @@
                 });
 
                 // Apply mobile column layout after rows are in DOM
-                if (window.innerWidth <= 768) {
+                if (window.innerWidth <= 1200) {
                     requestAnimationFrame(applyMobileWatchlistCols);
                 }
 
@@ -4812,7 +5036,7 @@
                 prices.push(Number(p.toFixed(2)));
             }
 
-            wlSparklineCache[symbol] = { prices };
+            wlSparklineCache[symbol] = { prices, base: baseP };
             updateSparklineCell(symbol);
             scheduleSaveSparklineCache();
         }
@@ -4834,6 +5058,16 @@
             if (arr.length > 180) arr.splice(0, arr.length - 180);
             entry.ts = Date.now();
             updateSparklineCell(symbol);
+        }
+        function renderSparklinePlaceholderSVG(w, h, isUp) {
+            w = w || 88; h = h || 44;
+            // ใช้สีตามทิศทาง (เขียว/แดง) ถ้ามีข้อมูล หรือสีกลางถ้ายังไม่มี
+            const color = isUp != null ? (isUp ? 'var(--wl-up)' : 'var(--wl-dn)') : 'var(--text-dim)';
+            const opacity = isUp != null ? '0.40' : '0.28';
+            // เส้น dashed เอียงตามทิศทาง — มองเห็นได้แม้ไม่มีข้อมูล (Webull-style)
+            const y1 = isUp != null ? (isUp ? h * 0.62 : h * 0.38) : h * 0.5;
+            const y2 = isUp != null ? (isUp ? h * 0.38 : h * 0.62) : h * 0.5;
+            return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" class="wl-sparkline" style="width:${w}px;height:${h}px;display:inline-block;overflow:visible;opacity:${opacity}"><line x1="3" y1="${y1.toFixed(1)}" x2="${w-3}" y2="${y2.toFixed(1)}" style="stroke:${color}" stroke-width="1.5" stroke-dasharray="5 3" stroke-linecap="round"/></svg>`;
         }
         function renderSparklineSVG(prices, isUp, w, h, basePrice) {
             if (!prices || prices.length < 2) return '';
@@ -4858,35 +5092,52 @@
             }).join(' ');
             const lineColor = isUp ? 'var(--wl-up)' : 'var(--wl-dn)';
             const areaPts = `${pad},${h - pad} ${pts} ${w - pad},${h - pad}`;
-            return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" class="wl-sparkline"><polygon points="${areaPts}" fill="${lineColor}" opacity="0.06"/><polyline fill="none" stroke="${lineColor}" stroke-width="1.0" stroke-linecap="round" stroke-linejoin="round" points="${pts}"/></svg>`;
+            return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" class="wl-sparkline" style="width:${w}px;height:${h}px;display:inline-block;overflow:visible"><polygon points="${areaPts}" style="fill:${lineColor};opacity:0.22"/><polyline points="${pts}" style="fill:none;stroke:${lineColor};stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round"/></svg>`;
         }
         function updateSparklineCell(symbol) {
             const el = document.getElementById('wl-sparkline-' + symbol);
-            if (!el) return;
+            const mobEl = document.getElementById('wl-mob-spark-' + symbol);
             const entry  = wlSparklineCache[symbol];
-            if (!entry) { el.innerHTML = '<span class="wl-sparkline-placeholder" style="font-size:9px;color:var(--text-dim)">—</span>'; return; }
+            const placeholder = '<span class="wl-sparkline-placeholder" style="font-size:9px;color:var(--text-dim)">—</span>';
+            const loading = '<span class="wl-sparkline-placeholder" style="font-size:9px;color:var(--text-dim)">…</span>';
+            // คำนวณทิศทางจากข้อมูลที่มีก่อน เพื่อ placeholder มีสีที่ถูกต้อง
+            const _prices = entry?.prices;
+            const _d = wlDataCache[symbol] || {};
+            const _base = entry?.base ?? _d?.pc ?? _prices?.[0];
+            const _last = _prices?.length ? _prices[_prices.length - 1] : null;
+            const _prevClose = _d?._prevDailyC ?? _d?.pc ?? _base;
+            const _isUp = (_last != null && _prevClose != null) ? (_last >= _prevClose) : null;
+            const mobPlaceholder = renderSparklinePlaceholderSVG(88, 44, _isUp);
+            if (!entry) {
+                if (el) el.innerHTML = placeholder;
+                if (mobEl) mobEl.innerHTML = mobPlaceholder;
+                return;
+            }
             let prices = entry.prices;
             if (!prices || prices.length === 0) {
-                el.innerHTML = '<span class="wl-sparkline-placeholder" style="font-size:9px;color:var(--text-dim)">—</span>';
+                if (el) el.innerHTML = placeholder;
+                if (mobEl) mobEl.innerHTML = mobPlaceholder;
                 return;
             }
             const d = wlDataCache[symbol] || {};
             const base = (entry?.base != null ? entry.base : (d?.pc ?? prices[0]));
-            if (!sparklineQuality(prices, base)) {
-                el.innerHTML = '<span class="wl-sparkline-placeholder" style="font-size:9px;color:var(--text-dim)">…</span>';
+            const qualityOk = sparklineQuality(prices, base);
+            // Mobile: แสดง sparkline เมื่อมีข้อมูลเพียงพอ (≥12 จุด) แม้ quality ไม่ผ่าน — ตาม Webull
+            const mobOk = mobEl && prices.length >= SPARKLINE_MIN_POINTS;
+            if (!qualityOk && !mobOk) {
+                if (el) el.innerHTML = loading;
+                if (mobEl) mobEl.innerHTML = mobPlaceholder;
                 requestSparklineRefresh(symbol, true);
                 return;
             }
-            if (prices.length === 1) {
-                // Duplicate single point so renderer can draw a flat line
-                prices = [prices[0], prices[0]];
-            }
+            if (prices.length === 1) prices = [prices[0], prices[0]];
             const last = prices[prices.length - 1];
             const prevClose = d?._prevDailyC ?? d?.pc ?? base ?? prices[0];
-            const isUp = (last != null && prevClose != null) ? (last >= prevClose) : true; // match Webull day-color behavior
-            el.innerHTML = prices && prices.length >= 2
-                ? renderSparklineSVG(prices, isUp, 72, 16, base)
-                : '<span class="wl-sparkline-placeholder" style="font-size:9px;color:var(--text-dim)">—</span>';
+            const isUp = (last != null && prevClose != null) ? (last >= prevClose) : true;
+            const svgDesktop = (qualityOk && prices.length >= 2) ? renderSparklineSVG(prices, isUp, 72, 16, base) : placeholder;
+            const svgMobile  = (qualityOk || mobOk) && prices.length >= 2 ? renderSparklineSVG(prices, isUp, 88, 44, base) : mobPlaceholder;
+            if (el) el.innerHTML = svgDesktop;
+            if (mobEl) mobEl.innerHTML = svgMobile;
         }
 
         function showAddTickerInput() {
@@ -5314,6 +5565,38 @@
             const signal = getWatchlistSignal(symbol, d);
             const analyst = getAnalystRating(d);
 
+            // Webull-style mobile card (shown only on mobile via CSS)
+            const priceBoxBg = price === null ? 'var(--bg-card2)' : isUp ? 'var(--wl-up)' : 'var(--wl-dn)';
+            const logoLarge = logo
+                ? `<img src="${logo}" loading="eager" class="rounded-full bg-white" style="width:44px;height:44px;border:1px solid var(--border);flex-shrink:0;object-fit:contain;object-position:center" onerror="this.style.display='none'">`
+                : `<div style="width:44px;height:44px;border-radius:50%;background:var(--bg-card2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:11px;font-weight:900;color:var(--text-dim)">${symbol.slice(0,2)}</span></div>`;
+            if (d && !wlSparklineCache[symbol]?.prices?.length && (d?.pc != null || d?.c != null || d?.o != null)) {
+                seedSparklineFromOHLC(symbol, d, price ?? d?.c ?? null);
+            }
+            const sparkBase = wlSparklineCache[symbol]?.base ?? d?.pc ?? wlSparklineCache[symbol]?.prices?.[0];
+            const sparklineMobile = (d && wlSparklineCache[symbol]?.prices?.length >= 2 && sparklineQuality(wlSparklineCache[symbol].prices, sparkBase))
+                ? renderSparklineSVG(wlSparklineCache[symbol].prices, isUp, 88, 44, (wlSparklineCache[symbol]?.base ?? d?.pc ?? wlSparklineCache[symbol]?.prices?.[0]))
+                : (d && wlSparklineCache[symbol]?.prices?.length >= SPARKLINE_MIN_POINTS)
+                    ? renderSparklineSVG(wlSparklineCache[symbol].prices, isUp, 88, 44, sparkBase)
+                    : renderSparklinePlaceholderSVG(88, 44, isUp);
+            const chgLabel = extPrice !== null && extIsAH ? 'หลัง: ' : '';
+            const chgVal = changePct !== null ? (isUp?'+':'')+changePct.toFixed(2)+'%' : '—';
+            const mobileCard = `<td id="wl-mob-card-${symbol}" class="wl-mobile-card" colspan="22" style="padding:0;border-bottom:1px solid var(--border)">
+                <div class="wl-swipe-bg"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg></div>
+                <div class="wl-mob-card-inner" onclick="_qcFromScanner=false;openQuickChart('${symbol}')">
+                    <div class="wl-mob-logo">${logoLarge}</div>
+                    <div class="wl-mob-info">
+                        <div class="wl-mob-sym">${symbol}${type === 'ETF' ? `<span class="wl-mob-etf">ETF</span>` : ''}</div>
+                        <div class="wl-mob-name">${name || ''}</div>
+                    </div>
+                    <div id="wl-mob-spark-${symbol}" class="wl-mob-spark">${sparklineMobile}</div>
+                    <div id="wl-mob-price-${symbol}" class="wl-mob-pricebox" style="background:${priceBoxBg}">
+                        <div class="wl-mob-price">${price !== null ? '$'+fmt(price) : '—'}</div>
+                        <div id="wl-mob-chg-${symbol}" class="wl-mob-chg">${chgLabel}${chgVal}</div>
+                    </div>
+                </div>
+            </td>`;
+
             const html = `
                 <tr id="wl-row-${symbol}" draggable="true" ${isLoading ? 'class="is-skeleton"' : ''}
                     ondragstart="onDragStart(event,'${symbol}')"
@@ -5374,6 +5657,7 @@
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                         </button>
                     </td>
+                    ${mobileCard}
                 </tr>`;
 
             if (existing) {
@@ -5413,7 +5697,7 @@
                 wlDataCache[symbol]._cells = _row.querySelectorAll('td');
             }
             // Re-apply mobile column layout after new row inserted
-            if (window.innerWidth <= 768) {
+            if (window.innerWidth <= 1200) {
                 requestAnimationFrame(applyMobileWatchlistCols);
             }
         }
@@ -5455,6 +5739,157 @@
                 }
             });
         }
+
+        // ── Mobile Watchlist Touch: Long-press drag-to-reorder + Swipe-left-to-delete ──
+        (function() {
+            const LONG_PRESS_MS = 450;
+            const SWIPE_TRIGGER = 72;  // px to confirm delete
+            const MOVE_CANCEL   = 8;   // px movement cancels long-press
+
+            let _state = 'idle'; // 'idle'|'pending'|'dragging'|'swiping'
+            let _sx = 0, _sy = 0, _timer = null;
+            let _dragSym = null, _swipeSym = null;
+            let _swipeEl = null, _dragClone = null;
+            let _dragOffY = 0, _swipeDx = 0;
+
+            function _inner(el) {
+                while (el && el !== document.body) {
+                    if (el.classList && el.classList.contains('wl-mob-card-inner')) return el;
+                    el = el.parentElement;
+                }
+            }
+            function _sym(el) {
+                while (el && el !== document.body) {
+                    if (el.id && el.id.startsWith('wl-row-')) return el.id.slice(7);
+                    el = el.parentElement;
+                }
+            }
+            function _rowAtY(y) {
+                let best = null, bestD = Infinity;
+                document.querySelectorAll('#watchlist-rows .wl-row').forEach(function(r) {
+                    const rc = r.getBoundingClientRect();
+                    const d  = Math.abs(y - (rc.top + rc.height / 2));
+                    if (d < bestD) { bestD = d; best = r; }
+                });
+                return best;
+            }
+            function _clearOver() {
+                document.querySelectorAll('#watchlist-rows .wl-row.wl-drag-over').forEach(function(r) { r.classList.remove('wl-drag-over'); });
+            }
+            function _doReorder(src, tgt) {
+                const si = watchlist.indexOf(src), ti = watchlist.indexOf(tgt);
+                if (si < 0 || ti < 0 || si === ti) return;
+                watchlist.splice(si, 1); watchlist.splice(ti, 0, src);
+                saveWatchlist();
+                const tbody = document.getElementById('watchlist-rows');
+                const sr    = document.getElementById('wl-row-' + src);
+                const tr    = document.getElementById('wl-row-' + tgt);
+                if (tbody && sr && tr) { if (si > ti) tbody.insertBefore(sr, tr); else tbody.insertBefore(sr, tr.nextSibling); }
+                watchlist.forEach(function(s, i) {
+                    const r = document.getElementById('wl-row-' + s);
+                    if (r) { const n = r.querySelector('.wl-idx'); if (n) n.textContent = i + 1; }
+                });
+            }
+            function _reset() {
+                _state = 'idle'; _swipeEl = null; _swipeSym = null; _dragSym = null; _dragClone = null; _swipeDx = 0;
+            }
+
+            document.addEventListener('touchstart', function(e) {
+                if (window.innerWidth > 1200) return;
+                const inner = _inner(e.target);
+                if (!inner) return;
+                const sym = _sym(inner);
+                if (!sym) return;
+                const t  = e.touches[0];
+                _sx = t.clientX; _sy = t.clientY;
+                _state = 'pending'; _swipeEl = inner; _swipeSym = sym; _swipeDx = 0;
+                _timer = setTimeout(function() {
+                    if (_state !== 'pending') return;
+                    _state = 'dragging'; _dragSym = sym;
+                    if (navigator.vibrate) navigator.vibrate(28);
+                    const rc = inner.getBoundingClientRect();
+                    _dragOffY = _sy - rc.top;
+                    const clone = inner.cloneNode(true);
+                    clone.id = 'wl-drag-clone';
+                    clone.style.cssText = 'position:fixed;left:' + rc.left + 'px;top:' + rc.top + 'px;width:' + rc.width + 'px;height:' + rc.height + 'px;pointer-events:none;z-index:9999;opacity:.94;';
+                    document.body.appendChild(clone);
+                    _dragClone = clone;
+                    const row = document.getElementById('wl-row-' + sym);
+                    if (row) row.classList.add('wl-drag-active');
+                }, LONG_PRESS_MS);
+            }, { passive: true });
+
+            document.addEventListener('touchmove', function(e) {
+                if (window.innerWidth > 1200 || _state === 'idle') return;
+                const t = e.touches[0];
+                const dx = t.clientX - _sx, dy = t.clientY - _sy;
+                const adx = Math.abs(dx), ady = Math.abs(dy);
+
+                if (_state === 'pending') {
+                    if (adx > MOVE_CANCEL || ady > MOVE_CANCEL) {
+                        clearTimeout(_timer); _timer = null;
+                        if (adx > ady && adx > 10) { _state = 'swiping'; e.preventDefault(); }
+                        else { _reset(); }
+                    }
+                    return;
+                }
+                if (_state === 'swiping') {
+                    e.preventDefault();
+                    _swipeDx = dx;
+                    const clamp = Math.max(-240, Math.min(0, dx));
+                    if (_swipeEl) _swipeEl.style.transform = 'translateX(' + clamp + 'px)';
+                    const bg = _swipeEl && _swipeEl.previousElementSibling;
+                    if (bg && bg.classList.contains('wl-swipe-bg')) bg.style.opacity = Math.min(1, Math.abs(clamp) / SWIPE_TRIGGER) + '';
+                    return;
+                }
+                if (_state === 'dragging') {
+                    e.preventDefault();
+                    if (_dragClone) _dragClone.style.top = (t.clientY - _dragOffY) + 'px';
+                    _clearOver();
+                    const tgt = _rowAtY(t.clientY);
+                    if (tgt && tgt.id !== 'wl-row-' + _dragSym) tgt.classList.add('wl-drag-over');
+                }
+            }, { passive: false });
+
+            document.addEventListener('touchend', function(e) {
+                if (window.innerWidth > 1200) return;
+                clearTimeout(_timer); _timer = null;
+                const t = e.changedTouches[0];
+
+                if (_state === 'swiping') {
+                    if (Math.abs(_swipeDx) >= SWIPE_TRIGGER && _swipeSym) {
+                        if (_swipeEl) { _swipeEl.style.transition = 'transform .18s ease'; _swipeEl.style.transform = 'translateX(-110%)'; }
+                        const sym = _swipeSym;
+                        setTimeout(function() { removeTicker(sym); }, 190);
+                    } else {
+                        if (_swipeEl) {
+                            _swipeEl.style.transition = 'transform .22s ease';
+                            _swipeEl.style.transform  = '';
+                            setTimeout(function() { if (_swipeEl) _swipeEl.style.transition = ''; }, 230);
+                        }
+                        const bg = _swipeEl && _swipeEl.previousElementSibling;
+                        if (bg && bg.classList.contains('wl-swipe-bg')) { bg.style.transition = 'opacity .22s'; bg.style.opacity = '0'; setTimeout(function() { if(bg) bg.style.transition = ''; }, 230); }
+                    }
+                } else if (_state === 'dragging') {
+                    _clearOver();
+                    if (_dragClone) { _dragClone.remove(); }
+                    const row = _dragSym && document.getElementById('wl-row-' + _dragSym);
+                    if (row) row.classList.remove('wl-drag-active');
+                    const tgtRow = _rowAtY(t.clientY);
+                    if (tgtRow && _dragSym) { const ts = tgtRow.id.slice(7); if (ts !== _dragSym) _doReorder(_dragSym, ts); }
+                }
+                _reset();
+            });
+
+            document.addEventListener('touchcancel', function() {
+                clearTimeout(_timer); _timer = null; _clearOver();
+                if (_dragClone) { _dragClone.remove(); }
+                if (_swipeEl) { _swipeEl.style.transition = 'transform .15s'; _swipeEl.style.transform = ''; setTimeout(function() { if (_swipeEl) _swipeEl.style.transition = ''; }, 160); }
+                const row = _dragSym && document.getElementById('wl-row-' + _dragSym);
+                if (row) row.classList.remove('wl-drag-active');
+                _reset();
+            });
+        })();
 
         // Permanent cache for profile+metric — refresh after 24h
         const profileCache = {};
@@ -6372,6 +6807,19 @@
             if (cells[12]) { setClass(cells[12], 'wl-col-hide wl-up'); setText(cells[12], high !== null ? '$' + fmt(high) : '—'); }
             if (cells[13]) { setClass(cells[13], 'wl-col-hide wl-dn'); setText(cells[13], low  !== null ? '$' + fmt(low)  : '—'); }
 
+            // Update mobile card price/chg (visible on ≤1200px)
+            const mobPriceBox = document.getElementById('wl-mob-price-' + symbol);
+            const mobChgEl = document.getElementById('wl-mob-chg-' + symbol);
+            if (mobPriceBox && mobChgEl) {
+                const priceBoxBg = price === null ? 'var(--bg-card2)' : isUp ? 'var(--wl-up)' : 'var(--wl-dn)';
+                mobPriceBox.style.background = priceBoxBg;
+                const priceInner = mobPriceBox.querySelector('.wl-mob-price');
+                if (priceInner) priceInner.textContent = price !== null ? '$' + fmt(price) : '—';
+                const chgLabel = extIsAH ? 'หลัง: ' : '';
+                const chgTxt = changePct !== null ? (isUp?'+':'')+changePct.toFixed(2)+'%' : '—';
+                mobChgEl.textContent = chgLabel + chgTxt;
+            }
+
             const sigEl = document.getElementById('wl-signal-' + symbol);
             const rateEl = document.getElementById('wl-rating-' + symbol);
             const sigNow = (sigEl || rateEl) ? getWatchlistSignal(symbol, data) : null;
@@ -6390,10 +6838,10 @@
                 const tip = 'Analyst rating (API)';
                 if (rateEl.title !== tip) rateEl.title = tip;
             }
-            // Seed Movement sparkline from OHLC once per symbol, จากนั้นให้ tick สดมาเติม
+            // Seed Movement sparkline from OHLC once per symbol (แสดงทันทีแบบ Webull)
             const hasSpark = wlSparklineCache[symbol] && Array.isArray(wlSparklineCache[symbol].prices) && wlSparklineCache[symbol].prices.length >= 2;
             const canUseRealBars = hasRealSparkSource();
-            if (!hasSpark && !canUseRealBars && (price != null || prevClose != null || open != null || high != null || low != null)) {
+            if (!hasSpark && (price != null || prevClose != null || open != null || high != null || low != null)) {
                 seedSparklineFromOHLC(symbol, data, price);
             } else if (hasSpark && price != null) {
                 pushSparklinePrice(symbol, price);
@@ -11145,15 +11593,23 @@ ${_clip(contextSections, 2600)}`;
             document.title = sym + " " + pStr + " " + arrow + cStr + " \u00b7 PSLink";
             _psSetFavicon(isUp);
         }
+        // Cache original PSLink favicon href so we can restore it after closing a stock chart
+        var _psFaviconOriginal = (document.getElementById("ps-favicon") || {}).href || "";
         function _psSetFavicon(isUp) {
-            var col = (isUp === null || isUp) ? "%2310b981" : "%23e11d48";
+            var link = document.getElementById("ps-favicon");
+            if (!link) return;
+            if (isUp === null) {
+                // Restore original orbit/PSLink favicon
+                if (_psFaviconOriginal) link.href = _psFaviconOriginal;
+                return;
+            }
+            var col = isUp ? "%2310b981" : "%23e11d48";
             var s = "%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E"
                   + "%3Crect width=%2732%27 height=%2732%27 rx=%278%27 fill=%27%230f1318%27/%3E"
                   + "%3Cpolyline points=%274,24 10,16 15,20 21,10 28,14%27 fill=%27none%27 stroke=%27" + col + "%27 stroke-width=%272.5%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27/%3E"
                   + "%3Ccircle cx=%2728%27 cy=%2714%27 r=%272.5%27 fill=%27" + col + "%27/%3E"
                   + "%3C/svg%3E";
-            var link = document.getElementById("ps-favicon");
-            if (link) link.href = "data:image/svg+xml," + s;
+            link.href = "data:image/svg+xml," + s;
         }
         function _applyTheme(id) {
             const t = _THEMES[id];
@@ -11967,75 +12423,48 @@ ${_clip(contextSections, 2600)}`;
             scheduleAutoSave(true); // immediate — month cleared
         }
 
-        // Mobile watchlist column layout — JS inject
+        // Mobile watchlist — show Webull-style cards, hide desktop table cells
         function applyMobileWatchlistCols() {
-            if (window.innerWidth > 768) return;
+            if (window.innerWidth > 1200) return;
             const tbl = document.getElementById('watchlist-table');
             if (!tbl) return;
 
-            // 0-based index → px width (0 = hide), Symbol(1) gets remaining space
-            const WIDTHS = { 0:26, 1:null, 2:0, 3:0, 4:80, 5:0, 6:72, 7:0, 8:60 };
-
-            // Kill overflow-x:auto on scroll wrapper only — don't change maxWidth
+            // Kill overflow-x:auto on all ancestors up to wl-table-panel
             let el = tbl.parentElement;
             while (el && el.id !== 'wl-table-panel') {
-                const ov = getComputedStyle(el).overflowX;
-                if (ov === 'auto' || ov === 'scroll') {
-                    el.style.overflowX = 'hidden';
-                }
+                el.style.overflowX = 'hidden';
+                el.style.maxWidth  = '100%';
                 el = el.parentElement;
             }
 
-            // Use auto layout so browser respects td widths, not col widths
-            tbl.style.tableLayout = 'auto';
+            // Force table to fit container
+            tbl.style.tableLayout = 'fixed';
             tbl.style.width       = '100%';
             tbl.style.maxWidth    = '100%';
-            tbl.style.minWidth    = 'unset';
 
-            // Reset all colgroup cols to auto
-            tbl.querySelectorAll('colgroup col').forEach(col => {
-                col.style.width = 'auto';
-            });
-
-            // Process all rows — set width directly on each cell
-            tbl.querySelectorAll('tr').forEach(row => {
-                const cells = Array.from(row.children);
-                const total = cells.length;
-                cells.forEach((cell, i) => {
-                    const isLast = i === total - 1;
-                    const w = WIDTHS[i];
-                    const hide = (w === 0) || isLast || cell.classList.contains('wl-col-hide');
-                    if (hide) {
-                        cell.style.display  = 'none';
-                        cell.style.width    = '0px';
-                        cell.style.padding  = '0';
-                    } else if (w === null) {
-                        // flexible column — fills remaining space
-                        cell.style.display  = '';
-                        cell.style.width    = 'auto';
-                        cell.style.minWidth = '80px';
-                        cell.style.maxWidth = 'none';
-                        cell.style.overflow = 'hidden';
-                        cell.style.whiteSpace = 'nowrap';
-                    } else {
-                        cell.style.display  = '';
-                        cell.style.width    = w + 'px';
-                        cell.style.minWidth = w + 'px';
-                        cell.style.maxWidth = w + 'px';
-                        cell.style.overflow = 'hidden';
-                        cell.style.whiteSpace = 'nowrap';
-                    }
-                });
+            // Show all mobile cards
+            tbl.querySelectorAll('.wl-mobile-card').forEach(td => {
+                td.style.display  = 'table-cell';
+                td.style.width    = '100%';
+                td.style.padding  = '0';
             });
         }
 
         window.onload = () => {
             // Apply mobile watchlist columns via JS (CSS nth-child unreliable with hidden cols)
-            if (window.innerWidth <= 768) {
+            if (window.innerWidth <= 1200) {
                 applyMobileWatchlistCols();
             }
             window.addEventListener('resize', () => {
-                if (window.innerWidth <= 768) applyMobileWatchlistCols();
+                if (window.innerWidth <= 1200) {
+                    applyMobileWatchlistCols();
+                } else {
+                    // Reset JS-applied inline styles so desktop CSS display:none!important can work
+                    const tbl = document.getElementById('watchlist-table');
+                    if (tbl) tbl.querySelectorAll('.wl-mobile-card').forEach(td => {
+                        td.style.display = ''; td.style.width = ''; td.style.padding = '';
+                    });
+                }
             });
 
             // Apply dark mode immediately — localStorage is the source of truth
