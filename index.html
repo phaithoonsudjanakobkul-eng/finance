@@ -3758,6 +3758,11 @@
             document.getElementById('tab-news').classList.toggle('hidden', t !== 'news');
             // Reset scroll to top on mobile when switching tabs
             if (window.innerWidth <= 768) { window.scrollTo({ top: 0, behavior: 'instant' }); }
+            // Hide AI FAB on news tab (mobile) — FAB is fixed and overlaps news content while scrolling
+            if (window.innerWidth <= 768) {
+                const _fab = document.getElementById('ai-fab');
+                if (_fab) _fab.style.display = (t === 'news') ? 'none' : '';
+            }
             document.getElementById('btn-dash').className = t === 'dashboard' ? 'px-4 py-1.5 rounded-md text-xs font-bold tab-active transition-all uppercase' : 'px-4 py-1.5 rounded-md text-xs font-bold text-gray-400 transition-all uppercase';
             document.getElementById('btn-edit').className = t === 'edit' ? 'px-4 py-1.5 rounded-md text-xs font-bold tab-active transition-all uppercase' : 'px-4 py-1.5 rounded-md text-xs font-bold text-gray-400 transition-all uppercase';
             document.getElementById('btn-watchlist').className = t === 'watchlist' ? 'px-4 py-1.5 rounded-md text-xs font-bold tab-active transition-all uppercase flex items-center gap-1.5' : 'px-4 py-1.5 rounded-md text-xs font-bold text-gray-400 transition-all uppercase flex items-center gap-1.5';
