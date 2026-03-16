@@ -93,6 +93,12 @@
         }
         .flash-up   { animation: flashUp   0.6s ease-out; }
         .flash-down { animation: flashDown 0.6s ease-out; }
+        /* Mobile price flash — box-shadow:inset on price text, same 0.6s ease-out as desktop */
+        @keyframes mobPriceFlUp { 0% { box-shadow:inset 0 0 0 9999px rgba(38,166,154,0.38); } 100% { box-shadow:inset 0 0 0 9999px rgba(38,166,154,0); } }
+        @keyframes mobPriceFlDn { 0% { box-shadow:inset 0 0 0 9999px rgba(239,83,80,0.34);  } 100% { box-shadow:inset 0 0 0 9999px rgba(239,83,80,0);  } }
+        .mob-price-fl-up { animation: mobPriceFlUp 0.6s ease-out; border-radius:3px; }
+        .mob-price-fl-dn { animation: mobPriceFlDn 0.6s ease-out; border-radius:3px; }
+        #watchlist-table .wl-mob-price { will-change: box-shadow; }
         /* GPU compositing — browser paints each row on own layer, no full-table repaint per tick */
         .wl-row { will-change: box-shadow; contain: layout style; }
         /* Price + badge cells — hint browser these change frequently */
@@ -722,8 +728,22 @@
         }
         /* Smaller logo icon */
         #wl-split-wrap.chart-open .td-stack img { width:20px!important; height:20px!important; }
+        /* Ensure sym-name-stack fills remaining space after logo so text isn't clipped */
+        #wl-split-wrap.chart-open .td-stack > div { width:100%; overflow:hidden; }
+        #wl-split-wrap.chart-open .sym-name-stack {
+            flex: 1 1 0% !important;
+            min-width: 0 !important;
+            overflow: hidden !important;
+        }
         /* Symbol text */
-        #wl-split-wrap.chart-open .sym-cell { font-size:11px; font-weight:700; }
+        #wl-split-wrap.chart-open .sym-cell {
+            font-size: 11px;
+            font-weight: 700;
+            display: block !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            white-space: nowrap !important;
+        }
         /* Price cell */
         #wl-split-wrap.chart-open .price-cell {
             font-size: 11px !important;
@@ -2466,32 +2486,12 @@
                 overflow-x: visible !important;
             }
 
-            /* ── Watchlist mobile-card: tablet-enhanced layout ──
-               5-column grid: Logo | Info | Signal | Sparkline | PriceBox
-               ~780 px usable on 810-834 px iPads (20 px side padding × 2).
-               Signal is a dedicated column (direct child of card-inner).
-               Volume shown inline in company name row.                    */
+            /* ── Watchlist mobile-card: tablet styling ──
+               Layout is controlled by the flex override block that comes AFTER
+               the ≤1200px block.  This section handles typography + badge styling.
+               Signal is a DIRECT flex child of card-inner (HTML restructured).   */
 
-            /* Card row — same height as phone */
-            #watchlist-table .wl-mobile-card { min-height: 0 !important; }
-            #watchlist-table .wl-mob-card-inner {
-                display: grid !important;
-                grid-template-columns: 44px minmax(0, 1fr) 82px 104px 116px !important;
-                gap: 0 12px !important;
-                padding: 8px 16px !important;
-                min-height: 0 !important;
-                align-items: center !important;
-            }
-
-            /* Info column: simple flex, sym big + name+vol small */
-            #watchlist-table .wl-mob-info {
-                display: flex !important;
-                flex-direction: column !important;
-                justify-content: center !important;
-                gap: 1px !important;
-                overflow: hidden !important;
-                min-width: 0 !important;
-            }
+            /* Typography for info column */
             #watchlist-table .wl-mob-sym {
                 font-size: 15.5px !important;
                 font-weight: 800 !important;
@@ -2515,12 +2515,7 @@
                 opacity: 0.65 !important;
             }
 
-            /* Signal: dedicated column, centered pill with background */
-            #watchlist-table .wl-mob-signal {
-                display: flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-            }
+            /* Signal badge: colored pill */
             #watchlist-table .wl-mob-signal .wl-signal-badge {
                 font-size: 9px !important;
                 font-weight: 800 !important;
@@ -2544,19 +2539,7 @@
                 background: rgba(100,116,139,0.12) !important;
             }
 
-            /* Sparkline — slightly wider than phone */
-            #watchlist-table .wl-mob-spark {
-                width: 104px !important;
-                min-width: 104px !important;
-                height: 42px !important;
-            }
-
-            /* PriceBox: right-aligned — Price / $Chg / %pill / [Ext] */
-            #watchlist-table .wl-mob-pricebox {
-                min-width: 116px !important;
-                max-width: 116px !important;
-                gap: 1px !important;
-            }
+            /* Price typography */
             #watchlist-table .wl-mob-price {
                 font-size: 15.5px !important;
                 line-height: 1.25 !important;
@@ -2851,10 +2834,17 @@
             #watchlist-table .wl-mob-price {
                 font-size: 15px !important;
                 font-weight: 800 !important;
-                color: var(--text-primary) !important;
                 font-variant-numeric: tabular-nums !important;
                 letter-spacing: -0.02em !important;
                 line-height: 1.2 !important;
+                -webkit-font-smoothing: antialiased !important;
+                -moz-osx-font-smoothing: grayscale !important;
+                text-rendering: optimizeLegibility !important;
+                /* color is set inline (green/red) + updated by _handleTrade */
+            }
+            #watchlist-table .wl-mob-sym {
+                -webkit-font-smoothing: antialiased !important;
+                -moz-osx-font-smoothing: grayscale !important;
             }
             #watchlist-table .wl-mob-chg {
                 font-size: 10.5px !important;
@@ -2872,40 +2862,52 @@
             }
         }
 
-        /* ── Tablet watchlist card: grid override (must come AFTER ≤1200px flex block) ──
-           At 769-1024 px the ≤1200px block sets display:flex which overrides the tablet
-           grid defined earlier.  This block re-asserts display:grid for tablets.          */
+        /* ── Tablet watchlist card: flex override (AFTER ≤1200px block) ──
+           The ≤1200px block already uses display:flex on card-inner — keep flex
+           and just tune widths + show extra columns hidden on phone.
+           wl-mob-signal is now a DIRECT flex child (HTML restructured).        */
         @media (min-width: 769px) and (max-width: 1024px) {
-            /* 5-col grid: Logo(44) | Info(flex) | Signal(82) | Spark(104) | Price(116) */
-            #watchlist-table .wl-mobile-card {
-                min-height: 0 !important;
-            }
+            #watchlist-table .wl-mobile-card  { min-height: 0 !important; }
             #watchlist-table .wl-mob-card-inner {
-                display: grid !important;
-                grid-template-columns: 44px minmax(0, 1fr) 82px 104px 116px !important;
-                grid-template-rows: auto !important;
-                gap: 0 12px !important;
-                padding: 8px 16px !important;
-                min-height: 0 !important;
+                display: flex !important;
                 align-items: center !important;
-                flex-direction: unset !important;
+                gap: 12px !important;
+                padding: 10px 16px !important;
+                min-height: 0 !important;
             }
-            /* Explicitly place each column */
-            #watchlist-table .wl-mob-logo   { grid-column: 1 !important; }
-            #watchlist-table .wl-mob-info   { grid-column: 2 !important; }
-            #watchlist-table .wl-mob-signal { grid-column: 3 !important; }
-            #watchlist-table .wl-mob-spark  {
-                grid-column: 4 !important;
-                flex-shrink: unset !important;
-                width: 104px !important;
-                min-width: 104px !important;
+            /* Info: flex-1, column stack, truncate */
+            #watchlist-table .wl-mob-info {
+                flex: 1 1 0% !important;
+                min-width: 0 !important;
+                display: flex !important;
+                flex-direction: column !important;
+                justify-content: center !important;
+                gap: 2px !important;
+                overflow: hidden !important;
+            }
+            /* Signal: show as fixed-width flex child */
+            #watchlist-table .wl-mob-signal {
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                flex: 0 0 78px !important;
+                width: 78px !important;
+            }
+            /* Sparkline: wider than phone (88 → 100) */
+            #watchlist-table .wl-mob-spark {
+                flex: 0 0 100px !important;
+                width: 100px !important;
+                min-width: 100px !important;
                 height: 42px !important;
+                flex-shrink: 0 !important;
             }
+            /* Pricebox: wider to show $-change row cleanly */
             #watchlist-table .wl-mob-pricebox {
-                grid-column: 5 !important;
-                flex-shrink: unset !important;
-                min-width: 116px !important;
-                max-width: 116px !important;
+                flex: 0 0 114px !important;
+                min-width: 114px !important;
+                max-width: 114px !important;
+                flex-shrink: 0 !important;
+                gap: 1px !important;
             }
         }
 
@@ -7644,10 +7646,18 @@
             const price     = _qcMktOpen ? (d?.c ?? null)
                             : (d?._dailyC ?? d?.pc ?? d?.c ?? null);
             const _qcHasDailyChg = !_qcMktOpen && d?._dailyC != null && d?._prevDailyC != null && d._prevDailyC !== 0;
+            // prevClose for open-market change calc: prefer Finnhub pc, fall back to Alpaca _prevDailyC
+            const _qcPrevC = d?.pc ?? d?._prevDailyC ?? null;
             const changePct = _qcHasDailyChg ? ((d._dailyC - d._prevDailyC) / d._prevDailyC * 100)
-                            : (!_qcMktOpen ? null : (d?.dp ?? null));
+                            : (!_qcMktOpen ? null
+                                : (d?.dp ?? (_qcPrevC && _qcPrevC !== 0 && d?.c != null
+                                    ? (d.c - _qcPrevC) / _qcPrevC * 100
+                                    : null)));
             const changeAbs = _qcHasDailyChg ? (d._dailyC - d._prevDailyC)
-                            : (!_qcMktOpen ? null : (d?.d ?? null));
+                            : (!_qcMktOpen ? null
+                                : (d?.d ?? (_qcPrevC != null && d?.c != null
+                                    ? (d.c - _qcPrevC)
+                                    : null)));
             const isUp      = (changePct ?? 0) >= 0;
 
             // ── Price Hero ──
@@ -12085,7 +12095,9 @@ ${_clip(contextSections, 2600)}`;
         function _updateChartDirect(sym, newPrice) {
             if (sym !== qcCurrentSymbol) return;
             const cached   = wlDataCache[sym];
-            const prevClose = cached?.pc ?? cached?.c ?? newPrice;
+            // prevClose: prefer Finnhub pc → Alpaca _prevDailyC → fallback to newPrice (no change)
+            // NOTE: cached.c is the CURRENT price (updated live) — must NOT use it as prevClose
+            const prevClose = cached?.pc ?? cached?._prevDailyC ?? newPrice;
             const change    = newPrice - prevClose;
             const changePct = prevClose ? (change / prevClose) * 100 : 0;
             const isUp      = change >= 0;
@@ -12115,7 +12127,7 @@ ${_clip(contextSections, 2600)}`;
                 changeHeroEl.className = 'text-sm font-medium px-2 py-0.5 rounded-md ' + (isUp ? 'wl-badge-up' : 'wl-badge-dn');
             }
             // Live tab title
-            { var _cached = wlDataCache[sym]; var _pc = _cached && (_cached.pc || _cached.c); var _pct = _pc ? (newPrice - _pc) / _pc * 100 : null; _psSetTabTitle(sym, newPrice, _pct); }
+            { var _cached = wlDataCache[sym]; var _pc = _cached && (_cached.pc || _cached._prevDailyC || null); var _pct = _pc ? (newPrice - _pc) / _pc * 100 : null; _psSetTabTitle(sym, newPrice, _pct); }
             // Live price line — sync with header
             if (window._lwcLivePriceLine) {
                 try { window._lwcLivePriceLine.applyOptions({ price: newPrice }); } catch(e) {}
@@ -12294,6 +12306,12 @@ ${_clip(contextSections, 2600)}`;
                 d._mobPriceEl.firstChild
                     ? (d._mobPriceEl.firstChild.nodeValue = newTxt)
                     : (d._mobPriceEl.innerText = newTxt);
+                d._mobPriceEl.style.color = '';
+                // Flash — exact same pattern as desktop _clearFlash + setTimeout cleanup
+                d._mobPriceEl.className = d._mobPriceEl.className.replace(' mob-price-fl-up','').replace(' mob-price-fl-dn','');
+                d._mobPriceEl.className += isUp ? ' mob-price-fl-up' : ' mob-price-fl-dn';
+                clearTimeout(d._mobPriceFt);
+                d._mobPriceFt = setTimeout(function(el){ el.className = el.className.replace(' mob-price-fl-up','').replace(' mob-price-fl-dn',''); }, 650, d._mobPriceEl);
             }
             if (d._mobChgEl && d._mobChgEl.data !== pctStr) {
                 d._mobChgEl.data = pctStr;
