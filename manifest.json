@@ -2,7 +2,7 @@
   "name": "PSLink",
   "short_name": "PSLink",
   "description": "PSLink — Personal Dashboard & Watchlist",
-  "start_url": "./PSLink_PWA_mobilecard.html",
+  "start_url": "./index.html",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#0a0f1e",
