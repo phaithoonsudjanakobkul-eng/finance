@@ -14,7 +14,7 @@
       }
     </script>
     <title>PSLink</title>
-    <!-- v1.2.9 — Fix syncFromGist: raw_url (gist.githubusercontent.com) must NOT send Authorization header — causes CORS preflight failure -->
+    <!-- v1.3.0 — Fix photo save reliability: applyCrop pushes immediately with status; keepalive checks 64KB limit; large payload uses regular fetch -->
 
     <!-- PWA: iOS / Safari Home Screen -->
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -13965,7 +13965,6 @@ ${_clip(contextSections, 2600)}`;
             const result = out.toDataURL('image/jpeg', 0.95);
 
             if (isAvatar) {
-                // Nav avatar — save with timestamp so syncFromGist won't overwrite newer local data
                 db.avatar = result;
                 try {
                     localStorage.setItem('ps_avatar', result);
@@ -13973,7 +13972,6 @@ ${_clip(contextSections, 2600)}`;
                 } catch(err) {}
                 setAvatarImage(result);
             } else {
-                // Profile card photo — same pattern
                 db.profilePhoto = result;
                 try {
                     localStorage.setItem('ps_profile_photo', result);
@@ -13981,8 +13979,16 @@ ${_clip(contextSections, 2600)}`;
                 } catch(err) {}
                 setProfilePhoto(result);
             }
-            scheduleAutoSave(true);
             closeCropModal();
+            // Push to Gist immediately — don't defer, photo must be saved before user navigates away
+            if (getGistToken()) {
+                showGistStatus('กำลังบันทึกรูป...', 'text-blue-400');
+                _pushToGist(false).then(() => {
+                    // _pushToGist shows its own status on completion
+                }).catch(() => {
+                    showGistStatus('บันทึกรูปไม่สำเร็จ — ลอง UPLOAD ด้วยมือ', 'text-rose-400');
+                });
+            }
         }
 
         function closeCropModal() {
@@ -15145,15 +15151,27 @@ ${_clip(contextSections, 2600)}`;
             const token = getGistToken();
             if (!token) return;
             if (_dataHash() === _lastSavedHash) return; // nothing changed
-            if (!(records.length > 0 || watchlist.length > 0)) return;
             try {
                 const exportData = _buildExportData();
-                fetch(`https://api.github.com/gists/${GIST_ID}`, {
-                    method: 'PATCH',
-                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ files: { [GIST_FILENAME]: { content: JSON.stringify(exportData, null, 2) } } }),
-                    keepalive: true
-                }).catch(() => {});
+                const body = JSON.stringify({ files: { [GIST_FILENAME]: { content: JSON.stringify(exportData, null, 2) } } });
+                // keepalive fetch has ~64KB body limit — if payload is larger (photos included),
+                // try regular fetch first; keepalive as fallback
+                if (body.length < 60000) {
+                    fetch(`https://api.github.com/gists/${GIST_ID}`, {
+                        method: 'PATCH',
+                        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                        body,
+                        keepalive: true
+                    }).catch(() => {});
+                } else {
+                    // Large payload (photos) — use regular fetch without keepalive
+                    // This may not complete if page unloads immediately, but best effort
+                    fetch(`https://api.github.com/gists/${GIST_ID}`, {
+                        method: 'PATCH',
+                        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                        body
+                    }).catch(() => {});
+                }
             } catch(e) {}
         }
 
