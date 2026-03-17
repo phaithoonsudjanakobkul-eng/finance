@@ -14,7 +14,7 @@
       }
     </script>
     <title>PSLink</title>
-    <!-- v1.2.7 — Better error diagnostic: Network Error shows token hint + GIST_ID in console; importJSON auto-syncs after restore -->
+    <!-- v1.2.8 — Add validateGistToken() console helper; switch Authorization to Bearer scheme (token scheme deprecated by GitHub) -->
 
     <!-- PWA: iOS / Safari Home Screen -->
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -14052,6 +14052,41 @@ ${_clip(contextSections, 2600)}`;
 
         function getGistToken() { return localStorage.getItem('ps_gist_token') || ''; }
 
+        // ── Token validator — call from console: validateGistToken() ──────────
+        async function validateGistToken() {
+            const token = getGistToken();
+            if (!token) { console.error('[Token] No token found'); showGistStatus('ไม่มี Token ✗', 'text-rose-500'); return; }
+            console.log('[Token] Testing token:', token.slice(0,8) + '...');
+            try {
+                // Step 1: Test auth (no CORS issues — /user endpoint is public)
+                const r1 = await fetch('https://api.github.com/user', {
+                    headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github.v3+json' },
+                    cache: 'no-store'
+                });
+                console.log('[Token] /user status:', r1.status);
+                if (!r1.ok) { showGistStatus(`Token invalid: HTTP ${r1.status} ✗`, 'text-rose-500'); return; }
+                const user = await r1.json();
+                console.log('[Token] Authenticated as:', user.login);
+
+                // Step 2: Test Gist access
+                const r2 = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+                    headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github.v3+json' },
+                    cache: 'no-store'
+                });
+                console.log('[Token] Gist status:', r2.status);
+                if (r2.ok) {
+                    const g = await r2.json();
+                    showGistStatus('Token OK ✓ — Gist: ' + (g.description || GIST_ID.slice(0,8)), 'text-emerald-500');
+                    console.log('[Token] Gist owner:', g.owner?.login, '| files:', Object.keys(g.files||{}).join(', '));
+                } else {
+                    showGistStatus(`Gist ERR: HTTP ${r2.status} ✗`, 'text-rose-500');
+                }
+            } catch(e) {
+                console.error('[Token] fetch error:', e.name, e.message);
+                showGistStatus('fetch ERROR: ' + e.name, 'text-rose-500');
+            }
+        }
+
         function saveGistToken() {
             const token = document.getElementById('gist-token-input').value.trim();
             if (!token) return;
@@ -14094,7 +14129,7 @@ ${_clip(contextSections, 2600)}`;
                 const exportData = _buildExportData();
                 const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
                     method:  'PATCH',
-                    headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json', 'Accept': 'application/vnd.github.v3+json' },
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json', 'Accept': 'application/vnd.github.v3+json' },
                     body:    JSON.stringify({ files: { [GIST_FILENAME]: { content: JSON.stringify(exportData, null, 2) } } })
                 });
                 if (res.ok) {
@@ -14137,7 +14172,7 @@ ${_clip(contextSections, 2600)}`;
             _isSyncing = true;
             try {
                 const res = await fetch(`https://api.github.com/gists/${GIST_ID}?_=${Date.now()}`, {
-                    headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3+json' },
+                    headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github.v3+json' },
                     cache: 'no-store'
                 });
                 // Specific HTTP error messages
@@ -14161,7 +14196,7 @@ ${_clip(contextSections, 2600)}`;
                 // which can be stale/truncated, especially for large files with avatars
                 if (fileObj.raw_url) {
                     const rawRes = await fetch(fileObj.raw_url + '?_=' + Date.now(), {
-                        headers: { 'Authorization': `token ${token}` },
+                        headers: { 'Authorization': `Bearer ${token}` },
                         cache: 'no-store'
                     });
                     if (!rawRes.ok) { showGistStatus(`RAW ERR ${rawRes.status} ✗`, 'text-rose-500'); return; }
@@ -15082,7 +15117,7 @@ ${_clip(contextSections, 2600)}`;
             try {
                 const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
                     method:  'PATCH',
-                    headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
                     body:    JSON.stringify({ files: { [GIST_FILENAME]: { content: JSON.stringify(exportData, null, 2) } } })
                 });
                 if (res.ok) {
@@ -15113,7 +15148,7 @@ ${_clip(contextSections, 2600)}`;
                 const exportData = _buildExportData();
                 fetch(`https://api.github.com/gists/${GIST_ID}`, {
                     method: 'PATCH',
-                    headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ files: { [GIST_FILENAME]: { content: JSON.stringify(exportData, null, 2) } } }),
                     keepalive: true
                 }).catch(() => {});
