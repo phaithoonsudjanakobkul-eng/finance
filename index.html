@@ -14,7 +14,7 @@
       }
     </script>
     <title>PSLink</title>
-    <!-- v1.1.9 — Separate WL Alerts + Profile Card into 2 independent dash-cards in dash-row1 grid; mobile stacks vertically -->
+    <!-- v1.2.2 — Fix sparkline skeleton loop: always render after fetch even if quality low; break loop in updateSparklineCell; seed OHLC if no bars from API -->
 
     <!-- PWA: iOS / Safari Home Screen -->
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -5529,7 +5529,14 @@
         }
 
         function sparklineQuality(prices, basePrice) {
-            if (!Array.isArray(prices) || prices.length < SPARKLINE_MIN_POINTS) return false;
+            // Relax MIN_POINTS during first 10 min after market open (few bars available)
+            const minPts = (() => {
+                if (!isMarketOpen()) return SPARKLINE_MIN_POINTS;
+                const etMin = currentEtMinutes();
+                if (etMin != null && etMin < 570 + 10) return 2; // 09:30-09:40 ET → accept 2+ bars
+                return SPARKLINE_MIN_POINTS;
+            })();
+            if (!Array.isArray(prices) || prices.length < minPts) return false;
             let min = Infinity, max = -Infinity;
             let changes = 0;
             for (let i = 0; i < prices.length; i++) {
@@ -5556,7 +5563,10 @@
             const entry = wlSparklineCache[symbol];
             const now = Date.now();
             const nowEtDay = currentEtDateKey();
-            const maxAgeMs = isMarketOpen() ? 20 * 1000 : SPARKLINE_TTL_MS;
+            const _hasEnoughBars = entry?.prices?.length >= SPARKLINE_MIN_POINTS;
+            const maxAgeMs = isMarketOpen()
+                ? (_hasEnoughBars ? 20 * 1000 : 60 * 1000)
+                : SPARKLINE_TTL_MS;
             if (
                 entry &&
                 entry.src === 'alpaca' &&
@@ -5599,8 +5609,11 @@
                 // Strict minute window for current ET day: 04:00 ET to current ET minute when market is open.
                 if (isMarketOpen()) {
                     const cut = currentEtMinutes();
-                    if (cut != null) dayBars = dayBars.filter(b => (etMinutes(b.t) ?? 9999) <= cut);
-                    if (dayBars.length < 2) return null;
+                    // Add 2-min buffer: Alpaca IEX bars can lag 1-2 min at open
+                    if (cut != null) dayBars = dayBars.filter(b => (etMinutes(b.t) ?? 9999) <= (cut + 2));
+                    // At market open we may only have 1 bar — that's OK, return what we have
+                    // and let sparklineQuality decide; OHLC seed will fill remaining symbols
+                    if (dayBars.length < 1) return null;
                 }
                 let closes = dayBars.map(b => b.c).filter(v => v != null);
                 if (closes.length < 2) return null;
@@ -5840,7 +5853,12 @@
             if (!symbol) return false;
             const now = Date.now();
             const entry = wlSparklineCache[symbol];
-            const maxAgeMs = isMarketOpen() ? 20 * 1000 : SPARKLINE_TTL_MS;
+            // Extend TTL to 60s if bars < MIN_POINTS (market just opened — not enough bars yet)
+            // Avoid hammering API every 20s when there are only 1-3 bars available
+            const hasEnoughBars = entry?.prices?.length >= SPARKLINE_MIN_POINTS;
+            const maxAgeMs = isMarketOpen()
+                ? (hasEnoughBars ? 20 * 1000 : 60 * 1000)
+                : SPARKLINE_TTL_MS;
             if (
                 !force &&
                 entry &&
@@ -5857,10 +5875,15 @@
             _sparkInflight[symbol] = (async () => {
                 // Canonical source: Alpaca 1Min bars (closest to Webull-style intraday path)
                 const a = await fetchAlpacaSparkline(symbol);
-                if (a && a.length >= 2 && sparklineQuality(a, wlSparklineCache[symbol]?.base)) {
+                if (a && a.length >= 2) {
+                    // Always render after fetch — even if quality doesn't pass yet
+                    // (market just opened: few bars, but better to show than loop skeleton)
                     updateSparklineCell(symbol);
-                    return true;
+                    return sparklineQuality(a, wlSparklineCache[symbol]?.base);
                 }
+                // Fetch returned nothing → seed from OHLC so something is shown
+                const d = wlDataCache[symbol];
+                if (d) seedSparklineFromOHLC(symbol, d, d?.c ?? d?.pc ?? null);
                 return false;
             })().finally(() => { delete _sparkInflight[symbol]; });
             return _sparkInflight[symbol];
@@ -6052,9 +6075,22 @@
             // Mobile: แสดง sparkline เมื่อมีข้อมูลเพียงพอ (≥12 จุด) แม้ quality ไม่ผ่าน — ตาม Webull
             const mobOk = mobEl && prices.length >= SPARKLINE_MIN_POINTS;
             if (!qualityOk && !mobOk) {
-                if (el) el.innerHTML = loading;
-                if (mobEl) mobEl.innerHTML = mobPlaceholder;
-                requestSparklineRefresh(symbol, true);
+                // If we have some bars but not enough quality yet (market just opened),
+                // seed from OHLC immediately so something renders — avoid skeleton loop
+                const d2 = wlDataCache[symbol];
+                if (!prices || prices.length < 2) {
+                    if (el) el.innerHTML = loading;
+                    if (mobEl) mobEl.innerHTML = mobPlaceholder;
+                    // Only request refresh if we have no bars — not on every render
+                    if (!_sparkInflight[symbol]) requestSparklineRefresh(symbol, false);
+                } else {
+                    // Have bars but quality low — show OHLC-seeded fallback, don't loop
+                    if (d2) seedSparklineFromOHLC(symbol, d2, d2?.c ?? d2?.pc ?? null);
+                    else {
+                        if (el) el.innerHTML = loading;
+                        if (mobEl) mobEl.innerHTML = mobPlaceholder;
+                    }
+                }
                 return;
             }
             if (prices.length === 1) prices = [prices[0], prices[0]];
@@ -15049,7 +15085,11 @@ ${_clip(contextSections, 2600)}`;
             const sHash = (signalLog || []).slice(0, 120).map(s =>
                 [s.id, s.symbol, s.signal, s.result, s.outcome_price, s.pct_change].join('|')
             ).join(';');
-            return rHash + '::wl:' + watchlist.join(',') + '::sig:' + sHash;
+            // Include avatar/profilePhoto length as proxy — avoids hashing full base64
+            // but still detects a new photo being set
+            const avHash = (db.avatar        ? String(db.avatar.length)        : '0');
+            const ppHash = (db.profilePhoto  ? String(db.profilePhoto.length)  : '0');
+            return rHash + '::wl:' + watchlist.join(',') + '::sig:' + sHash + '::av:' + avHash + '::pp:' + ppHash;
         }
         setInterval(() => {
             if (!getGistToken()) return;
