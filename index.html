@@ -14,7 +14,7 @@
       }
     </script>
     <title>PSLink</title>
-    <!-- v1.6.9 — Fix AI chat sheet height: 88dvh→50dvh on mobile so sheet fits above iOS keyboard -->
+    <!-- v1.6.10 — AI chat: sheet height 50→45dvh; blur input after send to dismiss iOS keyboard -->
 
     <!-- PWA: iOS / Safari Home Screen -->
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2600,7 +2600,7 @@
                 left: 0 !important; right: 0 !important;
                 bottom: 0 !important; top: auto !important;
                 width: 100% !important; max-width: 100% !important;
-                height: 50dvh !important;
+                height: 45dvh !important;
                 border-radius: 20px 20px 0 0 !important;
                 transform: translateY(102%) !important;
                 transition: transform 0.32s cubic-bezier(0.32,0.72,0,1), bottom 0.12s ease-out !important;
@@ -12037,6 +12037,8 @@ ${sourceText}`;
             }
 
             inputBar.value = ''; inputPopup.value = '';
+            // Dismiss iOS keyboard after send (like Line/iMessage)
+            inputBar.blur(); inputPopup.blur();
             openAiPopup();
             appendPopupMessage('user', text);
             aiChatHistory.push({ role: 'user', content: userText });
