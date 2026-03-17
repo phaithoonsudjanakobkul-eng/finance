@@ -14,7 +14,7 @@
       }
     </script>
     <title>PSLink</title>
-    <!-- v1.2.4 — Fix syncFromGist: always fetch raw_url with cache:no-store + timestamp bust; fixes stale data on manual sync -->
+    <!-- v1.2.5 — Fix file:// protocol detection: Gist sync blocked on file:// (browser security); clear error + warning banner; must host on https:// -->
 
     <!-- PWA: iOS / Safari Home Screen -->
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -3372,6 +3372,16 @@
             </div>
         </div>
     </nav>
+
+    <!-- file:// protocol warning -->
+    <div id="file-protocol-banner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:99999;background:#92400e;color:#fef3c7;font-family:var(--font-mono);font-size:11px;font-weight:700;text-align:center;padding:6px 12px;letter-spacing:0.05em;">
+        ⚠ กำลังเปิดจาก file:// — Gist Sync ใช้งานไม่ได้ &nbsp;|&nbsp; ต้อง host บน GitHub Pages หรือ https:// server
+    </div>
+    <script>
+        if (location.protocol === 'file:') {
+            document.getElementById('file-protocol-banner').style.display = 'block';
+        }
+    </script>
 
     <main class="w-full px-4 pt-24">
         
@@ -14070,6 +14080,10 @@ ${_clip(contextSections, 2600)}`;
         async function syncToGist() {
             const token = getGistToken();
             if (!token) { document.getElementById('gist-modal').classList.remove('hidden'); return; }
+            if (location.protocol === 'file:') {
+                showGistStatus('⚠ เปิดจาก file:// — ต้อง host บน https://', 'text-amber-400');
+                return;
+            }
             showGistStatus('UPLOADING...', 'text-blue-500');
             // Save locally first as fallback
             _lsSave('ps_records',   JSON.stringify(records));
@@ -14106,6 +14120,11 @@ ${_clip(contextSections, 2600)}`;
         async function syncFromGist(isInitialLoad = false) {
             const token = getGistToken();
             if (!token) { document.getElementById('gist-modal').classList.remove('hidden'); return; }
+            // file:// protocol blocks all external fetch — must be served over https://
+            if (location.protocol === 'file:') {
+                showGistStatus('⚠ เปิดจาก file:// — ต้อง host บน https:// เพื่อ sync Gist', 'text-amber-400');
+                return;
+            }
             showGistStatus('SYNCING...', 'text-blue-500');
             _isSyncing = true;
             try {
