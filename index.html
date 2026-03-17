@@ -14,7 +14,7 @@
       }
     </script>
     <title>PSLink</title>
-    <!-- v1.3.2 — Profile card: big name preserved + free-form textarea for notes; 12px regular weight display -->
+    <!-- v1.3.3 — Fix CSS: remove misplaced @media blocks from inside style block (broke CSS variable parsing → all font 16px) -->
 
     <!-- PWA: iOS / Safari Home Screen -->
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -62,25 +62,6 @@
             --sal: env(safe-area-inset-left, 0px);
             /* --sab-min: guaranteed floor so iPhone home gesture bar never covers bottom nav */
             --sab-min: max(env(safe-area-inset-bottom, 0px), 20px);
-        }
-        /* Force portrait — hide content in landscape, show rotate prompt */
-        @media screen and (orientation: landscape) and (max-width: 1024px) {
-            body > *:not(#pslink-rotate-msg) { display: none !important; }
-            #pslink-rotate-msg {
-                display: flex !important;
-                position: fixed; inset: 0; z-index: 99999;
-                background: #0d0d0d;
-                flex-direction: column;
-                align-items: center; justify-content: center;
-                gap: 16px; color: #d1d4dc;
-                font-family: var(--font-main, system-ui);
-            }
-        }
-        @media screen and (orientation: portrait), screen and (min-width: 1025px) {
-            #pslink-rotate-msg {
-                display: none !important;
-                pointer-events: none !important;
-            }
         }
             --font-main: 'Inter', 'IBM Plex Sans Thai', system-ui, sans-serif;
             --font-mono: 'Roboto Mono', 'Consolas', monospace;
