@@ -14,7 +14,7 @@
       }
     </script>
     <title>PSLink</title>
-    <!-- v1.3.3 — Fix CSS: remove misplaced @media blocks from inside style block (broke CSS variable parsing → all font 16px) -->
+    <!-- v1.3.2 — Profile card: big name preserved + free-form textarea for notes; 12px regular weight display -->
 
     <!-- PWA: iOS / Safari Home Screen -->
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -62,6 +62,25 @@
             --sal: env(safe-area-inset-left, 0px);
             /* --sab-min: guaranteed floor so iPhone home gesture bar never covers bottom nav */
             --sab-min: max(env(safe-area-inset-bottom, 0px), 20px);
+        }
+        /* Force portrait — hide content in landscape, show rotate prompt */
+        @media screen and (orientation: landscape) and (max-width: 1024px) {
+            body > *:not(#pslink-rotate-msg) { display: none !important; }
+            #pslink-rotate-msg {
+                display: flex !important;
+                position: fixed; inset: 0; z-index: 99999;
+                background: #0d0d0d;
+                flex-direction: column;
+                align-items: center; justify-content: center;
+                gap: 16px; color: #d1d4dc;
+                font-family: var(--font-main, system-ui);
+            }
+        }
+        @media screen and (orientation: portrait), screen and (min-width: 1025px) {
+            #pslink-rotate-msg {
+                display: none !important;
+                pointer-events: none !important;
+            }
         }
             --font-main: 'Inter', 'IBM Plex Sans Thai', system-ui, sans-serif;
             --font-mono: 'Roboto Mono', 'Consolas', monospace;
@@ -1779,27 +1798,36 @@
         /* Desktop: WL Alerts card matches profile card height */
         #profile-wl-console { align-self: stretch; }
 
-        @media (max-width: 640px) {
-            /* Mobile: stack Row 1 cards vertically */
+        @media (max-width: 768px) {
+            /* Mobile/iPad: Row 1 = 2 columns side-by-side (WL Alert | Photo) */
             #dash-row1 {
-                grid-template-columns: 1fr !important;
-                gap: 12px !important;
+                grid-template-columns: 1fr 1fr !important;
+                gap: 10px !important;
+                align-items: stretch !important;
             }
-            /* WL Alerts card: show on mobile, compact height */
+            /* WL Alerts: compact height */
             #profile-wl-console {
-                min-height: 120px !important;
-                max-height: 180px !important;
+                min-height: 160px !important;
+                max-height: 260px !important;
             }
-            /* Profile card: auto height, stack info above photo */
+            /* Profile card: hide info panel, show only photo */
             #profile-card-main {
-                flex-direction: column !important;
                 height: auto !important;
+                min-height: 160px !important;
             }
+            /* Hide info panel + divider on mobile — photo only */
+            #profile-card-main > div:first-child,
+            #profile-card-main > div.flex-shrink-0[style*="width:1px"] {
+                display: none !important;
+            }
+            /* Photo fills entire card */
             #profile-photo-wrap {
                 width: 100% !important;
-                height: auto !important;
+                height: 100% !important;
+                min-height: 160px !important;
                 aspect-ratio: 3 / 4 !important;
                 flex-shrink: 0 !important;
+                border-radius: 12px !important;
             }
             #profilePhotoImg {
                 object-fit: cover !important;
@@ -1808,6 +1836,19 @@
                 height: 100% !important;
                 position: absolute !important;
                 inset: 0 !important;
+            }
+        }
+        @media (max-width: 480px) {
+            /* Small phone: stack vertically */
+            #dash-row1 {
+                grid-template-columns: 1fr !important;
+                gap: 10px !important;
+            }
+            #profile-card-main {
+                min-height: 220px !important;
+            }
+            #profile-photo-wrap {
+                aspect-ratio: 4 / 3 !important;
             }
         }
 
@@ -1899,8 +1940,12 @@
         
         .tab-active { 
             background: white; 
-            color: var(--accent); 
+            color: var(--accent) !important; 
             box-shadow: 0 1px 4px rgba(0,0,0,0.08); 
+        }
+        html.dark .tab-active {
+            background: var(--bg-card2);
+            color: var(--accent) !important;
         }
 
         .thai-label {
@@ -2189,6 +2234,21 @@
             #records-toolbar > div {
                 width: 100% !important;
                 justify-content: space-between !important;
+            }
+
+            /* 5b. Records section header: mobile layout */
+            #rec-header-fixed,
+            #rec-header-dynamic {
+                align-items: flex-start !important;
+                min-height: unset !important;
+                padding: 0 0 4px 0 !important;
+                gap: 8px !important;
+            }
+            /* Summary badge: compact */
+            #rec-header-fixed .summary-badge,
+            #rec-header-dynamic .summary-badge {
+                font-size: 11px !important;
+                padding: 4px 8px !important;
             }
 
             /* 6. Financial bar: stack */
@@ -3803,17 +3863,17 @@
             <!-- List Columns -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div class="space-y-4">
-                    <div class="flex items-center justify-between px-2 min-h-[40px]">
-                        <div class="flex flex-col gap-0.5">
+                    <div id="rec-header-fixed" class="flex items-center justify-between px-2 min-h-[40px]">
+                        <div class="flex flex-col gap-0.5" style="flex:1;min-width:0">
                             <div class="flex items-center gap-2">
                                 <h4 class="thai-label uppercase">รายจ่ายประจำ / เงินลงทุน</h4>
                             </div>
-                            <div class="flex items-center gap-2">
-                                <span id="last-fixed-ref" class="ref-badge" style="margin-left:0">LAST MONTH: -</span>
-                                <button onclick="toggleCheckAll('fixed', this)" class="text-[9px] font-bold text-gray-300 hover:text-blue-500 transition-colors uppercase tracking-wide border border-gray-200 hover:border-blue-300 rounded px-1.5 py-0.5">Uncheck All</button>
+                            <div class="flex items-center gap-2" style="flex-wrap:nowrap">
+                                <span id="last-fixed-ref" class="ref-badge" style="margin-left:0;white-space:nowrap">LAST MONTH: -</span>
+                                <button onclick="toggleCheckAll('fixed', this)" class="text-[9px] font-bold text-gray-300 hover:text-blue-500 transition-colors uppercase tracking-wide border border-gray-200 hover:border-blue-300 rounded px-1.5 py-0.5" style="flex-shrink:0;white-space:nowrap">Uncheck All</button>
                             </div>
                         </div>
-                        <div class="flex flex-col items-end gap-1" style="min-width:120px">
+                        <div class="flex flex-col items-end gap-1" style="min-width:80px;flex-shrink:0">
                             <span id="sum-fixed" class="summary-badge w-full text-center text-rose-500 bg-rose-50 border border-rose-100">฿ 0.00</span>
                             <div id="paid-fixed-badge" class="w-full text-center text-[10px] font-bold px-2 py-0.5 rounded" style="visibility:hidden;color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,transparent);border:1px solid color-mix(in srgb,var(--accent) 20%,transparent)">PAID: ฿ 0.00</div>
                         </div>
@@ -3823,17 +3883,17 @@
                 </div>
 
                 <div class="space-y-4">
-                    <div class="flex items-center justify-between px-2 min-h-[40px]">
-                        <div class="flex flex-col gap-0.5">
+                    <div id="rec-header-dynamic" class="flex items-center justify-between px-2 min-h-[40px]">
+                        <div class="flex flex-col gap-0.5" style="flex:1;min-width:0">
                             <div class="flex items-center gap-2">
                                 <h4 class="thai-label uppercase">รายจ่ายผันแปร</h4>
                             </div>
-                            <div class="flex items-center gap-2">
-                                <span id="last-dynamic-ref" class="ref-badge" style="margin-left:0">LAST MONTH: -</span>
-                                <button onclick="toggleCheckAll('dynamic', this)" class="text-[9px] font-bold text-gray-300 hover:text-orange-500 transition-colors uppercase tracking-wide border border-gray-200 hover:border-orange-300 rounded px-1.5 py-0.5">Uncheck All</button>
+                            <div class="flex items-center gap-2" style="flex-wrap:nowrap">
+                                <span id="last-dynamic-ref" class="ref-badge" style="margin-left:0;white-space:nowrap">LAST MONTH: -</span>
+                                <button onclick="toggleCheckAll('dynamic', this)" class="text-[9px] font-bold text-gray-300 hover:text-orange-500 transition-colors uppercase tracking-wide border border-gray-200 hover:border-orange-300 rounded px-1.5 py-0.5" style="flex-shrink:0;white-space:nowrap">Uncheck All</button>
                             </div>
                         </div>
-                        <div class="flex flex-col items-end gap-1" style="min-width:120px">
+                        <div class="flex flex-col items-end gap-1" style="min-width:80px;flex-shrink:0">
                             <span id="sum-dynamic" class="summary-badge w-full text-center text-rose-500 bg-rose-50 border border-rose-100">฿ 0.00</span>
                             <div id="paid-dynamic-badge" class="w-full text-center text-[10px] font-bold px-2 py-0.5 rounded" style="visibility:hidden;color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,transparent);border:1px solid color-mix(in srgb,var(--accent) 20%,transparent)">PAID: ฿ 0.00</div>
                         </div>
@@ -4439,10 +4499,21 @@
                 // Close popup if open when leaving watchlist
                 if (_popup && !_popup.classList.contains('hidden')) minimizeAiPopup();
             }
-            document.getElementById('btn-dash').className = t === 'dashboard' ? 'px-4 py-1.5 rounded-md text-xs font-bold tab-active transition-all uppercase' : 'px-4 py-1.5 rounded-md text-xs font-bold text-gray-400 transition-all uppercase';
-            document.getElementById('btn-edit').className = t === 'edit' ? 'px-4 py-1.5 rounded-md text-xs font-bold tab-active transition-all uppercase' : 'px-4 py-1.5 rounded-md text-xs font-bold text-gray-400 transition-all uppercase';
-            document.getElementById('btn-watchlist').className = t === 'watchlist' ? 'px-4 py-1.5 rounded-md text-xs font-bold tab-active transition-all uppercase flex items-center gap-1.5' : 'px-4 py-1.5 rounded-md text-xs font-bold text-gray-400 transition-all uppercase flex items-center gap-1.5';
-            document.getElementById('btn-news').className = t === 'news' ? 'px-4 py-1.5 rounded-md text-xs font-bold tab-active transition-all uppercase flex items-center gap-1.5' : 'px-4 py-1.5 rounded-md text-xs font-bold text-gray-400 transition-all uppercase flex items-center gap-1.5';
+            // Use classList to preserve inline styles (font-family etc.)
+            [
+                { id: 'btn-dash',      key: 'dashboard' },
+                { id: 'btn-edit',      key: 'edit'      },
+                { id: 'btn-watchlist', key: 'watchlist' },
+                { id: 'btn-news',      key: 'news'      },
+            ].forEach(({ id, key }) => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                const isActive = t === key;
+                el.classList.toggle('tab-active',   isActive);
+                el.classList.toggle('text-gray-400', !isActive);
+                // Clear inline color so .tab-active CSS (with !important) takes effect
+                el.style.color = isActive ? '' : 'var(--text-dim)';
+            });
             // Mobile bottom nav active state — pip highlight + icon color + label weight
             const mobTabs = {
                 dashboard: { btn: 'mob-btn-dash',      pip: 'mob-pip-dash' },
