@@ -14,7 +14,7 @@
       }
     </script>
     <title>PSLink</title>
-    <!-- v1.6.7 — AI Analyst FAB: circle icon-only on mobile (≤768px), pill on desktop -->
+    <!-- v1.6.8 — Fix iOS keyboard push: visualViewport listener shifts AI sheet bottom on keyboard open/close -->
 
     <!-- PWA: iOS / Safari Home Screen -->
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2603,7 +2603,7 @@
                 height: 88dvh !important;
                 border-radius: 20px 20px 0 0 !important;
                 transform: translateY(102%) !important;
-                transition: transform 0.32s cubic-bezier(0.32,0.72,0,1) !important;
+                transition: transform 0.32s cubic-bezier(0.32,0.72,0,1), bottom 0.12s ease-out !important;
                 z-index: 300 !important;
                 display: block !important; /* override hidden */
                 visibility: hidden;
@@ -2630,9 +2630,9 @@
                 margin: 10px auto 0;
                 flex-shrink: 0;
             }
-            /* Safe area: input row at bottom of sheet */
+            /* Safe area: input row — use env() directly for iPhone home bar */
             #ai-popup-input-row {
-                padding-bottom: calc(0.625rem + var(--sab)) !important;
+                padding-bottom: max(0.625rem, env(safe-area-inset-bottom)) !important;
             }
             /* Hide desktop drag cursor on mobile header */
             #ai-popup-header {
@@ -11323,11 +11323,41 @@ ${sourceText}`;
         // ── Chat Popup ──────────────────────────────────────────────────────────
         function _isMobileSheet() { return window.innerWidth <= 1024; }
 
+        // ── v1.6.8: iOS keyboard handler for AI bottom sheet ──────────────
+        // iOS Safari does NOT resize window.innerHeight on keyboard open.
+        // Instead it shrinks visualViewport. We listen and shift the sheet up.
+        let _aiVVHandler = null;
+        function _aiBindKeyboard() {
+            if (!window.visualViewport || _aiVVHandler) return;
+            _aiVVHandler = () => {
+                const popup = document.getElementById('ai-popup');
+                if (!popup || !popup.classList.contains('ai-sheet-open')) return;
+                const vv = window.visualViewport;
+                // offset = how much keyboard has pushed viewport up from bottom
+                const kbOffset = window.innerHeight - vv.height - vv.offsetTop;
+                const shift = Math.max(0, kbOffset);
+                popup.style.setProperty('bottom', shift + 'px', 'important');
+            };
+            window.visualViewport.addEventListener('resize', _aiVVHandler);
+            window.visualViewport.addEventListener('scroll', _aiVVHandler);
+        }
+        function _aiUnbindKeyboard() {
+            if (!window.visualViewport || !_aiVVHandler) return;
+            window.visualViewport.removeEventListener('resize', _aiVVHandler);
+            window.visualViewport.removeEventListener('scroll', _aiVVHandler);
+            _aiVVHandler = null;
+            // Reset bottom
+            const popup = document.getElementById('ai-popup');
+            if (popup) popup.style.removeProperty('bottom');
+        }
+        // ───────────────────────────────────────────────────────────────────
+
         function _aiSheetOpen() {
             const popup = document.getElementById('ai-popup');
             const bd    = document.getElementById('ai-sheet-backdrop');
             popup.classList.add('ai-sheet-open');
             if (bd) { bd.style.display = 'block'; requestAnimationFrame(() => bd.classList.add('ai-bd-visible')); }
+            _aiBindKeyboard();
             // Focus input after transition
             setTimeout(() => { const inp = document.getElementById('ai-popup-input'); if (inp) inp.focus(); }, 340);
         }
@@ -11336,6 +11366,7 @@ ${sourceText}`;
             const bd    = document.getElementById('ai-sheet-backdrop');
             popup.classList.remove('ai-sheet-open');
             if (bd) { bd.classList.remove('ai-bd-visible'); setTimeout(() => { bd.style.display = ''; }, 300); }
+            _aiUnbindKeyboard();
         }
 
         function openAiPopup() {
