@@ -841,6 +841,24 @@
             background-size: 400px 100%;
             animation: shimmer 1.4s ease infinite;
         }
+        /* ── Sparkline skeleton — shimmer pill while real bars loading ── */
+        .wl-spark-skeleton {
+            display: inline-block;
+            width: 70px; height: 14px;
+            border-radius: 3px;
+            background: linear-gradient(90deg, var(--border) 25%, var(--bg-card2) 50%, var(--border) 75%);
+            background-size: 400px 100%;
+            animation: shimmer 1.6s ease infinite;
+            vertical-align: middle;
+        }
+        .wl-mob-spark-skeleton {
+            display: block;
+            width: 88px; height: 40px;
+            border-radius: 4px;
+            background: linear-gradient(90deg, var(--border) 25%, var(--bg-card2) 50%, var(--border) 75%);
+            background-size: 400px 100%;
+            animation: shimmer 1.6s ease infinite;
+        }
 
         /* ── Quick Chart: Price Hero & Detail Panel ── */
         #qc-price-hero {
@@ -5700,15 +5718,28 @@
             if (!watchlist.length) return;
             const MAX_ROWS = 30;
             const symbols = watchlist.slice(0, MAX_ROWS);
-            await throttledAll(symbols, 3, async (symbol) => {
+
+            // ── Phase 1: fetch all Alpaca bars in parallel (concurrency 8) ──────
+            // Higher concurrency = all symbols get real bars closer together
+            // → consistent shape on first render, no staggered OHLC→real swap
+            const hasAlpaca = hasAlpacaSparkSource();
+            const results = {}; // sym → true if real bars fetched
+
+            await throttledAll(symbols, hasAlpaca ? 8 : 3, async (symbol) => {
                 const ok = await refreshSparklineSymbol(symbol, true);
-                if (ok) return;
-                // Fix 3 — OHLC fallback always runs when Alpaca returns no usable data.
-                // Previously gated by !hasAlpacaSparkSource() which blocked the fallback
-                // when keys are configured but the API call fails at runtime.
-                const d = wlDataCache[symbol];
-                if (d) seedSparklineFromOHLC(symbol, d, d?.c ?? d?.pc ?? null);
+                results[symbol] = ok;
             });
+
+            // ── Phase 2: seed OHLC only for symbols that failed real fetch ──────
+            // Doing this AFTER batch = all real-bar symbols already rendered,
+            // OHLC fallbacks fill in the remaining ones simultaneously
+            symbols.forEach(symbol => {
+                if (!results[symbol]) {
+                    const d = wlDataCache[symbol];
+                    if (d) seedSparklineFromOHLC(symbol, d, d?.c ?? d?.pc ?? null);
+                }
+            });
+
             scheduleSaveSparklineCache(true);
         }
 
@@ -5830,7 +5861,9 @@
             const mobEl = document.getElementById('wl-mob-spark-' + symbol);
             const entry  = wlSparklineCache[symbol];
             const placeholder = '<span class="wl-sparkline-placeholder" style="font-size:9px;color:var(--text-dim)">—</span>';
-            const loading = '<span class="wl-sparkline-placeholder" style="font-size:9px;color:var(--text-dim)">…</span>';
+            const loading = hasAlpacaSparkSource()
+                ? '<span class="wl-spark-skeleton"></span>'
+                : '<span class="wl-sparkline-placeholder" style="font-size:9px;color:var(--text-dim)">…</span>';
             // คำนวณทิศทางจากข้อมูลที่มีก่อน เพื่อ placeholder มีสีที่ถูกต้อง
             const _prices = entry?.prices;
             const _d = wlDataCache[symbol] || {};
@@ -5838,7 +5871,9 @@
             const _last = _prices?.length ? _prices[_prices.length - 1] : null;
             const _prevClose = _d?._prevDailyC ?? _d?.pc ?? _base;
             const _isUp = (_last != null && _prevClose != null) ? (_last >= _prevClose) : null;
-            const mobPlaceholder = renderSparklinePlaceholderSVG(88, 44, _isUp);
+            const mobPlaceholder = hasAlpacaSparkSource()
+                ? '<span class="wl-mob-spark-skeleton"></span>'
+                : renderSparklinePlaceholderSVG(88, 44, _isUp);
             if (!entry) {
                 if (el) el.innerHTML = placeholder;
                 if (mobEl) mobEl.innerHTML = mobPlaceholder;
@@ -6325,14 +6360,20 @@
                 ? `<img src="${logo}" loading="eager" class="rounded-full bg-white" style="width:44px;height:44px;border:1px solid var(--border);flex-shrink:0;object-fit:contain;object-position:center" onerror="this.style.display='none'">`
                 : `<div style="width:44px;height:44px;border-radius:50%;background:var(--bg-card2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:11px;font-weight:900;color:var(--text-dim)">${symbol.slice(0,2)}</span></div>`;
             if (d && !wlSparklineCache[symbol]?.prices?.length && (d?.pc != null || d?.c != null || d?.o != null)) {
-                seedSparklineFromOHLC(symbol, d, price ?? d?.c ?? null);
+                // Only seed from OHLC immediately if no Alpaca key — otherwise show placeholder
+                // and let refreshSparklineForTopSymbols() batch-fill with real bars
+                if (!hasAlpacaSparkSource()) {
+                    seedSparklineFromOHLC(symbol, d, price ?? d?.c ?? null);
+                }
             }
             const sparkBase = wlSparklineCache[symbol]?.base ?? d?.pc ?? wlSparklineCache[symbol]?.prices?.[0];
             const sparklineMobile = (d && wlSparklineCache[symbol]?.prices?.length >= 2 && sparklineQuality(wlSparklineCache[symbol].prices, sparkBase))
                 ? renderSparklineSVG(wlSparklineCache[symbol].prices, isUp, 88, 44, (wlSparklineCache[symbol]?.base ?? d?.pc ?? wlSparklineCache[symbol]?.prices?.[0]))
                 : (d && wlSparklineCache[symbol]?.prices?.length >= SPARKLINE_MIN_POINTS)
                     ? renderSparklineSVG(wlSparklineCache[symbol].prices, isUp, 88, 44, sparkBase)
-                    : renderSparklinePlaceholderSVG(88, 44, isUp);
+                    : d && hasAlpacaSparkSource()
+                        ? '<span class="wl-mob-spark-skeleton"></span>'
+                        : renderSparklinePlaceholderSVG(88, 44, isUp);
             const chgLabel = extPrice !== null && extIsAH ? 'หลัง: ' : '';
             const chgVal = changePct !== null ? (isUp?'+':'')+changePct.toFixed(2)+'%' : '—';
             // Tablet-only ext hours block (hidden on phone via CSS)
@@ -6394,7 +6435,13 @@
                     <td style="text-align:center;vertical-align:middle"><span id="wl-low-${symbol}" class="wl-low-badge" style="display:none"></span></td>
                     <td style="text-align:center">${d ? `<span id="wl-signal-${symbol}" class="wl-signal-badge ${signal.cls}" title="Confidence ${signal.confidence}%">${signal.label}</span>` : (sk(44) ?? '')}</td>
                     <td style="text-align:center">${d ? `<span id="wl-rating-${symbol}" class="wl-signal-badge ${analyst.cls}" title="Analyst rating (API)">${analyst.label}</span>` : (sk(50) ?? '')}</td>
-                    <td class="wl-movement-cell" style="text-align:center;vertical-align:middle"><div id="wl-sparkline-${symbol}" class="wl-sparkline-wrap">${(d && wlSparklineCache[symbol]?.prices && sparklineQuality(wlSparklineCache[symbol].prices, (wlSparklineCache[symbol]?.base ?? d?.pc ?? wlSparklineCache[symbol]?.prices?.[0]))) ? renderSparklineSVG(wlSparklineCache[symbol].prices, isUp, 72, 16, (wlSparklineCache[symbol]?.base ?? d?.pc ?? wlSparklineCache[symbol]?.prices?.[0])) : (d ? '<span class="wl-sparkline-placeholder" style="font-size:9px;color:var(--text-dim)">…</span>' : (sk(70) ?? ''))}</div></td>
+                    <td class="wl-movement-cell" style="text-align:center;vertical-align:middle"><div id="wl-sparkline-${symbol}" class="wl-sparkline-wrap">${
+                        (d && wlSparklineCache[symbol]?.prices && sparklineQuality(wlSparklineCache[symbol].prices, (wlSparklineCache[symbol]?.base ?? d?.pc ?? wlSparklineCache[symbol]?.prices?.[0])))
+                            ? renderSparklineSVG(wlSparklineCache[symbol].prices, isUp, 72, 16, (wlSparklineCache[symbol]?.base ?? d?.pc ?? wlSparklineCache[symbol]?.prices?.[0]))
+                            : d && hasAlpacaSparkSource()
+                                ? '<span class="wl-spark-skeleton"></span>'
+                                : (d ? '<span class="wl-sparkline-placeholder" style="font-size:9px;color:var(--text-dim)">…</span>' : (sk(70) ?? ''))
+                    }</div></td>
                     <td class="price-cell ${priceColor}" style="text-align:right">${sk(52) ?? (price !== null ? '$' + fmt(price) : '—')}</td>
                     <td class="num-cell ${changeColor}" style="text-align:right;font-size:11px">${sk(40) ?? (change !== null ? (isUp ? '+' : '') + fmt(change) : '—')}</td>
                     <td class="px-3 py-2 text-right">${sk(56) ??
@@ -7832,11 +7879,13 @@
             }
             // ── 7D/30D Low badge ──
             if (price != null) _applyLowBadge(symbol, price);
-            // Seed Movement sparkline from OHLC once per symbol (แสดงทันทีแบบ Webull)
+            // Seed Movement sparkline from OHLC — only if no Alpaca (real bars will come from batch)
             const hasSpark = wlSparklineCache[symbol] && Array.isArray(wlSparklineCache[symbol].prices) && wlSparklineCache[symbol].prices.length >= 2;
             const canUseRealBars = hasRealSparkSource();
             if (!hasSpark && (price != null || prevClose != null || open != null || high != null || low != null)) {
-                seedSparklineFromOHLC(symbol, data, price);
+                if (!hasAlpacaSparkSource()) {
+                    seedSparklineFromOHLC(symbol, data, price);
+                }
             } else if (hasSpark && price != null) {
                 pushSparklinePrice(symbol, price);
             }
