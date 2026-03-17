@@ -14,7 +14,7 @@
       }
     </script>
     <title>PSLink</title>
-    <!-- v1.3.0 — Fix photo save reliability: applyCrop pushes immediately with status; keepalive checks 64KB limit; large payload uses regular fetch -->
+    <!-- v1.3.2 — Profile card: big name preserved + free-form textarea for notes; 12px regular weight display -->
 
     <!-- PWA: iOS / Safari Home Screen -->
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -3407,29 +3407,29 @@
                     <div id="profile-card-main" class="dash-card p-0 overflow-hidden" style="display:flex;height:calc(256px + 80px);" data-desktop-height="calc(256px + 80px)">
                         <!-- Info panel -->
                         <div style="display:flex;flex-direction:column;position:relative;flex:1;min-width:0;overflow:hidden;">
-                            <div id="profile-view" style="height:100%;display:flex;flex-direction:column;justify-content:space-between;padding:20px 22px;">
-                                <div>
-                                    <div id="profile-display-name" class="font-black leading-tight mb-2" style="font-size:clamp(15px,1.6vw,24px);color:var(--text-primary);word-break:break-word">—</div>
-                                    <div id="profile-display-nickname" class="font-semibold mb-1" style="font-size:clamp(11px,1vw,14px);color:var(--text-secondary);display:none"></div>
-                                    <div id="profile-display-email" class="font-mono" style="font-size:clamp(9px,0.8vw,12px);color:var(--text-dim);display:none;word-break:break-all;margin-bottom:12px"></div>
-                                    <div id="profile-pills" class="flex flex-wrap gap-2" style="margin-top:10px"></div>
+                            <div id="profile-view" style="height:100%;display:flex;flex-direction:column;justify-content:space-between;padding:20px 22px;overflow:hidden;">
+                                <div style="display:flex;flex-direction:column;gap:6px;min-height:0;flex:1;overflow:hidden;">
+                                    <!-- Name — original large size -->
+                                    <div id="profile-display-name" class="font-black leading-tight" style="font-size:clamp(15px,1.6vw,24px);color:var(--text-primary);word-break:break-word;flex-shrink:0;"></div>
+                                    <!-- Pills -->
+                                    <div id="profile-pills" class="flex flex-wrap gap-2" style="flex-shrink:0;"></div>
+                                    <!-- Notes display — free text, scrollable -->
+                                    <div id="profile-display-notes" style="flex:1;overflow-y:auto;font-family:var(--font-main);font-size:12px;font-weight:400;color:var(--text-secondary);line-height:1.6;white-space:pre-wrap;word-break:break-word;margin-top:2px;"></div>
                                 </div>
-                                <button onclick="openProfileEdit()" class="self-start text-[9px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-md transition-all" style="background:var(--bg-card2);border:1px solid var(--border);color:var(--text-dim)">✏️ Edit</button>
+                                <button onclick="openProfileEdit()" class="self-start text-[9px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-md transition-all" style="background:var(--bg-card2);border:1px solid var(--border);color:var(--text-dim);flex-shrink:0;margin-top:8px;">✏️ Edit</button>
                             </div>
-                            <div id="profile-edit" style="display:none;flex-direction:column;height:100%;padding:18px 22px;gap:9px;">
-                                <div class="text-[9px] font-black uppercase tracking-widest" style="color:var(--text-dim)">แก้ไขโปรไฟล์</div>
-                                <input id="profile-input-name" type="text" placeholder="ชื่อ-นามสกุล" maxlength="60"
-                                    class="w-full text-xs px-2.5 py-1.5 rounded-md outline-none"
-                                    style="background:var(--bg-main);border:1px solid var(--border);color:var(--text-primary);font-family:var(--font-main)">
-                                <input id="profile-input-nickname" type="text" placeholder="ชื่อเล่น (optional)" maxlength="30"
-                                    class="w-full text-xs px-2.5 py-1.5 rounded-md outline-none"
-                                    style="background:var(--bg-main);border:1px solid var(--border);color:var(--text-primary);font-family:var(--font-main)">
-                                <input id="profile-input-email" type="email" placeholder="อีเมล (optional)" maxlength="80"
-                                    class="w-full text-xs px-2.5 py-1.5 rounded-md outline-none"
-                                    style="background:var(--bg-main);border:1px solid var(--border);color:var(--text-primary);font-family:var(--font-mono)">
-                                <div class="flex gap-2 mt-auto">
-                                    <button onclick="saveProfileEdit()" class="flex-1 text-[10px] font-bold py-1.5 rounded-md text-white" style="background:var(--accent)">บันทึก</button>
-                                    <button onclick="cancelProfileEdit()" class="text-[10px] font-bold px-3 py-1.5 rounded-md" style="background:var(--bg-card2);border:1px solid var(--border);color:var(--text-dim)">ยกเลิก</button>
+                            <div id="profile-edit" style="display:none;flex-direction:column;height:100%;padding:16px 20px;gap:8px;">
+                                <div style="font-family:var(--font-mono);font-size:9px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-dim);">แก้ไขโปรไฟล์</div>
+                                <!-- Name — keeps original large style -->
+                                <input id="profile-input-name" type="text" placeholder="ชื่อ" maxlength="80"
+                                    class="w-full outline-none font-black leading-tight"
+                                    style="font-size:clamp(14px,1.5vw,22px);color:var(--text-primary);background:transparent;border:none;border-bottom:1px solid var(--border);padding:2px 0 4px 0;font-family:var(--font-main);">
+                                <!-- Notes textarea — free-form, resizable -->
+                                <textarea id="profile-input-notes" placeholder="พิมพ์รายละเอียด&#10;บริษัท, ตำแหน่ง, เบอร์, อีเมล, โน้ต..." maxlength="1200"
+                                    style="flex:1;width:100%;resize:none;outline:none;font-family:var(--font-main);font-size:12px;font-weight:400;line-height:1.6;color:var(--text-secondary);background:var(--bg-main);border:1px solid var(--border);border-radius:6px;padding:8px 10px;"></textarea>
+                                <div style="display:flex;gap:6px;">
+                                    <button onclick="saveProfileEdit()" class="flex-1 text-[10px] font-bold py-1.5 rounded-md text-white" style="background:var(--accent);">บันทึก</button>
+                                    <button onclick="cancelProfileEdit()" class="text-[10px] font-bold px-3 py-1.5 rounded-md" style="background:var(--bg-card2);border:1px solid var(--border);color:var(--text-dim);">ยกเลิก</button>
                                 </div>
                             </div>
                         </div>
@@ -13694,22 +13694,15 @@ ${_clip(contextSections, 2600)}`;
 
         function _loadProfileCard() {
             _applyProfilePhotoMobileHeight();
-            const name     = localStorage.getItem('ps_profile_name') || '';
-            const nickname = localStorage.getItem('ps_profile_nickname') || '';
-            const email    = localStorage.getItem('ps_profile_email') || '';
-            // Profile card photo — independent key from nav avatar
             const photo = db.profilePhoto || localStorage.getItem('ps_profile_photo') || '';
             if (photo) setProfilePhoto(photo);
-            // Name
-            const nameEl = document.getElementById('profile-display-name');
-            if (nameEl) nameEl.textContent = name || '—';
-            // Nickname
-            const nnEl = document.getElementById('profile-display-nickname');
-            if (nnEl) { nnEl.textContent = nickname; nnEl.style.display = nickname ? '' : 'none'; }
-            // Email
-            const emEl = document.getElementById('profile-display-email');
-            if (emEl) { emEl.textContent = email; emEl.style.display = email ? '' : 'none'; }
-            // Stats Pills
+            // Name (large)
+            const name  = localStorage.getItem('ps_profile_name') || '';
+            const notes = localStorage.getItem('ps_profile_notes') || '';
+            const nameEl  = document.getElementById('profile-display-name');
+            const notesEl = document.getElementById('profile-display-notes');
+            if (nameEl)  nameEl.textContent  = name;
+            if (notesEl) notesEl.textContent = notes;
             _renderProfilePills();
         }
 
@@ -14012,23 +14005,22 @@ ${_clip(contextSections, 2600)}`;
             const view = document.getElementById('profile-view');
             const edit = document.getElementById('profile-edit');
             if (!view || !edit) return;
-            document.getElementById('profile-input-name').value     = localStorage.getItem('ps_profile_name')     || '';
-            document.getElementById('profile-input-nickname').value = localStorage.getItem('ps_profile_nickname') || '';
-            document.getElementById('profile-input-email').value    = localStorage.getItem('ps_profile_email')    || '';
+            document.getElementById('profile-input-name').value  = localStorage.getItem('ps_profile_name')  || '';
+            document.getElementById('profile-input-notes').value = localStorage.getItem('ps_profile_notes') || '';
             view.style.display = 'none';
             edit.style.display = 'flex';
+            // Focus textarea after transition
+            setTimeout(() => document.getElementById('profile-input-notes')?.focus(), 50);
         }
 
         function saveProfileEdit() {
-            const name     = document.getElementById('profile-input-name').value.trim();
-            const nickname = document.getElementById('profile-input-nickname').value.trim();
-            const email    = document.getElementById('profile-input-email').value.trim();
-            localStorage.setItem('ps_profile_name',     name);
-            localStorage.setItem('ps_profile_nickname', nickname);
-            localStorage.setItem('ps_profile_email',    email);
-            // Also sync to existing db-name-display in nav
-            const dbEl = document.getElementById('db-name-display');
-            if (dbEl && name) dbEl.innerText = name;
+            const name  = document.getElementById('profile-input-name').value.trim();
+            const notes = document.getElementById('profile-input-notes').value;
+            localStorage.setItem('ps_profile_name',  name);
+            localStorage.setItem('ps_profile_notes', notes);
+            // Keep legacy keys for backwards compat with Gist export
+            localStorage.setItem('ps_profile_nickname', '');
+            localStorage.setItem('ps_profile_email',    '');
             _loadProfileCard();
             cancelProfileEdit();
             scheduleAutoSave(true);
@@ -14366,7 +14358,9 @@ ${_clip(contextSections, 2600)}`;
                 'ps_finnhub_key', 'ps_fmp_key', 'ps_erapi_key',
                 'ps_alpaca_key', 'ps_alpaca_secret',
                 'ps_openrouter_key', 'ps_gist_token',
-                'ps_dbname', 'ps_dark', 'ps_month'
+                'ps_dbname', 'ps_dark', 'ps_month',
+                'ps_profile_label_1', 'ps_profile_label_2', 'ps_profile_label_3',
+                'ps_profile_notes'
             ];
             const settings = {};
             lsKeys.forEach(k => {
