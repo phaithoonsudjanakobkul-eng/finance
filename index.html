@@ -14,7 +14,7 @@
       }
     </script>
     <title>PSLink</title>
-    <!-- v1.3.2 — Profile card: big name preserved + free-form textarea for notes; 12px regular weight display -->
+    <!-- v1.6.6 — Fix: monthInput flex:1 removed from inline style (was stretching on desktop); mobile-only via CSS -->
 
     <!-- PWA: iOS / Safari Home Screen -->
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1931,6 +1931,290 @@
             margin-bottom: 1.5rem;
         }
 
+
+        /* ══════════════════════════════════════════════
+           RECORDS TAB — Redesigned v1.3.7
+        ══════════════════════════════════════════════ */
+
+        /* ── Stat Cards (financial bar) ── */
+        .rec-stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 18px 20px 16px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+            transition: box-shadow 0.2s;
+        }
+        .rec-stat-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.07); }
+        .rec-stat-label {
+            font-family: var(--font-mono);
+            font-size: 9px;
+            font-weight: 800;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--text-dim);
+        }
+        .rec-stat-sub {
+            font-family: var(--font-main);
+            font-size: 10px;
+            color: var(--text-dim);
+            margin-top: 1px;
+            opacity: 0.7;
+        }
+        .rec-stat-currency {
+            font-family: var(--font-mono);
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text-secondary);
+            line-height: 1;
+        }
+        .rec-stat-value {
+            font-family: var(--font-mono);
+            font-size: clamp(20px, 3.5vw, 28px);
+            font-weight: 800;
+            color: var(--text-primary);
+            line-height: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            width: 100%;
+            font-variant-numeric: tabular-nums;
+        }
+        .rec-saving-rate {
+            display: inline-block;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            font-weight: 800;
+            padding: 2px 10px;
+            border-radius: 999px;
+            background: color-mix(in srgb, var(--accent) 12%, transparent);
+            color: var(--accent);
+            width: fit-content;
+        }
+
+        /* ── List Cards ── */
+        .rec-list-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .rec-list-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 18px 10px;
+            border-bottom: 1px solid var(--border);
+            gap: 10px;
+            background: var(--bg-card2);
+        }
+        .rec-list-header-left {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            flex: 1;
+            min-width: 0;
+        }
+        .rec-list-title {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            font-family: var(--font-main);
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text-primary);
+            white-space: nowrap;
+        }
+        .rec-list-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .rec-list-meta {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: nowrap;
+        }
+        .rec-last-month {
+            font-family: var(--font-mono);
+            font-size: 8.5px;
+            font-weight: 600;
+            color: var(--text-dim);
+            letter-spacing: 0.04em;
+            white-space: nowrap;
+        }
+        .rec-uncheck-btn {
+            font-family: var(--font-mono);
+            font-size: 7.5px;
+            font-weight: 800;
+            letter-spacing: 0.06em;
+            color: var(--text-dim);
+            background: var(--bg-main);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 2px 6px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: color 0.15s, border-color 0.15s;
+            flex-shrink: 0;
+        }
+        .rec-uncheck-btn:hover { color: var(--accent); border-color: var(--accent); }
+        .rec-list-header-right {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 3px;
+            flex-shrink: 0;
+        }
+        .rec-sum-badge {
+            font-family: var(--font-mono);
+            font-size: 13px;
+            font-weight: 800;
+            font-variant-numeric: tabular-nums;
+            padding: 4px 12px;
+            border-radius: 8px;
+            white-space: nowrap;
+        }
+        .rec-sum-expense {
+            background: rgba(242,54,69,0.08);
+            color: var(--danger);
+            border: 1px solid rgba(242,54,69,0.18);
+        }
+        .rec-paid-badge {
+            font-family: var(--font-mono);
+            font-size: 8px;
+            font-weight: 800;
+            letter-spacing: 0.06em;
+            color: var(--accent);
+            background: color-mix(in srgb, var(--accent) 10%, transparent);
+            border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
+            border-radius: 4px;
+            padding: 2px 7px;
+        }
+        .rec-list-body {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+            padding: 6px 0;
+            flex: 1;
+        }
+        .rec-add-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-top: 1px solid var(--border);
+            background: var(--bg-card);
+            font-family: var(--font-mono);
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: background 0.15s, color 0.15s;
+        }
+        .rec-add-fixed { color: var(--accent); }
+        .rec-add-fixed:hover { background: color-mix(in srgb, var(--accent) 6%, var(--bg-card)); }
+        .rec-add-dynamic { color: var(--warning); }
+        .rec-add-dynamic:hover { background: color-mix(in srgb, var(--warning) 6%, var(--bg-card)); }
+
+        /* ── Row items inside lists ── */
+        #fixed-list .flex.gap-2,
+        #dynamic-list .flex.gap-2 {
+            padding: 8px 14px;
+            border-radius: 0;
+            border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+            transition: background 0.12s;
+        }
+        #fixed-list .flex.gap-2:last-child,
+        #dynamic-list .flex.gap-2:last-child { border-bottom: none; }
+        #fixed-list .flex.gap-2:hover,
+        #dynamic-list .flex.gap-2:hover { background: var(--bg-card2); }
+
+        /* ── Mobile responsive ── */
+        @media (max-width: 640px) {
+            #financial-bar {
+                grid-template-columns: 1fr 1fr !important;
+                gap: 10px !important;
+            }
+            #financial-bar > #income-cell {
+                grid-column: span 2 !important;
+            }
+            .rec-stat-card { padding: 14px 14px 12px; border-radius: 12px; }
+            .rec-stat-value { font-size: 20px !important; }
+            .rec-list-card { border-radius: 12px; }
+            .rec-list-title { font-size: 12px; }
+            .rec-sum-badge { font-size: 12px; padding: 3px 9px; }
+            #rec-lists-grid { gap: 12px; }
+        }
+        @media (max-width: 390px) {
+            #financial-bar { grid-template-columns: 1fr !important; }
+            #financial-bar > #income-cell { grid-column: span 1 !important; }
+        }
+
+
+        /* ── Records mobile/tablet responsive ── */
+
+        /* ≤ 900px: stack financial bar + smaller font */
+        @media (max-width: 900px) {
+            /* inner grid div — the one with inline style */
+            #financial-bar > .glass-card > div:first-child {
+                display: flex !important;
+                flex-direction: column !important;
+            }
+            #income-cell {
+                border-right: none !important;
+                border-bottom: 1px solid var(--border) !important;
+                padding: 14px 18px !important;
+            }
+            #income-cell ~ div {
+                border-right: none !important;
+                border-bottom: 1px solid var(--border) !important;
+                padding: 14px 18px !important;
+            }
+            #record-balance-card {
+                border-bottom: none !important;
+            }
+            /* Compact font on tablet */
+            #paydayDisplay,
+            #sum-total-exp,
+            #record-balance-val { font-size: 22px !important; }
+            #current-saving-rate { font-size: 18px !important; }
+        }
+
+        /* ≤ 640px: stack list columns */
+        @media (max-width: 640px) {
+            #rec-lists-grid {
+                display: flex !important;
+                flex-direction: column !important;
+                gap: 10px !important;
+            }
+            /* Compact font on phone */
+            #paydayDisplay,
+            #sum-total-exp,
+            #record-balance-val { font-size: 20px !important; }
+            /* Records toolbar: keep single row on mobile */
+            #records-toolbar {
+                flex-wrap: nowrap !important;
+            }
+        }
+
+        /* ── Dark mode overrides ── */
+        html.dark .rec-list-header { background: var(--bg-card2); }
+        html.dark .rec-add-btn { background: var(--bg-card); }
+        html.dark .rec-add-fixed:hover { background: color-mix(in srgb, var(--accent) 10%, var(--bg-card)); }
+        html.dark .rec-add-dynamic:hover { background: color-mix(in srgb, var(--warning) 10%, var(--bg-card)); }
+
         .glass-card { 
             background: white; 
             border-radius: 6px; 
@@ -2223,17 +2507,22 @@
                 grid-template-columns: 1fr !important;
             }
 
-            /* 5. Records toolbar: stack */
+            /* 5. Records toolbar: force single compact row — DO NOT stack */
             #records-toolbar {
-                flex-direction: column !important;
-                align-items: stretch !important;
-                gap: 8px !important;
-                padding: 12px !important;
-                border-radius: 16px !important;
+                flex-direction: row !important;
+                align-items: center !important;
+                flex-wrap: nowrap !important;
+                gap: 4px !important;
+                padding: 7px 10px !important;
+                border-radius: 14px !important;
+                overflow: hidden !important;
             }
             #records-toolbar > div {
-                width: 100% !important;
-                justify-content: space-between !important;
+                width: auto !important;
+                flex: 1 !important;
+                justify-content: flex-start !important;
+                flex-wrap: nowrap !important;
+                gap: 4px !important;
             }
 
             /* 5b. Records section header: mobile layout */
@@ -2251,10 +2540,7 @@
                 padding: 4px 8px !important;
             }
 
-            /* 6. Financial bar: stack */
-            #financial-bar {
-                grid-template-columns: 1fr !important;
-            }
+
             #financial-bar > div {
                 border-bottom: 1px solid var(--border) !important;
                 border-right: none !important;
@@ -2409,49 +2695,47 @@
 
             /* Watchlist card layout → ใช้ block แยก @media (max-width: 1024px) ด้านล่าง */
 
-            /* ── RECORDS TOOLBAR ──
+            /* RECORDS TOOLBAR — old column layout, disabled in v1.6.4
             #records-toolbar {
-                display: flex !important;
-                flex-direction: column !important;
-                gap: 8px !important;
-                padding: 12px !important;
-                border-radius: 16px !important;
-                align-items: stretch !important;
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                padding: 12px;
+                border-radius: 16px;
+                align-items: stretch;
             }
-            /* แถวบน: month picker เต็มความกว้าง */
             #records-toolbar > div:first-child {
-                display: flex !important;
-                flex-direction: column !important;
-                gap: 8px !important;
-                width: 100% !important;
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                width: 100%;
             }
-            /* month picker กว้างเต็ม */
             #month-picker-wrap {
-                width: 100% !important;
-                justify-content: space-between !important;
+                width: 100%;
+                justify-content: space-between;
             }
             #month-picker-wrap input[type="month"] {
-                flex: 1 !important;
-                font-size: 15px !important;
-                text-align: center !important;
+                flex: 1;
+                font-size: 15px;
+                text-align: center;
             }
-            /* แถวล่าง: ปุ่ม Pull Last + Clear Month เรียงกันกว้างเท่ากัน */
             #records-toolbar .flex.gap-1 {
-                display: flex !important;
-                gap: 8px !important;
-                width: 100% !important;
+                display: flex;
+                gap: 8px;
+                width: 100%;
             }
             #records-toolbar .flex.gap-1 button,
             #records-toolbar .flex.gap-1 .relative {
-                flex: 1 !important;
-                text-align: center !important;
-                justify-content: center !important;
+                flex: 1;
+                text-align: center;
+                justify-content: center;
             }
             #records-toolbar .flex.gap-1 button {
-                font-size: 11px !important;
-                padding: 8px 4px !important;
+                font-size: 11px;
+                padding: 8px 4px;
             }
-            /* ── FIX: ซ่อน FX widget + AI chatbox ใน watchlist header ──
+            END DISABLED */
+            /* FIX: ซ่อน FX widget + AI chatbox ใน watchlist header ──
                คับแน่นและอ่านไม่ออกบนจอเล็ก ใช้ AI Analyst float button แทน */
             #fx-widget,
             #erapi-prompt,
@@ -2571,10 +2855,10 @@
             .grid.grid-cols-1.md\:grid-cols-2.lg\:grid-cols-4 {
                 gap: 12px !important;
             }
-            /* Records toolbar — allow row layout instead of full stack */
+            /* Records toolbar — single row, no wrap */
             #records-toolbar {
                 flex-direction: row !important;
-                flex-wrap: wrap !important;
+                flex-wrap: nowrap !important;
                 align-items: center !important;
             }
         }
@@ -2653,15 +2937,16 @@
                 top: calc(52px + var(--sat)) !important;
             }
 
-            /* 6. Records toolbar — horizontal row with wrap (not fully stacked) */
+            /* 6. Records toolbar — single compact row, no wrap */
             #records-toolbar {
-                flex-wrap: wrap !important;
-                gap: 8px !important;
-                padding: 12px 16px !important;
+                flex-direction: row !important;
+                flex-wrap: nowrap !important;
+                gap: 6px !important;
+                padding: 8px 14px !important;
                 border-radius: 16px !important;
             }
             #records-toolbar > div {
-                flex-shrink: 0 !important;
+                flex-shrink: 1 !important;
             }
 
             /* 7. Financial bar — 2 columns */
@@ -3191,6 +3476,58 @@
             #watchlist-table .wl-mob-chg { font-size: 10.5px !important; }
             main { padding-left: 10px !important; padding-right: 10px !important; }
         }
+
+        /* ── v1.6.1 Records Tab Mobile Responsive ───────────────────────── */
+        /* TOOLBAR: force single row on ALL screen sizes — override legacy column rules */
+        #records-toolbar {
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            align-items: center !important;
+            overflow: hidden !important;
+        }
+        #records-toolbar > div,
+        #month-picker-wrap {
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            width: auto !important;
+            align-items: center !important;
+        }
+
+        @media (max-width: 600px) {
+            /* Toolbar: hide text labels → icon-only buttons */
+            .toolbar-btn-label { display: none !important; }
+            #btn-pull, #clear-btn {
+                padding: 6px 8px !important;
+                border-radius: 8px !important;
+            }
+            #records-toolbar { padding: 7px 10px !important; gap: 4px !important; }
+            #month-picker-wrap { gap: 4px !important; flex: 1 !important; }
+            #monthInput { flex: 1 !important; }
+
+            #financial-bar-grid {
+                grid-template-columns: 1fr 1fr !important;
+                min-height: unset !important;
+            }
+            #record-balance-card {
+                grid-column: 1 / -1;
+                border-top: 1px solid var(--border);
+                padding: 12px 16px !important;
+            }
+            #income-cell { padding: 12px 14px !important; }
+            #rec-lists-grid { grid-template-columns: 1fr !important; }
+            .expense-amount-wrap { width: 110px !important; }
+            #fixed-list input[type=text],
+            #dynamic-list input[type=text] {
+                font-size: 13px !important;
+                padding: 7px 10px !important;
+            }
+        }
+        @media (max-width: 390px) {
+            .expense-amount-wrap { width: 90px !important; }
+            #fixed-list input[type=text],
+            #dynamic-list input[type=text] { font-size: 12px !important; }
+        }
+        /* ───────────────────────────────────────────────────────────────── */
 
     </style>
 </head>
@@ -3803,103 +4140,171 @@
         </div>
 
         <!-- RECORDS TAB -->
-        <div id="tab-edit" class="hidden space-y-4 pt-3">
-            <div class="flex flex-wrap gap-4 items-center justify-between bg-white p-4 rounded-3xl border border-gray-100" id="records-toolbar">
-                <div class="flex items-center gap-4">
-                    <div class="flex items-center bg-gray-50 rounded-xl px-2" id="month-picker-wrap">
-                        <button onclick="stepMonth(-1)" class="p-2 rounded-lg transition-colors" style="color:var(--accent)">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+        <div id="tab-edit" class="hidden space-y-3 pt-2">
+            <!-- Toolbar: Apple-style floating pill -->
+            <div id="records-toolbar" style="
+                display:flex;align-items:center;justify-content:space-between;
+                padding:8px 12px;border-radius:16px;gap:6px;
+                background:color-mix(in srgb,var(--bg-card) 80%,transparent);
+                border:1px solid var(--border);
+                backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+                box-shadow:0 2px 12px rgba(0,0,0,0.06);
+                overflow:hidden;
+            ">
+                <!-- Month navigator + Actions — single compact row -->
+                <div style="display:flex;align-items:center;gap:6px;flex:1;min-width:0;flex-wrap:nowrap;" id="month-picker-wrap">
+                    <!-- Prev -->
+                    <button onclick="stepMonth(-1)" id="btn-prev-month" style="width:28px;height:28px;border-radius:50%;background:var(--bg-card2);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--accent);transition:background 0.15s;flex-shrink:0;" onmouseover="this.style.background='color-mix(in srgb,var(--accent) 12%,var(--bg-card2))'" onmouseout="this.style.background='var(--bg-card2)'">
+                        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7"/></svg>
+                    </button>
+                    <!-- Month input -->
+                    <input type="month" id="monthInput" onchange="loadMonth(this.value)"
+                        style="background:transparent;border:none;outline:none;font-family:var(--font-main);font-size:15px;font-weight:800;color:var(--accent);padding:0 2px;cursor:pointer;min-width:0;width:auto;text-align:center;">
+                    <!-- Next -->
+                    <button onclick="stepMonth(1)" id="btn-next-month" style="width:28px;height:28px;border-radius:50%;background:var(--bg-card2);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--accent);transition:background 0.15s;flex-shrink:0;" onmouseover="this.style.background='color-mix(in srgb,var(--accent) 12%,var(--bg-card2))'" onmouseout="this.style.background='var(--bg-card2)'">
+                        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
+                    </button>
+                    <!-- Divider -->
+                    <div style="width:1px;height:16px;background:var(--border);flex-shrink:0;"></div>
+                    <!-- Pull Last Data — icon-only on mobile, text on desktop -->
+                    <button onclick="clonePreviousMonth()" id="btn-pull" title="Pull Last Data"
+                        style="font-family:var(--font-mono);font-size:8.5px;font-weight:800;letter-spacing:0.07em;text-transform:uppercase;padding:5px 10px;border-radius:9px;border:none;cursor:pointer;background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--accent);transition:background 0.15s;white-space:nowrap;flex-shrink:0;display:flex;align-items:center;gap:4px;"
+                        onmouseover="this.style.background='color-mix(in srgb,var(--accent) 20%,transparent)'" onmouseout="this.style.background='color-mix(in srgb,var(--accent) 12%,transparent)'">
+                        <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/></svg>
+                        <span class="toolbar-btn-label">Pull Last Data</span>
+                    </button>
+                    <!-- Clear Month -->
+                    <div style="position:relative;flex-shrink:0;">
+                        <button id="clear-btn" onclick="requestClear()" title="Clear Month"
+                            style="font-family:var(--font-mono);font-size:8.5px;font-weight:800;letter-spacing:0.07em;text-transform:uppercase;padding:5px 10px;border-radius:9px;border:none;cursor:pointer;background:color-mix(in srgb,var(--danger) 10%,transparent);color:var(--danger);transition:background 0.15s;display:flex;align-items:center;gap:4px;white-space:nowrap;"
+                            onmouseover="this.style.background='color-mix(in srgb,var(--danger) 18%,transparent)'" onmouseout="this.style.background='color-mix(in srgb,var(--danger) 10%,transparent)'">
+                            <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                            <span class="toolbar-btn-label">Clear Month</span>
                         </button>
-                        <input type="month" id="monthInput" onchange="loadMonth(this.value)" class="bg-transparent border-none font-black outline-none text-lg px-2" style="color:var(--accent)">
-                        <button onclick="stepMonth(1)" class="p-2 rounded-lg transition-colors" style="color:var(--accent)">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
-                        </button>
-                    </div>
-                    <div class="flex gap-1">
-                        <button onclick="clonePreviousMonth()" class="text-[10px] font-bold px-3 py-1.5 rounded-lg transition-colors uppercase" style="color:#10b981;background:rgba(16,185,129,0.1)">Pull Last Data</button>
-                        
-                        <div class="relative group">
-                            <!-- Clear Button with Tooltip/Lock mechanism -->
-                            <button id="clear-btn" onclick="requestClear()" class="text-rose-600 text-[10px] font-bold px-3 py-1.5 bg-rose-50 rounded-lg hover:bg-rose-100 disabled:bg-gray-50 disabled:text-gray-300 disabled:cursor-not-allowed transition-colors uppercase flex items-center gap-1">
-                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                                Clear Month
-                            </button>
-                            <div id="lock-tooltip" class="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[8px] py-1 px-2 rounded opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity whitespace-nowrap">เดือนเก่าถูกล็อคเพื่อความปลอดภัย</div>
-                        </div>
+                        <div id="lock-tooltip" style="position:absolute;top:-30px;left:50%;transform:translateX(-50%);background:rgba(15,32,48,0.9);color:#fff;font-size:8px;font-family:var(--font-mono);padding:4px 8px;border-radius:6px;opacity:0;pointer-events:none;white-space:nowrap;backdrop-filter:blur(8px);transition:opacity 0.15s;">เดือนเก่าถูกล็อค 🔒</div>
                     </div>
                 </div>
             </div>
 
-            <!-- FINANCIAL BAR -->
-            <div class="glass-card overflow-hidden">
-                <div class="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-gray-100" id="financial-bar">
-                    <div class="p-6" id="income-cell">
-                        <p class="text-[10px] font-black uppercase tracking-widest mb-1" style="color:var(--accent)">Monthly Income (รายรับ)</p>
-                        <div class="flex items-center gap-2">
-                            <span class="text-xl font-black" style="color:var(--accent)">฿</span>
-                            <input type="text" autocomplete="off" id="paydayDisplay" oninput="handleCurrencyInput(this, 'paydayVal')" onpaste="handlePaste(event, this, 'paydayVal')" onblur="handleBlur(this, 'paydayVal')" class="w-full text-2xl font-black outline-none bg-transparent ps-income-input" placeholder="0.00">
+            <!-- FINANCIAL BAR — horizontal 3-section, Apple-polished -->
+            <div class="glass-card overflow-hidden" id="financial-bar">
+                <div id="financial-bar-grid" style="display:grid;grid-template-columns:1fr 1fr 1fr;min-height:90px;">
+                    <!-- Income -->
+                    <div id="income-cell" style="padding:18px 24px;border-right:1px solid var(--border);position:relative;overflow:hidden;">
+                        <div style="position:absolute;top:-20px;right:-20px;width:80px;height:80px;border-radius:50%;background:color-mix(in srgb,var(--accent) 12%,transparent);filter:blur(28px);pointer-events:none;"></div>
+                        <p style="font-family:var(--font-mono);font-size:9px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:var(--accent);margin-bottom:3px;opacity:0.85;">Monthly Income <span style="opacity:0.6;font-weight:600;">(รายรับ)</span></p>
+                        <div style="display:flex;align-items:baseline;gap:5px;margin-top:6px;">
+                            <span style="font-family:var(--font-mono);font-size:clamp(20px,2.2vw,28px);font-weight:800;color:var(--accent);line-height:1;flex-shrink:0;">฿</span>
+                            <input type="text" autocomplete="off" id="paydayDisplay"
+                                oninput="handleCurrencyInput(this, 'paydayVal')"
+                                onpaste="handlePaste(event, this, 'paydayVal')"
+                                onblur="handleBlur(this, 'paydayVal')"
+                                class="ps-income-input"
+                                placeholder="0.00"
+                                style="font-family:var(--font-mono);font-size:clamp(20px,2.2vw,28px);font-weight:800;color:var(--accent);background:transparent;border:none;outline:none;width:100%;font-variant-numeric:tabular-nums;line-height:1;">
                             <input type="hidden" id="paydayVal">
                         </div>
                     </div>
-                    <div class="p-6">
-                        <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Total Expenses (รายจ่าย)</p>
-                        <div id="sum-total-exp" class="text-2xl font-black text-rose-500">฿ 0.00</div>
+                    <!-- Expenses -->
+                    <div style="padding:18px 24px;border-right:1px solid var(--border);">
+                        <p style="font-family:var(--font-mono);font-size:9px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-dim);margin-bottom:3px;">Total Expenses <span style="opacity:0.7;font-weight:600;">(รายจ่าย)</span></p>
+                        <div style="display:flex;align-items:baseline;gap:5px;margin-top:6px;">
+                            <div id="sum-total-exp" style="font-family:var(--font-mono);font-size:clamp(20px,2.2vw,28px);font-weight:800;color:var(--danger);font-variant-numeric:tabular-nums;line-height:1;">0.00</div>
+                        </div>
                     </div>
-                    <div id="record-balance-card" class="p-6 transition-colors duration-300">
-                        <div class="flex justify-between items-start">
-                            <div>
-                                <p class="text-[10px] font-black uppercase tracking-widest opacity-60 mb-1">Balance (คงเหลือ)</p>
-                                <div id="record-balance-val" class="text-2xl font-black">฿ 0.00</div>
+                    <!-- Balance + Rate -->
+                    <div id="record-balance-card" style="padding:18px 24px;display:flex;justify-content:space-between;align-items:flex-start;transition:background 0.3s;">
+                        <div>
+                            <p style="font-family:var(--font-mono);font-size:9px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-dim);margin-bottom:3px;opacity:0.8;">Balance <span style="opacity:0.7;font-weight:600;">(คงเหลือ)</span></p>
+                            <div style="display:flex;align-items:baseline;gap:5px;margin-top:6px;">
+                                <div id="record-balance-val" style="font-family:var(--font-mono);font-size:clamp(20px,2.2vw,28px);font-weight:800;color:var(--text-primary);font-variant-numeric:tabular-nums;line-height:1;">0.00</div>
                             </div>
-                            <div class="text-right">
-                                <p class="text-[10px] font-black uppercase tracking-widest opacity-60 mb-1">Saving Rate</p>
-                                <div id="current-saving-rate" class="inline-block px-3 py-1 rounded-lg text-sm font-black" style="background:rgba(13,148,136,0.12);color:#0d9488">0%</div>
-                            </div>
+                        </div>
+                        <div style="text-align:right;">
+                            <p style="font-family:var(--font-mono);font-size:9px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-dim);margin-bottom:3px;opacity:0.8;">Saving Rate</p>
+                            <div id="current-saving-rate" style="font-family:var(--font-mono);font-size:20px;font-weight:800;color:var(--accent);margin-top:6px;">0%</div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- List Columns -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div class="space-y-4">
-                    <div id="rec-header-fixed" class="flex items-center justify-between px-2 min-h-[40px]">
-                        <div class="flex flex-col gap-0.5" style="flex:1;min-width:0">
-                            <div class="flex items-center gap-2">
-                                <h4 class="thai-label uppercase">รายจ่ายประจำ / เงินลงทุน</h4>
+            <!-- Expense Lists — Apple grouped style -->
+            <div id="rec-lists-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:start;">
+                <!-- Fixed Expenses -->
+                <div style="border-radius:20px;overflow:hidden;border:1px solid var(--border);background:var(--bg-card);box-shadow:0 1px 4px rgba(0,0,0,0.04);">
+                    <!-- Header -->
+                    <div id="rec-header-fixed" style="
+                        padding:14px 18px 10px;
+                        background:color-mix(in srgb,var(--accent) 5%,var(--bg-card));
+                        border-bottom:1px solid color-mix(in srgb,var(--accent) 12%,var(--border));
+                        display:flex;align-items:flex-start;justify-content:space-between;gap:10px;
+                    ">
+                        <div style="flex:1;min-width:0;">
+                            <!-- Title row -->
+                            <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;">
+                                <div style="width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0;box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 20%,transparent);"></div>
+                                <span style="font-family:var(--font-main);font-size:13px;font-weight:700;color:var(--text-primary);letter-spacing:-0.01em;">รายจ่ายประจำ</span>
+                                <span style="font-family:var(--font-main);font-size:11px;color:var(--text-dim);">/ เงินลงทุน</span>
                             </div>
-                            <div class="flex items-center gap-2" style="flex-wrap:nowrap">
-                                <span id="last-fixed-ref" class="ref-badge" style="margin-left:0;white-space:nowrap">LAST MONTH: -</span>
-                                <button onclick="toggleCheckAll('fixed', this)" class="text-[9px] font-bold text-gray-300 hover:text-blue-500 transition-colors uppercase tracking-wide border border-gray-200 hover:border-blue-300 rounded px-1.5 py-0.5" style="flex-shrink:0;white-space:nowrap">Uncheck All</button>
+                            <!-- Meta row -->
+                            <div style="display:flex;align-items:center;gap:8px;">
+                                <span id="last-fixed-ref" style="font-family:var(--font-mono);font-size:8px;font-weight:600;color:var(--text-dim);letter-spacing:0.04em;white-space:nowrap;">LAST MONTH: —</span>
+                                <button onclick="toggleCheckAll('fixed', this)" style="font-family:var(--font-mono);font-size:7.5px;font-weight:800;letter-spacing:0.05em;color:var(--text-dim);background:var(--bg-main);border:1px solid var(--border);border-radius:5px;padding:2px 7px;cursor:pointer;white-space:nowrap;transition:all 0.15s;" onmouseover="this.style.color='var(--accent)';this.style.borderColor='var(--accent)'" onmouseout="this.style.color='var(--text-dim)';this.style.borderColor='var(--border)'">UNCHECK ALL</button>
                             </div>
                         </div>
-                        <div class="flex flex-col items-end gap-1" style="min-width:80px;flex-shrink:0">
-                            <span id="sum-fixed" class="summary-badge w-full text-center text-rose-500 bg-rose-50 border border-rose-100">฿ 0.00</span>
-                            <div id="paid-fixed-badge" class="w-full text-center text-[10px] font-bold px-2 py-0.5 rounded" style="visibility:hidden;color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,transparent);border:1px solid color-mix(in srgb,var(--accent) 20%,transparent)">PAID: ฿ 0.00</div>
+                        <!-- Amount badge -->
+                        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0;">
+                            <span id="sum-fixed" style="font-family:var(--font-mono);font-size:14px;font-weight:800;color:var(--danger);font-variant-numeric:tabular-nums;background:color-mix(in srgb,var(--danger) 8%,transparent);padding:5px 12px;border-radius:10px;border:1px solid color-mix(in srgb,var(--danger) 15%,transparent);white-space:nowrap;">฿ 0.00</span>
+                            <div id="paid-fixed-badge" style="font-family:var(--font-mono);font-size:10px;font-weight:800;letter-spacing:0.04em;color:var(--accent);background:var(--bg-card);border:1.5px solid var(--accent);border-radius:5px;padding:3px 9px;visibility:hidden;">✓ PAID</div>
                         </div>
                     </div>
-                    <div id="fixed-list" class="space-y-2"></div>
-                    <button onclick="addInput('fixed')" class="w-full py-3 border-2 border-dashed border-gray-200 rounded-xl text-gray-400 font-bold hover:border-blue-400 hover:text-blue-500 transition-all text-xs uppercase tracking-widest">+ Add Fixed Expense</button>
+                    <div id="fixed-list" style="padding:4px 0;"></div>
+                    <button onclick="addInput('fixed')" style="
+                        width:100%;padding:13px;border:none;border-top:1px solid var(--border);
+                        background:var(--bg-card);cursor:pointer;
+                        font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;
+                        color:var(--accent);display:flex;align-items:center;justify-content:center;gap:6px;
+                        transition:background 0.15s;
+                    " onmouseover="this.style.background='color-mix(in srgb,var(--accent) 5%,var(--bg-card))'" onmouseout="this.style.background='var(--bg-card)'">
+                        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+                        Add Fixed Expense
+                    </button>
                 </div>
 
-                <div class="space-y-4">
-                    <div id="rec-header-dynamic" class="flex items-center justify-between px-2 min-h-[40px]">
-                        <div class="flex flex-col gap-0.5" style="flex:1;min-width:0">
-                            <div class="flex items-center gap-2">
-                                <h4 class="thai-label uppercase">รายจ่ายผันแปร</h4>
+                <!-- Variable Expenses -->
+                <div style="border-radius:20px;overflow:hidden;border:1px solid var(--border);background:var(--bg-card);box-shadow:0 1px 4px rgba(0,0,0,0.04);">
+                    <div id="rec-header-dynamic" style="
+                        padding:14px 18px 10px;
+                        background:color-mix(in srgb,var(--warning) 5%,var(--bg-card));
+                        border-bottom:1px solid color-mix(in srgb,var(--warning) 12%,var(--border));
+                        display:flex;align-items:flex-start;justify-content:space-between;gap:10px;
+                    ">
+                        <div style="flex:1;min-width:0;">
+                            <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;">
+                                <div style="width:8px;height:8px;border-radius:50%;background:var(--warning);flex-shrink:0;box-shadow:0 0 0 2px color-mix(in srgb,var(--warning) 20%,transparent);"></div>
+                                <span style="font-family:var(--font-main);font-size:13px;font-weight:700;color:var(--text-primary);letter-spacing:-0.01em;">รายจ่ายผันแปร</span>
                             </div>
-                            <div class="flex items-center gap-2" style="flex-wrap:nowrap">
-                                <span id="last-dynamic-ref" class="ref-badge" style="margin-left:0;white-space:nowrap">LAST MONTH: -</span>
-                                <button onclick="toggleCheckAll('dynamic', this)" class="text-[9px] font-bold text-gray-300 hover:text-orange-500 transition-colors uppercase tracking-wide border border-gray-200 hover:border-orange-300 rounded px-1.5 py-0.5" style="flex-shrink:0;white-space:nowrap">Uncheck All</button>
+                            <div style="display:flex;align-items:center;gap:8px;">
+                                <span id="last-dynamic-ref" style="font-family:var(--font-mono);font-size:8px;font-weight:600;color:var(--text-dim);letter-spacing:0.04em;white-space:nowrap;">LAST MONTH: —</span>
+                                <button onclick="toggleCheckAll('dynamic', this)" style="font-family:var(--font-mono);font-size:7.5px;font-weight:800;letter-spacing:0.05em;color:var(--text-dim);background:var(--bg-main);border:1px solid var(--border);border-radius:5px;padding:2px 7px;cursor:pointer;white-space:nowrap;transition:all 0.15s;" onmouseover="this.style.color='var(--warning)';this.style.borderColor='var(--warning)'" onmouseout="this.style.color='var(--text-dim)';this.style.borderColor='var(--border)'">UNCHECK ALL</button>
                             </div>
                         </div>
-                        <div class="flex flex-col items-end gap-1" style="min-width:80px;flex-shrink:0">
-                            <span id="sum-dynamic" class="summary-badge w-full text-center text-rose-500 bg-rose-50 border border-rose-100">฿ 0.00</span>
-                            <div id="paid-dynamic-badge" class="w-full text-center text-[10px] font-bold px-2 py-0.5 rounded" style="visibility:hidden;color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,transparent);border:1px solid color-mix(in srgb,var(--accent) 20%,transparent)">PAID: ฿ 0.00</div>
+                        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0;">
+                            <span id="sum-dynamic" style="font-family:var(--font-mono);font-size:14px;font-weight:800;color:var(--danger);font-variant-numeric:tabular-nums;background:color-mix(in srgb,var(--danger) 8%,transparent);padding:5px 12px;border-radius:10px;border:1px solid color-mix(in srgb,var(--danger) 15%,transparent);white-space:nowrap;">฿ 0.00</span>
+                            <div id="paid-dynamic-badge" style="font-family:var(--font-mono);font-size:10px;font-weight:800;letter-spacing:0.04em;color:var(--accent);background:var(--bg-card);border:1.5px solid var(--accent);border-radius:5px;padding:3px 9px;visibility:hidden;">✓ PAID</div>
                         </div>
                     </div>
-                    <div id="dynamic-list" class="space-y-2"></div>
-                    <button onclick="addInput('dynamic')" class="w-full py-3 border-2 border-dashed border-gray-200 rounded-xl text-gray-400 font-bold hover:border-orange-400 hover:text-orange-500 transition-all text-xs uppercase tracking-widest">+ Add Variable Expense</button>
+                    <div id="dynamic-list" style="padding:4px 0;"></div>
+                    <button onclick="addInput('dynamic')" style="
+                        width:100%;padding:13px;border:none;border-top:1px solid var(--border);
+                        background:var(--bg-card);cursor:pointer;
+                        font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;
+                        color:var(--warning);display:flex;align-items:center;justify-content:center;gap:6px;
+                        transition:background 0.15s;
+                    " onmouseover="this.style.background='color-mix(in srgb,var(--warning) 5%,var(--bg-card))'" onmouseout="this.style.background='var(--bg-card)'">
+                        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+                        Add Variable Expense
+                    </button>
                 </div>
             </div>
         </div>
@@ -4730,8 +5135,8 @@
             // Paid badges
             const pbFixed   = $('paid-fixed-badge');
             const pbDynamic = $('paid-dynamic-badge');
-            if (pbFixed)   { pbFixed.style.visibility   = paidFixed   > 0 ? 'visible' : 'hidden'; pbFixed.innerText   = 'PAID: ฿ ' + formatNumber(paidFixed); }
-            if (pbDynamic) { pbDynamic.style.visibility = paidDynamic > 0 ? 'visible' : 'hidden'; pbDynamic.innerText = 'PAID: ฿ ' + formatNumber(paidDynamic); }
+            if (pbFixed)   { pbFixed.style.visibility   = paidFixed   > 0 ? 'visible' : 'hidden'; pbFixed.innerText   = '✓ ฿' + formatNumber(paidFixed); }
+            if (pbDynamic) { pbDynamic.style.visibility = paidDynamic > 0 ? 'visible' : 'hidden'; pbDynamic.innerText = '✓ ฿' + formatNumber(paidDynamic); }
 
             // Previous month reference badge
             const prevMonth = getPreviousMonthRef(month);
