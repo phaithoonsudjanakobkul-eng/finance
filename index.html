@@ -14,7 +14,7 @@
       }
     </script>
     <title>PSLink</title>
-    <!-- v1.6.18 — Fix Signal stuck Neutral: re-compute signal after Alpaca bars arrive in refreshSparklineSymbol -->
+    <!-- v1.6.19 — Fix WS tick lag: _wsBackgroundMode stuck true after tab return, now reset before early return -->
 
     <!-- PWA: iOS / Safari Home Screen -->
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -11131,6 +11131,9 @@ ${sourceText}`;
                     const _alpLive = alpWs && alpWs.readyState  === 1;
                     const wsLive   = _fhLive || _alpLive;
 
+                    // ── Always reset background mode when tab is visible ──
+                    _wsBackgroundMode = false;
+
                     // ── Step 2: WS ยังต่ออยู่ + hidden < 5 นาที → ไม่ต้อง refresh ──
                     if (wsLive && hiddenMs < 5 * 60 * 1000) {
                         return; // WS จะส่ง tick ใหม่มาเองในไม่ช้า
@@ -11178,7 +11181,8 @@ ${sourceText}`;
                         }
                     }
                 } else {
-                    // ตลาดปิด — แค่แสดง cache, ไม่ fetch
+                    // ตลาดปิด — reset background mode, แค่แสดง cache, ไม่ fetch
+                    _wsBackgroundMode = false;
                     if (!fhWs && !alpWs && watchlist.length) {
                         _wsBackgroundMode = document.getElementById('tab-watchlist')
                             ?.classList.contains('hidden') ?? true;
