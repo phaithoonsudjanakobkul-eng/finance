@@ -14,7 +14,7 @@
       }
     </script>
     <title>PSLink</title>
-    <!-- v1.6.19 — Fix WS tick lag: _wsBackgroundMode stuck true after tab return, now reset before early return -->
+    <!-- v1.6.20 — WS optimization: batch trades→RAF, cache mutation in handler, fix flash re-trigger, no Object.keys GC -->
 
     <!-- PWA: iOS / Safari Home Screen -->
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -11134,8 +11134,13 @@ ${sourceText}`;
                     // ── Always reset background mode when tab is visible ──
                     _wsBackgroundMode = false;
 
-                    // ── Step 2: WS ยังต่ออยู่ + hidden < 5 นาที → ไม่ต้อง refresh ──
+                    // ── Step 2: WS ยังต่ออยู่ + hidden < 5 นาที → flush pending แล้วออก ──
                     if (wsLive && hiddenMs < 5 * 60 * 1000) {
+                        // Flush any trades queued while in background — instant DOM update
+                        if (!_rafPending) {
+                            _rafPending = true;
+                            requestAnimationFrame(_rafFlushQuotes);
+                        }
                         return; // WS จะส่ง tick ใหม่มาเองในไม่ช้า
                     }
 
@@ -13363,13 +13368,34 @@ ${_clip(contextSections, 2600)}`;
         // ── Alpaca WS message handlers — separated for V8 JIT optimization ──────
         // V8 cannot JIT-compile functions containing try/catch
         // _alpHandleTrades: hot path — no try/catch, runs fully optimized
+        // Batch all trades from one WS message through RAF to avoid mid-frame layout thrash
         function _alpHandleTrades(raw) {
             const msgs = JSON.parse(raw);
+            let scheduled = false;
             for (let i = 0; i < msgs.length; i++) {
                 const msg = msgs[i];
                 if (msg.T === 't' && msg.p && wlDataCache[msg.S]) {
-                    _handleTrade(msg.S, msg.p);
+                    // Always update cache immediately (zero latency)
+                    const d = wlDataCache[msg.S];
+                    if (d) {
+                        const pc = d._prevDailyC ?? d.pc ?? null;
+                        d.c = msg.p;
+                        if (pc != null) { d.d = msg.p - pc; d.dp = d.d / pc * 100; }
+                        if (d.h != null) { if (msg.p > d.h) d.h = msg.p; } else d.h = msg.p;
+                        if (d.l != null) { if (msg.p < d.l) d.l = msg.p; } else d.l = msg.p;
+                        // Queue for DOM update — last price wins per symbol per frame
+                        _pendingTrades[msg.S] = msg.p;
+                    }
+                    if (!_wsBackgroundMode && !_rafPending) {
+                        _rafPending = true;
+                        requestAnimationFrame(_rafFlushQuotes);
+                        scheduled = true;
+                    }
                 }
+            }
+            // Chart update: zero latency, direct call for currently-open symbol
+            if (qcCurrentSymbol && _pendingTrades[qcCurrentSymbol]) {
+                _updateChartDirect(qcCurrentSymbol, _pendingTrades[qcCurrentSymbol]);
             }
         }
 
@@ -13509,13 +13535,17 @@ ${_clip(contextSections, 2600)}`;
             }
         }
 
-        // _rafFlushQuotes: drain _pendingTrades once per animation frame
+        // _rafFlushQuotes: drain _pendingTrades once per animation frame — zero GC pressure
         function _rafFlushQuotes() {
             _rafPending = false;
-            if (_wsBackgroundMode) { Object.keys(_pendingTrades).forEach(s => delete _pendingTrades[s]); return; }
-            const syms = Object.keys(_pendingTrades);
-            for (let i = 0; i < syms.length; i++) {
-                const sym = syms[i]; const price = _pendingTrades[sym]; delete _pendingTrades[sym];
+            if (_wsBackgroundMode) {
+                // Drop queued DOM writes — cache already updated in _alpHandleTrades
+                for (const s in _pendingTrades) delete _pendingTrades[s];
+                return;
+            }
+            for (const sym in _pendingTrades) {
+                const price = _pendingTrades[sym];
+                delete _pendingTrades[sym];
                 _handleTrade(sym, price);
             }
         }
@@ -13552,23 +13582,25 @@ ${_clip(contextSections, 2600)}`;
             const d = wlDataCache[sym];
             if (!d || !newPrice) return;
 
-            // Compute math first — no DOM touch yet
+            // Recompute display values from already-mutated cache
             const pc  = d._prevDailyC ?? d.pc ?? null;
             let chg = 0, pct = 0;
             if (pc != null) {
-                chg = newPrice - pc;
-                pct = chg / pc * 100;
+                chg = d.d ?? (newPrice - pc);
+                pct = d.dp ?? (chg / pc * 100);
             } else {
                 chg = d.d ?? 0;
                 pct = d.dp ?? 0;
             }
             const isUp = pct >= 0;
 
-            // Mutate cache in-place
-            d.c = newPrice;
-            if (pc != null) { d.d = chg; d.dp = pct; }
-            if (d.h != null) { if (newPrice > d.h) d.h = newPrice; } else d.h = newPrice;
-            if (d.l != null) { if (newPrice < d.l) d.l = newPrice; } else d.l = newPrice;
+            // Mutate cache — idempotent if _alpHandleTrades already did it
+            if (d.c !== newPrice) {
+                d.c = newPrice;
+                if (pc != null) { d.d = chg; d.dp = pct; }
+                if (d.h != null) { if (newPrice > d.h) d.h = newPrice; } else d.h = newPrice;
+                if (d.l != null) { if (newPrice < d.l) d.l = newPrice; } else d.l = newPrice;
+            }
 
             // PATH A: chart update — zero latency
             if (sym === qcCurrentSymbol) _updateChartDirect(sym, newPrice);
@@ -13597,9 +13629,11 @@ ${_clip(contextSections, 2600)}`;
                         tr.classList.remove('flash-up'); tr.classList.add('flash-down');
                     }
                 } else {
-                    // Same direction — re-trigger by toggling off/on in rAF to restart animation
+                    // Same direction — restart animation via reflow (faster than double rAF)
                     tr.classList.remove('flash-up', 'flash-down');
-                    requestAnimationFrame(() => tr.classList.add(wantUp ? 'flash-up' : 'flash-down'));
+                    // eslint-disable-next-line no-unused-expressions
+                    tr.offsetWidth; // force reflow to restart CSS animation
+                    tr.classList.add(wantUp ? 'flash-up' : 'flash-down');
                 }
                 clearTimeout(tr._ft);
                 tr._ft = setTimeout(_clearFlash, 500, tr);
@@ -13718,8 +13752,8 @@ ${_clip(contextSections, 2600)}`;
             pushSparklinePrice(sym, newPrice);
         }
 
-        // Extracted to avoid closure allocation on hot path
-        function _clearFlash(tr) { tr.className = tr.className.replace(' flash-up','').replace(' flash-down',''); }
+        // Extracted to avoid closure allocation on hot path — classList is faster than string replace
+        function _clearFlash(tr) { tr.classList.remove('flash-up', 'flash-down'); }
 
         // ── Finnhub WebSocket (fallback) ────────────────────────────────────────
         function connectFinnhubWs() {
@@ -13735,9 +13769,30 @@ ${_clip(contextSections, 2600)}`;
                 try {
                     const msg = JSON.parse(e.data);
                     if (msg.type !== 'trade') return;
-                    const latest = {};
-                    msg.data.forEach(t => { if (!latest[t.s] || t.t > latest[t.s].t) latest[t.s] = t; });
-                    Object.entries(latest).forEach(([sym, trade]) => _handleTrade(sym, trade.p));
+                    // Batch: keep only latest price per symbol, queue through RAF
+                    let queued = false;
+                    msg.data.forEach(t => {
+                        if (!_pendingTrades[t.s] || t.t > (_pendingTrades[t.s + '_t'] || 0)) {
+                            const d = wlDataCache[t.s];
+                            if (d) {
+                                const pc = d._prevDailyC ?? d.pc ?? null;
+                                d.c = t.p;
+                                if (pc != null) { d.d = t.p - pc; d.dp = d.d / pc * 100; }
+                                if (d.h != null) { if (t.p > d.h) d.h = t.p; } else d.h = t.p;
+                                if (d.l != null) { if (t.p < d.l) d.l = t.p; } else d.l = t.p;
+                                _pendingTrades[t.s] = t.p;
+                                queued = true;
+                            }
+                        }
+                    });
+                    if (queued && !_wsBackgroundMode && !_rafPending) {
+                        _rafPending = true;
+                        requestAnimationFrame(_rafFlushQuotes);
+                    }
+                    // Chart: zero latency direct update
+                    if (qcCurrentSymbol && _pendingTrades[qcCurrentSymbol]) {
+                        _updateChartDirect(qcCurrentSymbol, _pendingTrades[qcCurrentSymbol]);
+                    }
                 } catch(err) {}
             };
             fhWs.onclose = () => {
