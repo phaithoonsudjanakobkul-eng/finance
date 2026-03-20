@@ -14,7 +14,7 @@
       }
     </script>
     <title>PSLink</title>
-    <!-- v1.6.20 — WS optimization: batch trades→RAF, cache mutation in handler, fix flash re-trigger, no Object.keys GC -->
+    <!-- v1.6.21 — WS patch: fix Finnhub timestamp pollution, charCodeAt robust indexOf, flash reflow→WebAnimations API, Finnhub JIT hot-loop, drop dead _quoteThrottle, _hasPendingTrades flag -->
 
     <!-- PWA: iOS / Safari Home Screen -->
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -4988,7 +4988,7 @@
                 }
 
                 // Step 2: Flush any trades that arrived while on another tab — zero delay
-                if (Object.keys(_pendingTrades).length > 0) {
+                if (_hasPendingTrades) { // v1.6.21: O(1) flag — was Object.keys(_pendingTrades).length > 0
                     requestAnimationFrame(_flushTrades);
                 }
                 // Also re-render all rows with latest cache (catches WS updates in background)
@@ -8587,9 +8587,10 @@
             const prevPriceText = cells[7].innerText;
             const newPriceText  = price !== null ? '$' + fmt(price) : '—';
             if (tr && prevPriceText && prevPriceText !== '—' && prevPriceText !== newPriceText) {
+                const flashCls = isUp ? 'flash-up' : 'flash-down';
                 tr.classList.remove('flash-up', 'flash-down');
-                void tr.offsetWidth; // force reflow → restart animation
-                tr.classList.add(isUp ? 'flash-up' : 'flash-down');
+                tr.getAnimations().forEach(a => a.cancel()); // v1.6.21: no forced reflow
+                tr.classList.add(flashCls);
                 clearTimeout(tr._flashTimer);
                 tr._flashTimer = setTimeout(() => {
                     tr.classList.remove('flash-up', 'flash-down');
@@ -13361,10 +13362,6 @@ ${_clip(contextSections, 2600)}`;
 
         let alpWs = null, alpWsReconnectTimer = null, alpWsBackoff = 5000, alpWsSubscribed = new Set();
 
-        // Quote throttle — cap DOM updates at ~30fps per symbol to avoid jank on high-volume stocks
-        const _quoteThrottle = {};
-        const _QUOTE_THROTTLE_MS = 33; // ~30fps
-
         // ── Alpaca WS message handlers — separated for V8 JIT optimization ──────
         // V8 cannot JIT-compile functions containing try/catch
         // _alpHandleTrades: hot path — no try/catch, runs fully optimized
@@ -13385,6 +13382,7 @@ ${_clip(contextSections, 2600)}`;
                         if (d.l != null) { if (msg.p < d.l) d.l = msg.p; } else d.l = msg.p;
                         // Queue for DOM update — last price wins per symbol per frame
                         _pendingTrades[msg.S] = msg.p;
+                        _hasPendingTrades = true; // v1.6.21: O(1) flag
                     }
                     if (!_wsBackgroundMode && !_rafPending) {
                         _rafPending = true;
@@ -13430,11 +13428,11 @@ ${_clip(contextSections, 2600)}`;
             alpWs = new WebSocket('wss://stream.data.alpaca.markets/v2/iex');
             alpWs.onopen = () => alpWs.send(JSON.stringify({ action:'auth', key:apiKey, secret:apiSecret }));
             alpWs.onmessage = (e) => {
-                // Fast-path: most messages are trade ticks — check before full JSON.parse
-                // Trade messages look like: [{"T":"t","S":"NVDA","p":185.5,...}]
+                // v1.6.21 fast-path: indexOf is position-independent, handles whitespace variants in Alpaca frames
+                // Trade batch starts with '[' and contains "T":"t" — indexOf beats charCodeAt position-coupling
                 const raw = e.data;
-                if (raw.charCodeAt(2) === 84 && raw.charCodeAt(6) === 116) {
-                    // Likely trade batch — parse and handle in tight loop, no try/catch (V8 JIT stays hot)
+                if (raw.charCodeAt(0) === 91 && raw.indexOf('"T":"t"') !== -1) {
+                    // Confirmed trade batch — parse in tight loop, no try/catch (V8 JIT stays hot)
                     _alpHandleTrades(raw);
                     return;
                 }
@@ -13460,10 +13458,12 @@ ${_clip(contextSections, 2600)}`;
         // ── Shared trade handler — two separate paths for min latency ──────────
         // PATH A (Chart):    synchronous in WS onmessage — zero rAF delay
         // PATH B (Watchlist): rAF batch — max 60fps DOM writes
-        const _pendingTrades = {};
-        const _priceRing     = {};
-        let _rafPending = false;
-        let _wsBackgroundMode = false; // true = WS runs but skip DOM writes
+        const _pendingTrades      = {};
+        const _pendingTimestamps  = {}; // v1.6.21: Finnhub per-symbol timestamp (separate map — never pollutes _pendingTrades loop)
+        const _priceRing          = {};
+        let _rafPending           = false;
+        let _hasPendingTrades     = false; // v1.6.21: O(1) flag replaces Object.keys() on tab switch
+        let _wsBackgroundMode     = false; // true = WS runs but skip DOM writes
 
         // Inline chart updater — called directly from WS, no rAF
         function _updateChartDirect(sym, newPrice) {
@@ -13538,6 +13538,7 @@ ${_clip(contextSections, 2600)}`;
         // _rafFlushQuotes: drain _pendingTrades once per animation frame — zero GC pressure
         function _rafFlushQuotes() {
             _rafPending = false;
+            _hasPendingTrades = false; // v1.6.21: reset O(1) flag
             if (_wsBackgroundMode) {
                 // Drop queued DOM writes — cache already updated in _alpHandleTrades
                 for (const s in _pendingTrades) delete _pendingTrades[s];
@@ -13621,19 +13622,17 @@ ${_clip(contextSections, 2600)}`;
             if (tr && d._lastTxt && d._lastTxt !== newTxt) {
                 // Only toggle class when direction changes or first flash
                 const wantUp = isUp;
+                const cls = wantUp ? 'flash-up' : 'flash-down';
                 if (d._flashState !== wantUp) {
                     d._flashState = wantUp;
-                    if (wantUp) {
-                        tr.classList.remove('flash-down'); tr.classList.add('flash-up');
-                    } else {
-                        tr.classList.remove('flash-up'); tr.classList.add('flash-down');
-                    }
+                    tr.classList.remove('flash-down', 'flash-up');
+                    tr.classList.add(cls);
                 } else {
-                    // Same direction — restart animation via reflow (faster than double rAF)
+                    // v1.6.21: Web Animations API cancel() restarts CSS animation without forced layout reflow
+                    // Replaces: tr.offsetWidth — which caused synchronous layout on every same-direction tick
                     tr.classList.remove('flash-up', 'flash-down');
-                    // eslint-disable-next-line no-unused-expressions
-                    tr.offsetWidth; // force reflow to restart CSS animation
-                    tr.classList.add(wantUp ? 'flash-up' : 'flash-down');
+                    tr.getAnimations().forEach(a => a.cancel());
+                    tr.classList.add(cls);
                 }
                 clearTimeout(tr._ft);
                 tr._ft = setTimeout(_clearFlash, 500, tr);
@@ -13765,35 +13764,45 @@ ${_clip(contextSections, 2600)}`;
                 fhWsBackoff = 5000; fhWsSubscribed.clear();
                 watchlist.forEach(sym => subscribeWs(sym)); _wsAuthenticated = true; updateMarketStatus();
             };
-            fhWs.onmessage = (e) => {
-                try {
-                    const msg = JSON.parse(e.data);
-                    if (msg.type !== 'trade') return;
-                    // Batch: keep only latest price per symbol, queue through RAF
-                    let queued = false;
-                    msg.data.forEach(t => {
-                        if (!_pendingTrades[t.s] || t.t > (_pendingTrades[t.s + '_t'] || 0)) {
-                            const d = wlDataCache[t.s];
-                            if (d) {
-                                const pc = d._prevDailyC ?? d.pc ?? null;
-                                d.c = t.p;
-                                if (pc != null) { d.d = t.p - pc; d.dp = d.d / pc * 100; }
-                                if (d.h != null) { if (t.p > d.h) d.h = t.p; } else d.h = t.p;
-                                if (d.l != null) { if (t.p < d.l) d.l = t.p; } else d.l = t.p;
-                                _pendingTrades[t.s] = t.p;
-                                queued = true;
-                            }
+            // v1.6.21: _fhHandleTrades — hot loop extracted from try/catch so V8 can JIT-compile it
+            // Uses _pendingTimestamps (separate map) to avoid polluting _pendingTrades with "_AAPL_t" ghost keys
+            function _fhHandleTrades(trades) {
+                let queued = false;
+                for (let i = 0; i < trades.length; i++) {
+                    const t = trades[i];
+                    const prevT = _pendingTimestamps[t.s] || 0;
+                    if (!_pendingTrades[t.s] || t.t > prevT) {
+                        const d = wlDataCache[t.s];
+                        if (d) {
+                            const pc = d._prevDailyC ?? d.pc ?? null;
+                            d.c = t.p;
+                            if (pc != null) { d.d = t.p - pc; d.dp = d.d / pc * 100; }
+                            if (d.h != null) { if (t.p > d.h) d.h = t.p; } else d.h = t.p;
+                            if (d.l != null) { if (t.p < d.l) d.l = t.p; } else d.l = t.p;
+                            _pendingTrades[t.s] = t.p;
+                            _pendingTimestamps[t.s] = t.t; // timestamp in own map — never leaks into price loop
+                            _hasPendingTrades = true;
+                            queued = true;
                         }
-                    });
-                    if (queued && !_wsBackgroundMode && !_rafPending) {
-                        _rafPending = true;
-                        requestAnimationFrame(_rafFlushQuotes);
                     }
-                    // Chart: zero latency direct update
-                    if (qcCurrentSymbol && _pendingTrades[qcCurrentSymbol]) {
-                        _updateChartDirect(qcCurrentSymbol, _pendingTrades[qcCurrentSymbol]);
-                    }
-                } catch(err) {}
+                }
+                return queued;
+            }
+            fhWs.onmessage = (e) => {
+                // try/catch wraps only JSON.parse (cold path) — hot loop is outside so V8 JIT stays active
+                let msg;
+                try { msg = JSON.parse(e.data); } catch(err) { return; }
+                if (msg.type !== 'trade') return;
+                // hot loop — no try/catch, JIT-optimized like Alpaca path
+                const queued = _fhHandleTrades(msg.data);
+                if (queued && !_wsBackgroundMode && !_rafPending) {
+                    _rafPending = true;
+                    requestAnimationFrame(_rafFlushQuotes);
+                }
+                // Chart: zero latency direct update
+                if (qcCurrentSymbol && _pendingTrades[qcCurrentSymbol]) {
+                    _updateChartDirect(qcCurrentSymbol, _pendingTrades[qcCurrentSymbol]);
+                }
             };
             fhWs.onclose = () => {
                 fhWs = null; fhWsSubscribed.clear();
