@@ -1585,6 +1585,10 @@
         }
         .wl-low-7d   { color: var(--wl-dn); }
         .wl-low-30d  { color: var(--warning); }
+        .wl-low-60d  { color: #f59e0b; }
+        .wl-low-90d  { color: #10b981; }
+        .wl-low-6m   { color: #06b6d4; }
+        .wl-low-1y   { color: #6366f1; }
         .wl-low-both { color: #a855f7; font-weight: 800; }
         /* ── LOW ALERT blinking dot (mobile) ── */
         @keyframes wlLowBlink {
@@ -1604,6 +1608,10 @@
         }
         .wl-mob-low-dot.dot-7d   { background: var(--wl-dn);  display: inline-block; }
         .wl-mob-low-dot.dot-30d  { background: var(--warning); display: inline-block; }
+        .wl-mob-low-dot.dot-60d  { background: #f59e0b;        display: inline-block; }
+        .wl-mob-low-dot.dot-90d  { background: #10b981;        display: inline-block; }
+        .wl-mob-low-dot.dot-6m   { background: #06b6d4;        display: inline-block; }
+        .wl-mob-low-dot.dot-1y   { background: #6366f1;        display: inline-block; }
         .wl-mob-low-dot.dot-both { background: #a855f7;        display: inline-block; }
         /* EXT (pre/after hours) cell flash animation */
         @keyframes extFlashUp { 0%{background:rgba(8,153,129,0.25)} 100%{background:transparent} }
@@ -7579,10 +7587,18 @@
         let _extLastBatchTs = 0;
         function getFmpKey() { return localStorage.getItem('ps_fmp_key') || ''; } // kept for Settings UI compat
 
-        // ── 7D/30D Low Alert ──────────────────────────────────────────────
+        // ── Multi-period Low Alert ────────────────────────────────────────
         const _lowCache = {};
         const LOW_CACHE_TTL = 30 * 60 * 1000;
-        const LOW_LS_KEY = 'ps_low_cache_v1';
+        const LOW_LS_KEY = 'ps_low_cache_v2';
+        const LOW_PERIODS = [
+            { key: 'low7',   label: '7D',  cls: 'wl-low-7d',  dotCls: 'dot-7d',  color: 'var(--wl-dn)' },
+            { key: 'low30',  label: '30D', cls: 'wl-low-30d', dotCls: 'dot-30d', color: 'var(--warning)' },
+            { key: 'low60',  label: '60D', cls: 'wl-low-60d', dotCls: 'dot-60d', color: '#f59e0b' },
+            { key: 'low90',  label: '90D', cls: 'wl-low-90d', dotCls: 'dot-90d', color: '#10b981' },
+            { key: 'low180', label: '6M',  cls: 'wl-low-6m',  dotCls: 'dot-6m',  color: '#06b6d4' },
+            { key: 'low365', label: '1Y',  cls: 'wl-low-1y',  dotCls: 'dot-1y',  color: '#6366f1' },
+        ];
 
         function _saveLowCache() {
             try { localStorage.setItem(LOW_LS_KEY, JSON.stringify(_lowCache)); } catch(e) {}
@@ -7602,12 +7618,12 @@
             if (cached && (now - cached.ts) < LOW_CACHE_TTL) return cached;
             try {
                 const end   = new Date();
-                const start = new Date(end.getTime() - 32 * 24 * 60 * 60 * 1000);
+                const start = new Date(end.getTime() - 375 * 24 * 60 * 60 * 1000);
                 const u = new URL(`https://data.alpaca.markets/v2/stocks/${encodeURIComponent(symbol)}/bars`);
                 u.searchParams.set('timeframe', '1Day');
                 u.searchParams.set('start', start.toISOString().split('T')[0]);
                 u.searchParams.set('end',   end.toISOString().split('T')[0]);
-                u.searchParams.set('limit', '35');
+                u.searchParams.set('limit', '385');
                 u.searchParams.set('feed', 'iex');
                 u.searchParams.set('adjustment', 'split');
                 const res = await fetch(u.toString(), {
@@ -7619,11 +7635,8 @@
                 const bars = (json?.bars || []).filter(b => b?.l != null);
                 if (bars.length < 2) return null;
                 const historical = bars.slice(0, -1);
-                const last7  = historical.slice(-7);
-                const last30 = historical.slice(-30);
-                const low7  = last7.length  ? Math.min(...last7.map(b => b.l))  : null;
-                const low30 = last30.length ? Math.min(...last30.map(b => b.l)) : null;
-                const entry = { low7, low30, ts: now };
+                const _low = (n) => { const s = historical.slice(-n); return s.length ? Math.min(...s.map(b => b.l)) : null; };
+                const entry = { low7: _low(7), low30: _low(30), low60: _low(60), low90: _low(90), low180: _low(180), low365: _low(365), ts: now };
                 _lowCache[symbol] = entry;
                 _saveLowCache();
                 return entry;
@@ -7633,12 +7646,14 @@
         function getLowBadgeInfo(symbol, currentPrice) {
             const e = _lowCache[symbol];
             if (!e || currentPrice == null) return null;
-            const hit7  = e.low7  != null && currentPrice <= e.low7;
-            const hit30 = e.low30 != null && currentPrice <= e.low30;
-            if (hit7 && hit30) return { label: '▼ 7D·30D', cls: 'wl-low-both', dotCls: 'dot-both' };
-            if (hit7)          return { label: '▼ 7D',     cls: 'wl-low-7d',   dotCls: 'dot-7d'   };
-            if (hit30)         return { label: '▼ 30D',    cls: 'wl-low-30d',  dotCls: 'dot-30d'  };
-            return null;
+            const triggered = LOW_PERIODS.filter(p => e[p.key] != null && currentPrice <= e[p.key]);
+            if (triggered.length === 0) return null;
+            const shortest = triggered[0];
+            const longest  = triggered[triggered.length - 1];
+            const label = triggered.length > 1
+                ? `▼ ${shortest.label}·${longest.label}`
+                : `▼ ${shortest.label}`;
+            return { label, cls: longest.cls, dotCls: longest.dotCls, color: longest.color, triggered };
         }
 
         function _renderWlConsole() {
@@ -7659,11 +7674,11 @@
             if (alerts.length === 0) {
                 list.innerHTML = '<div style="font-family:var(--font-mono);font-size:10px;color:var(--text-dim);opacity:0.4;margin:auto;text-align:center;">ไม่มี Low Alert ในขณะนี้</div>';
             } else {
-                // Sort: both > 7d > 30d
-                const order = { 'wl-low-both': 0, 'wl-low-7d': 1, 'wl-low-30d': 2 };
+                // Sort: longest period first (most significant)
+                const order = { 'wl-low-1y': 0, 'wl-low-6m': 1, 'wl-low-90d': 2, 'wl-low-60d': 3, 'wl-low-30d': 4, 'wl-low-7d': 5, 'wl-low-both': 6 };
                 alerts.sort((a, b) => (order[a.info.cls] ?? 9) - (order[b.info.cls] ?? 9));
 
-                const colorMap = { 'wl-low-7d': 'var(--wl-dn)', 'wl-low-30d': 'var(--warning)', 'wl-low-both': '#a855f7' };
+                const colorMap = Object.fromEntries(LOW_PERIODS.map(p => [p.cls, p.color]));
                 list.innerHTML = alerts.map(({ sym, price, info }) => {
                     const col = colorMap[info.cls] || 'var(--text-dim)';
                     const priceStr = price != null ? ' · $' + price.toFixed(2) : '';
