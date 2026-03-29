@@ -3801,7 +3801,7 @@
                             <div style="font-family:var(--font-mono);font-size:9px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-dim)">📉 Watchlist Alerts</div>
                             <div id="wl-console-ts" style="font-family:var(--font-mono);font-size:8px;color:var(--text-dim);opacity:0.6"></div>
                         </div>
-                        <div id="wl-console-list" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:5px;">
+                        <div id="wl-console-list" style="flex:1;overflow-y:auto;display:grid;grid-template-columns:1fr 1fr;align-items:start;">
                             <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-dim);opacity:0.5;margin:auto;text-align:center;">กำลังโหลด...</div>
                         </div>
                     </div>
@@ -7679,13 +7679,15 @@
                 alerts.sort((a, b) => (order[a.info.cls] ?? 9) - (order[b.info.cls] ?? 9));
 
                 const colorMap = Object.fromEntries(LOW_PERIODS.map(p => [p.cls, p.color]));
-                list.innerHTML = alerts.map(({ sym, price, info }) => {
+                list.innerHTML = alerts.map(({ sym, price, info }, i) => {
                     const col = colorMap[info.cls] || 'var(--text-dim)';
-                    const priceStr = price != null ? ' · $' + price.toFixed(2) : '';
-                    return `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--border);flex-shrink:0;">
-                        <span style="font-family:var(--font-mono);font-size:11px;font-weight:800;color:var(--text-primary);min-width:56px">${sym}</span>
-                        <span style="font-family:var(--font-mono);font-size:10px;font-weight:700;color:${col};background:${col}18;padding:1px 7px;border-radius:4px;">${info.label}</span>
-                        <span style="font-family:var(--font-mono);font-size:10px;color:var(--text-dim)">${priceStr}</span>
+                    const priceStr = price != null ? '$' + price.toFixed(2) : '';
+                    const isLeft = i % 2 === 0;
+                    const borderR = isLeft ? `border-right:1px solid color-mix(in srgb,var(--border) 60%,transparent);` : '';
+                    return `<div style="display:flex;align-items:center;gap:6px;padding:5px 10px;border-bottom:1px solid color-mix(in srgb,var(--border) 60%,transparent);${borderR}min-width:0;">
+                        <span style="font-family:var(--font-mono);font-size:11px;font-weight:800;color:var(--text-primary);min-width:48px;flex-shrink:0;">${sym}</span>
+                        <span style="font-family:var(--font-mono);font-size:9px;font-weight:700;color:${col};background:${col}18;padding:1px 6px;border-radius:4px;flex-shrink:0;">${info.label}</span>
+                        <span style="font-family:var(--font-mono);font-size:9px;color:var(--text-dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${priceStr}</span>
                     </div>`;
                 }).join('');
             }
