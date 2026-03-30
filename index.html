@@ -2139,6 +2139,10 @@
         .rec-add-dynamic { color: var(--warning); }
         .rec-add-dynamic:hover { background: color-mix(in srgb, var(--warning) 6%, var(--bg-card)); }
 
+        /* ── Watchlist column picker button visibility ── */
+        #wl-col-picker-wrap { display: flex; align-items: center; flex-shrink: 0; }
+        @media (max-width: 1024px) { #wl-col-picker-wrap { display: none !important; } }
+
         /* ── Watchlist column picker overrides ── */
         #watchlist-table.show-wlc-premkt  .wlc-premkt  { display: table-cell !important; }
         #watchlist-table.show-wlc-open    .wlc-open    { display: table-cell !important; }
