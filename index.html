@@ -7115,7 +7115,7 @@
                 : '';
             const mobileCard = `<td id="wl-mob-card-${symbol}" class="wl-mobile-card" colspan="23" style="padding:0;border-bottom:1px solid var(--border)">
                 <div class="wl-swipe-bg" onclick="_confirmSwipeDelete('${symbol}')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg></div>
-                <div class="wl-mob-card-inner" onclick="_qcFromScanner=false;openQuickChart('${symbol}')">
+                <div class="wl-mob-card-inner" ontouchstart="_lwcPrefetch1D('${symbol}')" onclick="_qcFromScanner=false;openQuickChart('${symbol}')">
                     <div class="wl-mob-logo">${logoLarge}</div>
                     <div class="wl-mob-info">
                         <div class="wl-mob-sym">${symbol}${type === 'ETF' ? `<span class="wl-mob-etf">ETF</span>` : ''}<span id="wl-mob-low-${symbol}" class="wl-mob-low-dot"></span></div>
@@ -7140,6 +7140,7 @@
                     ondragleave="onDragLeave(event)"
                     ondrop="onDrop(event,'${symbol}')"
                     ondragend="onDragEnd(event)"
+                    onmouseenter="_lwcPrefetch1D('${symbol}')"
                     onclick="_qcFromScanner=false;openQuickChart('${symbol}')"
                     class="transition-colors group cursor-grab active:cursor-grabbing select-none wl-row" style="border-color:var(--border)">
                     <td style="text-align:left">
@@ -8952,6 +8953,17 @@
         let _lwcType  = _lwcPrefs.type  || 'candle';   // remember chart type
         let _lwcAutoScroll = _lwcPrefs.autoScroll !== undefined ? _lwcPrefs.autoScroll : true;
         let _lwcRes = null;             // always start fresh at default res (5Min for 1D)
+        // ── Per-timeframe bars cache ──────────────────────────────────────────
+        // key: `${symbol}|${tf}` → { bars, ts }
+        const _lwcBarsCache = {};
+        const _LWC_BARS_TTL = {
+            '1Min': 2  * 60 * 1000,   // intraday → 2 min
+            '5Min': 2  * 60 * 1000,
+            '15Min':3  * 60 * 1000,
+            '1Hour':5  * 60 * 1000,
+            '1Day': 10 * 60 * 1000,   // daily    → 10 min
+            '1Week':30 * 60 * 1000,   // weekly   → 30 min
+        };
         const _lwcResOptions = {
             '1D': ['1Min','5Min','15Min'],
             '5D': ['1Min','5Min','15Min'],
@@ -8972,6 +8984,10 @@
         let _lwcEmaSeriesMap = null;
 
         async function renderLightweightChart(symbol, isDark) {
+            // Clear bar cache when switching to a different symbol
+            if (_lwcSymbol && _lwcSymbol !== symbol) {
+                Object.keys(_lwcBarsCache).forEach(k => { if (k.startsWith(_lwcSymbol + '|')) delete _lwcBarsCache[k]; });
+            }
             _lwcSymbol = symbol;
             const aKey = getAlpacaKey(), aSecret = getAlpacaSecret();
             const wrap = document.getElementById('lwc-inner');
@@ -9055,29 +9071,37 @@
             const showSpin = v => { if (spin) spin.style.display = v ? 'flex' : 'none'; };
             showSpin(true);
 
-            // ── Fetch bars ───────────────────────────────────────────────────
+            // ── Fetch bars (with per-timeframe cache) ────────────────────────
             let bars = [];
-            try {
-                let pt = null;
-                do {
-                    const u = new URL(`https://data.alpaca.markets/v2/stocks/${symbol}/bars`);
-                    u.searchParams.set('timeframe', tf);
-                    u.searchParams.set('start', start);
-                    u.searchParams.set('end', end);
-                    u.searchParams.set('limit', '1000');
-                    u.searchParams.set('feed', 'iex');
-                    u.searchParams.set('adjustment', 'split'); // split-adjusted prices
-                    u.searchParams.set('sort', 'asc');
-                    if (pt) u.searchParams.set('page_token', pt);
-                    const r = await fetch(u.toString(), { headers: { 'APCA-API-KEY-ID': aKey, 'APCA-API-SECRET-KEY': aSecret } });
-                    const j = await r.json();
-                    bars = bars.concat(j.bars || []);
-                    pt = j.next_page_token || null;
-                } while (pt);
-            } catch(e) {
-                showSpin(false);
-                canvas.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#e11d48;font-size:12px">${e.message}</div>`;
-                return;
+            const _barsCacheKey = `${symbol}|${tf}`;
+            const _barsTTL = _LWC_BARS_TTL[tf] || 5 * 60 * 1000;
+            const _barsCached = _lwcBarsCache[_barsCacheKey];
+            if (_barsCached && (Date.now() - _barsCached.ts) < _barsTTL) {
+                bars = _barsCached.bars;
+            } else {
+                try {
+                    let pt = null;
+                    do {
+                        const u = new URL(`https://data.alpaca.markets/v2/stocks/${symbol}/bars`);
+                        u.searchParams.set('timeframe', tf);
+                        u.searchParams.set('start', start);
+                        u.searchParams.set('end', end);
+                        u.searchParams.set('limit', '1000');
+                        u.searchParams.set('feed', 'iex');
+                        u.searchParams.set('adjustment', 'split');
+                        u.searchParams.set('sort', 'asc');
+                        if (pt) u.searchParams.set('page_token', pt);
+                        const r = await fetch(u.toString(), { headers: { 'APCA-API-KEY-ID': aKey, 'APCA-API-SECRET-KEY': aSecret } });
+                        const j = await r.json();
+                        bars = bars.concat(j.bars || []);
+                        pt = j.next_page_token || null;
+                    } while (pt);
+                    if (bars.length) _lwcBarsCache[_barsCacheKey] = { bars, ts: Date.now() };
+                } catch(e) {
+                    showSpin(false);
+                    canvas.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#e11d48;font-size:12px">${e.message}</div>`;
+                    return;
+                }
             }
             if (!bars.length) {
                 showSpin(false);
@@ -9439,6 +9463,46 @@
                 : '';
         }
 
+        // ── Prefetch 1D bars on hover/touch ──────────────────────────────────
+        const _lwcPrefetchInFlight = new Set();
+        function _lwcPrefetch1D(symbol) {
+            const aKey = getAlpacaKey(), aSecret = getAlpacaSecret();
+            if (!aKey || !aSecret) return;
+            const tf = _lwcResDefault['1D'] || '5Min';
+            const cacheKey = `${symbol}|${tf}`;
+            const cached = _lwcBarsCache[cacheKey];
+            const ttl = _LWC_BARS_TTL[tf] || 2 * 60 * 1000;
+            if ((cached && (Date.now() - cached.ts) < ttl) || _lwcPrefetchInFlight.has(cacheKey)) return;
+            _lwcPrefetchInFlight.add(cacheKey);
+            const rangeEntry = { tf, fetchDays: 7 };
+            const now = new Date();
+            const end   = now.toISOString();
+            const start = new Date(now - rangeEntry.fetchDays * 86400000).toISOString();
+            (async () => {
+                try {
+                    let bars = [], pt = null;
+                    do {
+                        const u = new URL(`https://data.alpaca.markets/v2/stocks/${symbol}/bars`);
+                        u.searchParams.set('timeframe', tf);
+                        u.searchParams.set('start', start);
+                        u.searchParams.set('end', end);
+                        u.searchParams.set('limit', '1000');
+                        u.searchParams.set('feed', 'iex');
+                        u.searchParams.set('adjustment', 'split');
+                        u.searchParams.set('sort', 'asc');
+                        if (pt) u.searchParams.set('page_token', pt);
+                        const r = await fetch(u.toString(), { headers: { 'APCA-API-KEY-ID': aKey, 'APCA-API-SECRET-KEY': aSecret } });
+                        const j = await r.json();
+                        bars = bars.concat(j.bars || []);
+                        pt = j.next_page_token || null;
+                    } while (pt);
+                    if (bars.length) _lwcBarsCache[cacheKey] = { bars, ts: Date.now() };
+                } catch(e) {}
+                finally { _lwcPrefetchInFlight.delete(cacheKey); }
+            })();
+        }
+
+        let _lwcRangeDebounce = null;
         async function lwcSetRange(range) {
             _lwcRange = range; _lwcRes = null; _saveLwcPrefs();
             const isDark = document.documentElement.classList.contains('dark');
@@ -9449,8 +9513,11 @@
                 btn.style.background = r===range ? 'var(--accent,#4285f4)' : 'var(--bg-card2)';
                 btn.style.color = r===range ? '#fff' : 'var(--text-dim)';
             });
-            await _lwcDraw(_lwcSymbol, range, isDark, aKey, aSecret);
-            _lwcRenderResBtns(range);
+            if (_lwcRangeDebounce) clearTimeout(_lwcRangeDebounce);
+            _lwcRangeDebounce = setTimeout(async () => {
+                await _lwcDraw(_lwcSymbol, range, isDark, aKey, aSecret);
+                _lwcRenderResBtns(range);
+            }, 120);
         }
 
         async function lwcSetRes(res) {
