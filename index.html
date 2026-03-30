@@ -8725,20 +8725,20 @@
                 }
             }
 
-            // cells[11] = OPEN
+            // cells[11] = OPEN  (keep wlc-open for column picker CSS selector)
             if (cells[11]) {
-                setClass(cells[11], `wl-col-hide ${openColor}`);
+                setClass(cells[11], `wl-col-hide wlc-open ${openColor}`);
                 setText(cells[11], open ? '$' + fmt(open) : '—');
             }
-            // cells[12] = PREV CLOSE
+            // cells[12] = PREV CLOSE  (keep wlc-pcls)
             if (cells[12]) {
-                setClass(cells[12], 'wl-col-hide');
+                setClass(cells[12], 'wl-col-hide wlc-pcls');
                 cells[12].style.color = 'var(--wl-text-secondary)';
                 setText(cells[12], prevClose ? '$' + fmt(prevClose) : '—');
             }
-            // cells[13] = HIGH, cells[14] = LOW
-            if (cells[13]) { setClass(cells[13], 'wl-col-hide wl-up'); cells[13].style.color = 'var(--wl-up)'; setText(cells[13], high !== null ? '$' + fmt(high) : '—'); }
-            if (cells[14]) { setClass(cells[14], 'wl-col-hide wl-dn'); cells[14].style.color = 'var(--wl-dn)'; setText(cells[14], low  !== null ? '$' + fmt(low)  : '—'); }
+            // cells[13] = HIGH, cells[14] = LOW  (keep wlc-high / wlc-low)
+            if (cells[13]) { setClass(cells[13], 'wl-col-hide wlc-high wl-up'); cells[13].style.color = 'var(--wl-up)'; setText(cells[13], high !== null ? '$' + fmt(high) : '—'); }
+            if (cells[14]) { setClass(cells[14], 'wl-col-hide wlc-low  wl-dn'); cells[14].style.color = 'var(--wl-dn)'; setText(cells[14], low  !== null ? '$' + fmt(low)  : '—'); }
 
             // Update mobile card price/chg (visible on ≤1200px)
             const mobPriceBox = document.getElementById('wl-mob-price-' + symbol);
