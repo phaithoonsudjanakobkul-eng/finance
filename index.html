@@ -2139,8 +2139,8 @@
         .rec-add-dynamic { color: var(--warning); }
         .rec-add-dynamic:hover { background: color-mix(in srgb, var(--warning) 6%, var(--bg-card)); }
 
-        /* ── Watchlist column picker button visibility ── */
-        #wl-col-picker-wrap { display: flex; align-items: center; flex-shrink: 0; }
+        /* ── Watchlist column picker: absolute overlay on table, no layout cost ── */
+        #wl-col-picker-wrap { display: block; }
         @media (max-width: 768px) { #wl-col-picker-wrap { display: none !important; } }
 
         /* ── Watchlist extra columns: hidden by default on ALL screen sizes ── */
@@ -4463,29 +4463,6 @@
 <!-- Refresh + Add replaced by inline search -->
                 </div>
 
-                <!-- Row 2: Table Toolbar (Columns picker always visible on desktop) -->
-                <div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;">
-                    <div class="relative" id="wl-col-picker-wrap">
-                        <button id="wl-col-picker-btn" onclick="_toggleColPicker()"
-                            style="height:30px;padding:0 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-card2);color:var(--text-dim);font-family:var(--font-mono);font-size:9px;font-weight:800;letter-spacing:0.08em;cursor:pointer;display:flex;align-items:center;gap:5px;white-space:nowrap;transition:all 0.15s;"
-                            onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
-                            onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-dim)'">
-                            <svg style="width:11px;height:11px;flex-shrink:0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7"/></svg>
-                            COLUMNS
-                        </button>
-                        <div id="wl-col-picker-panel" style="display:none;position:absolute;top:calc(100% + 6px);right:0;z-index:200;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:12px;box-shadow:0 8px 32px rgba(0,0,0,0.18);min-width:220px;">
-                            <div style="font-family:var(--font-mono);font-size:8px;font-weight:800;letter-spacing:0.1em;color:var(--text-dim);margin-bottom:10px;text-transform:uppercase;">แสดง / ซ่อน คอลัมน์</div>
-                            <div id="wl-col-picker-list" style="display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;"></div>
-                            <div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;">
-                                <button onclick="_wlColReset()"
-                                    style="font-family:var(--font-mono);font-size:8px;font-weight:700;letter-spacing:0.06em;color:var(--text-dim);background:none;border:1px solid var(--border);border-radius:6px;padding:3px 9px;cursor:pointer;">
-                                    RESET
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
 
 <!-- add-ticker-bar removed — inline search replaces it -->
 
@@ -4493,7 +4470,29 @@
             <div id="wl-split-wrap">
 
             <!-- Watchlist Table -->
-            <div id="wl-table-panel">
+            <div id="wl-table-panel" style="position:relative">
+
+                <!-- Column Picker — floats at top-right of table header, zero layout cost -->
+                <div id="wl-col-picker-wrap" style="position:absolute;top:6px;right:6px;z-index:30;">
+                    <button id="wl-col-picker-btn" onclick="_toggleColPicker()"
+                        style="height:26px;padding:0 9px;border-radius:7px;border:1px solid var(--border);background:var(--bg-card2);color:var(--text-dim);font-family:var(--font-mono);font-size:8.5px;font-weight:800;letter-spacing:0.08em;cursor:pointer;display:flex;align-items:center;gap:4px;white-space:nowrap;transition:all 0.15s;"
+                        onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
+                        onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-dim)'">
+                        <svg style="width:10px;height:10px;flex-shrink:0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7"/></svg>
+                        COLUMNS
+                    </button>
+                    <div id="wl-col-picker-panel" style="display:none;position:absolute;top:calc(100% + 6px);right:0;z-index:200;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:12px;box-shadow:0 8px 32px rgba(0,0,0,0.18);min-width:220px;">
+                        <div style="font-family:var(--font-mono);font-size:8px;font-weight:800;letter-spacing:0.1em;color:var(--text-dim);margin-bottom:10px;text-transform:uppercase;">แสดง / ซ่อน คอลัมน์</div>
+                        <div id="wl-col-picker-list" style="display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;"></div>
+                        <div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;">
+                            <button onclick="event.stopPropagation();_wlColReset()"
+                                style="font-family:var(--font-mono);font-size:8px;font-weight:700;letter-spacing:0.06em;color:var(--text-dim);background:none;border:1px solid var(--border);border-radius:6px;padding:3px 9px;cursor:pointer;">
+                                RESET
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
             <div class="glass-card overflow-hidden">
                 <div style="overflow-x:auto;overflow-y:auto;scrollbar-gutter:auto;max-height:inherit">
                 <table id="watchlist-table" class="w-full min-w-[800px]">
@@ -9608,7 +9607,7 @@
             list.innerHTML = WL_COL_DEFS.map(({ key, label }) => {
                 const on = !!cols[key];
                 return `<label style="display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;">
-                    <div onclick="_wlToggleCol('${key}', ${!on});_renderColPicker()"
+                    <div onclick="event.stopPropagation();_wlToggleCol('${key}', ${!on});_renderColPicker()"
                         style="width:28px;height:16px;border-radius:8px;flex-shrink:0;cursor:pointer;transition:background 0.2s;background:${on ? 'var(--accent)' : 'var(--bg-card2)'};border:1px solid ${on ? 'var(--accent)' : 'var(--border)'};position:relative;">
                         <div style="position:absolute;top:2px;${on ? 'right:2px' : 'left:2px'};width:10px;height:10px;border-radius:50%;background:${on ? '#fff' : 'var(--text-dim)'};transition:all 0.2s;"></div>
                     </div>
