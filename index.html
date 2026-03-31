@@ -14,7 +14,7 @@
       }
     </script>
     <title>PSLink</title>
-    <!-- v1.6.23 — Chart: Polygon native ms timestamp (no ISO roundtrip), VWAP overlay, EMA9/21/20/50/200, pagination, smart cache invalidation, ET timezone tooltip -->
+    <!-- v1.6.24 — Chart: RSI panel, Bollinger Bands, Extended hours shading, indicator toggle buttons (VWAP/EMA/BB/RSI/EXT), all persisted in prefs -->
 
     <!-- PWA: iOS / Safari Home Screen -->
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -9269,16 +9269,23 @@
 
         // ── Lightweight Charts + Alpaca IEX ────────────────────────────────────
         const _saveLwcPrefs = () => {
-            // Save only persistent settings: type, ema toggles, autoScroll, cols
-            // Do NOT persist range/res — always reset to 1D/5Min on load
-            try { localStorage.setItem('ps_lwc_prefs', JSON.stringify({type:_lwcType, autoScroll:_lwcAutoScroll, cols:_lwcPrefs.cols||{}})); } catch(e){}
+            try { localStorage.setItem('ps_lwc_prefs', JSON.stringify({
+                type: _lwcType, autoScroll: _lwcAutoScroll, cols: _lwcPrefs.cols||{},
+                vwap: _lwcShowVwap, ema: _lwcShowEma, bb: _lwcShowBB, rsi: _lwcShowRsi, exth: _lwcShowExtH
+            })); } catch(e){}
         };
         const _lwcPrefs = (() => { try { return JSON.parse(localStorage.getItem('ps_lwc_prefs')||'{}'); } catch(e){return{};} })();
         let _lwcChart = null, _lwcSymbol = null, _lwcLiveDotFn = null;
-        let _lwcRange = '1D';           // always start fresh at 1D
-        let _lwcType  = _lwcPrefs.type  || 'candle';   // remember chart type
+        let _lwcRange = '1D';
+        let _lwcType  = _lwcPrefs.type  || 'candle';
         let _lwcAutoScroll = _lwcPrefs.autoScroll !== undefined ? _lwcPrefs.autoScroll : true;
-        let _lwcRes = null;             // always start fresh at default res (5Min for 1D)
+        let _lwcRes = null;
+        // ── Indicator toggles — persisted in prefs ────────────────────────────
+        let _lwcShowVwap = _lwcPrefs.vwap  !== false;  // default ON
+        let _lwcShowEma  = _lwcPrefs.ema   !== false;  // default ON
+        let _lwcShowBB   = _lwcPrefs.bb    === true;   // default OFF
+        let _lwcShowRsi  = _lwcPrefs.rsi   === true;   // default OFF
+        let _lwcShowExtH = _lwcPrefs.exth  !== false;  // default ON (pre/post shading)
         // ── Per-timeframe bars cache ──────────────────────────────────────────
         // key: `${symbol}|${tf}` → { bars, ts }
         const _lwcBarsCache = {};
@@ -9339,10 +9346,25 @@
                             transition:all 0.15s">${icon}</button>`
                     ).join('')}
                     </div>
-                    <!-- Row 2: Resolution + LIVE + EMA -->
+                    <!-- Row 2: Resolution + LIVE + Indicator toggles -->
                     <div style="display:flex;align-items:center;gap:3px;padding:3px 10px 5px">
                     <div id="lwc-res-bar" style="display:contents"></div>
                     <div style="flex:1"></div>
+                    <!-- Indicator toggles -->
+                    ${[
+                        ['lwc-tog-vwap','VWAP',_lwcShowVwap,'#ffc800','lwcToggleIndicator(\'vwap\')'],
+                        ['lwc-tog-ema','EMA',_lwcShowEma,'rgba(139,92,246,0.9)','lwcToggleIndicator(\'ema\')'],
+                        ['lwc-tog-bb','BB',_lwcShowBB,'rgba(56,189,248,0.9)','lwcToggleIndicator(\'bb\')'],
+                        ['lwc-tog-rsi','RSI',_lwcShowRsi,'rgba(251,146,60,0.9)','lwcToggleIndicator(\'rsi\')'],
+                        ['lwc-tog-exth','EXT',_lwcShowExtH,'rgba(148,163,184,0.7)','lwcToggleIndicator(\'exth\')'],
+                    ].map(([id,label,on,col,fn]) =>
+                        `<button id="${id}" onclick="${fn}"
+                            style="font-size:8px;font-weight:800;padding:2px 6px;border-radius:4px;cursor:pointer;letter-spacing:0.04em;
+                            border:1px solid ${on?col:'var(--border)'};
+                            background:${on?col+'22':'var(--bg-card2)'};
+                            color:${on?col:'var(--text-dim)'};transition:all 0.15s">${label}</button>`
+                    ).join('')}
+                    <div style="width:1px;height:14px;background:var(--border);margin:0 2px"></div>
                     <button onclick="lwcToggleAutoScroll()" id="lwc-autoscroll-btn"
                         title="Auto-scroll to latest"
                         style="font-size:9px;font-weight:700;padding:2px 8px;border-radius:4px;cursor:pointer;
@@ -9541,76 +9563,116 @@
                 color: b.c >= b.o ? 'rgba(16,185,129,0.3)' : 'rgba(225,29,72,0.3)'
             })));
 
-            // ── VWAP overlay (Polygon vw per bar) ────────────────────────────
-            // Only for intraday — VWAP resets each session
-            // Remove old VWAP series if present
-            if (window._lwcVwapSeries) {
-                try { _lwcChart.removeSeries(window._lwcVwapSeries); } catch(e) {}
-                window._lwcVwapSeries = null;
+            const closes = bars.map(b => b.c);
+
+            // ── Extended hours shading ────────────────────────────────────────
+            if (window._lwcExtSeries) { try { _lwcChart.removeSeries(window._lwcExtSeries); } catch(e) {} window._lwcExtSeries = null; }
+            if (isIntra && _lwcShowExtH) {
+                const extData = [];
+                for (const b of barsForDisplay) {
+                    const mins = etMinutes(b.t);
+                    if (mins == null) continue;
+                    if (!(mins >= 570 && mins < 960))
+                        extData.push({ time: toTime(b.t), value: b.h * 1.5, color: 'rgba(148,163,184,0.06)' });
+                }
+                if (extData.length) {
+                    const extSeries = _lwcChart.addHistogramSeries({ priceFormat:{type:'volume'}, priceScaleId:'right', lastValueVisible:false, priceLineVisible:false });
+                    extSeries.setData(extData);
+                    window._lwcExtSeries = extSeries;
+                }
             }
-            const hasVwap = isIntra && barsForDisplay.some(b => b.vw != null && b.vw > 0);
-            if (hasVwap) {
-                const vwapSeries = _lwcChart.addLineSeries({
-                    color: 'rgba(255, 200, 0, 0.85)',
-                    lineWidth: 1,
-                    lineStyle: 0,
-                    priceLineVisible: false,
-                    lastValueVisible: true,
-                    lastValueText: 'VWAP',
-                    title: 'VWAP',
-                    crosshairMarkerVisible: false,
-                });
-                // Cumulative VWAP per session (resets at session gap > 4h)
+
+            // ── VWAP overlay ──────────────────────────────────────────────────
+            if (window._lwcVwapSeries) { try { _lwcChart.removeSeries(window._lwcVwapSeries); } catch(e) {} window._lwcVwapSeries = null; }
+            if (isIntra && _lwcShowVwap && barsForDisplay.some(b => b.vw != null && b.vw > 0)) {
+                const vwapSeries = _lwcChart.addLineSeries({ color:'rgba(255,200,0,0.85)', lineWidth:1, priceLineVisible:false, lastValueVisible:true, title:'VWAP', crosshairMarkerVisible:false });
                 let cumVol = 0, cumVolPrice = 0;
                 const vwapData = [];
                 for (let i = 0; i < barsForDisplay.length; i++) {
                     const b = barsForDisplay[i];
-                    if (i > 0 && isSessionGap(barsForDisplay[i-1], b)) {
-                        cumVol = 0; cumVolPrice = 0; // reset at session boundary
-                    }
+                    if (i > 0 && isSessionGap(barsForDisplay[i-1], b)) { cumVol = 0; cumVolPrice = 0; }
                     if (b.vw != null && b.v > 0) {
-                        cumVol += b.v;
-                        cumVolPrice += b.vw * b.v;
-                        vwapData.push({ time: toTime(b.t), value: cumVol > 0 ? cumVolPrice / cumVol : b.vw });
+                        cumVol += b.v; cumVolPrice += b.vw * b.v;
+                        vwapData.push({ time: toTime(b.t), value: cumVol > 0 ? cumVolPrice/cumVol : b.vw });
                     }
                 }
                 if (vwapData.length) vwapSeries.setData(vwapData);
                 window._lwcVwapSeries = vwapSeries;
             }
 
-            // ── EMA overlays (20 / 50 / 200) ─────────────────────────────────
-            // Remove old EMA series
-            if (_lwcEmaSeriesMap) {
-                Object.values(_lwcEmaSeriesMap).forEach(s => { try { _lwcChart.removeSeries(s); } catch(e) {} });
-                _lwcEmaSeriesMap = null;
+            // ── EMA overlays ──────────────────────────────────────────────────
+            if (_lwcEmaSeriesMap) { Object.values(_lwcEmaSeriesMap).forEach(s => { try { _lwcChart.removeSeries(s); } catch(e) {} }); _lwcEmaSeriesMap = null; }
+            if (_lwcShowEma) {
+                const _emaC = isIntra
+                    ? [{p:9,color:'rgba(139,92,246,0.85)',title:'EMA9'},{p:21,color:'rgba(251,146,60,0.85)',title:'EMA21'}]
+                    : [{p:20,color:'rgba(139,92,246,0.85)',title:'EMA20'},{p:50,color:'rgba(251,146,60,0.85)',title:'EMA50'},{p:200,color:'rgba(239,68,68,0.8)',title:'EMA200'}];
+                _lwcEmaSeriesMap = {};
+                _emaC.forEach(cfg => {
+                    if (closes.length < cfg.p) return;
+                    const k = 2/(cfg.p+1); let ema = closes[0]; const vals = [];
+                    for (let i = 0; i < bars.length; i++) {
+                        ema = closes[i]*k + ema*(1-k);
+                        if (_tMs(bars[i]) >= displayCutoffMs) vals.push({ time:toTime(bars[i].t), value:+ema.toFixed(4) });
+                    }
+                    if (!vals.length) return;
+                    const s = _lwcChart.addLineSeries({ color:cfg.color, lineWidth:1, lineStyle:0, priceLineVisible:false, lastValueVisible:false, crosshairMarkerVisible:false, title:cfg.title });
+                    s.setData(vals); _lwcEmaSeriesMap[cfg.title] = s;
+                });
             }
-            // EMA on all timeframes — periods adapt to tf
-            const _emaConfigs = isIntra
-                ? [{ p:9, color:'rgba(139,92,246,0.8)', title:'EMA9' }, { p:21, color:'rgba(251,146,60,0.8)', title:'EMA21' }]
-                : [{ p:20, color:'rgba(139,92,246,0.8)', title:'EMA20' }, { p:50, color:'rgba(251,146,60,0.8)', title:'EMA50' }, { p:200, color:'rgba(239,68,68,0.75)', title:'EMA200' }];
-            const closes = bars.map(b => b.c); // use full fetch (not display) for warmup
-            _lwcEmaSeriesMap = {};
-            _emaConfigs.forEach(cfg => {
-                if (closes.length < cfg.p) return;
-                const k = 2 / (cfg.p + 1);
-                let ema = closes[0];
-                const emaVals = [];
-                for (let i = 0; i < bars.length; i++) {
-                    ema = closes[i] * k + ema * (1 - k);
-                    // Only emit EMA values within display window (after warmup)
+
+            // ── Bollinger Bands (20, 2σ) ──────────────────────────────────────
+            if (window._lwcBBSeries) { window._lwcBBSeries.forEach(s => { try { _lwcChart.removeSeries(s); } catch(e) {} }); window._lwcBBSeries = null; }
+            if (_lwcShowBB && closes.length >= 20) {
+                const bbP = 20, bbK = 2;
+                const uD=[], mD=[], lD=[];
+                for (let i = bbP-1; i < bars.length; i++) {
+                    const sl = closes.slice(i-bbP+1, i+1);
+                    const mean = sl.reduce((a,v)=>a+v,0)/bbP;
+                    const std = Math.sqrt(sl.reduce((a,v)=>a+(v-mean)**2,0)/bbP);
                     if (_tMs(bars[i]) >= displayCutoffMs) {
-                        emaVals.push({ time: toTime(bars[i].t), value: +ema.toFixed(4) });
+                        const t = toTime(bars[i].t);
+                        uD.push({time:t,value:+(mean+bbK*std).toFixed(4)});
+                        mD.push({time:t,value:+mean.toFixed(4)});
+                        lD.push({time:t,value:+(mean-bbK*std).toFixed(4)});
                     }
                 }
-                if (!emaVals.length) return;
-                const emaSeries = _lwcChart.addLineSeries({
-                    color: cfg.color, lineWidth: 1, lineStyle: 0,
-                    priceLineVisible: false, lastValueVisible: false,
-                    crosshairMarkerVisible: false, title: cfg.title,
-                });
-                emaSeries.setData(emaVals);
-                _lwcEmaSeriesMap[cfg.title] = emaSeries;
-            });
+                const bbU = _lwcChart.addLineSeries({color:'rgba(56,189,248,0.7)',lineWidth:1,lineStyle:2,priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false,title:'BB+'});
+                const bbM = _lwcChart.addLineSeries({color:'rgba(56,189,248,0.4)',lineWidth:1,lineStyle:1,priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false,title:'BBmid'});
+                const bbL = _lwcChart.addLineSeries({color:'rgba(56,189,248,0.7)',lineWidth:1,lineStyle:2,priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false,title:'BB-'});
+                bbU.setData(uD); bbM.setData(mD); bbL.setData(lD);
+                window._lwcBBSeries = [bbU, bbM, bbL];
+            }
+
+            // ── RSI(14) sub-panel ─────────────────────────────────────────────
+            if (window._lwcRsiSeries) { try { _lwcChart.removeSeries(window._lwcRsiSeries); } catch(e) {} window._lwcRsiSeries = null; }
+            if (window._lwcRsiLines) { window._lwcRsiLines.forEach(s=>{try{_lwcChart.removeSeries(s);}catch(e){}}); window._lwcRsiLines = null; }
+            if (_lwcShowRsi && closes.length >= 15) {
+                const rP = 14; let gAvg = 0, lAvg = 0;
+                for (let i = 1; i <= rP; i++) { const d=closes[i]-closes[i-1]; if(d>=0)gAvg+=d; else lAvg-=d; }
+                gAvg/=rP; lAvg/=rP;
+                const rsiData = [];
+                for (let i = rP; i < bars.length; i++) {
+                    if (i > rP) {
+                        const d = closes[i]-closes[i-1];
+                        gAvg = (gAvg*(rP-1)+Math.max(d,0))/rP;
+                        lAvg = (lAvg*(rP-1)+Math.max(-d,0))/rP;
+                    }
+                    const rsi = lAvg===0 ? 100 : 100-(100/(1+gAvg/lAvg));
+                    if (_tMs(bars[i]) >= displayCutoffMs)
+                        rsiData.push({ time:toTime(bars[i].t), value:+rsi.toFixed(2),
+                            color: rsi>=70?'rgba(239,68,68,0.8)':rsi<=30?'rgba(16,185,129,0.8)':'rgba(251,146,60,0.65)' });
+                }
+                const rsiS = _lwcChart.addHistogramSeries({ priceFormat:{type:'price',precision:1,minMove:0.1}, priceScaleId:'rsi', lastValueVisible:true, priceLineVisible:false, title:'RSI14' });
+                rsiS.priceScale().applyOptions({ scaleMargins:{top:0.82,bottom:0}, borderVisible:false });
+                const mkRef = (val,col) => {
+                    const s = _lwcChart.addLineSeries({color:col,lineWidth:1,lineStyle:2,priceScaleId:'rsi',priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false});
+                    if (rsiData.length) s.setData([{time:rsiData[0].time,value:val},{time:rsiData[rsiData.length-1].time,value:val}]);
+                    return s;
+                };
+                rsiS.setData(rsiData);
+                window._lwcRsiSeries = rsiS;
+                window._lwcRsiLines = [mkRef(70,'rgba(239,68,68,0.35)'),mkRef(30,'rgba(16,185,129,0.35)'),mkRef(50,'rgba(148,163,184,0.2)')];
+            }
 
             // ── Live price overlay ────────────────────────────────────────────
             const liveP = wlDataCache[symbol]?.c;
@@ -10033,6 +10095,34 @@
             if (_lwcAutoScroll && _lwcChart) {
                 try { _lwcChart.timeScale().scrollToRealTime(); } catch(e) {}
             }
+        }
+
+        // Toggle indicator on/off — update state, button style, then redraw chart
+        async function lwcToggleIndicator(ind) {
+            const colMap = { vwap:'#ffc800', ema:'rgba(139,92,246,0.9)', bb:'rgba(56,189,248,0.9)', rsi:'rgba(251,146,60,0.9)', exth:'rgba(148,163,184,0.7)' };
+            const idMap  = { vwap:'lwc-tog-vwap', ema:'lwc-tog-ema', bb:'lwc-tog-bb', rsi:'lwc-tog-rsi', exth:'lwc-tog-exth' };
+            // Toggle state
+            if      (ind==='vwap') _lwcShowVwap = !_lwcShowVwap;
+            else if (ind==='ema')  _lwcShowEma  = !_lwcShowEma;
+            else if (ind==='bb')   _lwcShowBB   = !_lwcShowBB;
+            else if (ind==='rsi')  _lwcShowRsi  = !_lwcShowRsi;
+            else if (ind==='exth') _lwcShowExtH = !_lwcShowExtH;
+            _saveLwcPrefs();
+            // Update button style
+            const stateMap = { vwap:_lwcShowVwap, ema:_lwcShowEma, bb:_lwcShowBB, rsi:_lwcShowRsi, exth:_lwcShowExtH };
+            const on  = stateMap[ind];
+            const col = colMap[ind];
+            const btn = document.getElementById(idMap[ind]);
+            if (btn) {
+                btn.style.border     = `1px solid ${on?col:'var(--border)'}`;
+                btn.style.background = on ? col+'22' : 'var(--bg-card2)';
+                btn.style.color      = on ? col : 'var(--text-dim)';
+            }
+            // Redraw — reuses cached bars, only rebuilds indicator series
+            if (!_lwcSymbol || !_lwcChart) return;
+            const isDark = document.documentElement.classList.contains('dark');
+            const pgKey = getPolygonKey(), aKey = getAlpacaKey(), aSecret = getAlpacaSecret();
+            await _lwcDraw(_lwcSymbol, _lwcRange, isDark, pgKey, aKey, aSecret);
         }
 
 
