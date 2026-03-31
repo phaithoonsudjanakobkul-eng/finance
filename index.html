@@ -6233,11 +6233,17 @@
 
             if (mktOpen) {
                 // ตลาดเปิด: ใช้ Polygon live data
-                c  = lastP || dayC || prevDayC || existing.c || null;
-                pc = prevDayC || existing.pc || null;
-                if (sn.todaysChange != null && sn.todaysChangePerc != null) {
+                // ไม่ overwrite d.c ถ้า WS tick ล่าสุด (d._wsTs) ใหม่กว่า snapshot
+                const snapPrice = lastP || dayC || prevDayC || existing.c || null;
+                const wsRecent  = existing._wsTs && (Date.now() - existing._wsTs < 5000);
+                c  = wsRecent ? (existing.c || snapPrice) : (snapPrice || existing.c || null);
+                pc = existing.pc || prevDayC || null;  // pc จาก Finnhub ก่อนเสมอ
+                if (sn.todaysChange != null && sn.todaysChangePerc != null && !wsRecent) {
                     d  = sn.todaysChange;
                     dp = sn.todaysChangePerc;
+                } else if (wsRecent) {
+                    d  = existing.d ?? 0;
+                    dp = existing.dp ?? 0;
                 } else if (c && pc) {
                     d  = c - pc;
                     dp = d / pc * 100;
@@ -8609,7 +8615,7 @@
             saveWlCache(); // persist for instant load next time
             refreshSparklineForTopSymbols(); // Movement sparklines (Webull-like bars)
             // WS already connected at startup — only reconnect if dropped
-            if (isMarketOpen() && !alpWs && !fhWs) connectWs();
+            if (isMarketOpen() && !pgWs && !alpWs && !fhWs) connectWs();
             updateMarketStatus();
         }
 
@@ -14177,9 +14183,12 @@ ${_clip(contextSections, 2600)}`;
         function connectWs() {
             const pgKey = getPolygonKey();
             const aKey  = getAlpacaKey(), aSecret = getAlpacaSecret();
-            if (pgKey)             connectPolygonWs(pgKey);
-            else if (aKey && aSecret) connectAlpacaWs(aKey, aSecret);
-            else                   connectFinnhubWs();
+            // Polygon WS ต้องการ plan Developer $79+ เท่านั้น
+            // Massive $29 มีแค่ REST API → ใช้ Alpaca IEX WS ฟรีแทน (real-time tick)
+            // Polygon ยังใช้ REST สำหรับ Chart/Snapshot/Bars ได้ปกติ
+            if (aKey && aSecret)       connectAlpacaWs(aKey, aSecret);
+            else if (pgKey)            connectPolygonWs(pgKey);  // fallback ถ้าไม่มี Alpaca
+            else                       connectFinnhubWs();
         }
 
         // ── Polygon.io WebSocket ──────────────────────────────────────────────
@@ -14198,8 +14207,8 @@ ${_clip(contextSections, 2600)}`;
                 if (m.ev !== 'T' || !m.p) continue;
                 const d = wlDataCache[m.sym];
                 if (!d) continue;
-                const pc = d._prevDailyC ?? d.pc ?? null;
-                d.c = m.p;
+                const pc = d.pc || d._prevDailyC || null;
+                d.c = m.p; d._wsTs = Date.now();
                 if (pc != null) { d.d = m.p - pc; d.dp = d.d / pc * 100; }
                 if (d.h != null) { if (m.p > d.h) d.h = m.p; } else d.h = m.p;
                 if (d.l != null) { if (m.p < d.l) d.l = m.p; } else d.l = m.p;
@@ -14500,10 +14509,10 @@ ${_clip(contextSections, 2600)}`;
             if (!d || !newPrice) return;
 
             // ── Compute all values once — single pass, no repeated toFixed ───
-            const pc = (d._prevDailyC || d.pc) || null;  // treat 0 as null
+            const pc = (d.pc || d._prevDailyC) || null;  // pc = Finnhub prev close (correct base)
             let chg = 0, pct = 0;
             if (pc != null) {
-                d.c = newPrice; chg = newPrice - pc; d.d = chg; pct = chg / pc * 100; d.dp = pct;
+                d.c = newPrice; d._wsTs = Date.now(); chg = newPrice - pc; d.d = chg; pct = chg / pc * 100; d.dp = pct;
             } else {
                 d.c = newPrice; chg = d.d ?? 0; pct = d.dp ?? 0;
             }
@@ -16717,7 +16726,8 @@ ${_clip(contextSections, 2600)}`;
                         const rawTs = sn.lastTrade?.t ?? sn.latestTrade?.t ?? 0;
                         const snapTs = rawTs > 1e15 ? Math.floor(rawTs / 1e6) : (rawTs > 1e12 ? rawTs : rawTs * 1000);
                         if (prev._snapTs && snapTs <= prev._snapTs) return;
-                        const pc = prev.pc || sn.prevDailyBar?.c || sn.prevDay?.c || lp;
+                        // pc = Finnhub prev close ที่เก็บใน cache — ไม่ใช้ Polygon prevDay.c (= last price)
+                        const pc = prev.pc || lp;
                         const chg = lp - pc, pct = pc ? (chg/pc)*100 : 0;
                         const updated = { ...prev, c:lp, d:chg, dp:pct, _snapTs:snapTs };
                         wlDataCache[sym] = updated;
