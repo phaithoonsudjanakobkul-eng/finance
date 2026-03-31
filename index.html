@@ -5856,10 +5856,13 @@
                 const staleQuote = age > 5 * 60 * 1000; // >5min = stale, refresh quote fields
                 const wl = payload.wl || {};
                 if (staleQuote) {
-                    // เก็บแค่ profile fields ทิ้ง quote (c/d/dp/pc/o/h/l)
-                    const quoteFields = ['c','d','dp','pc','o','h','l','t','v'];
+                    // เก็บแค่ profile fields + pc/_prevDailyC (ใช้แสดงราคาตอนตลาดปิด)
+                    // ลบเฉพาะ live intraday fields ที่ stale แล้ว (c/d/dp/o/h/l/t/v)
+                    const quoteFields = ['c','d','dp','o','h','l','t','v'];
                     Object.keys(wl).forEach(sym => {
                         quoteFields.forEach(f => delete wl[sym][f]);
+                        // _dailyC=0 คือ stale artifact จาก session ที่ยังไม่เปิด — ล้างออก
+                        if (wl[sym]._dailyC === 0) delete wl[sym]._dailyC;
                     });
                 }
                 Object.assign(wlDataCache,  wl);
