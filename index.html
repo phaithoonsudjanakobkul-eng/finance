@@ -8436,7 +8436,8 @@
                             const sn = _preSnap[sym];
                             if (!sn) return;
                             wlDataCache[sym] = _applyPolygonSnap(sym, sn, wlDataCache[sym]);
-                            quoteTsCache[sym] = Date.now();
+                            // ตลาดปิด: ไม่ set quoteTsCache เพื่อให้ Finnhub ยังรันได้ใน Phase B
+                            if (isMarketOpen()) quoteTsCache[sym] = Date.now();
                         });
                         watchlist.forEach(sym => {
                             if (wlDataCache[sym]) updateWatchlistPriceCells(sym, wlDataCache[sym]);
@@ -8557,6 +8558,8 @@
                 if (needsFinnhub && getFinnhubKey()) {
                     const needsQuote = watchlist.filter(s => {
                         if (!profileCache[s]) return false;
+                        // ตลาดปิด: bypass interval — ต้องการ pc จาก Finnhub เสมอ
+                        if (!isMarketOpen()) return true;
                         return (now - (quoteTsCache[s] ?? 0)) > QUOTE_MIN_INTERVAL;
                     });
                     const _quoteResults = await Promise.allSettled(needsQuote.map(async (symbol) => {
@@ -8590,7 +8593,8 @@
                                 const sn = snap[symbol];
                                 if (!sn) return;
                                 wlDataCache[symbol] = _applyPolygonSnap(symbol, sn, wlDataCache[symbol]);
-                                quoteTsCache[symbol] = Date.now();
+                                // ตลาดปิด: quoteTsCache ถูก set โดย Finnhub แล้ว ไม่ต้อง override
+                                if (isMarketOpen()) quoteTsCache[symbol] = Date.now();
                             });
                         }
                     } catch(e) {}
