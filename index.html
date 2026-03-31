@@ -7357,12 +7357,17 @@
     const d = data || wlDataCache[symbol] || null;
 
     const _mktOpen  = isMarketOpen();
-    const last      = _mktOpen ? (d?.c ?? null)
-                               : (d?._dailyC ?? d?.pc ?? d?.c ?? null);
-    const prevClose = d?._prevDailyC ?? d?.pc ?? null;
+    // ตลาดปิด: ใช้ c (ซึ่ง _applyPolygonSnap set เป็น prevDay.c แล้ว)
+    const last      = d?.c || null;
+    // prevClose: ใช้ pc (= prevDay.c) สำหรับ CHG% base
+    const prevClose = d?.pc || d?._prevDailyC || null;
 
-    const change    = (last != null && prevClose != null) ? (last - prevClose) : null;
-    const changePct = (change != null && prevClose)       ? (change / prevClose * 100) : null;
+    // ใช้ d/dp จาก cache ก่อน (set โดย _applyPolygonSnap ด้วย todaysChange)
+    // คำนวณใหม่เฉพาะเมื่อ cache ไม่มี
+    const change    = (d?.d != null && d.d !== 0) ? d.d
+                    : (last != null && prevClose != null) ? (last - prevClose) : null;
+    const changePct = (d?.dp != null && d.dp !== 0) ? d.dp
+                    : (change != null && prevClose) ? (change / prevClose * 100) : null;
     const price     = last;
 
     const open      = (d?.o  || null);
@@ -8986,17 +8991,16 @@
 
             // ใช้ prevClose เป็น base เดียวกันทั้ง CHG / CHG%
             const _mktOpen  = isMarketOpen();
-            // ตลาดปิด: ใช้ _dailyC (official regular session close จาก Polygon/EOD)
-            //          → pc (prev close จาก Finnhub quote)
-            //          → c (last known price — อาจเป็น after-hours แต่ดีกว่าไม่มีอะไร)
-            const _dailyCSafe = (data?._dailyC && data._dailyC > 0) ? data._dailyC : null;
-            const last      = _mktOpen
-                ? (data?.c || null)
-                : (_dailyCSafe || data?.pc || data?.c || null);
-            const prevClose = data?._prevDailyC || data?.pc || null;
+            // ตลาดปิด: c = prevDay.c (set โดย _applyPolygonSnap แล้ว)
+            const last      = data?.c || null;
+            const prevClose = data?.pc || data?._prevDailyC || null;
 
-            const change    = (last != null && prevClose != null) ? (last - prevClose) : null;
-            const changePct = (change != null && prevClose)       ? (change / prevClose * 100) : null;
+            // ใช้ d/dp จาก cache ก่อน — _applyPolygonSnap ใช้ todaysChange จาก Polygon (แม่นที่สุด)
+            const change    = (data?.d != null && data.d !== 0) ? data.d
+                            : (last != null && prevClose != null) ? (last - prevClose) : null;
+            const changePct = (data?.dp != null && data.dp !== 0) ? data.dp
+                            : (change != null && prevClose) ? (change / prevClose * 100) : null;
+
             const price     = last;
             const open      = (data?.o  || null);
             
