@@ -6227,22 +6227,27 @@
 
             const mktOpen = isMarketOpen();
 
-            // displayC = what to show as "last price"
-            // Market open:  live trade price → day close → prevDay close
-            // Market closed: prevDay close (official close) — NOT min/lastTrade (= after-hours noise)
+            // displayC = ราคาที่แสดงใน LAST column
+            // ตลาดเปิด:  lastTrade → day.c → prevDay.c
+            // ตลาดปิด:   prevDay.c (official close เมื่อวาน) — ไม่ใช้ after-hours
             const displayC = mktOpen
                 ? (lastP || dayC || prevDayC || existing.c || null)
                 : (prevDayC || existing.c || null);
 
-            // prevClose for CHG% calculation
-            // Market open:  prevDay.c (yesterday close)
-            // Market closed: use todaysChange to back-calculate, or fall back to existing pc
+            // prevClose = base สำหรับคำนวณ CHG%
+            // ตลาดเปิด:  prevDay.c (yesterday close)
+            // ตลาดปิด:   เท่ากับ displayC (prevDay.c) — ยังไม่มี session วันนี้
             const prevClose = prevDayC || existing.pc || null;
 
-            // CHG / CHG% — use Polygon pre-calculated when available (most accurate)
+            // CHG / CHG%
             let chg, dp;
-            if (sn.todaysChange != null && sn.todaysChangePerc != null && prevDayC) {
-                // Polygon gives us change vs prevDay.c directly
+            if (!mktOpen) {
+                // ตลาดปิด: ยังไม่มีการ trade วันนี้ → CHG = 0
+                // todaysChange จาก Polygon = เทียบกับ 2 วันก่อน ไม่ใช่วันนี้ → ไม่ใช้
+                chg = 0;
+                dp  = 0;
+            } else if (sn.todaysChange != null && sn.todaysChangePerc != null) {
+                // ตลาดเปิด: Polygon คำนวณให้แล้ว เทียบกับ prevDay.c (ถูกต้อง)
                 chg = sn.todaysChange;
                 dp  = sn.todaysChangePerc;
             } else if (displayC && prevClose) {
@@ -7357,17 +7362,15 @@
     const d = data || wlDataCache[symbol] || null;
 
     const _mktOpen  = isMarketOpen();
-    // ตลาดปิด: ใช้ c (ซึ่ง _applyPolygonSnap set เป็น prevDay.c แล้ว)
     const last      = d?.c || null;
-    // prevClose: ใช้ pc (= prevDay.c) สำหรับ CHG% base
     const prevClose = d?.pc || d?._prevDailyC || null;
 
-    // ใช้ d/dp จาก cache ก่อน (set โดย _applyPolygonSnap ด้วย todaysChange)
-    // คำนวณใหม่เฉพาะเมื่อ cache ไม่มี
-    const change    = (d?.d != null && d.d !== 0) ? d.d
-                    : (last != null && prevClose != null) ? (last - prevClose) : null;
-    const changePct = (d?.dp != null && d.dp !== 0) ? d.dp
-                    : (change != null && prevClose) ? (change / prevClose * 100) : null;
+    // ตลาดปิด: CHG = 0 เสมอ (ยังไม่มี session วันนี้)
+    // ตลาดเปิด: ใช้ d/dp จาก cache (set โดย _applyPolygonSnap)
+    const change    = !_mktOpen ? 0
+                    : (d?.d != null ? d.d : (last != null && prevClose != null) ? last - prevClose : null);
+    const changePct = !_mktOpen ? 0
+                    : (d?.dp != null ? d.dp : (change != null && prevClose) ? change / prevClose * 100 : null);
     const price     = last;
 
     const open      = (d?.o  || null);
@@ -7377,13 +7380,16 @@
     const type      = d?.type ?? '';
     const logo      = d?.logo ?? '';
 
-            const isUp        = changePct !== null ? changePct >= 0 : change !== null ? change >= 0 : true;
-            const priceColor  = price   === null ? 'wl-neutral' : isUp ? 'wl-up' : 'wl-dn';
-            const changeColor = change  === null ? 'wl-neutral' : isUp ? 'wl-up' : 'wl-dn';
-            const openColor   = open    === null ? ''           : open >= (prevClose ?? open) ? 'wl-up' : 'wl-dn';
+            // ตลาดปิด: changePct = 0 → แสดง neutral ไม่ใช่เขียว
+            const isUp        = _mktOpen
+                ? (changePct !== null ? changePct >= 0 : change !== null ? change >= 0 : true)
+                : (changePct !== null && changePct !== 0 ? changePct > 0 : null);
+            const priceColor  = price  === null ? 'wl-neutral' : !_mktOpen ? 'wl-neutral' : isUp ? 'wl-up' : 'wl-dn';
+            const changeColor = !_mktOpen ? 'wl-neutral' : isUp === null ? 'wl-neutral' : isUp ? 'wl-up' : 'wl-dn';
+            const openColor   = open   === null ? ''           : open >= (prevClose ?? open) ? 'wl-up' : 'wl-dn';
             const highColor   = 'wl-up';
             const lowColor    = 'wl-dn';
-            const arrow       = isUp ? '▲' : '▼';
+            const arrow       = isUp === true ? '▲' : isUp === false ? '▼' : '—';
             const idx         = watchlist.indexOf(symbol) + 1;
 
             const typeBadge = type === 'ETF'
@@ -8991,15 +8997,15 @@
 
             // ใช้ prevClose เป็น base เดียวกันทั้ง CHG / CHG%
             const _mktOpen  = isMarketOpen();
-            // ตลาดปิด: c = prevDay.c (set โดย _applyPolygonSnap แล้ว)
             const last      = data?.c || null;
             const prevClose = data?.pc || data?._prevDailyC || null;
 
-            // ใช้ d/dp จาก cache ก่อน — _applyPolygonSnap ใช้ todaysChange จาก Polygon (แม่นที่สุด)
-            const change    = (data?.d != null && data.d !== 0) ? data.d
-                            : (last != null && prevClose != null) ? (last - prevClose) : null;
-            const changePct = (data?.dp != null && data.dp !== 0) ? data.dp
-                            : (change != null && prevClose) ? (change / prevClose * 100) : null;
+            // ตลาดปิด: CHG = 0 เสมอ
+            // ตลาดเปิด: ใช้ d/dp จาก cache (Polygon todaysChange)
+            const change    = !_mktOpen ? 0
+                            : (data?.d != null ? data.d : (last != null && prevClose != null) ? last - prevClose : null);
+            const changePct = !_mktOpen ? 0
+                            : (data?.dp != null ? data.dp : (change != null && prevClose) ? change / prevClose * 100 : null);
 
             const price     = last;
             const open      = (data?.o  || null);
@@ -9023,14 +9029,17 @@
             const pe        = data?.pe         ?? null;
             const divYield  = data?.divYield   ?? null;
 
-            const isUp = changePct >= 0;
+            // ตลาดปิด: CHG=0 → neutral สี ไม่ใช่เขียว
+            const isUp = _mktOpen
+                ? changePct >= 0
+                : (changePct !== 0 ? changePct > 0 : null);
             const extIsUp    = extPct !== null ? extPct >= 0 : true;
-            const priceColor  = price === null ? 'wl-neutral' : isUp ? 'wl-up' : 'wl-dn';
-            const changeColor = change === null ? 'wl-neutral' : isUp ? 'wl-up' : 'wl-dn';
+            const priceColor  = price === null ? 'wl-neutral' : !_mktOpen ? 'wl-neutral' : isUp ? 'wl-up' : 'wl-dn';
+            const changeColor = !_mktOpen ? 'wl-neutral' : isUp === null ? 'wl-neutral' : isUp ? 'wl-up' : 'wl-dn';
             const openColor   = (open  && prevClose) ? (open  >= prevClose ? 'wl-up' : 'wl-dn') : '';
             const highColor   = (high  && prevClose) ? (high  >= prevClose ? 'wl-up' : 'wl-dn') : '';
             const lowColor    = (low   && prevClose) ? (low   >= prevClose ? 'wl-up' : 'wl-dn') : '';
-            const arrow = isUp ? '▲' : '▼';
+            const arrow = isUp === true ? '▲' : isUp === false ? '▼' : '—';
             // Helper: only write className when it actually changes (avoids forced reflow per WS tick)
             const setClass = (el, cls) => { if (el.className !== cls) el.className = cls; };
             // Helper: only write text when changed
