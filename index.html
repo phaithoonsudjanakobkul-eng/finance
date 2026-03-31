@@ -6175,9 +6175,9 @@
                 const ltRaw = t.lastTrade?.t;
                 const ltMs  = ltRaw ? (ltRaw > 1e15 ? Math.round(ltRaw / 1e6) : ltRaw) : null;
                 out[t.ticker] = {
-                    dailyBar:     { c: t.day?.c    ?? null, o: t.day?.o    ?? null, h: t.day?.h    ?? null, l: t.day?.l    ?? null, v: t.day?.v    ?? null },
-                    prevDailyBar: { c: t.prevDay?.c ?? null },
-                    latestTrade:  { p: t.lastTrade?.p ?? null, t: ltMs ? new Date(ltMs).toISOString() : null },
+                    dailyBar:     { c: t.day?.c    || null, o: t.day?.o    || null, h: t.day?.h    || null, l: t.day?.l    || null, v: t.day?.v    || null },
+                    prevDailyBar: { c: t.prevDay?.c || null },
+                    latestTrade:  { p: t.lastTrade?.p || null, t: ltMs ? new Date(ltMs).toISOString() : null },
                     todaysChangePerc: t.todaysChangePerc ?? null,
                     todaysChange:     t.todaysChange     ?? null,
                 };
@@ -8071,8 +8071,8 @@
                 watchlist.forEach(sym => {
                     const sn = snap[sym];
                     if (!sn) return;
-                    const officialClose = sn.dailyBar?.c ?? null;
-                    const prevClose     = sn.prevDailyBar?.c ?? null;
+                    const officialClose = sn.dailyBar?.c || null;
+                    const prevClose     = sn.prevDailyBar?.c || null;
                     if (!officialClose) return;
 
                     const existing = wlDataCache[sym] || {};
@@ -8165,11 +8165,11 @@
                     // Priority: dailyBar.c (ราคาปิด regular session วันนี้)
                     //         → wlDataCache[sym].pc (จาก Finnhub)
                     //         → prevDailyBar.c (วันก่อนหน้า — fallback สุดท้าย)
-                    const pc = sn.dailyBar?.c ?? wlDataCache[sym]?.pc ?? sn.prevDailyBar?.c ?? null;
+                    const pc = sn.dailyBar?.c || wlDataCache[sym]?.pc || sn.prevDailyBar?.c || null;
                     const preP = sn.latestTrade?.p ?? sn.minuteBar?.c ?? null;
                     // Store Alpaca daily bar data for accurate session change (regardless of session)
-                    const _dailyC     = sn.dailyBar?.c     ?? null;
-                    const _prevDailyC = sn.prevDailyBar?.c ?? null;
+                    const _dailyC     = sn.dailyBar?.c     || null;
+                    const _prevDailyC = sn.prevDailyBar?.c || null;
                     if (wlDataCache[sym] && (_dailyC || _prevDailyC)) {
                         wlDataCache[sym] = Object.assign({}, wlDataCache[sym], {
                             _dailyC:     _dailyC     ?? wlDataCache[sym]._dailyC,
@@ -8217,7 +8217,7 @@
                     } else if (isAH) {
                         // After-hours: use latestTrade as AH price vs today's close (dailyBar.c)
                         // Must use dailyBar.c (regular session close), NOT prevDailyBar.c
-                        const ahClose = sn.dailyBar?.c ?? null;
+                        const ahClose = sn.dailyBar?.c || null;
                         if (!ahClose) return; // no regular session close = can't calculate AH %
                         const pct = (preP - ahClose) / ahClose * 100;
                         if (Math.abs(pct) > 50) return;
@@ -8879,9 +8879,11 @@
 
             // ใช้ prevClose เป็น base เดียวกันทั้ง CHG / CHG%
             const _mktOpen  = isMarketOpen();
-            const last      = _mktOpen ? (data?.c ?? null)
-                                       : (data?._dailyC ?? data?.pc ?? data?.c ?? null);
-            const prevClose = data?._prevDailyC ?? data?.pc ?? null;
+            // _dailyC=0 หมายถึง Polygon ยังไม่มี session ของวันนี้ (ตลาดยังไม่เปิด) → treat as null
+            const _dailyCSafe = (data?._dailyC && data._dailyC > 0) ? data._dailyC : null;
+            const last      = _mktOpen ? (data?.c || null)
+                                       : (_dailyCSafe ?? (data?.pc || null) ?? (data?.c || null) ?? null);
+            const prevClose = data?._prevDailyC || data?.pc || null;
 
             const change    = (last != null && prevClose != null) ? (last - prevClose) : null;
             const changePct = (change != null && prevClose)       ? (change / prevClose * 100) : null;
@@ -14380,7 +14382,7 @@ ${_clip(contextSections, 2600)}`;
             if (!d || !newPrice) return;
 
             // ── Compute all values once — single pass, no repeated toFixed ───
-            const pc = d._prevDailyC ?? d.pc ?? null;
+            const pc = (d._prevDailyC || d.pc) || null;  // treat 0 as null
             let chg = 0, pct = 0;
             if (pc != null) {
                 d.c = newPrice; chg = newPrice - pc; d.d = chg; pct = chg / pc * 100; d.dp = pct;
@@ -16597,7 +16599,7 @@ ${_clip(contextSections, 2600)}`;
                         const rawTs = sn.lastTrade?.t ?? sn.latestTrade?.t ?? 0;
                         const snapTs = rawTs > 1e15 ? Math.floor(rawTs / 1e6) : (rawTs > 1e12 ? rawTs : rawTs * 1000);
                         if (prev._snapTs && snapTs <= prev._snapTs) return;
-                        const pc = prev.pc ?? sn.prevDailyBar?.c ?? sn.prevDay?.c ?? lp;
+                        const pc = prev.pc || sn.prevDailyBar?.c || sn.prevDay?.c || lp;
                         const chg = lp - pc, pct = pc ? (chg/pc)*100 : 0;
                         const updated = { ...prev, c:lp, d:chg, dp:pct, _snapTs:snapTs };
                         wlDataCache[sym] = updated;
