@@ -8333,7 +8333,9 @@
             isWlRefreshing = true;
 
             const key = getFinnhubKey();
-            if (!key) { isWlRefreshing = false; return; }
+            const pgKey = getPolygonKey();
+            // ต้องมีอย่างน้อย 1 key — Polygon หรือ Finnhub
+            if (!key && !pgKey) { isWlRefreshing = false; return; }
             if (watchlist.length === 0) { checkWlEmpty(); isWlRefreshing = false; return; }
 
             const icon = document.getElementById('wl-refresh-icon');
@@ -8351,6 +8353,43 @@
             const _alpLive = alpWs && alpWs.readyState  === 1;
             const wsLive   = (_pgLive || _fhLive || _alpLive) && isMarketOpen();
 
+            // ── Pre-fetch: Polygon snapshot seeds ALL prices in 1 request ────
+            // ทำก่อน Phase A/B เพื่อให้ราคาถูกต้องแสดงทันทีที่ row render
+            if (pgKey) {
+                try {
+                    const _preSnap = await _polygonSnapshot(watchlist);
+                    if (_preSnap) {
+                        watchlist.forEach(sym => {
+                            const sn = _preSnap[sym];
+                            if (!sn) return;
+                            const existing = wlDataCache[sym] || {};
+                            const prevC    = sn.prevDailyBar?.c || null;
+                            const dayC     = sn.dailyBar?.c    || null;
+                            const lastP    = sn.latestTrade?.p || null;
+                            const displayC = isMarketOpen()
+                                ? (lastP || dayC || prevC || existing.c || null)
+                                : (prevC || existing.pc || existing.c || null);
+                            const prevClose = prevC || existing.pc || null;
+                            const chg = (displayC && prevClose) ? displayC - prevClose : 0;
+                            const dp  = (displayC && prevClose) ? chg / prevClose * 100 : 0;
+                            wlDataCache[sym] = Object.assign({}, existing, {
+                                c: displayC, d: chg, dp,
+                                pc: prevClose, _dailyC: dayC, _prevDailyC: prevC,
+                                o: sn.dailyBar?.o || existing.o || null,
+                                h: sn.dailyBar?.h || existing.h || null,
+                                l: sn.dailyBar?.l || existing.l || null,
+                                v: sn.dailyBar?.v || existing.v || null,
+                            });
+                            quoteTsCache[sym] = Date.now();
+                        });
+                        // Render ทันทีหลัง snapshot — ก่อน profile fetch เสร็จ
+                        watchlist.forEach(sym => {
+                            if (wlDataCache[sym]) updateWatchlistPriceCells(sym, wlDataCache[sym]);
+                        });
+                    }
+                } catch(e) {}
+            }
+
             // Phase A: symbols needing full profile (new or >24h stale)
             // Each row renders as soon as its data arrives
             const needsProfile = watchlist.filter(s => {
@@ -8363,15 +8402,10 @@
                 try {
                     const key = getFinnhubKey();
                     const now2 = Date.now();
-                    // TRICK: Fetch quote first alone, render price immediately
-                    // Then fetch profile+metric in parallel — logo/metrics fill in ~200ms later
-                    // User perceives instant load because numbers appear first
-                    const quoteRes = await finnhubFetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${key}`);
-                    const quote = quoteRes.ok ? await quoteRes.json() : {};
-                    quoteTsCache[symbol] = now2;
-                    // Render with whatever we have (cached profile or skeleton)
-                    const earlyData = { ...(profileCache[symbol] || {}), ...quote };
-                    wlDataCache[symbol] = { ...(wlDataCache[symbol] || {}), ...earlyData };
+                    // Phase A price: use wlDataCache (already seeded by Polygon snapshot in Phase B)
+                    // Render immediately with cached price — no extra quote fetch needed
+                    const earlyData = { ...(profileCache[symbol] || {}), ...(wlDataCache[symbol] || {}) };
+                    wlDataCache[symbol] = earlyData;
                     renderWatchlistRow(symbol, wlDataCache[symbol]);
                     let _r = document.getElementById('wl-row-' + symbol);
                     if (_r && wlDataCache[symbol]) { wlDataCache[symbol]._tr = _r; wlDataCache[symbol]._cells = _r.querySelectorAll('td'); }
@@ -8455,42 +8489,76 @@
             };
 
             // Phase B: symbols with cached profile → quote-only refresh
-            // Skip if WebSocket is live (already streaming real-time)
-            // Skip if quote is very recent (<30s)
+            // Phase B: refresh prices — Polygon snapshot (primary) → Finnhub fallback
+            // Polygon snapshot: 1 req for ALL symbols = สุดยอดประหยัด quota
             if (!wsLive) {
-                const needsQuote = watchlist.filter(s => {
-                    if (!profileCache[s]) return false;
-                    return (now - (quoteTsCache[s] ?? 0)) > QUOTE_MIN_INTERVAL;
-                });
-                // 1 req per symbol, 8 at a time = max 8 req in-flight, very safe
-                // Fetch all quotes in parallel, then render all at once — no staggered flicker
-                // TRICK: Fire ALL quote-only symbols simultaneously
-                // Network RTT naturally spreads 28 requests over ~300-500ms
-                // Finnhub's 30 req/s window = 1s bucket — 28 req in 500ms is fine
-                const _quoteResults = await Promise.allSettled(needsQuote.map(async (symbol) => {
-                    const r = await finnhubFetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${key}`);
-                    if (!r.ok) return null;
-                    const q = await r.json();
-                    if (!q.c || q.c === 0) q.c = q.pc;
-                    // Preserve pre-market/after-hours data already in cache — never overwrite with null
-                    const existing = wlDataCache[symbol] || {};
-                    const preFields = {
-                        preMarketPrice:      existing.preMarketPrice      ?? null,
-                        preMarketChangePct:  existing.preMarketChangePct  ?? null,
-                        afterHoursPrice:     existing.afterHoursPrice     ?? null,
-                        afterHoursChangePct: existing.afterHoursChangePct ?? null,
-                    };
-                    return { symbol, data: { ...profileCache[symbol], ...existing, ...q, ...preFields } };
-                }));
-                // Batch render after all fetches complete
-                _quoteResults.forEach(res => {
-                    if (res.status !== 'fulfilled' || !res.value) return;
-                    const { symbol, data } = res.value;
-                    quoteTsCache[symbol] = Date.now();
-                    wlDataCache[symbol] = data;
-                });
+                const pgKey = getPolygonKey();
+                let priceUpdated = false;
+
+                // ── Polygon snapshot — 1 request covers entire watchlist ──────
+                if (pgKey) {
+                    try {
+                        const snap = await _polygonSnapshot(watchlist);
+                        if (snap) {
+                            watchlist.forEach(symbol => {
+                                const sn = snap[symbol];
+                                if (!sn) return;
+                                const existing = wlDataCache[symbol] || {};
+                                // prevDay.c = yesterday's official close (most accurate prevClose)
+                                // day.c = today's regular session close (0 if market not opened yet)
+                                const dayC    = sn.dailyBar?.c    || null;  // today close (0 if not opened)
+                                const prevC   = sn.prevDailyBar?.c || null; // yesterday close
+                                const lastP   = sn.latestTrade?.p || null;  // latest trade price
+                                // Display price: market open = lastTrade, closed = yesterday's close
+                                const displayC = isMarketOpen()
+                                    ? (lastP || dayC || prevC || existing.c || null)
+                                    : (prevC || existing.pc || existing.c || null);
+                                const prevClose = prevC || existing.pc || null;
+                                const chg  = (displayC && prevClose) ? displayC - prevClose : (existing.d ?? 0);
+                                const dp   = (displayC && prevClose) ? (chg / prevClose * 100) : (existing.dp ?? 0);
+                                wlDataCache[symbol] = Object.assign({}, existing, {
+                                    c:           displayC,
+                                    d:           chg,
+                                    dp:          dp,
+                                    pc:          prevClose,
+                                    _dailyC:     dayC,
+                                    _prevDailyC: prevC,
+                                    o:           sn.dailyBar?.o   || existing.o   || null,
+                                    h:           sn.dailyBar?.h   || existing.h   || null,
+                                    l:           sn.dailyBar?.l   || existing.l   || null,
+                                    v:           sn.dailyBar?.v   || existing.v   || null,
+                                });
+                                quoteTsCache[symbol] = Date.now();
+                            });
+                            priceUpdated = true;
+                        }
+                    } catch(e) { /* fall through to Finnhub */ }
+                }
+
+                // ── Finnhub fallback — only if no Polygon key ────────────────
+                if (!priceUpdated && getFinnhubKey()) {
+                    const needsQuote = watchlist.filter(s => {
+                        if (!profileCache[s]) return false;
+                        return (now - (quoteTsCache[s] ?? 0)) > QUOTE_MIN_INTERVAL;
+                    });
+                    const _quoteResults = await Promise.allSettled(needsQuote.map(async (symbol) => {
+                        const r = await finnhubFetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${key}`);
+                        if (!r.ok) return null;
+                        const q = await r.json();
+                        if (!q.c || q.c === 0) q.c = q.pc;
+                        const existing = wlDataCache[symbol] || {};
+                        return { symbol, data: { ...profileCache[symbol], ...existing, ...q } };
+                    }));
+                    _quoteResults.forEach(res => {
+                        if (res.status !== 'fulfilled' || !res.value) return;
+                        const { symbol, data } = res.value;
+                        quoteTsCache[symbol] = Date.now();
+                        wlDataCache[symbol] = data;
+                    });
+                }
+
                 // Single render pass — all symbols update simultaneously
-                needsQuote.forEach(symbol => {
+                watchlist.forEach(symbol => {
                     if (wlDataCache[symbol]) updateWatchlistPriceCells(symbol, wlDataCache[symbol]);
                 });
             }
