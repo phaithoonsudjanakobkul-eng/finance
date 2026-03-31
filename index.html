@@ -6204,77 +6204,68 @@
         function _applyPolygonSnap(sym, sn, existingData) {
             if (!sn) return existingData || {};
             const existing = existingData || wlDataCache[sym] || {};
+            const mktOpen = isMarketOpen();
 
-            // prevDay = yesterday's official regular session close — always valid
+            // Polygon prevDay = session เมื่อวาน (OHLCV ของวันซื้อขายล่าสุด)
             const prevDayC = sn.prevDailyBar?.c || null;
             const prevDayO = sn.prevDailyBar?.o || null;
             const prevDayH = sn.prevDailyBar?.h || null;
             const prevDayL = sn.prevDailyBar?.l || null;
             const prevDayV = sn.prevDailyBar?.v || null;
 
-            // day = today's regular session (all 0 if not opened yet)
+            // Polygon day = today's session (0 ถ้าตลาดยังไม่เปิด)
             const dayC = sn.dailyBar?.c || null;
             const dayO = sn.dailyBar?.o || null;
             const dayH = sn.dailyBar?.h || null;
             const dayL = sn.dailyBar?.l || null;
             const dayV = sn.dailyBar?.v || null;
-
-            // min = latest 1-min bar (includes after/pre-market)
-            const minC = sn.minBar?.c || null;
-
-            // lastTrade price
+            const dayVw = sn.dailyBar?.vw || null;
             const lastP = sn.latestTrade?.p || null;
 
-            const mktOpen = isMarketOpen();
+            // ── Role ของ Polygon snapshot ──────────────────────────────────
+            // ตลาดปิด: Polygon ไม่มี "prev close" จริง (ไม่รู้ราคาเปิดของเมื่อวาน)
+            //          → เก็บ c/d/dp/pc จาก Finnhub quote ไว้ใน existing อย่าง overwrite
+            //          → อัพเดทแค่ OHLV จาก prevDay
+            // ตลาดเปิด: Polygon มี lastTrade + todaysChange เทียบกับ prevDay.c (ถูกต้อง)
+            //          → อัพเดท c/d/dp ได้
 
-            // displayC = ราคาที่แสดงใน LAST column
-            // ตลาดเปิด:  lastTrade → day.c → prevDay.c
-            // ตลาดปิด:   prevDay.c (official close เมื่อวาน) — ไม่ใช้ after-hours
-            const displayC = mktOpen
-                ? (lastP || dayC || prevDayC || existing.c || null)
-                : (prevDayC || existing.c || null);
+            let c, d, dp, pc;
 
-            // prevClose = base สำหรับคำนวณ CHG%
-            // ตลาดเปิด:  prevDay.c (yesterday close)
-            // ตลาดปิด:   เท่ากับ displayC (prevDay.c) — ยังไม่มี session วันนี้
-            const prevClose = prevDayC || existing.pc || null;
-
-            // CHG / CHG%
-            let chg, dp;
-            if (!mktOpen) {
-                // ตลาดปิด: ยังไม่มีการ trade วันนี้ → CHG = 0
-                // todaysChange จาก Polygon = เทียบกับ 2 วันก่อน ไม่ใช่วันนี้ → ไม่ใช้
-                chg = 0;
-                dp  = 0;
-            } else if (sn.todaysChange != null && sn.todaysChangePerc != null) {
-                // ตลาดเปิด: Polygon คำนวณให้แล้ว เทียบกับ prevDay.c (ถูกต้อง)
-                chg = sn.todaysChange;
-                dp  = sn.todaysChangePerc;
-            } else if (displayC && prevClose) {
-                chg = displayC - prevClose;
-                dp  = chg / prevClose * 100;
+            if (mktOpen) {
+                // ตลาดเปิด: ใช้ Polygon live data
+                c  = lastP || dayC || prevDayC || existing.c || null;
+                pc = prevDayC || existing.pc || null;
+                if (sn.todaysChange != null && sn.todaysChangePerc != null) {
+                    d  = sn.todaysChange;
+                    dp = sn.todaysChangePerc;
+                } else if (c && pc) {
+                    d  = c - pc;
+                    dp = d / pc * 100;
+                } else {
+                    d  = existing.d ?? 0;
+                    dp = existing.dp ?? 0;
+                }
             } else {
-                chg = existing.d ?? 0;
-                dp  = existing.dp ?? 0;
+                // ตลาดปิด: เก็บ c/d/dp/pc จาก Finnhub (existing) — Polygon ไม่มีข้อมูลนี้
+                // prevDay.c คือ "last price" ไม่ใช่ "prev close"
+                c  = prevDayC || existing.c || null;       // last price = yesterday close
+                pc = existing.pc || null;                  // prev close = จาก Finnhub เท่านั้น
+                d  = existing.d  ?? 0;                     // CHG จาก Finnhub
+                dp = existing.dp ?? 0;                     // %CHG จาก Finnhub
             }
 
-            // OPEN/HIGH/LOW: market open = today's session, closed = yesterday's session
+            // OHLV: ตลาดเปิด = today session, ปิด = yesterday session (Polygon มีให้ครบ)
             const open = mktOpen ? (dayO || existing.o || null) : (prevDayO || existing.o || null);
             const high = mktOpen ? (dayH || existing.h || null) : (prevDayH || existing.h || null);
             const low  = mktOpen ? (dayL || existing.l || null) : (prevDayL || existing.l || null);
             const vol  = mktOpen ? (dayV || existing.v || null) : (prevDayV || existing.v || null);
 
             return Object.assign({}, existing, {
-                c:           displayC,
-                d:           chg,
-                dp:          dp,
-                pc:          prevClose,
-                o:           open,
-                h:           high,
-                l:           low,
-                v:           vol,
+                c, d, dp, pc,
+                o: open, h: high, l: low, v: vol,
                 _dailyC:     dayC,
                 _prevDailyC: prevDayC,
+                _dayVw:      dayVw,
             });
         }
 
@@ -8434,8 +8425,9 @@
             const _alpLive = alpWs && alpWs.readyState  === 1;
             const wsLive   = (_pgLive || _fhLive || _alpLive) && isMarketOpen();
 
-            // ── Pre-fetch: Polygon snapshot seeds ALL prices in 1 request ────
-            // ทำก่อน Phase A/B เพื่อให้ราคาถูกต้องแสดงทันทีที่ row render
+            // ── Pre-fetch: seed OHLV from Polygon + price from cache/Finnhub ──
+            // ตลาดเปิด: Polygon snap ให้ live price + OHLV ครบ
+            // ตลาดปิด: ใช้ existing c/d/dp/pc (จาก Finnhub ที่ cache ไว้), Polygon แค่ OHLV
             if (pgKey) {
                 try {
                     const _preSnap = await _polygonSnapshot(watchlist);
@@ -8446,7 +8438,6 @@
                             wlDataCache[sym] = _applyPolygonSnap(sym, sn, wlDataCache[sym]);
                             quoteTsCache[sym] = Date.now();
                         });
-                        // Render ทันทีหลัง snapshot — ก่อน profile fetch เสร็จ
                         watchlist.forEach(sym => {
                             if (wlDataCache[sym]) updateWatchlistPriceCells(sym, wlDataCache[sym]);
                         });
@@ -8552,14 +8543,45 @@
                 retryWithBackoff(failedSymbols, 1, 3000); // 3s → 6s → 12s
             };
 
-            // Phase B: symbols with cached profile → quote-only refresh
-            // Phase B: refresh prices — Polygon snapshot (primary) → Finnhub fallback
-            // Polygon snapshot: 1 req for ALL symbols = สุดยอดประหยัด quota
+            // Phase B: refresh prices
+            // Strategy:
+            //   ตลาดปิด: Finnhub quote (c/d/dp/pc ถูกต้อง) → Polygon snap (OHLV overlay)
+            //   ตลาดเปิด: Polygon snap (live price + OHLV) → Finnhub ไม่จำเป็น
             if (!wsLive) {
                 const pgKey = getPolygonKey();
-                let priceUpdated = false;
 
-                // ── Polygon snapshot — 1 request covers entire watchlist ──────
+                // ── Step 1: Finnhub quote ─────────────────────────────────────
+                // ตลาดปิด: MUST run — เพื่อได้ pc (prev close จริง) สำหรับ CHG%
+                // ตลาดเปิด: skip ถ้ามี Polygon (Polygon ให้ live price + todaysChange แล้ว)
+                const needsFinnhub = !isMarketOpen() || !pgKey;
+                if (needsFinnhub && getFinnhubKey()) {
+                    const needsQuote = watchlist.filter(s => {
+                        if (!profileCache[s]) return false;
+                        return (now - (quoteTsCache[s] ?? 0)) > QUOTE_MIN_INTERVAL;
+                    });
+                    const _quoteResults = await Promise.allSettled(needsQuote.map(async (symbol) => {
+                        const r = await finnhubFetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${key}`);
+                        if (!r.ok) return null;
+                        const q = await r.json();
+                        // q.c = last price, q.pc = prev close (2-day ago close), q.d = change, q.dp = %change
+                        if (!q.c || q.c === 0) return null; // skip bad data
+                        const existing = wlDataCache[symbol] || {};
+                        return { symbol, data: { ...existing, ...profileCache[symbol],
+                            c: q.c, d: q.d, dp: q.dp, pc: q.pc,
+                            o: q.o || existing.o, h: q.h || existing.h, l: q.l || existing.l,
+                        }};
+                    }));
+                    _quoteResults.forEach(res => {
+                        if (res.status !== 'fulfilled' || !res.value) return;
+                        const { symbol, data } = res.value;
+                        quoteTsCache[symbol] = Date.now();
+                        wlDataCache[symbol] = data;
+                    });
+                }
+
+                // ── Step 2: Polygon snapshot ──────────────────────────────────
+                // ตลาดเปิด: อัพเดท c/d/dp + OHLV ทั้งหมด
+                // ตลาดปิด: อัพเดท OHLV เท่านั้น (c/d/dp/pc มาจาก Finnhub ข้างบนแล้ว)
                 if (pgKey) {
                     try {
                         const snap = await _polygonSnapshot(watchlist);
@@ -8570,34 +8592,11 @@
                                 wlDataCache[symbol] = _applyPolygonSnap(symbol, sn, wlDataCache[symbol]);
                                 quoteTsCache[symbol] = Date.now();
                             });
-                            priceUpdated = true;
                         }
-                    } catch(e) { /* fall through to Finnhub */ }
+                    } catch(e) {}
                 }
 
-                // ── Finnhub fallback — only if no Polygon key ────────────────
-                if (!priceUpdated && getFinnhubKey()) {
-                    const needsQuote = watchlist.filter(s => {
-                        if (!profileCache[s]) return false;
-                        return (now - (quoteTsCache[s] ?? 0)) > QUOTE_MIN_INTERVAL;
-                    });
-                    const _quoteResults = await Promise.allSettled(needsQuote.map(async (symbol) => {
-                        const r = await finnhubFetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${key}`);
-                        if (!r.ok) return null;
-                        const q = await r.json();
-                        if (!q.c || q.c === 0) q.c = q.pc;
-                        const existing = wlDataCache[symbol] || {};
-                        return { symbol, data: { ...profileCache[symbol], ...existing, ...q } };
-                    }));
-                    _quoteResults.forEach(res => {
-                        if (res.status !== 'fulfilled' || !res.value) return;
-                        const { symbol, data } = res.value;
-                        quoteTsCache[symbol] = Date.now();
-                        wlDataCache[symbol] = data;
-                    });
-                }
-
-                // Single render pass — all symbols update simultaneously
+                // Single render pass
                 watchlist.forEach(symbol => {
                     if (wlDataCache[symbol]) updateWatchlistPriceCells(symbol, wlDataCache[symbol]);
                 });
