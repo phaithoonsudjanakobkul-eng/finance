@@ -14252,8 +14252,7 @@ ${_clip(contextSections, 2600)}`;
         // Solution: double-buffer — swap pending map instead of clearing in-place.
         // PATH A (Chart):    synchronous in WS onmessage — zero rAF delay
         // PATH B (Watchlist): rAF batch at native display Hz — zero dropped trades
-        let _pendingTrades      = {};      // active buffer — WS writes here
-        let _flushingTrades     = {};      // flush buffer — rAF drains this
+        const _pendingTrades      = {};    // WS writes here, rAF drains — always same object ref
         const _pendingTimestamps  = {};
         const _priceRing          = {};
         let _rafPending           = false;
@@ -14330,29 +14329,23 @@ ${_clip(contextSections, 2600)}`;
             }
         }
 
-        // _rafFlushQuotes: double-buffer swap — WS never blocks, rAF never drops trades
-        // At 144Hz this runs every ~6.9ms | 120Hz ~8.3ms | 60Hz ~16.7ms
+        // _rafFlushQuotes: drain _pendingTrades once per animation frame
+        // At 144Hz ~6.9ms/frame | 120Hz ~8.3ms | 60Hz ~16.7ms — rAF auto-syncs to display Hz
         function _rafFlushQuotes() {
             _rafPending = false;
             _hasPendingTrades = false;
             if (_wsBackgroundMode) {
-                _pendingTrades = {}; _flushingTrades = {};
+                const _ks = Object.keys(_pendingTrades);
+                for (let _i = 0; _i < _ks.length; _i++) delete _pendingTrades[_ks[_i]];
                 return;
             }
-            // Atomic swap: hand current buffer to flush, give WS a fresh empty buffer instantly
-            // Any trades arriving DURING this flush go into the new _pendingTrades — never dropped
-            _flushingTrades = _pendingTrades;
-            _pendingTrades  = {};
-            // Drain the swap buffer
-            const _syms = Object.keys(_flushingTrades);
+            // Snapshot keys then delete — safe with single const object (no reassign)
+            const _syms = Object.keys(_pendingTrades);
             for (let _i = 0; _i < _syms.length; _i++) {
-                _handleTrade(_syms[_i], _flushingTrades[_syms[_i]]);
-            }
-            _flushingTrades = {};
-            // If WS pushed new trades during our flush — schedule next frame immediately
-            if (_hasPendingTrades) {
-                _rafPending = true;
-                requestAnimationFrame(_rafFlushQuotes);
+                const _s = _syms[_i];
+                const _p = _pendingTrades[_s];
+                delete _pendingTrades[_s];
+                _handleTrade(_s, _p);
             }
         }
 
