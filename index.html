@@ -7314,7 +7314,7 @@
                 // Fetch low data for new symbol immediately (don't wait for next refresh cycle)
                 fetchLowData(symbol).then(() => {
                     const d = wlDataCache[symbol];
-                    const price = isMarketOpen() ? (d?.c ?? null) : (d?._dailyC ?? d?.pc ?? d?.c ?? null);
+                    const price = d?.c ?? d?.pc ?? null;
                     if (price != null) _applyLowBadge(symbol, price);
                 }).catch(() => {});
             } catch(e) { console.warn('addTicker error:', symbol, e); }
@@ -7941,9 +7941,8 @@
         }
 
         async function fetchLowData(symbol) {
-            const pgKey = getPolygonKey();
             const aKey = getAlpacaKey(), aSecret = getAlpacaSecret();
-            if (!pgKey && (!aKey || !aSecret)) return null;
+            if (!aKey || !aSecret) return null;
             const now = Date.now();
             const cached = _lowCache[symbol];
             // Only use cache if fresh AND has all 6 periods (low60/90/180/365 added later)
@@ -7954,13 +7953,8 @@
                 const end   = new Date();
                 const start = new Date(end.getTime() - 375 * 24 * 60 * 60 * 1000);
                 let bars = [];
-                // ── Try Polygon first ──
-                if (pgKey) {
-                    const pgBars = await _polygonAggs(symbol, '1Day', start.getTime(), end.getTime(), 50000);
-                    if (pgBars && pgBars.length >= 2) bars = pgBars;
-                }
-                // ── Fallback: Alpaca IEX ──
-                if (!bars.length && aKey && aSecret) {
+                // Alpaca IEX daily bars — 375 days history ──
+                if (true) {
                     const u = new URL(`https://data.alpaca.markets/v2/stocks/${encodeURIComponent(symbol)}/bars`);
                     u.searchParams.set('timeframe', '1Day');
                     u.searchParams.set('start', start.toISOString().split('T')[0]);
@@ -8011,7 +8005,7 @@
             const syms = [...watchlist];
             for (const sym of syms) {
                 const d = wlDataCache[sym];
-                const price = isMarketOpen() ? (d?.c ?? null) : (d?._dailyC ?? d?.pc ?? d?.c ?? null);
+                const price = d?.c ?? d?.pc ?? null;
                 const info = getLowBadgeInfo(sym, price);
                 if (info) alerts.push({ sym, price, info });
             }
@@ -8085,7 +8079,7 @@
         const _lowToastSent = {};
 
         async function refreshAllLowData() {
-            if (!getPolygonKey() && (!getAlpacaKey() || !getAlpacaSecret())) return;
+            if (!getAlpacaKey() || !getAlpacaSecret()) return;
             const syms = [...watchlist];
             const BATCH = 5;
             for (let i = 0; i < syms.length; i += BATCH) {
@@ -8094,9 +8088,7 @@
                 // Apply badges immediately after each batch — price may arrive later
                 batch.forEach(sym => {
                     const d = wlDataCache[sym];
-                    const price = isMarketOpen()
-                        ? (d?.c ?? d?.pc ?? null)
-                        : (d?._dailyC ?? d?.pc ?? d?.c ?? null);
+                    const price = d?.c ?? d?.pc ?? null;
                     if (price != null) _applyLowBadge(sym, price);
                 });
                 if (i + BATCH < syms.length) await new Promise(r => setTimeout(r, 200));
@@ -16632,8 +16624,8 @@ ${_clip(contextSections, 2600)}`;
                 const wlVisible = !document.getElementById('tab-watchlist').classList.contains('hidden');
                 if (!wlVisible || watchlist.length === 0) return;
                 if (!isMarketOpen()) return;
-                const wsOk = fhWs && fhWs.readyState === 1;
-                if (wsOk) return; // WS is running, no need to poll
+                const wsOk = (alpWs && alpWs.readyState === 1) || (fhWs && fhWs.readyState === 1);
+                if (wsOk) return; // WS running — no need to poll
                 refreshWatchlist();
             }, 60 * 1000);
 
@@ -16667,11 +16659,9 @@ ${_clip(contextSections, 2600)}`;
                         const rawTs = sn.lastTrade?.t ?? sn.latestTrade?.t ?? 0;
                         const snapTs = rawTs > 1e15 ? Math.floor(rawTs / 1e6) : (rawTs > 1e12 ? rawTs : rawTs * 1000);
                         if (prev._snapTs && snapTs <= prev._snapTs) return;
-                        const pc = prev.pc || prev._prevDailyC || lp;
-                        const chg = lp - pc, pct = pc ? (chg/pc)*100 : 0;
-                        const updated = { ...prev, c:lp, d:chg, dp:pct, _snapTs:snapTs };
-                        wlDataCache[sym] = updated;
-                        updateWatchlistPriceCells(sym, updated);
+                        prev._snapTs = snapTs;
+                        // ใช้ _handleTrade (fast DOM path + rAF batch) แทน updateWatchlistPriceCells (heavy)
+                        _handleTrade(sym, lp);
                         if (sym === _lwcSymbol && window._lwcLivePriceLine) {
                             try { window._lwcLivePriceLine.applyOptions({ price: lp }); } catch(e){}
                         }
