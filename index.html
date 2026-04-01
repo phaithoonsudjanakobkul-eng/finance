@@ -125,15 +125,16 @@
 
         /* Price flash — Bloomberg/TV terminal style: sharp hit, fast fade */
         @keyframes flashUp {
-            0%   { box-shadow: inset 0 0 0 9999px rgba(38, 166, 154, 0.28); }
-            100% { box-shadow: inset 0 0 0 9999px rgba(38, 166, 154, 0); }
+            0%   { background-color: rgba(38, 166, 154, 0.22); }
+            100% { background-color: transparent; }
         }
         @keyframes flashDown {
-            0%   { box-shadow: inset 0 0 0 9999px rgba(239, 83, 80, 0.28); }
-            100% { box-shadow: inset 0 0 0 9999px rgba(239, 83, 80, 0); }
+            0%   { background-color: rgba(239, 83, 80, 0.22); }
+            100% { background-color: transparent; }
         }
-        .flash-up   { animation: flashUp   0.3s ease-out; will-change: box-shadow; }
-        .flash-down { animation: flashDown 0.3s ease-out; will-change: box-shadow; }
+        /* will-change: transform ทำให้ browser สร้าง GPU layer → animation ไม่กระทบ main thread */
+        .flash-up   { animation: flashUp   0.45s ease-out; will-change: transform; }
+        .flash-down { animation: flashDown 0.45s ease-out; will-change: transform; }
         /* Mobile price flash */
         @keyframes mobPriceFlUp { 0% { box-shadow:inset 0 0 0 9999px rgba(38,166,154,0.38); } 100% { box-shadow:inset 0 0 0 9999px rgba(38,166,154,0); } }
         @keyframes mobPriceFlDn { 0% { box-shadow:inset 0 0 0 9999px rgba(239,83,80,0.34);  } 100% { box-shadow:inset 0 0 0 9999px rgba(239,83,80,0);  } }
@@ -860,6 +861,44 @@
         }
         /* Sparkline fade-in — ไม่ pop เข้ามา แต่ fade smooth */
         .wl-sparkline { animation: spark-fadein 0.25s ease forwards; will-change: opacity; }
+
+        /* ── Logo skeleton + fade-in ── */
+        .wl-logo-wrap {
+            position: relative;
+            width: 24px; height: 24px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            overflow: hidden;
+            background: linear-gradient(90deg, var(--border) 25%, var(--bg-card2) 50%, var(--border) 75%);
+            background-size: 400px 100%;
+            animation: shimmer 1.6s ease infinite;
+        }
+        .wl-logo-wrap img {
+            position: absolute; inset: 0;
+            width: 100%; height: 100%;
+            object-fit: contain;
+            border-radius: 50%;
+            opacity: 0;
+            transition: opacity 0.25s ease;
+            background: white;
+        }
+        .wl-logo-wrap img.loaded {
+            opacity: 1;
+            animation: none;
+        }
+        .wl-logo-wrap.load-error {
+            animation: none;
+            background: var(--bg-card2);
+        }
+        .wl-logo-initials {
+            position: absolute; inset: 0;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 8px; font-weight: 900;
+            color: var(--text-dim);
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+        .wl-logo-wrap.load-error .wl-logo-initials { opacity: 1; }
         @keyframes spark-fadein { from { opacity: 0; } to { opacity: 1; } }
         .wl-mob-spark-skeleton {
             display: block;
@@ -3291,6 +3330,10 @@
                 overflow: visible !important;
                 padding: 0 !important;
             }
+            #watchlist-table .wl-mob-logo .wl-logo-wrap {
+                width: 44px !important;
+                height: 44px !important;
+            }
             #watchlist-table .wl-mob-logo img,
             #watchlist-table .wl-mob-logo > div {
                 width: 44px !important;
@@ -4235,7 +4278,9 @@
                             <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                             <span class="toolbar-btn-label">Clear Month</span>
                         </button>
-                        <div id="lock-tooltip" style="position:absolute;top:-30px;left:50%;transform:translateX(-50%);background:rgba(15,32,48,0.9);color:#fff;font-size:8px;font-family:var(--font-mono);padding:4px 8px;border-radius:6px;opacity:0;pointer-events:none;white-space:nowrap;backdrop-filter:blur(8px);transition:opacity 0.15s;">เดือนเก่าถูกล็อค 🔒</div>
+                        <div id="lock-tooltip" style="display:none;position:absolute;top:calc(100% + 6px);left:50%;transform:translateX(-50%);z-index:99;white-space:nowrap;">
+                            <button onclick="requestUnlockMonth()" style="font-family:var(--font-mono);font-size:8px;font-weight:800;letter-spacing:0.06em;padding:4px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-card2);color:var(--text-dim);cursor:pointer;display:flex;align-items:center;gap:4px;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-dim)'">🔓 UNLOCK EDIT</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -5273,20 +5318,78 @@
             scheduleAutoSave(true); // immediate — all checkboxes toggled
         }
 
-        function checkSafetyLock(monthId) {
-            const id = monthId || curMonth;
-            // ล็อคทุกเดือนที่ไม่ใช่เดือนปัจจุบัน
+        // เดือนที่ unlock แล้ว — เก็บไว้ใน session เท่านั้น (ไม่ persist)
+        const _unlockedMonths = new Set();
+
+        function requestUnlockMonth() {
+            const id = curMonth;
             const now = new Date();
             const thisMonth = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
-            const isLocked = id !== thisMonth;
+            if (id === thisMonth) return; // เดือนปัจจุบันไม่ต้อง unlock
+            const confirmed = window.confirm(
+                `⚠️ Unlock เดือน ${id} สำหรับการแก้ไข?\n\n` +
+                `การเปลี่ยนแปลงจะถูกบันทึกจริง และ sync ไป Gist ทันที\n\n` +
+                `กด OK เพื่อยืนยัน`
+            );
+            if (!confirmed) return;
+            _unlockedMonths.add(id);
+            checkSafetyLock(id);
+            // แสดง banner เตือนว่ากำลัง edit เดือนเก่า
+            _showUnlockBanner(id);
+        }
+
+        let _unlockBannerTimer = null;
+        function _showUnlockBanner(monthId) {
+            let banner = document.getElementById('unlock-edit-banner');
+            if (!banner) {
+                banner = document.createElement('div');
+                banner.id = 'unlock-edit-banner';
+                banner.style.cssText = 'position:fixed;bottom:72px;left:50%;transform:translateX(-50%);z-index:9999;' +
+                    'background:color-mix(in srgb,#f59e0b 15%,var(--bg-card2));border:1px solid #f59e0b;' +
+                    'color:#f59e0b;font-family:var(--font-mono);font-size:10px;font-weight:800;' +
+                    'padding:8px 16px;border-radius:12px;display:flex;align-items:center;gap:8px;' +
+                    'box-shadow:0 4px 20px rgba(0,0,0,0.3);backdrop-filter:blur(12px);letter-spacing:0.05em;';
+                document.body.appendChild(banner);
+            }
+            banner.innerHTML = `✏️ EDIT MODE: ${monthId} &nbsp;<button onclick="_relockMonth('${monthId}')" ` +
+                `style="font-family:var(--font-mono);font-size:9px;font-weight:800;padding:2px 8px;` +
+                `border-radius:6px;border:1px solid #f59e0b;background:transparent;color:#f59e0b;cursor:pointer;">RE-LOCK</button>`;
+            banner.style.display = 'flex';
+            clearTimeout(_unlockBannerTimer);
+            // auto re-lock หลัง 5 นาที ป้องกันลืม
+            _unlockBannerTimer = setTimeout(() => _relockMonth(monthId), 5 * 60 * 1000);
+        }
+
+        function _relockMonth(monthId) {
+            _unlockedMonths.delete(monthId);
+            clearTimeout(_unlockBannerTimer);
+            const banner = document.getElementById('unlock-edit-banner');
+            if (banner) banner.style.display = 'none';
+            if (curMonth === monthId) checkSafetyLock(monthId);
+        }
+
+        function checkSafetyLock(monthId) {
+            const id = monthId || curMonth;
+            // ล็อคทุกเดือนที่ไม่ใช่เดือนปัจจุบัน ยกเว้นที่ unlock แล้ว
+            const now = new Date();
+            const thisMonth = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+            const isLocked = id !== thisMonth && !_unlockedMonths.has(id);
 
             const clearBtn = document.getElementById('clear-btn') || document.getElementById('clear-month-btn');
             const lockTip  = document.getElementById('lock-tooltip');
             if (clearBtn) {
                 clearBtn.disabled = isLocked;
-                clearBtn.title = isLocked ? 'ล็อคอยู่: แก้ไขได้เฉพาะเดือนปัจจุบันเท่านั้น' : '';
+                clearBtn.title = isLocked ? 'เดือนเก่า — กดปุ่ม UNLOCK EDIT เพื่อแก้ไข' : '';
             }
-            if (lockTip) lockTip.style.display = isLocked ? '' : 'none';
+            if (lockTip) {
+                lockTip.style.display = isLocked ? '' : 'none';
+                // อัพเดทข้อความ button ตามสถานะ
+                const unlockBtn = lockTip.querySelector('button');
+                if (unlockBtn && _unlockedMonths.has(id)) {
+                    unlockBtn.innerHTML = '🔒 RE-LOCK';
+                    unlockBtn.onclick = () => { _unlockedMonths.delete(id); checkSafetyLock(id); };
+                }
+            }
 
             // Lock / unlock all editable fields
             const editables = [
@@ -7416,9 +7519,16 @@
             const typeBadge = type === 'ETF'
                 ? `<span class="text-[8px] font-black px-1.5 py-0.5 rounded bg-purple-50 text-purple-500 ml-1">ETF</span>`
                 : '';
+            // ถ้า logo cached แล้ว → แสดงทันทีโดยไม่ skeleton
+            const _logoLoaded = logo && isLogoCached(logo);
             const logoHtml = logo
-                ? `<img src="${logo}" loading="eager" decoding="sync" class="w-6 h-6 rounded-full object-contain bg-white border flex-shrink-0" style="border-color:var(--border)" onerror="this.style.display='none'">`
-                : `<div class="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0"><span class="text-[8px] font-black text-gray-400">${symbol.slice(0,2)}</span></div>`;
+                ? `<div class="wl-logo-wrap" style="border:1px solid var(--border)${_logoLoaded ? ';animation:none' : ''}">` +
+                  `<img src="${logo}" loading="eager" decoding="async" ${_logoLoaded ? 'class="loaded"' : ''}` +
+                  ` onload="this.classList.add('loaded');this.parentElement.style.animation='none'"` +
+                  ` onerror="this.remove();this.parentElement.classList.add('load-error')">` +
+                  `<span class="wl-logo-initials">${symbol.slice(0,2)}</span>` +
+                  `</div>`
+                : `<div class="wl-logo-wrap load-error" style="border:1px solid var(--border)"><span class="wl-logo-initials">${symbol.slice(0,2)}</span></div>`;
             const fmt = (v) => v !== null ? v.toFixed(2) : '—';
 
             // Skeleton shimmer for loading state
@@ -7444,8 +7554,13 @@
             const chgPillBg    = price === null ? 'rgba(255,255,255,0.06)' : isUp ? 'rgba(8,153,129,0.15)' : 'rgba(242,54,69,0.15)';
             const chgPillColor = price === null ? 'var(--text-dim)'        : isUp ? 'var(--wl-up)' : 'var(--wl-dn)';
             const logoLarge = logo
-                ? `<img src="${logo}" loading="eager" class="rounded-full bg-white" style="width:44px;height:44px;border:1px solid var(--border);flex-shrink:0;object-fit:contain;object-position:center" onerror="this.style.display='none'">`
-                : `<div style="width:44px;height:44px;border-radius:50%;background:var(--bg-card2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:11px;font-weight:900;color:var(--text-dim)">${symbol.slice(0,2)}</span></div>`;
+                ? `<div class="wl-logo-wrap" style="width:44px;height:44px;border:1px solid var(--border)${isLogoCached(logo)?';animation:none':''}">` +
+                  `<img src="${logo}" loading="eager" decoding="async" ${isLogoCached(logo)?'class="loaded"':''}` +
+                  ` onload="this.classList.add('loaded');this.parentElement.style.animation='none'"` +
+                  ` onerror="this.remove();this.parentElement.classList.add('load-error')" style="object-position:center">` +
+                  `<span class="wl-logo-initials" style="font-size:11px">${symbol.slice(0,2)}</span>` +
+                  `</div>`
+                : `<div class="wl-logo-wrap load-error" style="width:44px;height:44px;border:1px solid var(--border)"><span class="wl-logo-initials" style="font-size:11px">${symbol.slice(0,2)}</span></div>`;
             if (d && !wlSparklineCache[symbol]?.prices?.length && (d?.pc != null || d?.c != null || d?.o != null)) {
                 // Only seed from OHLC immediately if no Alpaca key — otherwise show placeholder
                 // and let refreshSparklineForTopSymbols() batch-fill with real bars
@@ -14248,33 +14363,30 @@ ${_clip(contextSections, 2600)}`;
         // _alpHandleTrades: hot path — no try/catch, runs fully optimized
         // Batch all trades from one WS message through RAF to avoid mid-frame layout thrash
         function _alpHandleTrades(raw) {
+            // HOT PATH — no try/catch, V8 JIT optimized, last-write-wins per symbol
             const msgs = JSON.parse(raw);
-            let scheduled = false;
+            const _ts = Date.now();
             for (let i = 0; i < msgs.length; i++) {
                 const msg = msgs[i];
-                if (msg.T === 't' && msg.p && wlDataCache[msg.S]) {
-                    // Always update cache immediately (zero latency)
-                    const d = wlDataCache[msg.S];
-                    if (d) {
-                        const pc = d._prevDailyC ?? d.pc ?? null;
-                        d.c = msg.p;
-                        if (pc != null) { d.d = msg.p - pc; d.dp = d.d / pc * 100; }
-                        if (d.h != null) { if (msg.p > d.h) d.h = msg.p; } else d.h = msg.p;
-                        if (d.l != null) { if (msg.p < d.l) d.l = msg.p; } else d.l = msg.p;
-                        // Queue for DOM update — last price wins per symbol per frame
-                        _pendingTrades[msg.S] = msg.p;
-                        _hasPendingTrades = true; // v1.6.21: O(1) flag
-                    }
-                    if (!_wsBackgroundMode && !_rafPending) {
-                        _rafPending = true;
-                        requestAnimationFrame(_rafFlushQuotes);
-                        scheduled = true;
-                    }
-                }
+                if (msg.T !== 't' || !msg.p) continue;
+                const d = wlDataCache[msg.S];
+                if (!d) continue;
+                const pc = d.pc || d._prevDailyC || null;
+                d.c = msg.p; d._wsTs = _ts;
+                if (pc) { d.d = msg.p - pc; d.dp = d.d / pc * 100; }
+                if (d.h != null) { if (msg.p > d.h) d.h = msg.p; } else d.h = msg.p;
+                if (d.l != null) { if (msg.p < d.l) d.l = msg.p; } else d.l = msg.p;
+                _pendingTrades[msg.S] = msg.p;  // last-write-wins
             }
-            // Chart update: zero latency, direct call for currently-open symbol
+            _hasPendingTrades = true;
+            // Chart: sync ทันที ไม่รอ rAF
             if (qcCurrentSymbol && _pendingTrades[qcCurrentSymbol]) {
                 _updateChartDirect(qcCurrentSymbol, _pendingTrades[qcCurrentSymbol]);
+            }
+            // rAF เพียงครั้งเดียวต่อ batch ไม่ว่าจะมีกี่ trades
+            if (!_wsBackgroundMode && !_rafPending) {
+                _rafPending = true;
+                requestAnimationFrame(_rafFlushQuotes);
             }
         }
 
@@ -14431,12 +14543,19 @@ ${_clip(contextSections, 2600)}`;
                 return;
             }
             // Snapshot keys then delete — safe with single const object (no reassign)
+            // Cap 16 symbols per frame (144Hz=6.9ms budget) — overflow spills to next frame
             const _syms = Object.keys(_pendingTrades);
-            for (let _i = 0; _i < _syms.length; _i++) {
+            const _cap  = Math.min(_syms.length, 16);
+            for (let _i = 0; _i < _cap; _i++) {
                 const _s = _syms[_i];
                 const _p = _pendingTrades[_s];
                 delete _pendingTrades[_s];
                 _handleTrade(_s, _p);
+            }
+            // ถ้ายังมีเหลือ → schedule frame ถัดไปทันที
+            if (_syms.length > _cap) {
+                _rafPending = true;
+                requestAnimationFrame(_rafFlushQuotes);
             }
         }
 
@@ -14498,18 +14617,13 @@ ${_clip(contextSections, 2600)}`;
             const pctStr = pct.toFixed(2);
             const pctTxt = (isUp ? '▲ +' : '▼ ') + pctStr + '%';
 
-            // ── Flash: void offsetWidth restarts animation cheaply (1 sync reflow vs nested rAF = 16ms) ──
+            // ── Flash: animationName swap — ไม่มี reflow, GPU layer ──
             const tr = d._tr;
-            if (tr && d._lastTxt && d._lastTxt !== newTxt) {
-                const cls = isUp ? 'flash-up' : 'flash-down';
-                const rmv = isUp ? 'flash-down' : 'flash-up';
-                if (d._flashState !== isUp) {
-                    d._flashState = isUp; tr.classList.remove(rmv); tr.classList.add(cls);
-                } else if (!tr.classList.contains(cls)) {
-                    tr.classList.add(cls);
-                } else {
-                    tr.classList.remove(cls); void tr.offsetWidth; tr.classList.add(cls);
-                }
+            if (tr && d._lastTxt !== newTxt) {
+                // เปลี่ยน class ตรงๆ — browser restart animation อัตโนมัติเมื่อ className เปลี่ยน
+                tr.className = tr.className
+                    .replace(/\bflash-up\b|\bflash-down\b/g, '').trim()
+                    + (isUp ? ' flash-up' : ' flash-down');
             }
             d._lastTxt = newTxt;
 
@@ -14577,10 +14691,9 @@ ${_clip(contextSections, 2600)}`;
                 d._mobPriceEl.firstChild ? (d._mobPriceEl.firstChild.nodeValue = newTxt) : (d._mobPriceEl.innerText = newTxt);
                 d._mobPriceEl.style.color = '';
                 const mc = isUp ? 'mob-price-fl-up' : 'mob-price-fl-dn';
-                const mr = isUp ? 'mob-price-fl-dn' : 'mob-price-fl-up';
-                d._mobPriceEl.classList.remove(mr);
-                if (!d._mobPriceEl.classList.contains(mc)) { d._mobPriceEl.classList.add(mc); }
-                else { d._mobPriceEl.classList.remove(mc); void d._mobPriceEl.offsetWidth; d._mobPriceEl.classList.add(mc); }
+                // className swap restarts animation without reflow
+                d._mobPriceEl.className = d._mobPriceEl.className
+                    .replace(/\bmob-price-fl-up\b|\bmob-price-fl-dn\b/g, '').trim() + ' ' + mc;
             }
             if (d._mobChgEl && d._mobChgEl.data !== pctStr) {
                 d._mobChgEl.data = pctStr;
