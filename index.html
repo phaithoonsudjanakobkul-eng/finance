@@ -5075,13 +5075,13 @@
                 updateMarketStatus();
                 fetchFxRate();
 
-                // Step 4: Background refresh — no setTimeout delay
-                refreshWatchlist().then(() => {
-                    // หลังจากข้อมูลราคาโหลดแล้ว → ดึง Alpaca bars สำหรับ Movement
+                // Step 4: Background refresh prices (profile + Finnhub quote)
+                refreshWatchlist();
+                // Step 5: Sparkline fetch — แยกออกจาก refreshWatchlist ป้องกัน batch flash
+                setTimeout(() => {
                     refreshSparklineForTopSymbols();
-                    // Start periodic sparkline refresh during market hours
                     if (isMarketOpen()) _startSparklineAutoRefresh();
-                });
+                }, 500);
                 // Show cached movement instantly while fresh data is loading
                 requestAnimationFrame(ensureSparklinePlaceholders);
                 loadMarketScanner(false);
@@ -8435,10 +8435,8 @@
             const _alpLive = alpWs && alpWs.readyState  === 1;
             const wsLive   = (_pgLive || _fhLive || _alpLive) && isMarketOpen();
 
-            // Pre-render: แสดงราคาจาก cache ทันที (loadWlCache โหลดไว้แล้ว)
-            watchlist.forEach(sym => {
-                if (wlDataCache[sym]) updateWatchlistPriceCells(sym, wlDataCache[sym]);
-            });
+            // Pre-render: rows ที่ยังไม่มีราคาให้ render จาก cache
+            // ไม่ force render ทุก symbol — WS live price จะ update ผ่าน _handleTrade แทน
 
             // Phase A: symbols needing full profile (new or >24h stale)
             // Each row renders as soon as its data arrives
@@ -8582,7 +8580,6 @@
                 `Updated ${new Date().toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'})}`;
             isWlRefreshing = false;
             saveWlCache(); // persist for instant load next time
-            refreshSparklineForTopSymbols(); // Movement sparklines (Webull-like bars)
             // WS already connected at startup — only reconnect if dropped
             if (isMarketOpen() && !alpWs && !fhWs) connectWs();
             updateMarketStatus();
@@ -14722,7 +14719,13 @@ ${_clip(contextSections, 2600)}`;
 
         let _wsAuthenticated = false;
 
+        let _mktStatusTimer = null;
         function updateMarketStatus(isLive = false) {
+            // debounce 800ms — ป้องกัน OPEN↔LIVE flicker ตอน WS reconnect
+            clearTimeout(_mktStatusTimer);
+            _mktStatusTimer = setTimeout(() => _applyMarketStatus(), isLive ? 0 : 800);
+        }
+        function _applyMarketStatus() {
             const el = document.getElementById('wl-market-status');
             if (!el) return;
             const open = isMarketOpen();
