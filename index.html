@@ -4270,16 +4270,20 @@
                         <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/></svg>
                         <span class="toolbar-btn-label">Pull Last Data</span>
                     </button>
-                    <!-- Clear Month -->
-                    <div style="position:relative;flex-shrink:0;">
+                    <!-- Clear Month + Unlock (inline) -->
+                    <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
                         <button id="clear-btn" onclick="requestClear()" title="Clear Month"
                             style="font-family:var(--font-mono);font-size:8.5px;font-weight:800;letter-spacing:0.07em;text-transform:uppercase;padding:5px 10px;border-radius:9px;border:none;cursor:pointer;background:color-mix(in srgb,var(--danger) 10%,transparent);color:var(--danger);transition:background 0.15s;display:flex;align-items:center;gap:4px;white-space:nowrap;"
                             onmouseover="this.style.background='color-mix(in srgb,var(--danger) 18%,transparent)'" onmouseout="this.style.background='color-mix(in srgb,var(--danger) 10%,transparent)'">
                             <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                             <span class="toolbar-btn-label">Clear Month</span>
                         </button>
-                        <div id="lock-tooltip" style="display:none;position:absolute;top:calc(100% + 6px);left:50%;transform:translateX(-50%);z-index:99;white-space:nowrap;">
-                            <button onclick="requestUnlockMonth()" style="font-family:var(--font-mono);font-size:8px;font-weight:800;letter-spacing:0.06em;padding:4px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-card2);color:var(--text-dim);cursor:pointer;display:flex;align-items:center;gap:4px;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-dim)'">🔓 UNLOCK EDIT</button>
+                        <div id="lock-tooltip" style="display:none;">
+                            <button onclick="requestUnlockMonth()"
+                                style="font-family:var(--font-mono);font-size:8px;font-weight:800;letter-spacing:0.06em;padding:5px 10px;border-radius:9px;border:1px solid var(--border);background:var(--bg-card2);color:var(--text-dim);cursor:pointer;display:flex;align-items:center;gap:4px;white-space:nowrap;transition:color 0.15s;"
+                                onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-dim)'">
+                                🔓 <span class="toolbar-btn-label">Unlock Edit</span>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -14542,20 +14546,14 @@ ${_clip(contextSections, 2600)}`;
                 for (let _i = 0; _i < _ks.length; _i++) delete _pendingTrades[_ks[_i]];
                 return;
             }
-            // Snapshot keys then delete — safe with single const object (no reassign)
-            // Cap 16 symbols per frame (144Hz=6.9ms budget) — overflow spills to next frame
+            // Drain ทุก symbol ใน frame เดียว — _handleTrade ใช้ <0.1ms/symbol
+            // 27 symbols = ~2-3ms ซึ่งอยู่ใน budget 6.9ms (144Hz) ได้สบาย
             const _syms = Object.keys(_pendingTrades);
-            const _cap  = Math.min(_syms.length, 16);
-            for (let _i = 0; _i < _cap; _i++) {
+            for (let _i = 0; _i < _syms.length; _i++) {
                 const _s = _syms[_i];
                 const _p = _pendingTrades[_s];
                 delete _pendingTrades[_s];
                 _handleTrade(_s, _p);
-            }
-            // ถ้ายังมีเหลือ → schedule frame ถัดไปทันที
-            if (_syms.length > _cap) {
-                _rafPending = true;
-                requestAnimationFrame(_rafFlushQuotes);
             }
         }
 
