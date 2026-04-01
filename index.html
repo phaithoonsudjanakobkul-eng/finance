@@ -135,6 +135,9 @@
         /* will-change: transform ทำให้ browser สร้าง GPU layer → animation ไม่กระทบ main thread */
         .flash-up   { animation: flashUp   0.45s ease-out; will-change: transform; }
         .flash-down { animation: flashDown 0.45s ease-out; will-change: transform; }
+        /* Price cell smooth color transition — ทำให้ดูพรีเมียมแม้ tick ช้า */
+        #watchlist-table td.price-cell,
+        #watchlist-table td.num-cell { transition: color 0.15s ease; }
         /* Mobile price flash */
         @keyframes mobPriceFlUp { 0% { box-shadow:inset 0 0 0 9999px rgba(38,166,154,0.38); } 100% { box-shadow:inset 0 0 0 9999px rgba(38,166,154,0); } }
         @keyframes mobPriceFlDn { 0% { box-shadow:inset 0 0 0 9999px rgba(239,83,80,0.34);  } 100% { box-shadow:inset 0 0 0 9999px rgba(239,83,80,0);  } }
@@ -14583,6 +14586,36 @@ ${_clip(contextSections, 2600)}`;
         const _CLS_UP_CHG    = 'px-3 py-2 text-right num-cell text-sm wl-up';
         const _CLS_DN_CHG    = 'px-3 py-2 text-right num-cell text-sm wl-dn';
 
+        // ── _animatePriceCell: animate number เหมือน Bloomberg ──────────────
+        // ใช้ rAF เพื่อ interpolate จาก fromPrice → toPrice ใน duration ms
+        // cancel previous animation ถ้ามี tick ใหม่มาก่อนจบ
+        function _animatePriceCell(cell, fromPrice, toPrice, duration) {
+            if (fromPrice === toPrice) {
+                cell.firstChild ? (cell.firstChild.nodeValue = '$' + toPrice.toFixed(2)) : (cell.innerText = '$' + toPrice.toFixed(2));
+                return;
+            }
+            if (cell._animId) cancelAnimationFrame(cell._animId);
+            const start = performance.now();
+            const diff  = toPrice - fromPrice;
+            const step  = (now) => {
+                const t = Math.min((now - start) / duration, 1);
+                // ease-out cubic
+                const ease = 1 - Math.pow(1 - t, 3);
+                const val  = fromPrice + diff * ease;
+                const txt  = '$' + val.toFixed(2);
+                cell.firstChild ? (cell.firstChild.nodeValue = txt) : (cell.innerText = txt);
+                if (t < 1) {
+                    cell._animId = requestAnimationFrame(step);
+                } else {
+                    cell._animId = null;
+                    // ensure exact final value
+                    const final = '$' + toPrice.toFixed(2);
+                    cell.firstChild ? (cell.firstChild.nodeValue = final) : (cell.innerText = final);
+                }
+            };
+            cell._animId = requestAnimationFrame(step);
+        }
+
         function _handleTrade(sym, newPrice) {
             const d = wlDataCache[sym];
             if (!d || !newPrice) return;
@@ -14627,9 +14660,11 @@ ${_clip(contextSections, 2600)}`;
 
             // ── Price [7] ─────────────────────────────────────────────────────
             if (cells[7].data !== p2) {
+                const _prevPrice = parseFloat(cells[7].data) || newPrice;
                 cells[7].data = p2;
                 cells[7].className = isUp ? _CLS_UP_PRICE : _CLS_DN_PRICE;
-                cells[7].firstChild ? (cells[7].firstChild.nodeValue = newTxt) : (cells[7].innerText = newTxt);
+                // Animate number จากราคาเก่า → ราคาใหม่ใน 120ms (พรีเมียม Bloomberg-style)
+                _animatePriceCell(cells[7], _prevPrice, newPrice, 120);
             }
             // ── CHG [8] ───────────────────────────────────────────────────────
             if (cells[8].data !== chgTxt) {
