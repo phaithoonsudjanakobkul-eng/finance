@@ -858,6 +858,9 @@
             animation: shimmer 1.6s ease infinite;
             vertical-align: middle;
         }
+        /* Sparkline fade-in — ไม่ pop เข้ามา แต่ fade smooth */
+        .wl-sparkline { animation: spark-fadein 0.35s ease forwards; }
+        @keyframes spark-fadein { from { opacity: 0; } to { opacity: 1; } }
         .wl-mob-spark-skeleton {
             display: block;
             width: 88px; height: 40px;
@@ -6008,21 +6011,26 @@
         }
         function ensureSparklinePlaceholders() {
             if (!watchlist || !watchlist.length) return;
-            const useSkele = hasAlpacaSparkSource();
             watchlist.forEach(sym => {
                 const el = document.getElementById('wl-sparkline-' + sym);
                 if (!el) return;
                 const entry = wlSparklineCache[sym];
                 const d = wlDataCache[sym] || {};
                 const base = entry?.base ?? d?.pc ?? entry?.prices?.[0] ?? null;
-                if (!entry?.prices?.length || !sparklineQuality(entry.prices, base)) {
-                    el.innerHTML = useSkele
-                        ? '<span class="wl-spark-skeleton"></span>'
-                        : '<span class="wl-sparkline-placeholder" style="font-size:9px;color:var(--text-dim)">…</span>';
-                    requestSparklineRefresh(sym, false);
-                } else {
+                const hasFresh = entry?.prices?.length >= SPARKLINE_MIN_POINTS
+                              && entry?.session === currentEtDateKey()
+                              && sparklineQuality(entry.prices, base);
+                if (hasFresh) {
+                    // มี real bars → render ทันที
                     updateSparklineCell(sym);
+                } else if (d && (d.pc || d.o || d.c)) {
+                    // ไม่มี real bars → seed OHLC shape ทันที (ไม่ skeleton)
+                    seedSparklineFromOHLC(sym, d, d?.c ?? d?.pc ?? null);
+                } else {
+                    // ไม่มีข้อมูลเลย → skeleton เท่านั้น
+                    el.innerHTML = '<span class="wl-spark-skeleton"></span>';
                 }
+                requestSparklineRefresh(sym, false);
             });
         }
 
@@ -6303,41 +6311,7 @@
             ) {
                 return entry.prices;
             }
-            const pgKey = getPolygonKey();
             const aKey = getAlpacaKey(), aSecret = getAlpacaSecret();
-            if (!pgKey && (!aKey || !aSecret)) return null;
-            // ── Try Polygon first (paid subscription) ──
-            if (pgKey) {
-                try {
-                    const end2   = new Date();
-                    const start2 = new Date(end2.getTime() - 48 * 60 * 60 * 1000);
-                    const bars2  = await _polygonAggs(symbol, '1Min', start2.getTime(), end2.getTime(), 2000);
-                    if (bars2 && bars2.length) {
-                        const dayBarsAll2 = bars2.filter(b => b?.t && b?.c != null && inExtendedDayEt(b.t));
-                        if (dayBarsAll2.length) {
-                            const latestDay2 = dateKeyEt(dayBarsAll2[dayBarsAll2.length - 1].t);
-                            let dayBars2 = dayBarsAll2.filter(b => dateKeyEt(b.t) === latestDay2);
-                            if (dayBars2.length) {
-                                if (isMarketOpen()) {
-                                    const cut2 = currentEtMinutes();
-                                    if (cut2 != null) dayBars2 = dayBars2.filter(b => (etMinutes(b.t) ?? 9999) <= (cut2 + 2));
-                                    if (dayBars2.length < 1) return null;
-                                }
-                                let closes2 = dayBars2.map(b => b.c).filter(v => v != null);
-                                if (closes2.length >= 2) {
-                                    closes2 = sampleWebullLike(closes2, SPARKLINE_POINTS_TARGET);
-                                    const open2 = Number(dayBars2[0]?.o ?? closes2[0]);
-                                    const base2 = Number(wlDataCache[symbol]?.pc ?? open2 ?? closes2[0]);
-                                    wlSparklineCache[symbol] = { prices: closes2, ts: now, src: 'polygon', base: base2, open: open2, session: latestDay2 };
-                                    scheduleSaveSparklineCache();
-                                    return closes2;
-                                }
-                            }
-                        }
-                    }
-                } catch(_pgErr) {}
-            }
-            // ── Fallback: Alpaca IEX ──
             if (!aKey || !aSecret) return null;
             try {
                 const end   = new Date();
@@ -6713,29 +6687,55 @@
             if (!watchlist.length) return;
             const MAX_ROWS = 30;
             const symbols = watchlist.slice(0, MAX_ROWS);
+            const hasAlpaca = hasAlpacaSparkSource();
 
-            // ── Phase 1: fetch all Alpaca bars in parallel (concurrency 8) ──────
-            // Higher concurrency = all symbols get real bars closer together
-            // → consistent shape on first render, no staggered OHLC→real swap
-            const hasAlpaca = hasAlpacaSparkSource() || hasPolygonSparkSource();
-            const results = {}; // sym → true if real bars fetched
-
-            await throttledAll(symbols, hasAlpaca ? 8 : 3, async (symbol) => {
-                const ok = await refreshSparklineSymbol(symbol, true);
-                results[symbol] = ok;
-            });
-
-            // ── Phase 2: seed OHLC only for symbols that failed real fetch ──────
-            // Doing this AFTER batch = all real-bar symbols already rendered,
-            // OHLC fallbacks fill in the remaining ones simultaneously
+            // ── Phase 0: seed OHLC for ALL symbols immediately ───────────────
+            // ทำให้ทุก symbol มี shape ก่อน fetch — ไม่มี skeleton เลย
+            // เมื่อ real bars มาถึง จะ fade แทนที่ OHLC shape ได้เนียน
             symbols.forEach(symbol => {
-                if (!results[symbol]) {
-                    const d = wlDataCache[symbol];
-                    if (d) seedSparklineFromOHLC(symbol, d, d?.c ?? d?.pc ?? null);
-                }
+                const d = wlDataCache[symbol];
+                if (!d) return;
+                const hasFresh = wlSparklineCache[symbol]?.prices?.length >= SPARKLINE_MIN_POINTS
+                              && wlSparklineCache[symbol]?.session === currentEtDateKey();
+                if (!hasFresh) seedSparklineFromOHLC(symbol, d, d?.c ?? d?.pc ?? null);
             });
 
-            scheduleSaveSparklineCache(true);
+            if (!hasAlpaca) {
+                scheduleSaveSparklineCache(true);
+                return; // OHLC เท่านั้น ถ้าไม่มี Alpaca key
+            }
+
+            // ── Phase 1: fetch real bars parallel (concurrency 6) ────────────
+            // ไม่ render ทีละ symbol — รวบ results แล้ว render พร้อมกันใน Phase 2
+            const results = {};
+            await throttledAll(symbols, 6, async (symbol) => {
+                if (_sparkInflight[symbol]) return;
+                _sparkInflight[symbol] = (async () => {
+                    try {
+                        const prices = await fetchAlpacaSparkline(symbol);
+                        results[symbol] = !!(prices && prices.length >= 2);
+                    } catch(e) {
+                        results[symbol] = false;
+                    } finally {
+                        delete _sparkInflight[symbol];
+                    }
+                })();
+                await _sparkInflight[symbol];
+            });
+
+            // ── Phase 2: render ALL at once — เนียนกว่า render ทีละตัว ────────
+            requestAnimationFrame(() => {
+                symbols.forEach(symbol => {
+                    if (results[symbol]) {
+                        updateSparklineCell(symbol);
+                    } else {
+                        // real bars fail → OHLC ยังแสดงอยู่ ไม่ต้องทำอะไรเพิ่ม
+                        const d = wlDataCache[symbol];
+                        if (d) seedSparklineFromOHLC(symbol, d, d?.c ?? d?.pc ?? null);
+                    }
+                });
+                scheduleSaveSparklineCache(true);
+            });
         }
 
         // สร้าง "เส้นทางราคา" แบบหยักจาก OHLC + ราคาสด (fallback เฉพาะกรณี Alpaca ใช้ไม่ได้)
@@ -6837,25 +6837,49 @@
             w = w || 80; h = h || 20;
             const useBase = (basePrice != null && isFinite(basePrice) && basePrice > 0) ? basePrice : null;
             const ref = useBase ?? prices[0] ?? 1;
+
+            // % change from base for each point
             const pcts = prices.map(p => ((p - ref) / ref) * 100);
-            let lo = Math.min(...pcts), hi = Math.max(...pcts);
+            let lo = Math.min(0, ...pcts);  // always include 0 (baseline)
+            let hi = Math.max(0, ...pcts);
             if (!isFinite(lo) || !isFinite(hi)) { lo = -0.05; hi = 0.05; }
             if (hi <= lo) { lo -= 0.05; hi += 0.05; }
-            const padRange = Math.max((hi - lo) * 0.02, 0.003);
-            lo -= padRange;
-            hi += padRange;
+            const padRange = Math.max((hi - lo) * 0.08, 0.005);
+            lo -= padRange; hi += padRange;
             const range = Math.max(hi - lo, 0.01);
             const pad = 2;
+
+            const toY = (pct) => {
+                const yNorm = (pct - lo) / range;
+                return h - pad - (yNorm * (h - pad * 2));
+            };
+            const baseY = toY(0).toFixed(1);
+
             const pts = prices.map((p, i) => {
                 const x = pad + (i / (prices.length - 1)) * (w - pad * 2);
-                const pct = ((p - ref) / ref) * 100;
-                const yNorm = (pct - lo) / range;
-                const y = h - pad - (yNorm * (h - pad * 2));
-                return `${x.toFixed(1)},${y.toFixed(1)}`;
+                return `${x.toFixed(1)},${toY(((p - ref) / ref) * 100).toFixed(1)}`;
             }).join(' ');
+
+            const lastX = (pad + (w - pad * 2)).toFixed(1);
+            const lastPct = ((prices[prices.length - 1] - ref) / ref) * 100;
+            const lastY = toY(lastPct).toFixed(1);
+
             const lineColor = isUp ? 'var(--wl-up)' : 'var(--wl-dn)';
-            const areaPts = `${pad},${h - pad} ${pts} ${w - pad},${h - pad}`;
-            return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" class="wl-sparkline" style="width:${w}px;height:${h}px;display:inline-block;overflow:visible"><polygon points="${areaPts}" style="fill:${lineColor};opacity:0.22"/><polyline points="${pts}" style="fill:none;stroke:${lineColor};stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round"/></svg>`;
+            const areaFill  = isUp ? 'var(--wl-up)' : 'var(--wl-dn)';
+
+            // Area: close at baseline
+            const areaPts = `${pad},${baseY} ${pts} ${lastX},${baseY}`;
+
+            // Baseline (horizontal at pc level)
+            const baselineY = parseFloat(baseY);
+            const showBaseline = baselineY > pad + 1 && baselineY < h - pad - 1;
+
+            return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" class="wl-sparkline" style="width:${w}px;height:${h}px;display:inline-block;overflow:visible">` +
+                (showBaseline ? `<line x1="${pad}" y1="${baseY}" x2="${w - pad}" y2="${baseY}" stroke="${lineColor}" stroke-width="0.5" stroke-dasharray="2 2" opacity="0.35"/>` : '') +
+                `<polygon points="${areaPts}" style="fill:${areaFill};opacity:0.18"/>` +
+                `<polyline points="${pts}" style="fill:none;stroke:${lineColor};stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"/>` +
+                `<circle cx="${lastX}" cy="${lastY}" r="1.8" fill="${lineColor}" opacity="0.9"/>` +
+                `</svg>`;
         }
         function updateSparklineCell(symbol) {
             const el = document.getElementById('wl-sparkline-' + symbol);
