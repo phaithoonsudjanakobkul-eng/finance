@@ -6760,14 +6760,15 @@
             const maxAgeMs = isMarketOpen()
                 ? (hasEnoughBars ? 20 * 1000 : 60 * 1000)
                 : SPARKLINE_TTL_MS;
+            const _mktOpenS = isMarketOpen();
             if (
                 !force &&
                 entry &&
                 (entry.src === 'alpaca' || entry.src === 'polygon') &&
-                entry.session === currentEtDateKey() &&
+                (_mktOpenS ? entry.session === currentEtDateKey() : true) &&
                 entry.prices?.length >= 2 &&
                 sparklineQuality(entry.prices, entry.base) &&
-                now - (entry.ts || 0) < maxAgeMs
+                now - (entry.ts || 0) < (_mktOpenS ? maxAgeMs : SPARKLINE_TTL_MS * 24 * 5)
             ) {
                 updateSparklineCell(symbol);
                 return true;
@@ -6827,12 +6828,17 @@
 
             // ── Phase 0: seed OHLC for ALL symbols immediately ───────────────
             // ทำให้ทุก symbol มี shape ก่อน fetch — ไม่มี skeleton เลย
-            // เมื่อ real bars มาถึง จะ fade แทนที่ OHLC shape ได้เนียน
+            // ถ้ามี real bars อยู่แล้ว (alpaca cache) → ไม่ seed OHLC ทับ
+            const _mktOpen0 = isMarketOpen();
+            const _today0   = currentEtDateKey();
             symbols.forEach(symbol => {
                 const d = wlDataCache[symbol];
                 if (!d) return;
-                const hasFresh = wlSparklineCache[symbol]?.prices?.length >= SPARKLINE_MIN_POINTS
-                              && wlSparklineCache[symbol]?.session === currentEtDateKey();
+                const _e = wlSparklineCache[symbol];
+                const _base0 = _e?.base ?? d?.pc ?? _e?.prices?.[0] ?? null;
+                const hasFresh = _e?.prices?.length >= SPARKLINE_MIN_POINTS
+                              && (_mktOpen0 ? _e?.session === _today0 : _e?.src === 'alpaca')
+                              && sparklineQuality(_e?.prices, _base0);
                 if (!hasFresh) seedSparklineFromOHLC(symbol, d, d?.c ?? d?.pc ?? null);
             });
 
