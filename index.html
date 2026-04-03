@@ -6065,14 +6065,16 @@
             if (!applyToMemory) return;
             Object.keys(cleaned).forEach(sym => {
                 const entry = cleaned[sym];
-                // Fix 1 — Race condition guard: never overwrite a fresher in-memory entry
-                // (prevents syncFromGist completing late and clobbering freshly-fetched sparklines)
+                // Race condition guard: never overwrite fresher in-memory entry
                 const existing = wlSparklineCache[sym];
                 if (existing && existing.ts && entry.ts && existing.ts > entry.ts) return;
-                // Session guard: กัน stale intraday cache ทั้งตอนเปิดและปิดตลาด
-                // ตลาดเปิด: session ต้องเป็นวันนี้
-                // ตลาดปิด: session ต้องเป็นวันซื้อขายล่าสุด (todayKey หรือ เมื่อวาน)
-                if (entry.session && entry.session !== todayKey) return;
+                // Session guard:
+                // ตลาดเปิด: session ต้องเป็นวันนี้เท่านั้น
+                // ตลาดปิด: real bars ของ session ล่าสุดยอมรับได้ (ผ่าน loadSparklineCache filter แล้ว)
+                const isRealBars = entry.src === 'alpaca' || entry.src === 'polygon';
+                if (entry.session && entry.session !== todayKey) {
+                    if (!isRealBars || isMarketOpen()) return; // ตลาดเปิด = ต้อง session วันนี้
+                }
                 wlSparklineCache[sym] = entry;
             });
         }
