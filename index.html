@@ -15,6 +15,7 @@
     </script>
     <title>PSLink</title>
     <!-- v1.6.24 — Chart: RSI panel, Bollinger Bands, Extended hours shading, indicator toggle buttons (VWAP/EMA/BB/RSI/EXT), all persisted in prefs -->
+    <!-- v1.6.24(6) — Fix sparkline flash on tab switch: skip movement cell + preserve mobile sparkline in surgical update -->
 
     <!-- PWA: iOS / Safari Home Screen -->
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -7745,8 +7746,23 @@
                         const newCells = newRow.querySelectorAll('td');
                         newCells.forEach(function(nc, i) {
                             if (i === 3)  return; // LOW ALERT cell — managed by _applyLowBadge, never reset
+                            if (i === 6)  return; // MOVEMENT/SPARKLINE — managed by updateSparklineCell, skip to prevent flash
                             if (i === 10) return; // PRE-MKT cell — owned by Alpaca WebSocket
                             if (!oldCells[i]) return;
+                            // Mobile card: preserve sparkline div (managed separately)
+                            if (oldCells[i].classList.contains('wl-mobile-card')) {
+                                const oldSpark = oldCells[i].querySelector('.wl-mob-spark');
+                                if (oldSpark && oldSpark.innerHTML && !oldSpark.querySelector('.wl-mob-spark-skeleton')) {
+                                    // Has real sparkline — update other parts but keep sparkline intact
+                                    const preservedHtml = oldSpark.outerHTML;
+                                    if (oldCells[i].innerHTML !== nc.innerHTML) {
+                                        oldCells[i].innerHTML = nc.innerHTML;
+                                        const newSpark = oldCells[i].querySelector('.wl-mob-spark');
+                                        if (newSpark) newSpark.outerHTML = preservedHtml;
+                                    }
+                                    return;
+                                }
+                            }
                             // Update class and content only — preserve the DOM node itself
                             if (oldCells[i].className !== nc.className) oldCells[i].className = nc.className;
                             if (oldCells[i].innerHTML !== nc.innerHTML) oldCells[i].innerHTML = nc.innerHTML;
