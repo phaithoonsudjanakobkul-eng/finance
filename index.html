@@ -15,7 +15,7 @@
     </script>
     <title>PSLink</title>
     <!-- v1.6.24 — Chart: RSI panel, Bollinger Bands, Extended hours shading, indicator toggle buttons (VWAP/EMA/BB/RSI/EXT), all persisted in prefs -->
-    <!-- v1.6.24(6) — Fix sparkline dual-display: closed-market cache bypass → OHLC seed overwrites real bars causing flash -->
+    <!-- v1.6.24(7) — Fix sparkline: skeleton stuck + dual-display flash (7 fixes across entire sparkline lifecycle) -->
 
     <!-- PWA: iOS / Safari Home Screen -->
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -8783,6 +8783,15 @@
             // WS already connected at startup — only reconnect if dropped
             if (isMarketOpen() && !alpWs && !fhWs) connectWs();
             updateMarketStatus();
+
+            // ── Sparkline: trigger หลัง wlDataCache พร้อม ─────────────────────
+            // ensureSparklinePlaceholders + refreshSparklineForTopSymbols อาจรันก่อน
+            // refreshWatchlist เสร็จ (data ยังว่าง) → skeleton ค้าง
+            // ต้อง re-trigger ตอนนี้ที่ data พร้อมแล้ว
+            requestAnimationFrame(() => {
+                ensureSparklinePlaceholders();
+                refreshSparklineForTopSymbols();
+            });
         }
 
         const fmtCap = v => {
@@ -16815,6 +16824,8 @@ ${_clip(contextSections, 2600)}`;
                     });
                     checkWlEmpty();
                     fetchFxRate();
+                    // Render sparkline จาก cache ทันทีหลัง rows พร้อม (ไม่ต้องรอ refreshWatchlist)
+                    requestAnimationFrame(() => ensureSparklinePlaceholders());
                 }
                 // Connect WS immediately — regardless of active tab
                 // WS runs in background (_wsBackgroundMode=true if not on watchlist)
@@ -16830,6 +16841,10 @@ ${_clip(contextSections, 2600)}`;
                             renderWatchlistRow(s, wlDataCache[s] || null);
                     });
                     checkWlEmpty();
+                    // Render sparkline จาก cache ทันทีหลัง rows พร้อม
+                    if (savedTab === 'watchlist') {
+                        requestAnimationFrame(() => ensureSparklinePlaceholders());
+                    }
                     if (getFinnhubKey()) {
                         fetchFxRate();
                         if (isMarketOpen()) {
