@@ -21232,7 +21232,11 @@ ${_clip(contextSections, 2600)}`;
                     for (const _s in _pendingTrades) {
                         if (_pinnedSymSet.has(_s)) {
                             const _d = wlDataCache[_s];
-                            if (_d) _updatePinnedCellHot(_s, _d);
+                            if (_d) {
+                                _updatePinnedCellHot(_s, _d);
+                                // Keep sparkline cache live — pushSparklinePrice has its own 2s throttle
+                                pushSparklinePrice(_s, _d.c);
+                            }
                         }
                         delete _pendingTrades[_s];
                     }
