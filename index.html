@@ -11649,6 +11649,14 @@
                 _wsBackgroundMode = false;
             }
             _dashboardVisible = (t === 'dashboard');
+            // Tab-switch flush: on non-watchlist tabs rAF is never scheduled, so
+            // _pendingTrades may have accumulated while away (e.g. on MARKET tab).
+            // Schedule one flush immediately so PINNED shows latest prices without
+            // waiting for the next WS tick to arrive after switching to Dashboard.
+            if (_dashboardVisible && _pinnedSymSet.size > 0 && !_rafPending) {
+                _rafPending = true;
+                requestAnimationFrame(_rafFlushQuotes);
+            }
             if (save) try { localStorage.setItem('ps_tab', t); } catch(e) {}
             if (save) scheduleAutoSave(true); // flush pending save on tab switch (not on initial load)
         }
@@ -11955,7 +11963,6 @@
 
         function updateDashboard() {
             _loadProfileCard();
-            _renderPinnedWl(); // ensure _pinnedGen increments + DOM built before WS ticks arrive
             const validRecords = records.filter(r => r.payday > 0 || (r.fixed && r.fixed.length > 0) || (r.dynamic && r.dynamic.length > 0));
 
             if (validRecords.length === 0) {
@@ -13290,14 +13297,9 @@
                 if (arr.length > 180) arr.splice(0, arr.length - 180);
                 entry.ts = Date.now();
             }
-            // Throttle DOM write 2s — stagger per-symbol so all don't fire simultaneously (thundering herd)
+            // Throttle DOM write 2s — hash check ใน updateSparklineCell กัน flicker ซ้ำ
             const now = Date.now();
-            if (!_sparkDomThrottle[symbol]) {
-                // First tick: assign staggered start offset (0–1800ms) so symbols spread across 2s window
-                const _stagger = (symbol.charCodeAt(0) * 37 + (symbol.charCodeAt(1) || 0) * 17) % 1800;
-                _sparkDomThrottle[symbol] = now - (2000 - _stagger); // makes next fire at now+_stagger
-            }
-            if (now - _sparkDomThrottle[symbol] >= 2000) {
+            if (!_sparkDomThrottle[symbol] || now - _sparkDomThrottle[symbol] >= 2000) {
                 _sparkDomThrottle[symbol] = now;
                 updateSparklineCell(symbol);
             }
@@ -24137,6 +24139,8 @@ ${_clip(contextSections, 2600)}`;
                 if (savedName) document.getElementById('db-name-display').innerText = savedName;
                 const savedWl = localStorage.getItem('ps_watchlist');
                 if (savedWl) watchlist = JSON.parse(savedWl);
+                // Init _pinnedSymSet from localStorage immediately so WS guard works before _renderPinnedWl runs
+                try { const _ip = JSON.parse(localStorage.getItem('ps_pinned_wl') || '[]'); _pinnedSymSet = new Set(_ip.filter(s => watchlist.includes(s))); } catch(_) {}
                 _loadSignalLogLocal();
                 _loadLogoDataCacheLocal(); // keep logo cache across F5 before rendering NEWS
                 loadWlCache(); // restore price/profile cache for instant display
