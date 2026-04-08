@@ -11651,6 +11651,10 @@
             _dashboardVisible = (t === 'dashboard');
             if (_dashboardVisible) {
                 _startPinnedCanvasLoop(); // resume 60fps canvas draw when entering Dashboard
+                // Force _updatePinnedCellHot to re-cache DOM refs on every Dashboard entry.
+                // Refs can become stale (detached elements, plain objects) after tab switches
+                // because other code paths (updateDashboard, _updatePinnedCell) may rebuild DOM.
+                _pinnedGen++;
                 // Tab-switch flush: drain any accumulated trades immediately
                 if (_pinnedSymSet.size > 0 && !_rafPending) {
                     _rafPending = true;
@@ -12657,7 +12661,7 @@
                 }
 
                 const freshEntry = wlSparklineCache[sym];
-                const base = freshEntry?.base ?? d?.pc ?? freshEntry?.prices?.[0] ?? null;
+                const base = d?.pc ?? d?._prevDailyC ?? freshEntry?.base ?? freshEntry?.prices?.[0] ?? null;
 
                 // ตลาดเปิด: ต้องเป็น session วันนี้
                 // ตลาดปิด: มี real bars (src=alpaca) ก็พอ ไม่สนว่า session ไหน
@@ -12846,7 +12850,7 @@
                 // Keep raw 1Min shape (no smoothing), only light downsample for SVG performance
                 closes = sampleWebullLike(closes, SPARKLINE_POINTS_TARGET);
                 const open = Number(dayBars[0]?.o ?? closes[0]);
-                const base = Number(wlDataCache[symbol]?.pc ?? open ?? closes[0]);
+                const base = Number(wlDataCache[symbol]?.pc ?? wlDataCache[symbol]?._prevDailyC ?? open ?? closes[0]);
                 wlSparklineCache[symbol] = { prices: closes, ts: now, src: 'alpaca', base, open, session: latestDay };
                 scheduleSaveSparklineCache();
                 return closes;
@@ -12902,7 +12906,7 @@
                 if (closes.length < 2) return null;
                 closes = sampleWebullLike(closes, SPARKLINE_POINTS_TARGET);
                 const open = Number(dayBars[0]?.o ?? closes[0]);
-                const base = Number(wlDataCache[symbol]?.pc ?? open ?? closes[0]);
+                const base = Number(wlDataCache[symbol]?.pc ?? wlDataCache[symbol]?._prevDailyC ?? open ?? closes[0]);
                 wlSparklineCache[symbol] = { prices: closes, ts: Date.now(), src: 'finnhub', base, open, session: latestDay };
                 scheduleSaveSparklineCache();
                 return closes;
@@ -13160,7 +13164,7 @@
                 const d = wlDataCache[symbol];
                 if (!d) return;
                 const _e = wlSparklineCache[symbol];
-                const _base0 = _e?.base ?? d?.pc ?? _e?.prices?.[0] ?? null;
+                const _base0 = d?.pc ?? d?._prevDailyC ?? _e?.base ?? _e?.prices?.[0] ?? null;
                 const hasFresh = _e?.prices?.length >= SPARKLINE_MIN_POINTS
                               && (_mktOpen0 ? _e?.session === _today0 : _e?.src === 'alpaca')
                               && sparklineQuality(_e?.prices, _base0);
@@ -13378,10 +13382,12 @@
             // คำนวณทิศทางจากข้อมูลที่มีก่อน เพื่อ placeholder มีสีที่ถูกต้อง
             const _prices = entry?.prices;
             const _d = wlDataCache[symbol] || {};
-            const _base = entry?.base ?? _d?.pc ?? _prices?.[0];
+            const _base = _d?.pc ?? _d?._prevDailyC ?? entry?.base ?? _prices?.[0];
             const _last = _prices?.length ? _prices[_prices.length - 1] : null;
-            const _prevClose = _d?._prevDailyC ?? _d?.pc ?? _base;
-            const _isUp = (_last != null && _prevClose != null) ? (_last >= _prevClose) : null;
+            const _prevClose = _d?.pc ?? _d?._prevDailyC ?? _base;
+            const _isUp = _d?.dp != null ? _d.dp >= 0
+                        : _d?.d  != null ? _d.d  >= 0
+                        : (_last != null && _prevClose != null) ? (_last >= _prevClose) : null;
             const mobPlaceholder = hasAlpacaSparkSource()
                 ? '<span class="wl-mob-spark-skeleton"></span>'
                 : renderSparklinePlaceholderSVG(88, 44, _isUp);
@@ -13397,7 +13403,7 @@
                 return;
             }
             const d = wlDataCache[symbol] || {};
-            const base = (entry?.base != null ? entry.base : (d?.pc ?? prices[0]));
+            const base = (d?.pc ?? d?._prevDailyC ?? entry?.base ?? prices[0]);
             const qualityOk = sparklineQuality(prices, base);
             // Mobile: แสดง sparkline เมื่อมีข้อมูลเพียงพอ (≥12 จุด) แม้ quality ไม่ผ่าน — ตาม Webull
             const mobOk = mobEl && prices.length >= SPARKLINE_MIN_POINTS;
@@ -13423,7 +13429,10 @@
             if (prices.length === 1) prices = [prices[0], prices[0]];
             const last = prices[prices.length - 1];
             const prevClose = d?.pc ?? d?._prevDailyC ?? base ?? prices[0];
-            const isUp = (last != null && prevClose != null) ? (last >= prevClose) : true;
+            // Use dp/d from quote data when available (most accurate for color)
+            const isUp = d?.dp != null ? d.dp >= 0
+                       : d?.d  != null ? d.d  >= 0
+                       : (last != null && prevClose != null) ? (last >= prevClose) : true;
 
             // ── Hash check: skip DOM write ถ้าข้อมูลไม่เปลี่ยน (ป้องกัน flicker) ──
             const _hash = `${prices.length}|${last?.toFixed(2)}|${base?.toFixed(2)}|${isUp}`;
@@ -13897,11 +13906,13 @@
             const typeBadge = type === 'ETF'
                 ? `<span class="text-[8px] font-black px-1.5 py-0.5 rounded bg-purple-50 text-purple-500 ml-1">ETF</span>`
                 : '';
-            // ถ้า logo cached แล้ว → แสดงทันทีโดยไม่ skeleton
-            const _logoLoaded = logo && isLogoCached(logo);
-            const logoHtml = logo
+            // Resolve logo to data URL if available → instant display, no network refetch
+            const _logoSrc = logo && typeof resolveLogoSrc === 'function' ? resolveLogoSrc(logo) : logo;
+            const _logoIsData = _logoSrc && _logoSrc.startsWith('data:');
+            const _logoLoaded = _logoIsData || (_logoSrc && isLogoCached(_logoSrc));
+            const logoHtml = _logoSrc
                 ? `<div class="wl-logo-wrap" style="border:1px solid var(--border)${_logoLoaded ? ';animation:none' : ''}">` +
-                  `<img src="${logo}" loading="eager" decoding="async" ${_logoLoaded ? 'class="loaded"' : ''}` +
+                  `<img src="${_logoSrc}" loading="eager" decoding="async" ${_logoLoaded ? 'class="loaded"' : ''}` +
                   ` onload="this.classList.add('loaded');this.parentElement.style.animation='none'"` +
                   ` onerror="this.remove();this.parentElement.classList.add('load-error')">` +
                   `<span class="wl-logo-initials">${symbol.slice(0,2)}</span>` +
@@ -13931,9 +13942,11 @@
             // Mobile card — pill style (no solid box)
             const chgPillBg    = price === null ? 'rgba(255,255,255,0.06)' : isUp ? 'rgba(8,153,129,0.15)' : 'rgba(242,54,69,0.15)';
             const chgPillColor = price === null ? 'var(--text-dim)'        : isUp ? 'var(--wl-up)' : 'var(--wl-dn)';
-            const logoLarge = logo
-                ? `<div class="wl-logo-wrap" style="width:44px;height:44px;border:1px solid var(--border)${isLogoCached(logo)?';animation:none':''}">` +
-                  `<img src="${logo}" loading="eager" decoding="async" ${isLogoCached(logo)?'class="loaded"':''}` +
+            const _logoLargeSrc = logo && typeof resolveLogoSrc === 'function' ? resolveLogoSrc(logo) : logo;
+            const _logoLargeReady = (_logoLargeSrc && _logoLargeSrc.startsWith('data:')) || (_logoLargeSrc && isLogoCached(_logoLargeSrc));
+            const logoLarge = _logoLargeSrc
+                ? `<div class="wl-logo-wrap" style="width:44px;height:44px;border:1px solid var(--border)${_logoLargeReady?';animation:none':''}">` +
+                  `<img src="${_logoLargeSrc}" loading="eager" decoding="async" ${_logoLargeReady?'class="loaded"':''}` +
                   ` onload="this.classList.add('loaded');this.parentElement.style.animation='none'"` +
                   ` onerror="this.remove();this.parentElement.classList.add('load-error')" style="object-position:center">` +
                   `<span class="wl-logo-initials" style="font-size:11px">${symbol.slice(0,2)}</span>` +
@@ -13946,9 +13959,9 @@
                     seedSparklineFromOHLC(symbol, d, price ?? d?.c ?? null);
                 }
             }
-            const sparkBase = wlSparklineCache[symbol]?.base ?? d?.pc ?? wlSparklineCache[symbol]?.prices?.[0];
+            const sparkBase = d?.pc ?? d?._prevDailyC ?? wlSparklineCache[symbol]?.base ?? wlSparklineCache[symbol]?.prices?.[0];
             const sparklineMobile = (d && wlSparklineCache[symbol]?.prices?.length >= 2 && sparklineQuality(wlSparklineCache[symbol].prices, sparkBase))
-                ? renderSparklineSVG(wlSparklineCache[symbol].prices, isUp, 88, 44, (wlSparklineCache[symbol]?.base ?? d?.pc ?? wlSparklineCache[symbol]?.prices?.[0]))
+                ? renderSparklineSVG(wlSparklineCache[symbol].prices, isUp, 88, 44, sparkBase)
                 : (d && wlSparklineCache[symbol]?.prices?.length >= SPARKLINE_MIN_POINTS)
                     ? renderSparklineSVG(wlSparklineCache[symbol].prices, isUp, 88, 44, sparkBase)
                     : d && hasAlpacaSparkSource()
@@ -14017,8 +14030,8 @@
                     <td style="text-align:center">${d ? `<span id="wl-signal-${symbol}" class="wl-signal-badge ${signal.cls}" title="Confidence ${signal.confidence}%">${signal.label}</span>` : (sk(44) ?? '')}</td>
                     <td style="text-align:center">${d ? `<span id="wl-rating-${symbol}" class="wl-signal-badge ${analyst.cls}" title="Analyst rating (API)">${analyst.label}</span>` : (sk(50) ?? '')}</td>
                     <td class="wl-movement-cell" style="text-align:center;vertical-align:middle"><div id="wl-sparkline-${symbol}" class="wl-sparkline-wrap">${
-                        (d && wlSparklineCache[symbol]?.prices && sparklineQuality(wlSparklineCache[symbol].prices, (wlSparklineCache[symbol]?.base ?? d?.pc ?? wlSparklineCache[symbol]?.prices?.[0])))
-                            ? renderSparklineSVG(wlSparklineCache[symbol].prices, isUp, 72, 16, (wlSparklineCache[symbol]?.base ?? d?.pc ?? wlSparklineCache[symbol]?.prices?.[0]))
+                        (d && wlSparklineCache[symbol]?.prices && sparklineQuality(wlSparklineCache[symbol].prices, (d?.pc ?? d?._prevDailyC ?? wlSparklineCache[symbol]?.base ?? wlSparklineCache[symbol]?.prices?.[0])))
+                            ? renderSparklineSVG(wlSparklineCache[symbol].prices, isUp, 72, 16, (d?.pc ?? d?._prevDailyC ?? wlSparklineCache[symbol]?.base ?? wlSparklineCache[symbol]?.prices?.[0]))
                             : d && hasAlpacaSparkSource()
                                 ? '<span class="wl-spark-skeleton"></span>'
                                 : (d ? '<span class="wl-sparkline-placeholder" style="font-size:9px;color:var(--text-dim)">…</span>' : (sk(70) ?? ''))
@@ -14682,11 +14695,14 @@
                 const chgPStr  = chgP  != null ? arrow + ' ' + (chgP >= 0 ? '+' : '') + chgP.toFixed(2) + '%' : '—';
                 const highStr  = high  != null ? '$' + high.toFixed(2) : '—';
                 const lowStr   = low   != null ? '$' + low.toFixed(2)  : '—';
-                const logoUrl = (wlDataCache[sym]?.logo) || (typeof _getSymbolLogoUrl === 'function' ? _getSymbolLogoUrl(sym) : null);
-                const _logoCached = logoUrl && typeof isLogoCached === 'function' && isLogoCached(logoUrl);
-                const logoHtml = logoUrl
+                const _logoRawUrl = (wlDataCache[sym]?.logo) || (typeof _getSymbolLogoUrl === 'function' ? _getSymbolLogoUrl(sym) : null);
+                // Resolve to data URL (base64) when available → no network refetch, no flicker
+                const logoSrc = _logoRawUrl && typeof resolveLogoSrc === 'function' ? resolveLogoSrc(_logoRawUrl) : _logoRawUrl;
+                const _isDataUrl = logoSrc && logoSrc.startsWith('data:');
+                const _logoCached = _isDataUrl || (logoSrc && typeof isLogoCached === 'function' && isLogoCached(logoSrc));
+                const logoHtml = logoSrc
                     ? '<div class="wl-logo-wrap" style="width:20px;height:20px;border-radius:6px;border:1px solid var(--border);flex-shrink:0;' + (_logoCached ? 'animation:none' : '') + '">' +
-                      '<img src="' + logoUrl + '" loading="eager" decoding="async" ' + (_logoCached ? 'class="loaded"' : '') +
+                      '<img src="' + logoSrc + '" loading="eager" decoding="async" ' + (_logoCached ? 'class="loaded"' : '') +
                       ' onload="this.classList.add(\'loaded\');this.parentElement.style.animation=\'none\'"' +
                       ' onerror="this.remove();this.parentElement.classList.add(\'load-error\')" style="border-radius:6px;">' +
                       '<span class="wl-logo-initials" style="font-size:6px;">' + sym.slice(0,2) + '</span>' +
@@ -14747,7 +14763,7 @@
             requestAnimationFrame(function() {
                 pinned.forEach(function(sym) {
                     const _se = wlSparklineCache[sym];
-                    const _sb = _se?.base ?? wlDataCache[sym]?.pc ?? _se?.prices?.[0];
+                    const _sb = wlDataCache[sym]?.pc ?? wlDataCache[sym]?._prevDailyC ?? _se?.base ?? _se?.prices?.[0];
                     if (!_se || !sparklineQuality(_se.prices, _sb)) {
                         requestSparklineRefresh(sym, false); // async fetch → updateSparklineCell when done
                     } else {
@@ -14789,12 +14805,15 @@
             ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
             ctx.clearRect(0, 0, W, H);
 
-            // Quality gate: ≥12 pts avoids OHLC-seed shape shift
-            if (!entry || !Array.isArray(entry.prices) || entry.prices.length < 12) return;
-
-            // ── Time constants (must be computed BEFORE freshness gate) ──
+            // ── Time constants (must be computed BEFORE quality/freshness gates) ──
             const nowMs     = Date.now();
             const mktOpen   = typeof isMarketOpen === 'function' ? isMarketOpen() : false;
+
+            // Quality gate: need real bars. During market open, require ≥12 pts to avoid
+            // OHLC-seed shape shift (freshness gate handles stale data). During market closed,
+            // accept ≥2 pts — we want to show whatever cached data we have.
+            if (!entry || !Array.isArray(entry.prices) || entry.prices.length < 2) return;
+            if (mktOpen && entry.prices.length < 12) return;
             const TOTAL_MIN = 390;
             const dst       = typeof isUSDST === 'function' ? isUSDST(new Date()) : false;
             const today     = new Date(nowMs);
@@ -14815,7 +14834,7 @@
             const prices    = entry.prices;
             // prevClose (pc) is the true reference for up/down color — prioritize over entry.base
             // which may have been set to intraday open if pc was unavailable at fetch time
-            const base      = wlDataCache[sym]?.pc ?? entry.base ?? prices[0];
+            const base      = wlDataCache[sym]?.pc ?? wlDataCache[sym]?._prevDailyC ?? entry.base ?? prices[0];
             const livePrice = wlDataCache[sym]?.c ?? prices[prices.length - 1];
             // Use dp/d from quote cache when available (most accurate); fall back to price vs base
             const _dSym     = wlDataCache[sym];
@@ -21575,7 +21594,10 @@ ${_clip(contextSections, 2600)}`;
                 if (d._pinHigh)  { const t = d._pinHigh.innerText;  if (t && t !== '—') d._pinHighTxt  = t; }
                 if (d._pinLow)   { const t = d._pinLow.innerText;   if (t && t !== '—') d._pinLowTxt   = t; }
             }
-            if (!d._pinPrice) { d._pinGen = -1; return; } // DOM not ready yet — retry next tick
+            // Validate cached ref is a real connected DOM element; if not, force re-cache next tick
+            if (!d._pinPrice || !(d._pinPrice instanceof HTMLElement) || !d._pinPrice.isConnected) {
+                d._pinGen = -1; return;
+            }
             const price = d.c;
             if (!price) return;
             const isUp = (d.dp || 0) >= 0;
@@ -21696,15 +21718,18 @@ ${_clip(contextSections, 2600)}`;
             d._lastTxt = newTxt;
 
             // ── Price [7] — instant snap (Webull-style) ────────────────────────
+            const _hotColor = isUp ? 'var(--wl-up)' : 'var(--wl-dn)';
             if (cells[7].data !== p2) {
                 cells[7].data = p2;
                 cells[7].className = isUp ? _CLS_UP_PRICE : _CLS_DN_PRICE;
+                cells[7].style.color = _hotColor;
                 cells[7].firstChild ? (cells[7].firstChild.nodeValue = newTxt) : (cells[7].innerText = newTxt);
             }
             // ── CHG [8] ───────────────────────────────────────────────────────
             if (cells[8].data !== chgTxt) {
                 cells[8].data = chgTxt;
                 cells[8].className = isUp ? _CLS_UP_CHG : _CLS_DN_CHG;
+                cells[8].style.color = _hotColor;
                 cells[8].firstChild ? (cells[8].firstChild.nodeValue = chgTxt) : (cells[8].innerText = chgTxt);
             }
             // ── CHG% badge [9] ────────────────────────────────────────────────
@@ -21714,6 +21739,17 @@ ${_clip(contextSections, 2600)}`;
                 const sp = cells[9].firstElementChild;
                 if (sp.firstChild) { sp.firstChild.nodeValue = pctTxt; } else { sp.textContent = pctTxt; }
                 const bc = isUp ? 'wl-badge-up' : 'wl-badge-dn'; if (sp.className !== bc) sp.className = bc;
+                // Sync inline styles set by updateWatchlistPriceCells — otherwise stale
+                // inline color (higher specificity) overrides the correct CSS class color
+                sp.style.color = isUp ? 'var(--wl-up)' : 'var(--wl-dn)';
+                sp.style.background = isUp ? 'rgba(8,153,129,0.12)' : 'rgba(242,54,69,0.12)';
+            }
+            // ── Sparkline color sync on direction flip ───────────────────────
+            // Sparkline SVG color is baked at render time and only refreshes every ~20s.
+            // When direction flips mid-tick, re-render sparkline so color matches LAST/CHG/CHG%.
+            if (d._hotIsUp !== isUp) {
+                d._hotIsUp = isUp;
+                if (typeof updateSparklineCell === 'function') updateSparklineCell(sym);
             }
             // ── H/L [13][14] ──────────────────────────────────────────────────
             if (cells[13] && d.h != null) { const ht = '$'+d.h.toFixed(2); if (cells[13].data !== ht) { cells[13].data = ht; cells[13].firstChild ? (cells[13].firstChild.nodeValue = ht) : (cells[13].innerText = ht); } }
