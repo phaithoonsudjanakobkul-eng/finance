@@ -1673,8 +1673,8 @@
         @keyframes extFlashDn { 0%{background:rgba(242,54,69,0.2)} 100%{background:transparent} }
         /* Fixed widths per column — col 7 = PRE-MKT (88px fixed) */
         #watchlist-table col:nth-child(1)  { width: 30px;  } /* # */
-        #watchlist-table col:nth-child(2)  { width: 74px;  } /* SYMBOL */
-        #watchlist-table col:nth-child(3)  { width: auto;   } /* NAME — fluid: absorbs freed space when optional cols hidden */
+        #watchlist-table col:nth-child(2)  { width: 110px; } /* SYMBOL — room for logo + ticker + ETF badge */
+        #watchlist-table col:nth-child(3)  { width: 130px; } /* NAME — fluid: absorbs freed space when optional cols hidden */
         #watchlist-table col:nth-child(4)  { width: 72px;  } /* LOW ALERT ← new */
         #watchlist-table col:nth-child(5)  { width: 96px;  } /* SIGNAL */
         #watchlist-table col:nth-child(6)  { width: 110px; } /* ANALYST RATING */
@@ -5697,7 +5697,7 @@
                 <div style="overflow-x:auto;overflow-y:auto;scrollbar-gutter:auto;max-height:inherit">
                 <table id="watchlist-table" class="w-full min-w-[800px]">
                     <colgroup>
-                        <col style="width:30px"> <col style="width:90px"> <col style="width:150px"> <col style="width:72px"> <col style="width:96px">
+                        <col style="width:30px"> <col style="width:110px"> <col style="width:130px"> <col style="width:72px"> <col style="width:96px">
                         <col style="width:110px"><col style="width:96px"> <col style="width:82px"> <col style="width:70px">
                         <col style="width:82px"> <col style="width:88px"> <col style="width:78px"> <col style="width:78px">
                         <col style="width:75px"> <col style="width:75px"> <col style="width:72px"> <col style="width:72px">
@@ -15105,6 +15105,34 @@
             setColor('wl-pinned-low-' + symbol, 'var(--wl-dn)');
         }
 
+        /* Patch PINNED row logo after profile fetch (fixes first-use / incognito blank logos) */
+        function _patchPinnedLogo(symbol) {
+            const row = document.getElementById('wl-pinned-row-' + symbol);
+            if (!row) return;
+            const wrap = row.querySelector('.wl-logo-wrap');
+            if (!wrap) return;
+            const img = wrap.querySelector('img');
+            const rawUrl = wlDataCache[symbol]?.logo;
+            if (!rawUrl) return;
+            const src = typeof resolveLogoSrc === 'function' ? resolveLogoSrc(rawUrl) : rawUrl;
+            if (!src) return;
+            if (img) {
+                // Already has an img — update src if different
+                if (img.src !== src && img.getAttribute('src') !== src) img.src = src;
+            } else {
+                // No img yet (was showing initials fallback) — inject one
+                wrap.classList.remove('load-error');
+                const newImg = document.createElement('img');
+                newImg.src = src;
+                newImg.loading = 'eager';
+                newImg.decoding = 'async';
+                newImg.style.borderRadius = '6px';
+                newImg.onload = function() { this.classList.add('loaded'); wrap.style.animation = 'none'; };
+                newImg.onerror = function() { this.remove(); wrap.classList.add('load-error'); };
+                wrap.insertBefore(newImg, wrap.firstChild);
+            }
+        }
+
         function _wlPinnedPickerToggle() {
             const picker = document.getElementById('wl-pin-picker');
             if (!picker) return;
@@ -15582,6 +15610,8 @@
                         renderWatchlistRow(symbol, fullData);
                         _r = document.getElementById('wl-row-' + symbol);
                         if (_r) { wlDataCache[symbol]._tr = _r; wlDataCache[symbol]._cells = _r.querySelectorAll('td'); }
+                        // Patch PINNED logo if this symbol is pinned (fixes first-use blank logos)
+                        if (_pinnedSymSet.has(symbol)) _patchPinnedLogo(symbol);
                     }
                 } catch(e) {
                     failedSymbols.push(symbol);
@@ -15599,6 +15629,7 @@
                             const data = await fetchQuote(symbol);
                             if (data?.logo) preloadLogo(data.logo);
                             renderWatchlistRow(symbol, data);
+                            if (_pinnedSymSet.has(symbol)) _patchPinnedLogo(symbol);
                         } catch(e) {
                             stillFailed.push(symbol);
                         }
@@ -16460,7 +16491,7 @@
 
             // Step 2: proportional <col> widths — table-layout:fixed reads these directly
             const containerW = table.parentElement.clientWidth;
-            const FIXED_BASE = [30, 90, 150, 72, 96, 110, 96, 82, 70, 82];
+            const FIXED_BASE = [30, 110, 130, 72, 96, 110, 96, 82, 70, 82];
             const X_BASE = 42;
             let totalBase = FIXED_BASE.reduce((s, w) => s + w, 0) + X_BASE;
             WL_COL_DEFS.forEach(({ key, colW }) => {
@@ -16468,8 +16499,10 @@
             });
             const scale = totalBase > 0 ? containerW / totalBase : 1;
             let usedW = 0;
+            // Min-widths: col 1 (SYMBOL) must fit logo+ticker; col 0 (#) stays compact
+            const COL_MIN = [24, 88, 60, 40, 52, 60, 60, 60, 50, 60];
             FIXED_BASE.forEach((baseW, i) => {
-                const w = Math.floor(baseW * scale);
+                const w = Math.max(COL_MIN[i] || 0, Math.floor(baseW * scale));
                 if (colEls[i]) colEls[i].style.width = w + 'px';
                 usedW += w;
             });
