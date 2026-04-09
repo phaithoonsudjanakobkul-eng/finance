@@ -14933,11 +14933,9 @@
             const canvas = document.getElementById('wl-pinned-spark-canvas-' + sym);
             if (!canvas) return;
             const entry = wlSparklineCache[sym];
-            // Only draw real market data — never OHLC seed (prevents fake shape flash on load)
             if (entry && entry.src === 'ohlc') return;
-            const ctx = canvas.getContext('2d');
-            // DPR-aware: ensure canvas buffer matches display density
-            const DPR = window.devicePixelRatio || 2;
+            const ctx = canvas._ctx2d || (canvas._ctx2d = canvas.getContext('2d'));
+            const DPR = _canvasDPR;
             const CSS_W = 60, CSS_H = 22;
             const bufW = Math.round(CSS_W * DPR), bufH = Math.round(CSS_H * DPR);
             if (canvas.width !== bufW || canvas.height !== bufH) {
@@ -14948,26 +14946,15 @@
             ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
             ctx.clearRect(0, 0, W, H);
 
-            // ── Time constants (must be computed BEFORE quality/freshness gates) ──
+            // ── Time constants — use cached values from _refreshCanvasMktCache() ──
             const nowMs     = Date.now();
-            const mktOpen   = typeof isMarketOpen === 'function' ? isMarketOpen() : false;
+            const mktOpen   = _canvasMktOpen;
 
-            // Quality gate: need real bars. During market open, require ≥12 pts to avoid
-            // OHLC-seed shape shift (freshness gate handles stale data). During market closed,
-            // accept ≥2 pts — we want to show whatever cached data we have.
             if (!entry || !Array.isArray(entry.prices) || entry.prices.length < 2) return;
             if (mktOpen && entry.prices.length < 12) return;
             const TOTAL_MIN = 390;
-            const dst       = typeof isUSDST === 'function' ? isUSDST(new Date()) : false;
-            const today     = new Date(nowMs);
-            const openD     = new Date(today); openD.setUTCHours(dst ? 13 : 14, 30, 0, 0);
-            const openMs    = openD.getTime();
+            const openMs    = _canvasOpenMs;
 
-            // Freshness gate (market open only):
-            //   • Wrong session (yesterday) → skip
-            //   • Stale cache from earlier today (>2 min old) → skip
-            // Both cases: canvas stays blank until fetchAlpacaSparkline returns (~1-2 s)
-            // with fresh bars, preventing the "wrong shape on first load" flash.
             if (mktOpen) {
                 if (entry.session && typeof currentEtDateKey === 'function'
                     && entry.session !== currentEtDateKey()) return;
@@ -15084,6 +15071,21 @@
             ctx.restore();
         }
 
+        // ── Cached constants for canvas loops — avoid per-symbol per-frame recalculation ──
+        const _canvasDPR = window.devicePixelRatio || 2;
+        let _canvasMktOpen = false, _canvasOpenMs = 0, _canvasMktCacheTs = 0;
+        function _refreshCanvasMktCache() {
+            const now = Date.now();
+            if (now - _canvasMktCacheTs < 3000) return;
+            _canvasMktCacheTs = now;
+            _canvasMktOpen = isMarketOpen();
+            const d = new Date(now);
+            const dst = typeof isUSDST === 'function' ? isUSDST(d) : false;
+            const openD = new Date(d); openD.setUTCHours(dst ? 13 : 14, 30, 0, 0);
+            _canvasOpenMs = openD.getTime();
+        }
+
+        let _pinnedCanvasLastDraw = 0;
         function _startPinnedCanvasLoop() {
             if (_pinnedCanvasRafId) return; // already running
             (function _loop() {
@@ -15091,7 +15093,14 @@
                     _pinnedCanvasRafId = null;
                     return; // self-terminates when dashboard hidden
                 }
-                try { _pinnedSymSet.forEach(_drawPinnedSparkCanvas); } catch(e) { console.warn('[PinnedCanvas]', e.message); }
+                // Throttle: ~20fps when market open (breathing dot), ~0.5fps when closed (static)
+                const _now = Date.now();
+                _refreshCanvasMktCache();
+                const _interval = _canvasMktOpen ? 50 : 2000;
+                if (_now - _pinnedCanvasLastDraw >= _interval) {
+                    _pinnedCanvasLastDraw = _now;
+                    try { _pinnedSymSet.forEach(_drawPinnedSparkCanvas); } catch(e) { console.warn('[PinnedCanvas]', e.message); }
+                }
                 _pinnedCanvasRafId = requestAnimationFrame(_loop);
             })();
         }
@@ -15107,10 +15116,9 @@
             const canvas = document.getElementById('wl-spark-canvas-' + sym);
             if (!canvas) return;
             const entry = wlSparklineCache[sym];
-            // Only draw real market data — never OHLC seed (prevents fake shape flash on load)
             if (entry && entry.src === 'ohlc') return;
-            const ctx = canvas.getContext('2d');
-            const DPR = window.devicePixelRatio || 2;
+            const ctx = canvas._ctx2d || (canvas._ctx2d = canvas.getContext('2d'));
+            const DPR = _canvasDPR;
             const CSS_W = 72, CSS_H = 16;
             const bufW = Math.round(CSS_W * DPR), bufH = Math.round(CSS_H * DPR);
             if (canvas.width !== bufW || canvas.height !== bufH) {
@@ -15122,15 +15130,12 @@
             ctx.clearRect(0, 0, W, H);
 
             const nowMs   = Date.now();
-            const mktOpen = typeof isMarketOpen === 'function' ? isMarketOpen() : false;
+            const mktOpen = _canvasMktOpen;
 
             if (!entry || !Array.isArray(entry.prices) || entry.prices.length < 2) return;
             if (mktOpen && entry.prices.length < 12) return;
             const TOTAL_MIN = 390;
-            const dst       = typeof isUSDST === 'function' ? isUSDST(new Date()) : false;
-            const today     = new Date(nowMs);
-            const openD     = new Date(today); openD.setUTCHours(dst ? 13 : 14, 30, 0, 0);
-            const openMs    = openD.getTime();
+            const openMs    = _canvasOpenMs;
 
             if (mktOpen) {
                 if (entry.session && typeof currentEtDateKey === 'function'
@@ -15230,6 +15235,7 @@
             ctx.restore();
         }
 
+        let _mainCanvasLastDraw = 0;
         function _startMainCanvasLoop() {
             if (_mainCanvasRafId) return;
             (function _loop() {
@@ -15237,7 +15243,14 @@
                     _mainCanvasRafId = null;
                     return;
                 }
-                try { _mainSparkSymSet.forEach(_drawMainSparkCanvas); } catch(e) { console.warn('[MainSparkCanvas]', e.message); }
+                // Throttle: ~20fps when market open (breathing dot), ~0.5fps when closed (static)
+                const _now = Date.now();
+                _refreshCanvasMktCache();
+                const _interval = _canvasMktOpen ? 50 : 2000;
+                if (_now - _mainCanvasLastDraw >= _interval) {
+                    _mainCanvasLastDraw = _now;
+                    try { _mainSparkSymSet.forEach(_drawMainSparkCanvas); } catch(e) { console.warn('[MainSparkCanvas]', e.message); }
+                }
                 _mainCanvasRafId = requestAnimationFrame(_loop);
             })();
         }
@@ -16387,11 +16400,19 @@
             if (_pinnedSymSet.has(symbol)) _updatePinnedCell(symbol, data || wlDataCache[symbol]);
             const row = document.getElementById('wl-row-' + symbol);
             if (!row) return;
-            const cells = row.querySelectorAll('td');
+            // Cache querySelectorAll result — avoid DOM query on every WS tick
+            const d2 = wlDataCache[symbol];
+            let cells;
+            if (d2 && d2._cellsRow === row && d2._cells && d2._cells.length >= 15) {
+                cells = d2._cells;
+            } else {
+                cells = row.querySelectorAll('td');
+                if (d2) { d2._cells = cells; d2._cellsRow = row; d2._tr = row; }
+            }
             if (cells.length < 15) return;
 
             // ใช้ prevClose เป็น base เดียวกันทั้ง CHG / CHG%
-            const _mktOpen  = isMarketOpen();
+            const _mktOpen  = _isMarketOpenCached();
             const last      = data?.c || null;
             const prevClose = data?.pc || data?._prevDailyC || null;
 
@@ -16459,14 +16480,19 @@
                 cells[8].style.color = change === null ? 'var(--wl-text-dim)' : isUp ? 'var(--wl-up)' : 'var(--wl-dn)';
                 setText(cells[8], change !== null ? (isUp ? '+' : '') + fmt(change) : '\u2014');
             }
-            // cells[9] = CHG%
+            // cells[9] = CHG% — reuse existing <span> instead of innerHTML (avoids DOM churn on hot path)
             if (cells[9]) {
                 setClass(cells[9], 'px-3 py-2 text-right');
                 const pctTxt = changePct !== null ? `${arrow} ${isUp?'+':''}${changePct.toFixed(2)}%` : '\u2014';
                 const badgeCls = changePct === null ? 'wl-badge-neu' : isUp ? 'wl-badge-up' : 'wl-badge-dn';
                 const pctColor = changePct === null ? 'var(--wl-text-dim)' : isUp ? 'var(--wl-up)' : 'var(--wl-dn)';
                 const pctBg    = changePct === null ? 'transparent' : isUp ? 'rgba(8,153,129,0.12)' : 'rgba(242,54,69,0.12)';
-                cells[9].innerHTML = `<span class="${badgeCls}" style="color:${pctColor};background:${pctBg}">${pctTxt}</span>`;
+                let sp = cells[9].firstElementChild;
+                if (!sp) { sp = document.createElement('span'); cells[9].textContent = ''; cells[9].appendChild(sp); }
+                if (sp.className !== badgeCls) sp.className = badgeCls;
+                sp.style.color = pctColor;
+                sp.style.background = pctBg;
+                if (sp.textContent !== pctTxt) sp.textContent = pctTxt;
             }
 
             // Update pre-market cell (col index 10)
@@ -21857,6 +21883,17 @@ ${_clip(contextSections, 2600)}`;
         const _pendingTimestamps  = {};
         let _rafPending           = false;
         let _hasPendingTrades     = false;
+
+        // ── Cached isMarketOpen — avoid Date+DST recalc per-frame per-symbol ──
+        let _cachedMktOpen = false;
+        let _cachedMktOpenTs = 0;
+        function _isMarketOpenCached() {
+            const now = Date.now();
+            if (now - _cachedMktOpenTs < 3000) return _cachedMktOpen;
+            _cachedMktOpenTs = now;
+            _cachedMktOpen = isMarketOpen();
+            return _cachedMktOpen;
+        }
         let _wsBackgroundMode     = false;
         let _dashboardVisible     = false;  // true when Dashboard tab is active
         let _watchlistVisible     = false;  // true when Watchlist tab is active
@@ -22044,7 +22081,7 @@ ${_clip(contextSections, 2600)}`;
                         d._pinRow.classList.add(cls);
                     } else {
                         d._pinRow.classList.remove('pinned-flash-up', 'pinned-flash-down');
-                        d._pinRow.getAnimations().forEach(a => a.cancel());
+                        void d._pinRow.offsetWidth; // force reflow to restart animation (cheaper than getAnimations)
                         d._pinRow.classList.add(cls);
                     }
                     clearTimeout(d._pinRow._ft);
@@ -22132,7 +22169,7 @@ ${_clip(contextSections, 2600)}`;
                     tr.classList.add(cls);
                 } else {
                     tr.classList.remove('flash-up', 'flash-down');
-                    tr.getAnimations().forEach(a => a.cancel());
+                    void tr.offsetWidth; // force reflow to restart animation (cheaper than getAnimations)
                     tr.classList.add(cls);
                 }
                 clearTimeout(tr._ft);
