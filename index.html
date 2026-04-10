@@ -1925,6 +1925,8 @@
                 object-position: center top !important;
                 width: 100% !important;
                 height: 100% !important;
+                image-rendering: high-quality !important;
+                -webkit-image-smoothing: high !important;
                 position: absolute !important;
                 inset: 0 !important;
             }
@@ -3543,8 +3545,8 @@
             animation: fadeIn 0.3s ease-out;
         }
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(4px); }
-            to { opacity: 1; transform: translateY(0); }
+            from { opacity: 0; }
+            to { opacity: 1; }
         }
         @keyframes spin {
             from { transform: rotate(0deg); }
@@ -4997,7 +4999,7 @@
                 <div onclick="document.getElementById('avatarInput').click()" title="Click to change profile picture"
                     style="width:88px;height:88px;border-radius:50%;border:2.5px solid var(--accent);overflow:hidden;cursor:pointer;flex-shrink:0;background:color-mix(in srgb,var(--accent) 8%,transparent);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 12px color-mix(in srgb,var(--accent) 15%,transparent);"
                     onmouseover="this.style.borderColor='var(--accent2)'" onmouseout="this.style.borderColor='var(--accent)'">
-                    <img id="avatarImg" src="" alt="avatar" style="width:100%;height:100%;object-fit:cover;display:none;">
+                    <img id="avatarImg" src="" alt="avatar" style="width:100%;height:100%;object-fit:cover;display:none;image-rendering:high-quality;">
                     <svg id="avatarPlaceholder" xmlns="http://www.w3.org/2000/svg" style="width:44px;height:44px;color:#93c5fd;" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
                     </svg>
@@ -5035,14 +5037,25 @@
                 </div>
                 <!-- Divider -->
                 <div class="w-px h-5" style="background:var(--border)"></div>
-                <!-- Import/Export -->
-                <div class="flex gap-0.5 p-1 rounded-md" style="background:var(--bg-card2)">
-                    <button onclick="document.getElementById('fileInput').click()" title="Import JSON" class="px-2.5 py-1.5 rounded-lg transition-all flex items-center" style="color:var(--text-dim)">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                <!-- Import/Export JSON dropdown -->
+                <div style="position:relative">
+                    <button onclick="_toggleJsonDropdown()" title="Import / Export JSON" class="px-2.5 py-1.5 rounded-lg transition-all flex items-center gap-1" style="color:var(--text-dim);background:var(--bg-card2);border:none;cursor:pointer"
+                        onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text-dim)'">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>
+                        <svg class="w-2 h-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="opacity:0.5"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"/></svg>
                     </button>
-                    <button onclick="exportJSON()" title="Export JSON" class="px-2.5 py-1.5 rounded-lg transition-all flex items-center" style="color:var(--text-dim)">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
-                    </button>
+                    <div id="json-dropdown" class="hidden" style="position:absolute;top:100%;right:0;margin-top:4px;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:50;min-width:140px;padding:4px;overflow:hidden">
+                        <button onclick="exportJSON();_closeJsonDropdown()" class="flex items-center gap-2 w-full text-left px-3 py-2 rounded-md transition-all" style="font-size:11px;font-weight:600;color:var(--text-primary);background:none;border:none;cursor:pointer;font-family:var(--font-main)"
+                            onmouseover="this.style.background='color-mix(in srgb,var(--accent) 12%,transparent)'" onmouseout="this.style.background='none'">
+                            <svg class="w-3.5 h-3.5" style="color:var(--accent);flex-shrink:0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                            Export JSON
+                        </button>
+                        <button onclick="document.getElementById('fileInput').click();_closeJsonDropdown()" class="flex items-center gap-2 w-full text-left px-3 py-2 rounded-md transition-all" style="font-size:11px;font-weight:600;color:var(--text-primary);background:none;border:none;cursor:pointer;font-family:var(--font-main)"
+                            onmouseover="this.style.background='color-mix(in srgb,var(--accent) 12%,transparent)'" onmouseout="this.style.background='none'">
+                            <svg class="w-3.5 h-3.5" style="color:var(--text-dim);flex-shrink:0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                            Import JSON
+                        </button>
+                    </div>
                 </div>
                 <!-- Divider -->
                 <div class="w-px h-5" style="background:var(--border)"></div>
@@ -5109,7 +5122,7 @@
                         <div style="flex:0 0 36%;display:flex;flex-direction:column;padding:14px 10px 10px 14px;min-width:0;border-right:1px solid color-mix(in srgb,var(--border) 70%,transparent);">
                             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-shrink:0;">
                                 <div style="display:flex;align-items:center;gap:5px;font-family:var(--font-mono);font-size:9px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-dim)"><svg width="9" height="9" viewBox="0 0 14 14" fill="none" style="flex-shrink:0;opacity:0.75"><polyline points="1,3 5,8 8,5 13,11" stroke="var(--danger,#f23645)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/><polyline points="10,11 13,11 13,8" stroke="var(--danger,#f23645)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>LOW ALERTS</div>
-                                <div id="wl-console-ts" style="font-family:var(--font-mono);font-size:8px;color:var(--text-dim);opacity:0.6"></div>
+                                <div id="wl-console-ts" style="font-family:var(--font-mono);font-size:9px;font-weight:600;color:var(--text-secondary)"></div>
                             </div>
                             <div id="wl-console-list" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:0;">
                                 <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-dim);opacity:0.5;margin:auto;text-align:center;">กำลังโหลด...</div>
@@ -5717,7 +5730,7 @@
         </div>
 
         <!-- WATCHLIST TAB -->
-        <div id="tab-watchlist" class="hidden space-y-3 animate-in pt-3">
+        <div id="tab-watchlist" class="hidden space-y-1 animate-in pt-1">
 
             <!-- Finnhub Token Modal -->
             <div id="finnhub-modal" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4">
@@ -5751,7 +5764,7 @@
                         <div class="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" style="color:var(--text-dim)">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
                         </div>
-                        <input type="text" id="ticker-input" placeholder="ADD"
+                        <input type="text" id="ticker-input" placeholder="SEARCH"
                             class="w-full pl-8 pr-3 outline-none text-[11px] font-semibold rounded-lg"
                             style="color:var(--text-primary);font-family:var(--font-main);height:34px;text-transform:uppercase;letter-spacing:0.03em"
                             oninput="onTickerInput(this.value)" onkeydown="onTickerKeydown(event)" autocomplete="off">
@@ -5807,8 +5820,8 @@
 
                     <!-- AI Chatbox — half width -->
                     <div class="flex items-center gap-2 rounded-xl px-3 border" style="background:var(--bg-card2);border-color:var(--border);height:34px;min-width:0;max-width:320px;flex:1">
-                        <div class="w-4 h-4 rounded flex items-center justify-center flex-shrink-0" style="border:1px solid color-mix(in srgb,#1a73e8 55%,transparent);background:color-mix(in srgb,#1a73e8 8%,transparent)">
-                            <svg class="w-2.5 h-2.5" style="color:#1a73e8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.347.347a3.5 3.5 0 01-4.95 0l-.347-.347z"/></svg>
+                        <div class="w-4 h-4 rounded flex items-center justify-center flex-shrink-0" style="border:1px solid color-mix(in srgb,var(--accent) 55%,transparent);background:color-mix(in srgb,var(--accent) 8%,transparent)">
+                            <svg class="w-2.5 h-2.5" style="color:var(--accent)" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.347.347a3.5 3.5 0 01-4.95 0l-.347-.347z"/></svg>
                         </div>
                         <input id="ai-input" type="text" autocomplete="off" placeholder="ถาม AI… เช่น แนวรับ NVDA"
                             class="flex-1 min-w-0 text-xs outline-none bg-transparent"
@@ -5816,7 +5829,7 @@
                             onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendAiMessage()}">
                         <button onclick="sendAiMessage()" id="ai-send-btn"
                             class="flex items-center justify-center flex-shrink-0"
-                            style="padding:0 13px;height:22px;border-radius:4px;background:color-mix(in srgb,var(--bg-card) 90%,#1a73e8 10%);border-top:1px solid color-mix(in srgb,#1a73e8 45%,transparent);border-left:1px solid color-mix(in srgb,#1a73e8 45%,transparent);border-right:1px solid color-mix(in srgb,#1a73e8 45%,transparent);border-bottom:2px solid color-mix(in srgb,#1a73e8 70%,transparent);font-family:var(--font-mono);font-size:14px;line-height:1;color:#1a73e8"
+                            style="padding:0 10px;height:22px;border-radius:6px;background:color-mix(in srgb,var(--accent) 12%,transparent);border:1px solid color-mix(in srgb,var(--accent) 30%,transparent);font-family:var(--font-mono);font-size:14px;line-height:1;color:var(--accent)"
                             title="ส่ง (Enter)">↵</button>
                     </div>
 
@@ -11048,7 +11061,7 @@
             clearTimeout(t._psiToastTimer);
             t._psiToastTimer = setTimeout(function(){
                 t.classList.remove('psi-toast-show');
-            }, 2200);
+            }, 4000);
         }
         // ── End R248 Calibration Profile System ───────────────────────────
 
@@ -11204,7 +11217,7 @@
             var ctx = c.getContext('2d'), w = img.naturalWidth, h = img.naturalHeight;
             var size = Math.min(w, h), sx = (w - size) / 2, sy = (h - size) / 2;
             ctx.drawImage(img, sx, sy, size, size, 0, 0, s, s);
-            return c.toDataURL('image/jpeg', 0.72);
+            return c.toDataURL('image/webp', 1.0);
         }
 
         function _psiRenderFilmstrip(id) {
@@ -14045,7 +14058,7 @@
             toast.appendChild(txt);
             wrap.appendChild(toast);
             requestAnimationFrame(() => toast.classList.add('show'));
-            const ttl = 2200;
+            const ttl = 4000;
             setTimeout(() => {
                 toast.classList.remove('show');
                 setTimeout(() => toast.remove(), 180);
@@ -14786,7 +14799,7 @@
                         '<span style="font-family:var(--font-main);font-size:11px;font-weight:700;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + sym + '</span>' +
                         '<div style="display:flex;align-items:center;gap:3px;min-width:0;">' +
                             '<span style="font-family:var(--font-mono);font-size:7px;font-weight:700;color:' + col + ';background:' + col + '18;padding:1px 3px;border-radius:3px;white-space:nowrap;flex-shrink:0;">' + info.label + '</span>' +
-                            '<span style="font-family:var(--font-main);font-size:11px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-0.01em;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + priceStr + '</span>' +
+                            '<span class="alert-price-pulse" style="font-family:var(--font-main);font-size:11px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-0.01em;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + priceStr + '</span>' +
                         '</div>' +
                     '</div>';
                 };
@@ -21819,6 +21832,7 @@ ${_clip(contextSections, 2600)}`;
         }
 
         let alpWs = null, alpWsReconnectTimer = null, alpWsBackoff = 5000, alpWsSubscribed = new Set();
+        let _alpConnLimitUntil = 0; // epoch ms — cooldown after "connection limit exceeded"
 
         // ── Alpaca WS message handlers — separated for V8 JIT optimization ──────
         // V8 cannot JIT-compile functions containing try/catch
@@ -21866,7 +21880,14 @@ ${_clip(contextSections, 2600)}`;
                         _wsAuthenticated = true;
                         updateMarketStatus();
                     } else if (msg.T === 'error') {
-                        console.warn('Alpaca WS:', msg.msg); alpWs.close();
+                        console.warn('Alpaca WS:', msg.msg);
+                        if (msg.msg && msg.msg.toLowerCase().includes('connection limit')) {
+                            // Alpaca rejected — too many open connections
+                            // Apply 5-minute cooldown so we stop spamming reconnects
+                            _alpConnLimitUntil = Date.now() + 5 * 60 * 1000;
+                            alpWsBackoff = 5 * 60 * 1000;
+                        }
+                        alpWs.close();
                     } else if (msg.T === 't' && msg.p && wlDataCache[msg.S]) {
                         _handleTrade(msg.S, msg.p);
                     }
@@ -21877,6 +21898,7 @@ ${_clip(contextSections, 2600)}`;
         function connectAlpacaWs(apiKey, apiSecret) {
             if (!watchlist.length) return;
             if (alpWs && alpWs.readyState <= 1) return;
+            if (Date.now() < _alpConnLimitUntil) return; // still in connection-limit cooldown
             alpWs = new WebSocket('wss://stream.data.alpaca.markets/v2/iex');
             alpWs.onopen = () => alpWs.send(JSON.stringify({ action:'auth', key:apiKey, secret:apiSecret }));
             alpWs.onmessage = (e) => {
@@ -21899,7 +21921,7 @@ ${_clip(contextSections, 2600)}`;
         }
 
         function disconnectAlpacaWs() {
-            clearTimeout(alpWsReconnectTimer); alpWsBackoff = 5000;
+            clearTimeout(alpWsReconnectTimer); alpWsBackoff = 5000; _alpConnLimitUntil = 0;
             if (alpWs) { alpWs.close(); alpWs = null; } alpWsSubscribed.clear();
         }
 
@@ -21912,7 +21934,7 @@ ${_clip(contextSections, 2600)}`;
                 if (!isMarketOpen() || !watchlist.length) return;
                 const alpAlive = alpWs && alpWs.readyState <= 1;
                 const fhAlive  = fhWs  && fhWs.readyState  <= 1;
-                if (!alpAlive && getAlpacaKey() && getAlpacaSecret()) {
+                if (!alpAlive && getAlpacaKey() && getAlpacaSecret() && Date.now() >= _alpConnLimitUntil) {
                     alpWsBackoff = 5000;
                     connectAlpacaWs(getAlpacaKey(), getAlpacaSecret());
                 }
@@ -22548,11 +22570,11 @@ ${_clip(contextSections, 2600)}`;
 
             const sane = v => typeof v === 'number' && isFinite(v) && v > 28 && v < 45;
 
-            // Retail spread constants calibrated to Dime! app (±0.25% from mid)
-            // USD→THB: you sell USD, bank buys at lower rate → you get ~0.25% less THB
-            // THB→USD: you buy USD, bank sells at higher rate → you pay ~0.25% more THB
-            const SELL_SPREAD = 0.9975;   // USD→THB (fx-rate)
-            const BUY_SPREAD  = 1.0025;   // THB→USD (fx-rate-inv)
+            // Retail spread calibrated to Dime! app (asymmetric — buy wider than sell)
+            // USD→THB: sell spread −0.28% (bank buys USD cheaper)
+            // THB→USD: buy spread +0.34% (bank sells USD dearer)
+            const SELL_SPREAD = 0.9972;   // USD→THB (fx-rate)
+            const BUY_SPREAD  = 1.0034;   // THB→USD (fx-rate-inv)
 
             let midRate = null;
             let prevMid = null;
@@ -22560,13 +22582,102 @@ ${_clip(contextSections, 2600)}`;
 
             const fKey     = getFinnhubKey();
             const erapiKey = getErapiKey();
-            const todayStr = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+            const tdKey    = getTwelveDataKey();
+            // Use LOCAL date (not UTC) — ensures prev_close refreshes when local day changes
+            const _now = new Date();
+            const todayStr = _now.getFullYear() + '-' +
+                String(_now.getMonth() + 1).padStart(2, '0') + '-' +
+                String(_now.getDate()).padStart(2, '0'); // YYYY-MM-DD local
 
-            // ── Cache helpers — keyed by date so it auto-expires next day ────
-            // prevMid: yesterday's close — only fetch once per calendar day
-            const _prevKey = 'ps_fx_prev_' + todayStr;
-            const _prevCached = parseFloat(localStorage.getItem(_prevKey) || '0');
-            if (sane(_prevCached)) prevMid = _prevCached;
+            // ── Self-tracked previous close (most accurate — from our own polling) ──
+            // Every poll: save midRate + date. When date rolls over, yesterday's
+            // last rate becomes today's prev_close. No API dependency for prev!
+            const _selfMidKey   = 'ps_fx_self_mid';     // last known midRate
+            const _selfDateKey  = 'ps_fx_self_date';    // date of that midRate
+            const _selfPrevKey  = 'ps_fx_self_prev';    // prev close (frozen at day roll)
+            const _selfPrevDate = 'ps_fx_self_prev_dt'; // date the prev was set for
+
+            const _selfMid  = parseFloat(localStorage.getItem(_selfMidKey) || '0');
+            const _selfDate = localStorage.getItem(_selfDateKey) || '';
+            const _selfPrev = parseFloat(localStorage.getItem(_selfPrevKey) || '0');
+            const _selfPrevDt = localStorage.getItem(_selfPrevDate) || '';
+
+            // Day rolled over → freeze yesterday's last mid as today's prev close
+            if (_selfDate && _selfDate !== todayStr && sane(_selfMid) && _selfPrevDt !== todayStr) {
+                localStorage.setItem(_selfPrevKey, _selfMid.toString());
+                localStorage.setItem(_selfPrevDate, todayStr);
+                prevMid = _selfMid;
+                console.log('[FX] Day rolled → prev_close from self-tracking:', _selfMid.toFixed(4));
+            } else if (_selfPrevDt === todayStr && sane(_selfPrev)) {
+                prevMid = _selfPrev;
+            }
+
+            // ── Fallback prev close: API-sourced (TwelveData → ERAPI/OpenER) ──
+            const _prevTdKey  = 'ps_fx_prev_td_' + todayStr;
+            const _prevKey    = 'ps_fx_prev_' + todayStr;
+            const _prevTdCached = parseFloat(localStorage.getItem(_prevTdKey) || '0');
+            const _prevCached   = parseFloat(localStorage.getItem(_prevKey) || '0');
+            if (!prevMid) {
+                // Self-tracking not available yet (first day) → use API prev close
+                if (sane(_prevCached)) prevMid = _prevCached;          // ERAPI/OpenER first (closer to Dime!)
+                else if (sane(_prevTdCached)) prevMid = _prevTdCached;  // TwelveData fallback
+            }
+
+            // ── Twelve Data: primary source for current rate ───────────────
+            // Adaptive cache TTL — longer when forex market is inactive
+            // Forex closed: Fri 5pm ET (Sat 04:00 UTC) → Sun 5pm ET (Mon 00:00 UTC)
+            const _nowUtc = new Date();
+            const _utcDay = _nowUtc.getUTCDay(); // 0=Sun,1=Mon,...,6=Sat
+            const _utcHr  = _nowUtc.getUTCHours();
+            const _fxClosed = (_utcDay === 6) ||                            // all Saturday
+                              (_utcDay === 0 && _utcHr < 22) ||             // Sunday before 22:00 UTC (5pm ET)
+                              (_utcDay === 5 && _utcHr >= 22);              // Friday after 22:00 UTC (5pm ET)
+            // Max-frequency TTL — uses quota as fast as safely possible
+            // Page Visibility ensures quota only burns while user is actively watching
+            // Market open: 2 min (~195 req/6.5hr) | Off-market: 5 min (~210 req/17.5hr)
+            // Weekend: 30 min | Total worst-case: ~405 req/day = 50% of 800 limit
+            const _tdCacheTTL = _fxClosed ? 30 * 60 * 1000
+                              : isMarketOpen() ? 2 * 60 * 1000
+                              : 5 * 60 * 1000;
+            const _tdRateKey = 'ps_fx_td_rate_ts';
+            const _tdRateVal = 'ps_fx_td_rate_val';
+            const _tdRateAge = Date.now() - parseInt(localStorage.getItem(_tdRateKey) || '0', 10);
+            const _tdRateCached = parseFloat(localStorage.getItem(_tdRateVal) || '0');
+            const _tdRateHit = _tdRateAge < _tdCacheTTL && sane(_tdRateCached);
+
+            if (tdKey && !_tdRateHit) {
+                try {
+                    const r = await fetch(
+                        `https://api.twelvedata.com/quote?symbol=USD/THB&apikey=${tdKey}`,
+                        { cache: 'no-store' }
+                    );
+                    if (r.ok) {
+                        const j = await r.json();
+                        if (j.status === 'error') {
+                            console.warn('[FX] TwelveData error:', j.message);
+                        } else {
+                            const close = parseFloat(j.close);
+                            if (sane(close)) {
+                                midRate = close;
+                                src = 'TwelveData';
+                                localStorage.setItem(_tdRateKey, Date.now().toString());
+                                localStorage.setItem(_tdRateVal, close.toString());
+                            }
+                            // Store API prev_close as fallback only (self-tracking has priority)
+                            const pc = parseFloat(j.previous_close);
+                            if (sane(pc) && !sane(_prevTdCached)) {
+                                localStorage.setItem(_prevTdKey, pc.toString());
+                                console.log('[FX] TwelveData API previous_close (fallback):', pc.toFixed(4));
+                            }
+                        }
+                    } else {
+                        console.warn('[FX] TwelveData HTTP', r.status);
+                    }
+                } catch(e) { console.warn('[FX] TwelveData err:', e.message); }
+            } else if (tdKey && _tdRateHit) {
+                midRate = _tdRateCached;
+                src = 'TwelveData';
+            }
 
             // midRate: non-Finnhub sources update max once/hour → cache 60 min
             const _midKey   = 'ps_fx_mid_ts';
@@ -22608,12 +22719,14 @@ ${_clip(contextSections, 2600)}`;
 
             // ── Source 2: ERAPI — only if Finnhub failed, and use cache (1h) ──
             // Free tier: 1,500 req/month → cache aggressively, never call on every poll
-            console.log('[FX] erapiKey present:', !!erapiKey, '| midRate so far:', midRate);
-            if (erapiKey && !midRate) {
+            // Cache quota-reached for 24h to avoid hammering a dead endpoint
+            const _erapiFailKey = 'ps_fx_erapi_fail';
+            const _erapiFailAge = Date.now() - parseInt(localStorage.getItem(_erapiFailKey) || '0', 10);
+            const _erapiBlocked = _erapiFailAge < 24 * 60 * 60 * 1000;
+            if (erapiKey && !midRate && !_erapiBlocked) {
                 if (_midCacheHit && _midCachedSrc === 'ExchangeRate-API') {
                     midRate = _midCachedVal;
                     src = 'ExchangeRate-API';
-                    console.log('[FX] ERAPI mid (cached):', midRate.toFixed(4));
                 } else {
                     try {
                         const r = await fetch(
@@ -22624,20 +22737,26 @@ ${_clip(contextSections, 2600)}`;
                             const j = await r.json();
                             if (j.result === 'error') {
                                 console.warn('[FX] ERAPI error:', j['error-type']);
+                                if (j['error-type'] === 'quota-reached') {
+                                    localStorage.setItem(_erapiFailKey, Date.now().toString());
+                                    console.warn('[FX] ERAPI quota reached → blocked 24h');
+                                }
                             } else if (sane(j.conversion_rates?.THB)) {
                                 midRate = j.conversion_rates.THB;
                                 src = 'ExchangeRate-API';
                                 localStorage.setItem(_midKey, Date.now().toString());
                                 localStorage.setItem(_midVal, midRate.toString());
                                 localStorage.setItem(_midSrc, src);
-                                console.log('[FX] ERAPI mid (fresh):', midRate.toFixed(4));
                             }
+                        } else {
+                            console.warn('[FX] ERAPI HTTP', r.status);
+                            if (r.status === 429) localStorage.setItem(_erapiFailKey, Date.now().toString());
                         }
                     } catch(e) { console.warn('[FX] ERAPI err:', e.message); }
                 }
 
                 // Yesterday close — fetch once per day via ERAPI, cache in localStorage
-                if (!prevMid) {
+                if (!prevMid && !_erapiBlocked) {
                     try {
                         const d = new Date();
                         d.setDate(d.getDate() - 1);
@@ -22651,7 +22770,6 @@ ${_clip(contextSections, 2600)}`;
                             if (sane(j2.conversion_rates?.THB)) {
                                 prevMid = j2.conversion_rates.THB;
                                 localStorage.setItem(_prevKey, prevMid.toString());
-                                console.log('[FX] ERAPI yesterday mid (fresh):', prevMid.toFixed(4));
                             }
                         }
                     } catch(e) {}
@@ -22745,10 +22863,13 @@ ${_clip(contextSections, 2600)}`;
             const badge1 = document.getElementById('fx-src-badge');
             const badge2 = document.getElementById('fx-src-badge2');
             const badgeColor = src === 'Finnhub' ? '#22c55e'
+                             : src === 'TwelveData' ? '#6366f1'
                              : src === 'ExchangeRate-API' ? '#10b981' : '#94a3b8';
             const badgeBg    = src === 'Finnhub' ? 'rgba(34,197,94,0.15)'
+                             : src === 'TwelveData' ? 'rgba(99,102,241,0.15)'
                              : src === 'ExchangeRate-API' ? 'rgba(16,185,129,0.15)' : 'rgba(100,116,139,0.15)';
             const badgeLabel = src === 'Finnhub' ? 'LIVE'
+                             : src === 'TwelveData' ? '12D'
                              : src === 'ExchangeRate-API' ? 'ERAPI' : 'ECB';
             [badge1, badge2].forEach(b => {
                 if (!b) return;
@@ -22759,29 +22880,38 @@ ${_clip(contextSections, 2600)}`;
             });
 
             // ── % change vs yesterday close ────────────────────────────────────
-            // Use prevMid (from Finnhub j.pc or ERAPI yesterday) for real daily change
+            // Calculate from prevMid (TwelveData priority) + current midRate
+            // Updates every poll cycle — not dependent on cached j.percent_change
+            // Both widgets display THB/USD (same pair, different spread) → same direction
             const baseMid = prevMid ?? (fxPrevRate ? fxPrevRate / SELL_SPREAD : null);
 
-            const fmtChg = (curr, base, el) => {
-                if (!base || !sane(base)) {
-                    // No base yet — show neutral
-                    el.textContent = '▲ 0.00%';
-                    el.style.color = '#94a3b8';
-                    return;
-                }
-                const diff = curr - base;
-                const pct  = Math.abs((diff / base) * 100).toFixed(2);
-                const isUp = diff >  0.0005;
-                const isDn = diff < -0.0005;
-                el.textContent = `${isDn ? '▼' : '▲'} ${pct}%`;
+            const fmtPct = (pctVal, el) => {
+                const isDn = pctVal < -0.005;
+                el.textContent = `${isDn ? '▼' : '▲'} ${Math.abs(pctVal).toFixed(2)}%`;
                 el.style.color = isDn ? '#f43f5e' : '#22c55e';
             };
 
-            const prevSell = baseMid ? baseMid * SELL_SPREAD : null;
-            const prevBuy  = baseMid ? baseMid * BUY_SPREAD  : null;
+            if (baseMid && sane(baseMid) && midRate) {
+                const pct = ((midRate - baseMid) / baseMid) * 100;
+                const _pSrc = (_selfPrevDt === todayStr && sane(_selfPrev)) ? 'self-track'
+                            : sane(_prevCached) ? 'ERAPI/OpenER'
+                            : sane(_prevTdCached) ? 'TwelveData-API' : 'fallback(fxPrevRate)';
+                console.log('[FX] midRate:', midRate.toFixed(4), '| prevClose:', baseMid.toFixed(4), '| pct:', pct.toFixed(4) + '%', '| prevSrc:', _pSrc);
+                fmtPct(pct, changeEl);
+                fmtPct(pct, changeInvEl);
+            } else {
+                // No prev close yet — neutral display
+                changeEl.textContent = '▲ 0.00%';
+                changeEl.style.color = '#94a3b8';
+                changeInvEl.textContent = '▲ 0.00%';
+                changeInvEl.style.color = '#94a3b8';
+            }
 
-            fmtChg(sellRate, prevSell, changeEl);
-            fmtChg(buyRate,  prevBuy,  changeInvEl);
+            // ── Update self-tracking: save latest midRate for day-roll prev close ──
+            if (midRate && sane(midRate)) {
+                localStorage.setItem(_selfMidKey, midRate.toString());
+                localStorage.setItem(_selfDateKey, todayStr);
+            }
 
             fxPrevRate    = sellRate;
             fxPrevRateInv = buyRate;
@@ -23137,22 +23267,51 @@ ${_clip(contextSections, 2600)}`;
         }
 
         // ── Avatar ────────────────────────────────────────────────────────────
+        function _applyCssCrop(img, cropKey) {
+            // Apply CSS-based crop using object-fit + object-position
+            // cropRect: { x, y, w, h } as percentages (0–1) of original image
+            const raw = localStorage.getItem(cropKey);
+            if (!raw) { img.style.objectFit = 'cover'; img.style.objectPosition = 'center'; return; }
+            try {
+                const c = JSON.parse(raw);
+                // Scale image so the crop area fills the container
+                // objectFit 'none' at scaled size + objectPosition to offset
+                const scaleX = 1 / c.w;  // e.g. crop=60% of width → scale 1.67x
+                const scaleY = 1 / c.h;
+                const scale = Math.max(scaleX, scaleY);
+                // Position: center of crop rect as percentage
+                const posX = (c.x + c.w / 2) * 100;
+                const posY = (c.y + c.h / 2) * 100;
+                img.style.objectFit = 'cover';
+                img.style.objectPosition = posX.toFixed(1) + '% ' + posY.toFixed(1) + '%';
+            } catch(e) {
+                img.style.objectFit = 'cover';
+                img.style.objectPosition = 'center';
+            }
+        }
+
         function setAvatarImage(src) {
             // Remove preload <style> that uses CSS content:url() — it overrides img.src
             const preload = document.getElementById('avatar-preload');
             if (preload) preload.remove();
             const navImg = document.getElementById('avatarImg');
             const navPh  = document.getElementById('avatarPlaceholder');
-            if (navImg) { navImg.src = src; navImg.style.display = 'block'; }
-            if (navPh)  navPh.style.display = 'none';
+            if (navImg) {
+                navImg.src = src; navImg.style.display = 'block';
+                _applyCssCrop(navImg, 'ps_avatar_crop');
+            }
+            if (navPh) navPh.style.display = 'none';
         }
 
         function setProfilePhoto(src) {
             // Profile card photo only — independent from nav avatar
             const cardImg = document.getElementById('profilePhotoImg');
             const cardPh  = document.getElementById('profilePhotoPlaceholder');
-            if (cardImg) { cardImg.src = src; cardImg.style.display = 'block'; }
-            if (cardPh)  cardPh.style.display = 'none';
+            if (cardImg) {
+                cardImg.src = src; cardImg.style.display = 'block';
+                _applyCssCrop(cardImg, 'ps_profile_photo_crop');
+            }
+            if (cardPh) cardPh.style.display = 'none';
         }
 
         // ── Profile Card ──────────────────────────────────────────────────────
@@ -23285,7 +23444,10 @@ ${_clip(contextSections, 2600)}`;
             _crop.target = 'profile';
             _crop.RATIO  = 3/4;
             const reader = new FileReader();
-            reader.onload = (ev) => { openCropModal(ev.target.result); };
+            reader.onload = (ev) => {
+                _crop._originalDataURL = ev.target.result; // keep raw file bytes
+                openCropModal(ev.target.result);
+            };
             reader.readAsDataURL(file);
         }
 
@@ -23472,37 +23634,81 @@ ${_clip(contextSections, 2600)}`;
             const srcH = _crop.frameH / _crop.scale;
             const srcX = (_crop.frameX - _crop.offsetX) / _crop.scale;
             const srcY = (_crop.frameY - _crop.offsetY) / _crop.scale;
-
-            // Output resolution by target:
-            //   avatar  → 600×600 square (nav circle, ~200KB)
-            //   profile → 900×1200 3:4   (profile card,  ~500KB)
             const isAvatar = _crop.target === 'avatar';
-            const OUT_W = isAvatar ? 600 : 900;
-            const OUT_H = isAvatar ? 600 : 1200;
 
+            // ── Store original file bytes + crop rect (no Canvas re-encode) ──
+            // This preserves ICC color profile, full color depth, and original compression
+            const origW = _crop.img.naturalWidth;
+            const origH = _crop.img.naturalHeight;
+            const cropRect = {
+                x: srcX / origW,   // percentages (0–1)
+                y: srcY / origH,
+                w: srcW / origW,
+                h: srcH / origH
+            };
+
+            // Progressive downsampling: shrink by 0.7× per step until near target
+            // Finer steps = better anti-aliasing at each pass vs single large-ratio jump
+            // Target: ~2× display resolution — closer to actual display size = less browser downscaling
+            const TARGET_W = isAvatar ? 600 : 800;
+            const TARGET_H = isAvatar ? 600 : (800 / (srcW / srcH));
+
+            // Step 1: extract the crop at native resolution
+            let curW = Math.round(srcW), curH = Math.round(srcH);
+            let cur = document.createElement('canvas');
+            cur.width = curW; cur.height = curH;
+            const initCtx = cur.getContext('2d');
+            initCtx.imageSmoothingEnabled = false;
+            initCtx.drawImage(_crop.img, srcX, srcY, srcW, srcH, 0, 0, curW, curH);
+
+            // Step 2: progressive shrink at 0.7× per step until within 1.4× of target
+            while (curW > TARGET_W * 1.4 && curH > TARGET_H * 1.4) {
+                const nextW = Math.round(curW * 0.7);
+                const nextH = Math.round(curH * 0.7);
+                const next = document.createElement('canvas');
+                next.width = nextW; next.height = nextH;
+                const ctx = next.getContext('2d');
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+                ctx.drawImage(cur, 0, 0, nextW, nextH);
+                cur = next; curW = nextW; curH = nextH;
+            }
+
+            // Step 3: final resize to exact target (from already near-target intermediate)
+            const OUT_W = Math.round(TARGET_W);
+            const OUT_H = Math.round(TARGET_W / (srcW / srcH));
             const out = document.createElement('canvas');
             out.width = OUT_W; out.height = OUT_H;
-            const ctx = out.getContext('2d');
-            ctx.imageSmoothingEnabled = true;
-            ctx.imageSmoothingQuality = 'high';
-            ctx.drawImage(_crop.img, srcX, srcY, srcW, srcH, 0, 0, OUT_W, OUT_H);
-            const result = out.toDataURL('image/jpeg', 0.95);
+            const finalCtx = out.getContext('2d');
+            finalCtx.imageSmoothingEnabled = true;
+            finalCtx.imageSmoothingQuality = 'high';
+            finalCtx.drawImage(cur, 0, 0, OUT_W, OUT_H);
+
+            // JPEG at high quality — best for photographs (smooth gradients, skin tones)
+            const result = out.toDataURL('image/jpeg', 0.96);
+            console.log('[IMG] progressive downsample', Math.round(srcW) + '×' + Math.round(srcH),
+                        '→', OUT_W + '×' + OUT_H,
+                        'size:', Math.round(result.length * 0.75 / 1024) + 'KB');
+            const cropJSON = JSON.stringify(cropRect);
 
             if (isAvatar) {
                 db.avatar = result;
                 try {
                     localStorage.setItem('ps_avatar', result);
                     localStorage.setItem('ps_avatar_ts', String(Date.now()));
-                } catch(err) {}
+                    localStorage.setItem('ps_avatar_crop', cropJSON);
+                } catch(err) { console.warn('[IMG] avatar save error:', err.message); }
                 setAvatarImage(result);
             } else {
                 db.profilePhoto = result;
                 try {
                     localStorage.setItem('ps_profile_photo', result);
                     localStorage.setItem('ps_profile_photo_ts', String(Date.now()));
-                } catch(err) {}
+                    localStorage.setItem('ps_profile_photo_crop', cropJSON);
+                } catch(err) { console.warn('[IMG] profile photo save error:', err.message); }
                 setProfilePhoto(result);
             }
+            _crop._originalDataURL = null; // free memory
             closeCropModal();
             // Push to Gist immediately — don't defer, photo must be saved before user navigates away
             if (getGistToken()) {
@@ -23591,14 +23797,45 @@ ${_clip(contextSections, 2600)}`;
         function rteCompressAndInsert(src) {
             const tmpImg = new Image();
             tmpImg.onload = function() {
-                const maxW = 800;
-                const scale = tmpImg.width > maxW ? maxW / tmpImg.width : 1;
-                const w = Math.round(tmpImg.width * scale);
-                const h = Math.round(tmpImg.height * scale);
-                const canvas = document.createElement('canvas');
-                canvas.width = w; canvas.height = h;
-                canvas.getContext('2d').drawImage(tmpImg, 0, 0, w, h);
-                rteAddFreeImage(canvas.toDataURL('image/jpeg', 0.72), null, null, null, null, true);
+                const TARGET_W = 800;
+                const TARGET_H = 800 / (tmpImg.width / tmpImg.height);
+
+                // Step 1: start at native resolution
+                let curW = tmpImg.width, curH = tmpImg.height;
+                let cur = document.createElement('canvas');
+                cur.width = curW; cur.height = curH;
+                cur.getContext('2d').drawImage(tmpImg, 0, 0, curW, curH);
+
+                // Step 2: progressive 0.7× until within 1.4× of target
+                while (curW > TARGET_W * 1.4 && curH > TARGET_H * 1.4) {
+                    const nextW = Math.round(curW * 0.7);
+                    const nextH = Math.round(curH * 0.7);
+                    const next = document.createElement('canvas');
+                    next.width = nextW; next.height = nextH;
+                    const ctx = next.getContext('2d');
+                    ctx.imageSmoothingEnabled = true;
+                    ctx.imageSmoothingQuality = 'high';
+                    ctx.drawImage(cur, 0, 0, nextW, nextH);
+                    cur = next; curW = nextW; curH = nextH;
+                }
+
+                // Step 3: final resize to target (only if larger)
+                let result;
+                if (curW > TARGET_W) {
+                    const OUT_W = Math.round(TARGET_W);
+                    const OUT_H = Math.round(TARGET_H);
+                    const out = document.createElement('canvas');
+                    out.width = OUT_W; out.height = OUT_H;
+                    const ctx = out.getContext('2d');
+                    ctx.imageSmoothingEnabled = true;
+                    ctx.imageSmoothingQuality = 'high';
+                    ctx.drawImage(cur, 0, 0, OUT_W, OUT_H);
+                    result = out.toDataURL('image/jpeg', 0.96);
+                } else {
+                    // Already small enough — encode as-is
+                    result = cur.toDataURL('image/jpeg', 0.96);
+                }
+                rteAddFreeImage(result, null, null, null, null, true);
             };
             tmpImg.src = src;
         }
@@ -24097,7 +24334,10 @@ ${_clip(contextSections, 2600)}`;
             _crop.target = 'avatar';
             _crop.RATIO  = 1/1;   // 1:1 square for circular nav avatar
             const reader = new FileReader();
-            reader.onload = (ev) => { openCropModal(ev.target.result); };
+            reader.onload = (ev) => {
+                _crop._originalDataURL = ev.target.result;
+                openCropModal(ev.target.result);
+            };
             reader.readAsDataURL(file);
         }
 
@@ -24328,6 +24568,14 @@ ${_clip(contextSections, 2600)}`;
                         if (pc.pinnedWl)    { try { localStorage.setItem('ps_pinned_wl', pc.pinnedWl); } catch(e) {} }
                         _loadProfileCard();
                     }
+                    // FX self-tracking: restore prev close data for cross-device continuity
+                    if (data.fxSelfTrack) {
+                        const fx = data.fxSelfTrack;
+                        if (fx.mid)    localStorage.setItem('ps_fx_self_mid', fx.mid);
+                        if (fx.date)   localStorage.setItem('ps_fx_self_date', fx.date);
+                        if (fx.prev)   localStorage.setItem('ps_fx_self_prev', fx.prev);
+                        if (fx.prevDt) localStorage.setItem('ps_fx_self_prev_dt', fx.prevDt);
+                    }
                     // chartPrefs: column picker state + chart settings — always restore from Gist
                     // (UI preference, not trading data — Gist is source of truth across devices)
                     if (data.chartPrefs) {
@@ -24551,6 +24799,23 @@ ${_clip(contextSections, 2600)}`;
         }
 
         // ── Import / Export JSON ──────────────────────────────────────────────
+        function _toggleJsonDropdown() {
+            const dd = document.getElementById('json-dropdown');
+            if (!dd) return;
+            dd.classList.toggle('hidden');
+            if (!dd.classList.contains('hidden')) {
+                setTimeout(() => document.addEventListener('click', _closeJsonDropdownOnClickOutside, { once: true }), 0);
+            }
+        }
+        function _closeJsonDropdown() {
+            const dd = document.getElementById('json-dropdown');
+            if (dd) dd.classList.add('hidden');
+        }
+        function _closeJsonDropdownOnClickOutside(e) {
+            const dd = document.getElementById('json-dropdown');
+            if (dd && !dd.parentElement.contains(e.target)) _closeJsonDropdown();
+        }
+
         function exportJSON() {
             // Collect all localStorage keys that belong to this app
             const lsKeys = [
@@ -24560,7 +24825,10 @@ ${_clip(contextSections, 2600)}`;
                 'ps_dbname', 'ps_dark', 'ps_month',
                 'ps_profile_label_1', 'ps_profile_label_2', 'ps_profile_label_3',
                 'ps_profile_notes', 'ps_profile_notes_html',
-                'ps_profile_free_imgs', 'ps_profile_pills_hidden'
+                'ps_profile_free_imgs', 'ps_profile_pills_hidden',
+                // FX self-tracking (previous close data)
+                'ps_fx_self_mid', 'ps_fx_self_date',
+                'ps_fx_self_prev', 'ps_fx_self_prev_dt'
             ];
             const settings = {};
             lsKeys.forEach(k => {
@@ -24590,7 +24858,9 @@ ${_clip(contextSections, 2600)}`;
             const url  = URL.createObjectURL(blob);
             const a    = document.createElement('a');
             a.href     = url;
-            a.download = `ps-finance-${new Date().toISOString().slice(0, 10)}.json`;
+            const _d = new Date();
+            const _ds = _d.getFullYear() + '-' + String(_d.getMonth()+1).padStart(2,'0') + '-' + String(_d.getDate()).padStart(2,'0');
+            a.download = `PSLink-${_ds}.json`;
             a.click();
             URL.revokeObjectURL(url);
         }
@@ -24711,10 +24981,11 @@ ${_clip(contextSections, 2600)}`;
         }
 
         // ── Settings Modal ────────────────────────────────────────────────────
-        function getFinnhubKey()   { return localStorage.getItem('ps_finnhub_key')    || ''; }
-        function getErapiKey()     { return localStorage.getItem('ps_erapi_key')      || ''; }
-        function getAlpacaKey()    { return localStorage.getItem('ps_alpaca_key')     || ''; }
-        function getAlpacaSecret() { return localStorage.getItem('ps_alpaca_secret')  || ''; }
+        function getFinnhubKey()     { return localStorage.getItem('ps_finnhub_key')      || ''; }
+        function getErapiKey()       { return localStorage.getItem('ps_erapi_key')        || ''; }
+        function getTwelveDataKey()  { return localStorage.getItem('ps_twelvedata_key')   || ''; }
+        function getAlpacaKey()      { return localStorage.getItem('ps_alpaca_key')       || ''; }
+        function getAlpacaSecret()   { return localStorage.getItem('ps_alpaca_secret')    || ''; }
 
 
         function switchSettingsTab(tab) {
@@ -24763,6 +25034,7 @@ ${_clip(contextSections, 2600)}`;
             fill('s-finnhub-input',       'ps_finnhub_key');
             fill('s-fmp-key-input',       'ps_fmp_key');
             fill('s-erapi-input',         'ps_erapi_key');
+            fill('s-twelvedata-input',    'ps_twelvedata_key');
             fill('s-alpaca-key-input',    'ps_alpaca_key');
             fill('s-alpaca-secret-input', 'ps_alpaca_secret');
             fill('s-openrouter-input',    'ps_openrouter_key');
@@ -24786,6 +25058,7 @@ ${_clip(contextSections, 2600)}`;
             };
             badge('s-finnhub-badge',    'ps_finnhub_key');
             badge('s-erapi-badge',      'ps_erapi_key');
+            badge('s-twelvedata-badge', 'ps_twelvedata_key');
             badge('s-fmp-badge',        'ps_fmp_key');
             badge('s-alpaca-badge',     'ps_alpaca_key');
             badge('s-openrouter-badge', 'ps_openrouter_key');
@@ -24802,6 +25075,7 @@ ${_clip(contextSections, 2600)}`;
             };
             save('s-finnhub-input',       'ps_finnhub_key');
             save('s-erapi-input',         'ps_erapi_key');
+            save('s-twelvedata-input',    'ps_twelvedata_key');
             save('s-fmp-key-input',       'ps_fmp_key');
             save('s-alpaca-key-input',    'ps_alpaca_key');
             save('s-alpaca-secret-input', 'ps_alpaca_secret');
@@ -24816,8 +25090,8 @@ ${_clip(contextSections, 2600)}`;
 
         function clearAllSettings() {
             if (!confirm('ล้าง API keys ทั้งหมดใช่ไหม?')) return;
-            ['ps_finnhub_key','ps_fmp_key','ps_erapi_key','ps_alpaca_key','ps_alpaca_secret','ps_openrouter_key','ps_gist_token'].forEach(k => localStorage.removeItem(k));
-            ['s-finnhub-input','s-erapi-input','s-alpaca-key-input','s-alpaca-secret-input','s-openrouter-input','s-gist-input'].forEach(id => {
+            ['ps_finnhub_key','ps_fmp_key','ps_erapi_key','ps_twelvedata_key','ps_alpaca_key','ps_alpaca_secret','ps_openrouter_key','ps_gist_token'].forEach(k => localStorage.removeItem(k));
+            ['s-finnhub-input','s-erapi-input','s-twelvedata-input','s-alpaca-key-input','s-alpaca-secret-input','s-openrouter-input','s-gist-input'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.value = '';
             });
@@ -25208,25 +25482,22 @@ ${_clip(contextSections, 2600)}`;
             }
             _scheduleMktPoll(); // kick off
 
-            // FX rate: refresh every 30s (API updates ~every 60s, 30s keeps it feeling live)
+            // FX rate poll — pauses when tab/window not visible (Page Visibility API)
+            // Single-user: adaptive TTL handles freshness, no need to poll while away
             setInterval(() => {
+                if (document.hidden) return;                                    // tab not visible → skip
                 const wlVisible = !document.getElementById('tab-watchlist').classList.contains('hidden');
                 if (!wlVisible) return;
-                // Poll fast during market hours (Finnhub OANDA ~15s), slow otherwise
                 fetchFxRate();
-            }, isMarketOpen() ? 15000 : 60000);
+            }, 15000); // 15s tick — actual fetch controlled by adaptive TTL cache
 
-            // Re-register fast interval when market opens
-            let _fxIntervalFast = false;
-            setInterval(() => {
-                const wlVisible = !document.getElementById('tab-watchlist').classList.contains('hidden');
-                if (!wlVisible) return;
-                const shouldBeFast = isMarketOpen();
-                if (shouldBeFast !== _fxIntervalFast) {
-                    _fxIntervalFast = shouldBeFast;
-                    fetchFxRate(); // trigger immediately on market open/close
+            // Fetch immediately when user returns to tab
+            document.addEventListener('visibilitychange', () => {
+                if (!document.hidden) {
+                    const wlVisible = !document.getElementById('tab-watchlist').classList.contains('hidden');
+                    if (wlVisible) fetchFxRate();
                 }
-            }, 30000);
+            });
 
             // Fallback polling every 1 min — only when WebSocket is NOT connected and market is open
             setInterval(() => {
@@ -25322,7 +25593,7 @@ ${_clip(contextSections, 2600)}`;
         function _buildExportData() {
             // ── Collect API keys (base64-encoded) for cross-device restore ──
             const _apiKeys = {};
-            ['ps_finnhub_key','ps_fmp_key','ps_erapi_key',
+            ['ps_finnhub_key','ps_fmp_key','ps_erapi_key','ps_twelvedata_key',
              'ps_alpaca_key','ps_alpaca_secret','ps_openrouter_key'].forEach(k => {
                 const v = localStorage.getItem(k);
                 if (v) _apiKeys[k] = _encKey(v);
@@ -25344,6 +25615,12 @@ ${_clip(contextSections, 2600)}`;
                     pinnedWl:    localStorage.getItem('ps_pinned_wl') || '[]',
                 },
                 apiKeys: _apiKeys,
+                fxSelfTrack: {
+                    mid:    localStorage.getItem('ps_fx_self_mid') || '',
+                    date:   localStorage.getItem('ps_fx_self_date') || '',
+                    prev:   localStorage.getItem('ps_fx_self_prev') || '',
+                    prevDt: localStorage.getItem('ps_fx_self_prev_dt') || '',
+                },
             };
         }
 
@@ -26314,6 +26591,21 @@ ${_clip(contextSections, 2600)}`;
                         <button onclick="toggleVisibility('s-erapi-input')" class="px-2.5 rounded-lg text-[10px]" style="background:var(--bg-main);border:1px solid var(--border);color:var(--text-dim)">👁</button>
                     </div>
                     <p class="text-[9px] mt-1.5" style="color:var(--text-dim)">สมัครฟรีที่ <a href="https://app.exchangerate-api.com" target="_blank" class="underline" style="color:#1a73e8">app.exchangerate-api.com</a> · 1,500 req/month</p>
+                </div>
+                <!-- Twelve Data -->
+                <div class="rounded-lg p-3.5" style="background:var(--bg-card2);border:1px solid var(--border)">
+                    <div class="flex items-center justify-between mb-2.5">
+                        <div class="flex items-center gap-2">
+                            <div class="w-6 h-6 rounded-md flex items-center justify-center" style="background:#6366f1"><span class="text-white text-[9px] font-black">12</span></div>
+                            <div><p class="text-xs font-bold" style="color:var(--text-primary)">Twelve Data</p><p class="text-[10px]" style="color:var(--text-dim)">FX Previous Close (% change แม่นยำ)</p></div>
+                        </div>
+                        <span id="s-twelvedata-badge" class="text-[9px] font-bold px-2 py-0.5 rounded-full"></span>
+                    </div>
+                    <div class="flex gap-2">
+                        <input id="s-twelvedata-input" type="password" autocomplete="off" placeholder="xxxxxxxxxxxxxxxxxxxxxxxx" class="flex-1 text-xs px-3 py-2 rounded-lg outline-none" style="background:var(--bg-main);border:1px solid var(--border);color:var(--text-primary);font-family:var(--font-mono)" onkeydown="if(event.key==='Enter')saveAllSettings()">
+                        <button onclick="toggleVisibility('s-twelvedata-input')" class="px-2.5 rounded-lg text-[10px]" style="background:var(--bg-main);border:1px solid var(--border);color:var(--text-dim)">👁</button>
+                    </div>
+                    <p class="text-[9px] mt-1.5" style="color:var(--text-dim)">สมัครฟรีที่ <a href="https://twelvedata.com" target="_blank" class="underline" style="color:#6366f1">twelvedata.com</a> · 800 req/day</p>
                 </div>
                 <!-- OpenRouter -->
                 <div class="rounded-lg p-3.5" style="background:var(--bg-card2);border:1px solid var(--border)">
