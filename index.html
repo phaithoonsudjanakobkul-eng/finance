@@ -1878,8 +1878,9 @@
         /* Desktop: lock grid row height so WL Alerts card cannot stretch beyond profile card */
         #dash-row1 { grid-template-rows: calc(256px + 80px); }
         #profile-wl-console { overflow: hidden; }
-        /* PINNED grid columns — CSS custom property so media queries can override inline style */
-        #wl-pinned-list { --pinned-gcols: 68px 60px 50px 38px 68px 48px 44px; }
+        /* PINNED grid columns — minmax() adapts from 1280px up to 1440p 125%DPI (~2048px CSS) with no media query */
+        /* min = current×0.9 (no overflow even at 1280px), max = fills ~614px panel at 125% 1440p DPI */
+        #wl-pinned-list { --pinned-gcols: minmax(61px,105px) minmax(54px,93px) minmax(45px,78px) minmax(34px,59px) minmax(61px,105px) minmax(43px,74px) minmax(40px,69px); }
 
         @media (max-width: 768px) {
             /* Tablet: Row 1 = 2 columns side-by-side */
@@ -5441,6 +5442,13 @@
                         if (rr.ok) content = await rr.text();
                     }
                     const data = JSON.parse(content);
+
+                    // Immediately restore records/watchlist into memory from already-fetched Gist data
+                    // (belt-and-suspenders: syncFromGist below also does this, but if it silently fails
+                    //  records would stay empty and updateDashboard would show a blank page)
+                    if (Array.isArray(data.records))   records   = data.records;
+                    if (Array.isArray(data.watchlist)) watchlist = data.watchlist;
+                    if (Array.isArray(data.signalLog)) signalLog = data.signalLog;
 
                     // Force-restore ALL API keys (overwrite)
                     let keysRestored = 0;
@@ -12124,8 +12132,11 @@
                 const emptyEl = document.getElementById('empty-state');
                 const contentEl = document.getElementById('dash-content');
                 if (localStorage.getItem('ps_wizard_done') === '1') {
+                    // Wizard done but no records yet — show dash-content (not blank) so profile card
+                    // and empty chart placeholders are visible instead of a white page.
+                    // Do NOT force showTab('edit') — would override the user's saved tab on every startup.
                     if (emptyEl) emptyEl.classList.add('hidden');
-                    // Do NOT force showTab('edit') here — would override the user's saved tab on every startup
+                    if (contentEl) contentEl.classList.remove('hidden');
                     return;
                 }
                 if (emptyEl) emptyEl.classList.remove('hidden');
