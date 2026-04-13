@@ -16138,25 +16138,39 @@
         }
 
         // ── updatePreMktCell: write price+pct directly into PRE-MKT column ───────
+        // DOM structure created once, then updated via textContent (no innerHTML per tick)
         function updatePreMktCell(sym, extPrice, extPct, isAH) {
-            const row = document.getElementById('wl-row-' + sym);
-            if (!row) return;
-            const cells = row.querySelectorAll('td');
-            // Table indexes after LOW ALERT column insert:
-            // 9 = CHG%, 10 = PRE-MKT
-            if (!cells[10]) return;
+            const d = wlDataCache[sym];
+            // Cache cell + sub-elements on first call per symbol
+            if (!d) return;
+            if (!d._pmCell || !d._pmCell.isConnected) {
+                const row = document.getElementById('wl-row-' + sym);
+                if (!row) return;
+                const cells = row.querySelectorAll('td');
+                if (!cells[10]) return;
+                d._pmCell = cells[10];
+                // Create structure once — subsequent calls only update text/color
+                d._pmCell.innerHTML =
+                    '<div style="text-align:right;line-height:1.4">'
+                  + '<span class="pm-pct" style="display:block;font-size:10px;font-weight:700;font-variant-numeric:tabular-nums"></span>'
+                  + '<span style="display:block;font-size:9px;color:var(--text-dim);font-variant-numeric:tabular-nums">'
+                  + '<span class="pm-price"></span>'
+                  + '<span class="pm-label" style="font-size:7px;margin-left:2px;opacity:0.6"></span></span>'
+                  + '</div>';
+                d._pmPctEl   = d._pmCell.querySelector('.pm-pct');
+                d._pmPriceEl = d._pmCell.querySelector('.pm-price');
+                d._pmLabelEl = d._pmCell.querySelector('.pm-label');
+            }
             const isUp  = extPct >= 0;
             const color = isUp ? 'var(--wl-up)' : 'var(--wl-dn)';
-            const sign  = isUp ? '+' : '';
-            const label = isAH ? 'AH' : 'PM';
-            cells[10].innerHTML =
-                '<div style="text-align:right;line-height:1.4">'
-              + '<span style="display:block;font-size:10px;font-weight:700;color:' + color + ';font-variant-numeric:tabular-nums">'
-              + sign + extPct.toFixed(2) + '%</span>'
-              + '<span style="display:block;font-size:9px;color:var(--text-dim);font-variant-numeric:tabular-nums">'
-              + '$' + extPrice.toFixed(2)
-              + '<span style="font-size:7px;margin-left:2px;opacity:0.6">' + label + '</span></span>'
-              + '</div>';
+            const pctTxt   = (isUp ? '+' : '') + _fmt2(extPct) + '%';
+            const priceTxt = '$' + _fmt2(extPrice);
+            const label    = isAH ? 'AH' : 'PM';
+            // Fast path: textContent + style.color only (no innerHTML, no DOM destroy/create)
+            if (d._pmPctEl.textContent   !== pctTxt)   d._pmPctEl.textContent = pctTxt;
+            if (d._pmPctEl.style.color   !== color)    d._pmPctEl.style.color = color;
+            if (d._pmPriceEl.textContent !== priceTxt)  d._pmPriceEl.textContent = priceTxt;
+            if (d._pmLabelEl.textContent !== label)     d._pmLabelEl.textContent = label;
         }
 
         // ── Extended Hours via Alpaca snapshot ──────────────────────────────────
@@ -16186,53 +16200,41 @@
                 if (!data) return;
                 let updated = 0;
 
+                // Session detection — compute once outside loop (same for all symbols)
+                const _snapNow = new Date();
+                const _snapUtcMin = _snapNow.getUTCHours() * 60 + _snapNow.getUTCMinutes();
+                const _snapDst = isUSDST(_snapNow);
+                const _snapEtMin = _snapUtcMin - (_snapDst ? 240 : 300);
+                const _snapEtH = ((_snapEtMin % 1440) + 1440) % 1440;
+                const _snapIsPM  = _snapEtH >= 240 && _snapEtH < 570;
+                const _snapIsReg = _snapEtH >= 570 && _snapEtH < 960;
+                const _snapIsAH  = _snapEtH >= 960 && _snapEtH < 1200;
+
                 watchlist.forEach(sym => {
                     const sn = data[sym]; if (!sn) return;
 
-                    // pc = previous close สำหรับคำนวณ extended hours %
-                    // Priority: dailyBar.c (extended-session close — same convention as Webull Prev Close)
-                    //         → wlDataCache[sym].pc (Finnhub regular-session close — fallback)
-                    //         → prevDailyBar.c (previous daily bar — last resort)
                     const pc = sn.dailyBar?.c || wlDataCache[sym]?.pc || sn.prevDailyBar?.c || null;
                     const preP = sn.latestTrade?.p ?? sn.minuteBar?.c ?? null;
-                    // Store Alpaca daily bar data for accurate session change (regardless of session)
+                    // Store Alpaca daily bar data — mutate in place (no Object.assign copy)
                     const _dailyC     = sn.dailyBar?.c     || null;
                     const _prevDailyC = sn.prevDailyBar?.c || null;
                     if (wlDataCache[sym] && (_dailyC || _prevDailyC)) {
-                        wlDataCache[sym] = Object.assign({}, wlDataCache[sym], {
-                            _dailyC:     _dailyC     ?? wlDataCache[sym]._dailyC,
-                            _prevDailyC: _prevDailyC ?? wlDataCache[sym]._prevDailyC,
-                        });
+                        if (_dailyC)     wlDataCache[sym]._dailyC     = _dailyC;
+                        if (_prevDailyC) wlDataCache[sym]._prevDailyC = _prevDailyC;
                     }
                     if (!preP || !pc) return;
 
-                    // Session detection by ET time (accurate)
-                    const utcMin = new Date().getUTCHours() * 60 + new Date().getUTCMinutes();
-                    const dst    = isUSDST(new Date());
-                    const etMin  = utcMin - (dst ? 4*60 : 5*60); // convert UTC → ET
-                    const etH    = ((etMin % (24*60)) + 24*60) % (24*60); // normalize
-
-                    // ET sessions:
-                    // Pre-market:  04:00–09:30 (240–570 min)
-                    // Regular:     09:30–16:00 (570–960 min)
-                    // After-hours: 16:00–20:00 (960–1200 min)
-                    const isPM = etH >= 240 && etH < 570;
-                    const isReg = etH >= 570 && etH < 960;
-                    const isAH  = etH >= 960 && etH < 1200;
-
                     const existing = wlDataCache[sym] || {};
 
-                    if (isPM) {
+                    if (_snapIsPM) {
                         // Pre-market: use latestTrade as PM price, calculate vs prev close
                         const pct = (preP - pc) / pc * 100;
                         if (Math.abs(pct) > 50) return; // sanity check
-                        wlDataCache[sym] = Object.assign({}, existing, {
-                            preMarketPrice: preP, preMarketChangePct: pct,
-                            afterHoursPrice: null, afterHoursChangePct: null
-                        });
+                        existing.preMarketPrice = preP; existing.preMarketChangePct = pct;
+                        existing.afterHoursPrice = null; existing.afterHoursChangePct = null;
                         updatePreMktCell(sym, preP, pct, false);
                         updated++;
-                    } else if (isReg) {
+                    } else if (_snapIsReg) {
                         // Regular hours: update OHLC + P.CLS from snapshot for accurate daily stats
                         // prevDailyBar.c = extended close of previous session (matches Webull P.CLS convention)
                         const prevClose = sn.prevDailyBar?.c || null;
@@ -16252,7 +16254,7 @@
                             if (sessionO) updates.o = sessionO;
                             if (sessionH) updates.h = sessionH;
                             if (sessionL) updates.l = sessionL;
-                            wlDataCache[sym] = Object.assign({}, existing, updates);
+                            Object.assign(existing, updates); // mutate in place — no copy
                             updateWatchlistPriceCells(sym, wlDataCache[sym]);
                             updated++;
                         }
@@ -16263,17 +16265,15 @@
                             updatePreMktCell(sym, frozenP, frozenPct, false);
                         }
                         // No PM data → leave PRE-MKT cell as-is
-                    } else if (isAH) {
+                    } else if (_snapIsAH) {
                         // After-hours: use latestTrade as AH price vs today's close (dailyBar.c)
                         // Must use dailyBar.c (regular session close), NOT prevDailyBar.c
                         const ahClose = sn.dailyBar?.c || null;
                         if (!ahClose) return; // no regular session close = can't calculate AH %
                         const pct = (preP - ahClose) / ahClose * 100;
                         if (Math.abs(pct) > 50) return;
-                        wlDataCache[sym] = Object.assign({}, existing, {
-                            afterHoursPrice: preP, afterHoursChangePct: pct,
-                            preMarketPrice: null, preMarketChangePct: null
-                        });
+                        existing.afterHoursPrice = preP; existing.afterHoursChangePct = pct;
+                        existing.preMarketPrice = null; existing.preMarketChangePct = null;
                         updatePreMktCell(sym, preP, pct, true);
                         updated++;
                     }
