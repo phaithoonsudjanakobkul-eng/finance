@@ -5376,6 +5376,12 @@
                             <svg class="w-3.5 h-3.5" style="color:var(--text-dim);flex-shrink:0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
                             Import JSON
                         </button>
+                        <div style="height:1px;background:var(--border);margin:2px 0"></div>
+                        <button onclick="document.getElementById('fileInputRecords').click();_closeJsonDropdown()" class="flex items-center gap-2 w-full text-left px-3 py-2 rounded-md transition-all" style="font-size:11px;font-weight:600;color:var(--text-primary);background:none;border:none;cursor:pointer;font-family:var(--font-main)"
+                            onmouseover="this.style.background='color-mix(in srgb,var(--accent) 12%,transparent)'" onmouseout="this.style.background='none'">
+                            <svg class="w-3.5 h-3.5" style="color:#22c55e;flex-shrink:0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                            Import Records
+                        </button>
                     </div>
                 </div>
                 <!-- Divider -->
@@ -5388,7 +5394,7 @@
                     </button>
                     <button onclick="syncToGist()" class="tab-active px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all uppercase tracking-wider flex items-center gap-1" style="font-family:var(--font-main)">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
-                        Upload
+                        Save
                     </button>
                 </div>
                 <!-- Divider -->
@@ -6929,6 +6935,7 @@
     </div>
 
     <input type="file" id="fileInput" class="hidden" accept=".json" onchange="importJSON(event)">
+    <input type="file" id="fileInputRecords" class="hidden" accept=".json" onchange="importRecordsOnly(event)">
 
     <script>
         let records = [];
@@ -12658,6 +12665,9 @@
                 if (unlockBtn && _unlockedMonths.has(id)) {
                     unlockBtn.innerHTML = '🔒 RE-LOCK';
                     unlockBtn.onclick = () => { _unlockedMonths.delete(id); checkSafetyLock(id); };
+                } else if (unlockBtn) {
+                    unlockBtn.innerHTML = '🔓 <span class="toolbar-btn-label">Unlock Edit</span>';
+                    unlockBtn.onclick = requestUnlockMonth;
                 }
             }
 
@@ -13210,6 +13220,7 @@
                     out[sym] = {
                         prices: e.prices.slice(-180),
                         ts: e.ts || now,
+                        fetchTs: e.fetchTs || null,
                         src: e.src || 'cache',
                         base: (e.base != null ? e.base : null),
                         open: (e.open != null ? e.open : null),
@@ -13227,6 +13238,7 @@
                 out[sym] = {
                     prices: e.prices.slice(-180),
                     ts: e.ts || now,
+                    fetchTs: e.fetchTs || null,
                     src: e.src || 'cache',
                     base: (e.base != null ? e.base : null),
                     open: (e.open != null ? e.open : null),
@@ -13249,6 +13261,7 @@
                 cleaned[sym] = {
                     prices: e.prices.slice(-180),
                     ts: e.ts || now,
+                    fetchTs: e.fetchTs || null,
                     src: e.src || 'cache',
                     base: (e.base != null ? e.base : null),
                     open: (e.open != null ? e.open : null),
@@ -13897,7 +13910,9 @@
             });
 
             // ── Phase 2: render ALL at once — เนียนกว่า render ทีละตัว ────────
-            requestAnimationFrame(() => {
+            // Await the rAF so the function's Promise resolves AFTER rendering,
+            // allowing _splashFinalStep to hide the splash only when sparklines are visible.
+            await new Promise(r => requestAnimationFrame(() => {
                 symbols.forEach(symbol => {
                     if (results[symbol]) {
                         updateSparklineCell(symbol);
@@ -13914,7 +13929,8 @@
                     }
                 });
                 scheduleSaveSparklineCache(true);
-            });
+                r();
+            }));
         }
 
         // สร้าง "เส้นทางราคา" แบบหยักจาก OHLC + ราคาสด (fallback เฉพาะกรณี Alpaca ใช้ไม่ได้)
@@ -14549,6 +14565,7 @@
             if (_filtered.length !== _pinned.length) {
                 localStorage.setItem('ps_pinned_wl', JSON.stringify(_filtered));
                 _renderPinnedWl();
+                scheduleAutoSave(true);
             }
             showWatchlistToast(`Removed ${symbol} from watchlist`, 'ok');
         }
@@ -15908,6 +15925,7 @@
             pinned.splice(si, 1);
             pinned.splice(ti, 0, _pinnedDragSym);
             localStorage.setItem('ps_pinned_wl', JSON.stringify(pinned));
+            scheduleAutoSave(true);
             // DOM reorder only — no HTML rebuild, logos stay cached
             const list = document.getElementById('wl-pinned-list');
             const dragRow = document.getElementById('wl-pinned-row-' + _pinnedDragSym);
@@ -16024,13 +16042,20 @@
             const pinned = new Set(JSON.parse(localStorage.getItem('ps_pinned_wl') || '[]'));
             const pickerList = document.getElementById('wl-pin-picker-list');
             if (pickerList) {
-                pickerList.innerHTML = watchlist.map(function(sym) {
-                    const checked = pinned.has(sym) ? 'checked' : '';
-                    return '<label style="display:flex;align-items:center;gap:5px;padding:3px 6px;border-radius:6px;cursor:pointer;font-family:var(--font-mono);font-size:10px;font-weight:700;color:var(--text-primary);user-select:none;">' +
-                        '<input type="checkbox" ' + checked + ' onchange="_togglePinWl(\'' + sym + '\',this.checked)" style="accent-color:var(--accent);width:13px;height:13px;flex-shrink:0;">' +
-                        sym +
-                        '</label>';
-                }).join('');
+                if (!watchlist || watchlist.length === 0) {
+                    pickerList.style.display = 'flex';
+                    pickerList.style.gridTemplateColumns = '1fr';
+                    pickerList.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text-dim);font-size:10px;font-weight:600;">ยังไม่มีหุ้นใน Watchlist<br><span style="opacity:0.6">เพิ่มหุ้นก่อนแล้วค่อย Pin</span></div>';
+                } else {
+                    pickerList.style.gridTemplateColumns = '1fr 1fr 1fr';
+                    pickerList.innerHTML = watchlist.map(function(sym) {
+                        const checked = pinned.has(sym) ? 'checked' : '';
+                        return '<label style="display:flex;align-items:center;gap:5px;padding:3px 6px;border-radius:6px;cursor:pointer;font-family:var(--font-mono);font-size:10px;font-weight:700;color:var(--text-primary);user-select:none;">' +
+                            '<input type="checkbox" ' + checked + ' onchange="_togglePinWl(\'' + sym + '\',this.checked)" style="accent-color:var(--accent);width:13px;height:13px;flex-shrink:0;">' +
+                            sym +
+                            '</label>';
+                    }).join('');
+                }
             }
             picker.style.display = 'flex';
         }
@@ -23998,6 +24023,8 @@ ${_clip(contextSections, 2600)}`;
             if (spinDiv) spinDiv.style.borderTopColor = accentColor;
             // Refresh theme grid UI
             _renderThemeGrids();
+            // Sync theme choice to Gist (deferred: _applyTheme runs during startup before let vars init)
+            setTimeout(function() { if (typeof scheduleAutoSave === 'function') scheduleAutoSave(true); }, 0);
         }
 
         function _renderThemeGrids() {
@@ -25841,7 +25868,7 @@ ${_clip(contextSections, 2600)}`;
                 _pushToGist(false).then(() => {
                     // _pushToGist shows its own status on completion
                 }).catch(() => {
-                    showGistStatus('บันทึกรูปไม่สำเร็จ — ลอง UPLOAD ด้วยมือ', 'text-rose-400');
+                    showGistStatus('บันทึกรูปไม่สำเร็จ — ลอง SAVE ด้วยมือ', 'text-rose-400');
                 });
             }
         }
@@ -27314,7 +27341,15 @@ ${_clip(contextSections, 2600)}`;
                 showGistStatus('⚠ เปิดจาก file:// — ต้อง host บน https://', 'text-amber-400');
                 return;
             }
-            showGistStatus('UPLOADING...', 'text-blue-500');
+            // Rate-limit guard: respect the same cooldown as _pushToGist
+            const now = Date.now();
+            const elapsed = now - _lastGistPushTime;
+            if (_lastGistPushTime > 0 && elapsed < GIST_MIN_INTERVAL) {
+                const waitSec = Math.ceil((GIST_MIN_INTERVAL - elapsed) / 1000);
+                showGistStatus(`รอ ${waitSec}s ก่อน upload อีกครั้ง`, 'text-amber-400');
+                return;
+            }
+            showGistStatus('SAVING...', 'text-blue-500');
             // Save locally first as fallback
             _lsSave('ps_records',   JSON.stringify(records));
             _lsSave('ps_watchlist', JSON.stringify(watchlist));
@@ -27322,24 +27357,38 @@ ${_clip(contextSections, 2600)}`;
                 // Use _buildExportData() — single source of truth, always includes latest fields
                 const exportData = _buildExportData();
                 const encContent = await _gistEncrypt(token, exportData);
+                const body = JSON.stringify({ files: { [GIST_FILENAME]: { content: encContent } } });
                 const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
                     method:  'PATCH',
                     headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json', 'Accept': 'application/vnd.github.v3+json' },
-                    body:    JSON.stringify({ files: { [GIST_FILENAME]: { content: encContent } } })
+                    body
                 });
                 if (res.ok) {
                     _lastManualSyncTime = Date.now();
+                    _lastGistPushTime = Date.now(); // respect rate gate for subsequent auto-saves
+                    _lastEncBody = body; // keep keepalive cache in sync
                     // Update hash so _pushToGist knows Gist is now current
                     _lastSavedHash = _dataHash();
-                    showGistStatus('UPLOADED ✓', 'text-emerald-500');
+                    showGistStatus('SAVED ✓', 'text-emerald-500');
                 } else if (res.status === 401) {
                     showGistStatus('TOKEN หมดอายุ ✗', 'text-rose-500');
-                } else if (res.status === 403) {
-                    showGistStatus('TOKEN ไม่มีสิทธิ์ gist ✗', 'text-rose-500');
+                } else if (res.status === 403 || res.status === 429) {
+                    // Distinguish rate limit (secondary) from permission error
+                    let errBody = {};
+                    try { errBody = await res.json(); } catch(e) {}
+                    const isRateLimit = res.status === 429
+                        || String(errBody?.message || '').toLowerCase().includes('rate limit')
+                        || String(errBody?.message || '').toLowerCase().includes('secondary');
+                    if (isRateLimit) {
+                        _lastGistPushTime = now + (120 * 1000); // block 2 min
+                        showGistStatus('SAVE FAILED ✗ (rate limited) — ลองใหม่ใน 2 นาที', 'text-rose-500');
+                    } else {
+                        showGistStatus('TOKEN ไม่มีสิทธิ์ gist ✗', 'text-rose-500');
+                    }
                 } else if (res.status === 404) {
                     showGistStatus('ไม่พบ Gist ✗', 'text-rose-500');
                 } else {
-                    showGistStatus(`UPLOAD ERR ${res.status} — saved locally`, 'text-amber-400');
+                    showGistStatus(`SAVE ERR ${res.status} — saved locally`, 'text-amber-400');
                 }
             } catch(e) {
                 console.error('[Gist] syncToGist error:', e);
@@ -27419,12 +27468,51 @@ ${_clip(contextSections, 2600)}`;
                 // เพราะ Gist อาจเป็น version เก่ากว่า local
                 const hasLocalChanges = !isInitialLoad && (_dataHash() !== _lastSavedHash);
 
+                let _wlMergedExtras = false;
                 if (Array.isArray(data)) {
                     if (!hasLocalChanges) records = data;
                     if (isInitialLoad) _splashStatus(`โหลด ${records.length} รายการ (legacy format)`);
                 } else {
-                    if (Array.isArray(data.records)  && !hasLocalChanges) records   = data.records;
-                    if (Array.isArray(data.watchlist) && !hasLocalChanges) watchlist = data.watchlist;
+                    if (Array.isArray(data.records)) {
+                        if (isInitialLoad) {
+                            // Merge: keep months that exist locally but not in Gist.
+                            // Handles importRecordsOnly push being deferred/rate-gated before a refresh.
+                            const _localRecRaw = localStorage.getItem('ps_records');
+                            const _localRec = _localRecRaw ? (() => { try { return JSON.parse(_localRecRaw); } catch(e) { return []; } })() : [];
+                            const _gistIds = new Set(data.records.map(r => r && r.id));
+                            const _extraRec = Array.isArray(_localRec) ? _localRec.filter(r => r && r.id && !_gistIds.has(r.id)) : [];
+                            if (_extraRec.length > 0) {
+                                records = [...data.records, ..._extraRec];
+                                _wlMergedExtras = true; // force push so Gist gets the merged months
+                                console.log('[Gist] Merged', _extraRec.length, 'local-only record month(s):', _extraRec.map(r => r.id));
+                            } else {
+                                records = data.records;
+                            }
+                        } else if (!hasLocalChanges) {
+                            records = data.records;
+                        }
+                    }
+                    if (Array.isArray(data.watchlist) && !hasLocalChanges) {
+                        if (isInitialLoad) {
+                            // Merge: keep any stocks that were saved locally but not yet pushed to Gist.
+                            // Handles the case where a push was deferred/failed and the page was refreshed —
+                            // without this, the orphaned localStorage stocks are silently lost because
+                            // _lastSavedHash is set to match the Gist state after sync.
+                            const _localWlRaw = localStorage.getItem('ps_watchlist');
+                            const _localWl = _localWlRaw ? (() => { try { return JSON.parse(_localWlRaw); } catch(e) { return []; } })() : [];
+                            const _gistSet = new Set(data.watchlist);
+                            const _extras = Array.isArray(_localWl) ? _localWl.filter(s => typeof s === 'string' && !_gistSet.has(s)) : [];
+                            if (_extras.length > 0) {
+                                watchlist = [...data.watchlist, ..._extras];
+                                _wlMergedExtras = true; // will force a push below so Gist gets the merged data
+                                console.log('[Gist] Merged', _extras.length, 'local-only stock(s) into watchlist:', _extras);
+                            } else {
+                                watchlist = data.watchlist;
+                            }
+                        } else {
+                            watchlist = data.watchlist;
+                        }
+                    }
                     if (isInitialLoad) _splashStatus(`Records: ${records.length} · Watchlist: ${watchlist.length} หุ้น`);
                     const _sparkCount = data.movementCache?.data ? Object.keys(data.movementCache.data).length : 0;
                     const _logoCount  = data.logoDataCache?.items ? Object.keys(data.logoDataCache.items).length : 0;
@@ -27655,7 +27743,12 @@ ${_clip(contextSections, 2600)}`;
 
                 // Single refreshWatchlist call — fetch live prices
                 if (watchlist.length > 0 && getFinnhubKey()) {
-                    setTimeout(() => refreshWatchlist(), 300);
+                    if (!isInitialLoad) {
+                        // Manual sync: refresh prices immediately
+                        setTimeout(() => refreshWatchlist(), 300);
+                    }
+                    // isInitialLoad: _splashFinalStep handles refreshWatchlist so prices + sparklines
+                    // are both done before the splash hides (avoids post-splash skeleton→sparkline transitions)
                     fetchFxRate();
                 }
 
@@ -27667,9 +27760,9 @@ ${_clip(contextSections, 2600)}`;
                 const _gistPpTs = data.meta?.profilePhotoTs || 0;
                 const _localAvTs = parseInt(localStorage.getItem('ps_avatar_ts') || '0', 10);
                 const _localPpTs = parseInt(localStorage.getItem('ps_profile_photo_ts') || '0', 10);
-                const _localIsNewer = (_localAvTs > _gistAvTs) || (_localPpTs > _gistPpTs);
+                const _localIsNewer = (_localAvTs > _gistAvTs) || (_localPpTs > _gistPpTs) || _wlMergedExtras || hasLocalChanges;
                 if (_localIsNewer) {
-                    // Local has newer photos → don't mark as saved → 30s timer will push
+                    // Local has data Gist doesn't have → clear hash so pending push isn't skipped
                     _lastSavedHash = '';
                     setTimeout(() => _pushToGist(true), 2000); // push after 2s
                 } else {
@@ -27698,7 +27791,10 @@ ${_clip(contextSections, 2600)}`;
             } finally {
                 _isSyncing = false;
                 // Flush any save that was queued while syncing
-                if (_pendingSave) { _pendingSave = false; /* let natural triggers handle it */ }
+                if (_pendingSave) {
+                    _pendingSave = false;
+                    setTimeout(() => _pushToGist(true), 500); // actually trigger the queued push
+                }
             }
         }
 
@@ -28061,6 +28157,72 @@ ${_clip(contextSections, 2600)}`;
             e.target.value = '';
         }
 
+        // ── Import Records Only ───────────────────────────────────────────────
+        // Merges records from a backup JSON into current data by month ID.
+        // Months not in current data are added; existing months are kept as-is.
+        // After merge, pushes to Gist so cloud is updated.
+        function importRecordsOnly(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                try {
+                    const data = JSON.parse(ev.target.result);
+                    // Support both old format (array) and new format (object with records key)
+                    let importedRecords = null;
+                    if (Array.isArray(data)) {
+                        importedRecords = data;
+                    } else if (data.records && Array.isArray(data.records)) {
+                        importedRecords = data.records;
+                    } else {
+                        alert('ไม่พบข้อมูล records ในไฟล์นี้'); return;
+                    }
+
+                    // Build index of existing records by month ID
+                    const existingMap = {};
+                    records.forEach((r, i) => { if (r && r.id) existingMap[r.id] = i; });
+
+                    // Merge: add missing months; also replace empty/sparse current months
+                    // with imported data if imported has more content (old backup recovery).
+                    const _recHasData = r => r && (r.payday > 0 || (r.fixed && r.fixed.length > 0) || (r.dynamic && r.dynamic.length > 0));
+                    let added = 0, replaced = 0;
+                    importedRecords.forEach(r => {
+                        if (!r || !r.id) return;
+                        if (!(r.id in existingMap)) {
+                            // Month not in current data — add it
+                            if (_recHasData(r)) { records.push(r); added++; }
+                        } else {
+                            // Month exists — replace only if current is empty and imported has data
+                            const cur = records[existingMap[r.id]];
+                            if (!_recHasData(cur) && _recHasData(r)) {
+                                records[existingMap[r.id]] = r;
+                                replaced++;
+                            }
+                        }
+                    });
+
+                    if (added === 0 && replaced === 0) {
+                        showGistStatus('ไม่มีข้อมูลใหม่ที่ต้อง import (ข้อมูลซ้ำหรือว่างเปล่าทั้งหมด)', 'text-amber-400');
+                        return;
+                    }
+
+                    _sortRecords();
+                    _lsSave('ps_records', JSON.stringify(records));
+                    loadMonth(curMonth);
+
+                    const _summary = [added ? added + ' เดือนใหม่' : '', replaced ? replaced + ' เดือนแทนที่' : ''].filter(Boolean).join(', ');
+                    if (getGistToken()) {
+                        showGistStatus('Merged ' + _summary + ' — กำลัง SAVE...', 'text-blue-500');
+                        _pushToGist(true);
+                    } else {
+                        showGistStatus('Merged ' + _summary + ' ✓ (ไม่มี Gist Token)', 'text-emerald-500');
+                    }
+                } catch(err) { alert('อ่านไฟล์ไม่ได้: ' + err.message); }
+            };
+            reader.readAsText(file);
+            e.target.value = '';
+        }
+
         // ── Settings Modal ────────────────────────────────────────────────────
         function getFinnhubKey()     { return localStorage.getItem('ps_finnhub_key')      || ''; }
         function getErapiKey()       { return localStorage.getItem('ps_erapi_key')        || ''; }
@@ -28162,6 +28324,7 @@ ${_clip(contextSections, 2600)}`;
             save('s-openrouter-input', 'ps_openrouter_key', v => v.startsWith('sk-or-'));
             save('s-gist-input',       'ps_gist_token');
             closeSettingsModal();
+            scheduleAutoSave(true); // sync API keys to Gist immediately
             // Trigger refresh with new keys
             if (getFinnhubKey()) { refreshWatchlist(); updateAiStatus(); }
             startExtHoursPolling(); // Yahoo Finance pre-market — no API key needed
@@ -28188,10 +28351,10 @@ ${_clip(contextSections, 2600)}`;
         // ── Clear/Reset month ─────────────────────────────────────────────────
         // ── requestClear / clearMonth / executeClear ──────────────────────────
         function requestClear() {
-            // Only allow clearing the current month
             const now = new Date();
             const thisMonth = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
-            if (curMonth !== thisMonth) return;
+            // Allow clearing current month OR any past month that has been unlocked for editing
+            if (curMonth !== thisMonth && !_unlockedMonths.has(curMonth)) return;
             const nameEl = document.getElementById('modal-month-name');
             if (nameEl) nameEl.innerText = curMonth;
             document.getElementById('confirm-modal').classList.remove('hidden');
@@ -28356,14 +28519,21 @@ ${_clip(contextSections, 2600)}`;
             function _splashFinalStep() {
                 // Pick up sparkline data that syncFromGist just wrote to localStorage
                 loadSparklineCache({ skipStale: true });
-                // Fetch fresh bars from Alpaca (Approach 2: REST as primary source)
-                _splashStatus('โหลด Sparkline...');
-                var _sp = typeof refreshSparklineForTopSymbols === 'function'
-                    ? refreshSparklineForTopSymbols()
-                    : null;
+                _splashStatus('โหลดราคาและ Sparkline...');
+                // wlDataCache starts empty — refreshWatchlist fills it with price/OHLC data.
+                // refreshSparklineForTopSymbols Phase 0 needs wlDataCache to seed OHLC sparklines.
+                // Run watchlist first, then sparklines — ensures Phase 0 has data and renders before splash hides.
+                var _wlP = (watchlist.length > 0 && (getFinnhubKey() || (getAlpacaKey() && getAlpacaSecret())))
+                    ? refreshWatchlist()
+                    : Promise.resolve();
+                var _sp = _wlP.then(function() {
+                    return typeof refreshSparklineForTopSymbols === 'function'
+                        ? refreshSparklineForTopSymbols()
+                        : null;
+                });
                 Promise.race([
-                    _sp || Promise.resolve(),
-                    new Promise(function(r) { setTimeout(r, 10000); }) // 10s max
+                    _sp,
+                    new Promise(function(r) { setTimeout(r, 15000); }) // 15s max
                 ]).then(function() {
                     _splashStatus('พร้อมใช้งาน ✓');
                     setTimeout(_hideSplash, 300);
@@ -28649,8 +28819,10 @@ ${_clip(contextSections, 2600)}`;
 
         // Pre-encrypt current state → _lastEncBody, without sending a PATCH.
         // Keeps keepalive accurate even when the 4s rate gate is delaying the real push.
+        // SAFETY: never run during syncFromGist (_isSyncing) — data not fully loaded yet.
         async function _refreshEncBodyAsync() {
             _refreshEncTimer = null;
+            if (_isSyncing) return; // abort — Gist restore in progress, localStorage may be incomplete
             const token = getGistToken();
             if (!token) return;
             try {
@@ -28759,7 +28931,7 @@ ${_clip(contextSections, 2600)}`;
 
         async function _pushToGist(silent = false) {
             if (!getGistToken()) return;
-            if (_isSyncing) { _pendingSave = true; _scheduleRefreshEncBody(); return; } // syncFromGist in progress — queue
+            if (_isSyncing) { _pendingSave = true; return; } // syncFromGist in progress — queue (don't pre-encrypt: data not yet loaded)
             if (_isSaving)  { _pendingSave = true; _scheduleRefreshEncBody(); return; } // another PATCH in-flight — queue
             const hash = _dataHash();
             if (hash === _lastSavedHash) return; // nothing changed — skip
@@ -28797,17 +28969,17 @@ ${_clip(contextSections, 2600)}`;
                     const t = new Date(); const hm = t.getHours().toString().padStart(2,'0')+':'+t.getMinutes().toString().padStart(2,'0');
                     showGistStatus('AUTO SAVED ✓ ' + hm, 'text-emerald-400');
                 } else if (res.status === 403 || res.status === 429) {
-                    // Rate limited — back off 2 minutes, discard pending saves (data is safe in localStorage)
+                    // Rate limited — back off 2 minutes, data is safe in localStorage
                     _rateLimited = true;
                     _pendingSave = false;
-                    clearTimeout(_gistCooldownTimer); // clear any pending timer before starting 2-min backoff
+                    clearTimeout(_gistCooldownTimer);
                     _lastGistPushTime = now + (120 * 1000); // block for 2 min
-                    showGistStatus('SAVE FAILED ✗ (' + res.status + ') — retry ใน 2 นาที', 'text-rose-500');
+                    showGistStatus('SAVE FAILED ✗ (' + res.status + ') — ข้อมูลปลอดภัยใน localStorage · รอ 2 นาที', 'text-rose-500');
                     console.warn('[Gist] Rate limited (' + res.status + ') — blocking pushes for 2 min');
                     _gistCooldownTimer = setTimeout(() => {
-                        _gistCooldownTimer = null; // mark timer as done before pushing
-                        _lastGistPushTime = 0;     // unblock
-                        _pushToGist(true);         // retry once after cooldown
+                        _gistCooldownTimer = null;
+                        _lastGistPushTime = 0; // unblock — 30s safety-net timer will retry on next cycle
+                        showGistStatus('พร้อม retry...', 'text-amber-400');
                     }, 120 * 1000);
                 } else {
                     showGistStatus('SAVE FAILED ✗ (' + res.status + ')', 'text-rose-500');
@@ -28900,7 +29072,12 @@ ${_clip(contextSections, 2600)}`;
                 + '|' + (localStorage.getItem('ps_muse_pws') || '');
             const psPresetsHash = (localStorage.getItem('ps_profile_presets') || '').length
                 + '|' + (localStorage.getItem('ps_profile_preset_idx') || '0');
-            return rHash + '::wl:' + watchlist.join(',') + '::av:' + avHash + '::pp:' + ppHash + '::pc:' + pcHash + '::lwc:' + lwcHash + '::muse:' + museHash + '::psp:' + psPresetsHash + '::ml:' + _museLayoutMode + '::sc:' + _museSlotCount + '::ar:' + _museAutoRotateEnabled + ':' + _museAutoRotateDurations.join(',') + ':' + _museAutoRotateIncluded.join(',');
+            // API keys: include presence/length (not content) for change detection
+            const apiKeysHash = ['ps_finnhub_key','ps_fmp_key','ps_erapi_key','ps_twelvedata_key','ps_alpaca_key','ps_alpaca_secret','ps_openrouter_key']
+                .map(k => (localStorage.getItem(k)||'').length).join(',');
+            const themeHash = (localStorage.getItem('ps_theme')||'') + '|' + (localStorage.getItem('ps_dark')||'');
+            const fxHash = (localStorage.getItem('ps_fx_self_mid')||'') + '|' + (localStorage.getItem('ps_fx_self_date')||'');
+            return rHash + '::wl:' + watchlist.join(',') + '::av:' + avHash + '::pp:' + ppHash + '::pc:' + pcHash + '::lwc:' + lwcHash + '::muse:' + museHash + '::psp:' + psPresetsHash + '::ml:' + _museLayoutMode + '::sc:' + _museSlotCount + '::ar:' + _museAutoRotateEnabled + ':' + _museAutoRotateDurations.join(',') + ':' + _museAutoRotateIncluded.join(',') + '::ak:' + apiKeysHash + '::th:' + themeHash + '::fx:' + fxHash;
         }
         setInterval(() => {
             if (!getGistToken()) return;
@@ -28913,6 +29090,13 @@ ${_clip(contextSections, 2600)}`;
         window.addEventListener('beforeunload', () => {
             _saveLogoDataCacheLocal(true);
             _pushToGistKeepalive(); // fire-and-forget with keepalive:true
+        });
+        // pagehide fires on mobile and BFCache browsers where beforeunload is suppressed
+        window.addEventListener('pagehide', (e) => {
+            if (!e.persisted) { // only on actual close, not BFCache entry
+                _saveLogoDataCacheLocal(true);
+                _pushToGistKeepalive();
+            }
         });
 
         // ── Flush pending auto-save immediately when tab becomes visible again ─
