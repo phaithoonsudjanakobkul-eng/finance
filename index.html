@@ -361,6 +361,11 @@
         }
 
         /* ── Settings Modal — Professional Design System ── */
+        #settings-modal #stab-api,
+        #settings-modal #stab-sync,
+        #settings-modal #stab-theme,
+        #settings-modal #stab-display { overscroll-behavior: contain; }
+
         #settings-modal .stab-bar {
             display: flex; gap: 4px; padding: 6px;
             background: var(--bg-card2); border-bottom: 1px solid var(--border);
@@ -2098,10 +2103,24 @@
         @keyframes museBackdropIn { from { opacity:0; } to { opacity:1; } }
         #muse-modal-backdrop { animation: museBackdropIn 0.18s ease; }
         #muse-modal { animation: museModalIn 0.2s cubic-bezier(0.34,1.56,0.64,1); }
+        #muse-modal { overscroll-behavior: contain; }
+        #muse-edit-list { overscroll-behavior: contain; }
         #muse-edit-list::-webkit-scrollbar { width:4px; }
         #muse-edit-list::-webkit-scrollbar-track { background: transparent; }
         #muse-edit-list::-webkit-scrollbar-thumb { background: var(--border); border-radius:2px; }
         .muse-dot { width: 7px; height: 7px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,0.45); cursor: pointer; transition: all 0.15s; background: transparent; flex-shrink: 0; }
+        /* Slot drag-to-reorder */
+        .muse-drag-handle {
+            position: absolute; top: 0; left: 0; right: 0; height: 26px;
+            display: flex; align-items: center; justify-content: center; gap: 3px;
+            cursor: grab; z-index: 15; pointer-events: auto;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.45) 0%, transparent 100%);
+            opacity: 0; transition: opacity 0.18s; user-select: none;
+        }
+        .muse-drag-handle:active { cursor: grabbing; }
+        .muse-slot-filled:hover > .muse-drag-handle { opacity: 1; }
+        .muse-slot-dnd-over { outline: 2px solid var(--accent) !important; outline-offset: -2px; }
+        .muse-slot-dnd-src { opacity: 0.35 !important; }
         .muse-dot:hover { border-color: rgba(255,255,255,0.9); }
         .muse-dot.active { background: white; border-color: white; transform: scale(1.25); }
         /* Desktop: lock grid row height so WL Alerts card cannot stretch beyond profile card */
@@ -24214,6 +24233,11 @@ ${_clip(contextSections, 2600)}`;
         var _museSlotCount = 0;  // 0=Auto (responsive), 4-10=fixed
         var _MUSE_SLOT_CYCLE = [0, 4, 5, 6, 7, 8, 10]; // cycle order
         var _museAutoRotateTimer = null;
+        var _museAutoRotateIncluded = [true, true, true, true, true, true]; // per-playlist inclusion
+        var _musePresetSaveTimer = null; // debounce Gist push on preset switch
+        var _museClipSaveTimer = null;  // debounce Gist push on clip edits (rate-limit guard)
+        var _museDragSrcIdx = -1;       // slot drag-to-reorder source index
+        var _museDragTargetIdx = -1;    // slot drag-to-reorder target index
         var _museTransitionTimer = null;
         var _museAutoRotateEnabled = false;
         var _museAutoRotateDurations = [30, 30, 30, 30, 30, 30]; // seconds per playlist
@@ -24242,7 +24266,11 @@ ${_clip(contextSections, 2600)}`;
         function _museSaveCurrentPreset() {
             var _mscpKey = _museCurrentKey();
             localStorage.setItem(_mscpKey, JSON.stringify(_museClips));
-            if (typeof _pushToGist === 'function') _pushToGist(true);
+            // Debounce Gist PATCH — prevent rate-limit 403 during rapid clip edits
+            clearTimeout(_museClipSaveTimer);
+            _museClipSaveTimer = setTimeout(function() { if (typeof _pushToGist === 'function') _pushToGist(true); }, 2500);
+            // Pre-encrypt eagerly so keepalive has fresh body even if page closes before PATCH fires
+            if (typeof _scheduleRefreshEncBody === 'function') _scheduleRefreshEncBody();
         }
 
         function _initMuseCard() {
@@ -24355,6 +24383,66 @@ ${_clip(contextSections, 2600)}`;
             return m ? m[1] : null;
         }
 
+        function _museSlotDragStart(e, idx) {
+            _museDragSrcIdx = idx;
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', String(idx));
+            // Defer so the browser snapshot is taken before we dim the slot
+            requestAnimationFrame(function() {
+                var slot = document.getElementById('muse-slot-' + idx);
+                if (slot) slot.classList.add('muse-slot-dnd-src');
+            });
+        }
+        function _museSlotDragEnd(e, idx) {
+            var slot = document.getElementById('muse-slot-' + idx);
+            if (slot) slot.classList.remove('muse-slot-dnd-src');
+            // Clear any lingering drop highlights
+            for (var i = 0; i < _museGetSlotCount(); i++) {
+                var s = document.getElementById('muse-slot-' + i);
+                if (s) s.classList.remove('muse-slot-dnd-over');
+            }
+            _museDragSrcIdx = -1;
+            _museDragTargetIdx = -1;
+        }
+        function _museSlotDragOver(e, idx) {
+            if (_museDragSrcIdx < 0 || _museDragSrcIdx === idx || idx >= _museClips.length) return;
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            if (_museDragTargetIdx !== idx) {
+                // Clear previous highlight
+                if (_museDragTargetIdx >= 0) {
+                    var prev = document.getElementById('muse-slot-' + _museDragTargetIdx);
+                    if (prev) prev.classList.remove('muse-slot-dnd-over');
+                }
+                _museDragTargetIdx = idx;
+                var slot = document.getElementById('muse-slot-' + idx);
+                if (slot) slot.classList.add('muse-slot-dnd-over');
+            }
+        }
+        function _museSlotDragLeave(e, idx) {
+            // Only clear if leaving the slot itself (not entering a child)
+            var related = e.relatedTarget;
+            var slot = document.getElementById('muse-slot-' + idx);
+            if (slot && related && slot.contains(related)) return;
+            slot.classList.remove('muse-slot-dnd-over');
+            if (_museDragTargetIdx === idx) _museDragTargetIdx = -1;
+        }
+        function _museSlotDrop(e, idx) {
+            e.preventDefault();
+            var src = _museDragSrcIdx;
+            var tgt = idx;
+            if (src < 0 || src === tgt || src >= _museClips.length || tgt >= _museClips.length) return;
+            // Insert-at: remove from src, insert at tgt
+            var moved = _museClips.splice(src, 1)[0];
+            _museClips.splice(tgt, 0, moved);
+            _museSaveCurrentPreset();
+            _museDragSrcIdx = -1;
+            _museDragTargetIdx = -1;
+            _museRenderSlots();
+            if (_museEditOpen) { _museRenderPresetTabs(); _museRenderEditList(); }
+            _museToast('เรียงลำดับแล้ว');
+        }
+
         function _museRenderSlots() {
             var container = document.getElementById('muse-slots');
             if (!container) return;
@@ -24364,14 +24452,30 @@ ${_clip(contextSections, 2600)}`;
                 var clip = i < _museClips.length ? _museClips[i] : null;
                 if (clip) {
                     var isImage = clip.type === 'image';
+                    // Shared grip handle HTML (appears on hover, used for drag-to-reorder)
+                    var gripHtml = '<div class="muse-drag-handle" draggable="true"'
+                        + ' ondragstart="_museSlotDragStart(event,' + i + ')"'
+                        + ' ondragend="_museSlotDragEnd(event,' + i + ')"'
+                        + ' onclick="event.stopPropagation()">'
+                        + '<svg width="10" height="10" viewBox="0 0 10 10" fill="rgba(255,255,255,0.75)">'
+                        + '<circle cx="3" cy="2" r="1"/><circle cx="7" cy="2" r="1"/>'
+                        + '<circle cx="3" cy="5" r="1"/><circle cx="7" cy="5" r="1"/>'
+                        + '<circle cx="3" cy="8" r="1"/><circle cx="7" cy="8" r="1"/>'
+                        + '</svg></div>';
+                    // Shared drop-target attrs
+                    var dndAttrs = ' ondragover="_museSlotDragOver(event,' + i + ')"'
+                        + ' ondragleave="_museSlotDragLeave(event,' + i + ')"'
+                        + ' ondrop="_museSlotDrop(event,' + i + ')"';
                     if (isImage) {
-                        html += '<div id="muse-slot-' + i + '" style="flex:1;' + arStyle + 'position:relative;background:#111;overflow:hidden;">'
+                        html += '<div id="muse-slot-' + i + '" class="muse-slot-filled" style="flex:1;' + arStyle + 'position:relative;background:#111;overflow:hidden;"' + dndAttrs + '>'
+                            + gripHtml
                             + '<img src="' + clip.src + '" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;">'
                             + '<div style="position:absolute;bottom:8px;left:8px;width:24px;height:24px;border-radius:50%;background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.25);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5" fill="rgba(255,255,255,0.7)" stroke="none"/><path d="M21 15l-5-5L5 21" stroke-linecap="round" stroke-linejoin="round"/></svg></div>'
                             + '</div>';
                     } else {
                     var hasThumbnail = clip.thumbnail && clip.thumbnail.startsWith('http');
-                    html += '<div id="muse-slot-' + i + '" style="flex:1;' + arStyle + 'position:relative;background:#111;overflow:hidden;cursor:pointer;" onclick="_museSlotClick(' + i + ')">'
+                    html += '<div id="muse-slot-' + i + '" class="muse-slot-filled" style="flex:1;' + arStyle + 'position:relative;background:#111;overflow:hidden;cursor:pointer;" onclick="_museSlotClick(' + i + ')"' + dndAttrs + '>'
+                        + gripHtml
                         + '<iframe id="muse-iframe-' + i + '" src="about:blank" frameborder="0" scrolling="no" allow="autoplay;clipboard-write;encrypted-media;picture-in-picture;web-share" allowfullscreen style="display:none;position:absolute;top:0;left:0;width:325px;height:578px;border:none;transform-origin:top left;"></iframe>'
                         + '<div id="muse-cover-' + i + '" style="position:absolute;inset:0;">'
                         + (hasThumbnail ? '<img src="' + clip.thumbnail + '" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;">' : '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;"><svg width="28" height="28" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 18V5l12-2v13M9 18a3 3 0 11-6 0 3 3 0 016 0zM21 16a3 3 0 11-6 0 3 3 0 016 0z"/></svg></div>')
@@ -24594,12 +24698,18 @@ ${_clip(contextSections, 2600)}`;
                     _museAutoRotateDurations = d.durations.slice(0, MUSE_PRESET_KEYS.length);
                     while (_museAutoRotateDurations.length < MUSE_PRESET_KEYS.length) _museAutoRotateDurations.push(30);
                 }
+                if (Array.isArray(d.included)) {
+                    _museAutoRotateIncluded = d.included.slice(0, MUSE_PRESET_KEYS.length);
+                    while (_museAutoRotateIncluded.length < MUSE_PRESET_KEYS.length) _museAutoRotateIncluded.push(true);
+                }
             } catch(_) {}
         }
 
         function _museAutoRotateSave() {
-            localStorage.setItem(MUSE_AUTOROTATE_KEY, JSON.stringify({ enabled: _museAutoRotateEnabled, durations: _museAutoRotateDurations }));
-            if (typeof _pushToGist === 'function') _pushToGist(true);
+            localStorage.setItem(MUSE_AUTOROTATE_KEY, JSON.stringify({ enabled: _museAutoRotateEnabled, durations: _museAutoRotateDurations, included: _museAutoRotateIncluded }));
+            // Debounce Gist push — settings only, not hot-path
+            clearTimeout(_museAutoRotateSaveTimer);
+            _museAutoRotateSaveTimer = setTimeout(function() { if (typeof _pushToGist === 'function') _pushToGist(true); }, 1500);
         }
 
         function _museAutoRotateStart() {
@@ -24626,14 +24736,16 @@ ${_clip(contextSections, 2600)}`;
             var next = -1;
             for (var attempt = 1; attempt < MUSE_PRESET_KEYS.length; attempt++) {
                 var candidate = (start + attempt) % MUSE_PRESET_KEYS.length;
-                if (!pws[candidate] || _museUnlockedPresets.has(candidate)) {
+                var isIncluded = _museAutoRotateIncluded[candidate] !== false; // default true
+                var isUnlocked = !pws[candidate] || _museUnlockedPresets.has(candidate);
+                if (isIncluded && isUnlocked) {
                     next = candidate;
                     break;
                 }
             }
-            if (next < 0) { _museAutoRotateStop(); return; } // all locked
+            if (next < 0) { _museAutoRotateStop(); return; } // no eligible playlist
             _museDoLoadPreset(next);
-            _museAutoRotateStart(); // re-arm timer for new preset
+            // Note: _museAutoRotateStart() is called inside _museDoLoadPreset after preset loads
         }
 
         function _museAutoRotateToggle() {
@@ -24655,7 +24767,7 @@ ${_clip(contextSections, 2600)}`;
             if (v > 3600) v = 3600;
             _museAutoRotateDurations[idx] = v;
             // Save to localStorage immediately, debounce Gist push (avoid push on every keystroke)
-            localStorage.setItem(MUSE_AUTOROTATE_KEY, JSON.stringify({ enabled: _museAutoRotateEnabled, durations: _museAutoRotateDurations }));
+            localStorage.setItem(MUSE_AUTOROTATE_KEY, JSON.stringify({ enabled: _museAutoRotateEnabled, durations: _museAutoRotateDurations, included: _museAutoRotateIncluded }));
             clearTimeout(_museAutoRotateSaveTimer);
             _museAutoRotateSaveTimer = setTimeout(function() { if (typeof _pushToGist === 'function') _pushToGist(true); }, 1500);
             // If currently on this preset and timer is running, restart with new duration
@@ -24664,11 +24776,20 @@ ${_clip(contextSections, 2600)}`;
             }
         }
 
+        function _museAutoRotateSetIncluded(idx, val) {
+            _museAutoRotateIncluded[idx] = !!val;
+            localStorage.setItem(MUSE_AUTOROTATE_KEY, JSON.stringify({ enabled: _museAutoRotateEnabled, durations: _museAutoRotateDurations, included: _museAutoRotateIncluded }));
+            clearTimeout(_museAutoRotateSaveTimer);
+            _museAutoRotateSaveTimer = setTimeout(function() { if (typeof _pushToGist === 'function') _pushToGist(true); }, 1500);
+            _museRenderAutoRotateUI();
+        }
+
         function _museRenderAutoRotateUI() {
             var section = document.getElementById('muse-autorotate-section');
             if (!section) return;
             var labels = ['A','B','C','D','E','F'];
-            var html = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:' + (_museAutoRotateEnabled ? '10' : '0') + 'px;">'
+            // Header row: label + toggle switch
+            var html = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:' + (_museAutoRotateEnabled ? '8' : '0') + 'px;">'
                 + '<span style="font-size:10px;color:var(--text-dim);font-weight:600;opacity:0.7;">Auto-rotate Playlists</span>'
                 + '<label style="position:relative;display:inline-block;width:36px;height:20px;cursor:pointer;">'
                 + '<input type="checkbox" ' + (_museAutoRotateEnabled ? 'checked' : '') + ' onchange="_museAutoRotateToggle()" style="opacity:0;width:0;height:0;position:absolute;">'
@@ -24677,13 +24798,20 @@ ${_clip(contextSections, 2600)}`;
                 + '</label>'
                 + '</div>';
             if (_museAutoRotateEnabled) {
-                html += '<div style="display:flex;gap:6px;flex-wrap:wrap;">';
+                // Compact 3-col grid of chips: each chip = [label pill] [duration input] s
+                html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px;">';
                 for (var i = 0; i < MUSE_PRESET_KEYS.length; i++) {
-                    html += '<div style="display:flex;align-items:center;gap:4px;">'
-                        + '<span style="font-size:9px;font-weight:700;color:var(--text-dim);width:12px;text-align:center;">' + labels[i] + '</span>'
-                        + '<input type="number" min="5" max="3600" value="' + _museAutoRotateDurations[i] + '" oninput="_museAutoRotateSetDuration(' + i + ',this.value)" '
-                        + 'style="width:48px;height:24px;font-size:10px;padding:0 4px;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;outline:none;color:var(--text-primary);text-align:center;">'
-                        + '<span style="font-size:8px;color:var(--text-dim);">วิ</span>'
+                    var included = _museAutoRotateIncluded[i] !== false;
+                    var chipBg   = included ? 'color-mix(in srgb,var(--accent) 10%,var(--bg-card))' : 'var(--bg-card)';
+                    var chipBd   = included ? 'color-mix(in srgb,var(--accent) 30%,var(--border))' : 'var(--border)';
+                    var lblColor = included ? 'var(--accent)' : 'var(--text-dim)';
+                    html += '<div style="display:flex;align-items:center;gap:5px;background:' + chipBg + ';border:1px solid ' + chipBd + ';border-radius:8px;padding:5px 7px;cursor:pointer;" onclick="_museAutoRotateSetIncluded(' + i + ',' + !included + ')" title="คลิกเพื่อ ' + (included ? 'ปิด' : 'เปิด') + ' Playlist ' + labels[i] + '">'
+                        // Label pill
+                        + '<span style="font-size:9px;font-weight:800;color:' + lblColor + ';letter-spacing:0.06em;flex-shrink:0;">' + labels[i] + '</span>'
+                        // Duration input (stop click propagation so clicking input doesn't toggle)
+                        + '<input type="number" min="5" max="3600" value="' + _museAutoRotateDurations[i] + '" onclick="event.stopPropagation()" oninput="_museAutoRotateSetDuration(' + i + ',this.value)" '
+                        + 'style="flex:1;min-width:0;height:22px;font-size:10px;padding:0 3px;background:transparent;border:none;outline:none;color:' + (included ? 'var(--text-primary)' : 'var(--text-dim)') + ';text-align:center;opacity:' + (included ? '1' : '0.45') + ';">'
+                        + '<span style="font-size:8px;color:var(--text-dim);flex-shrink:0;">วินาที</span>'
                         + '</div>';
                 }
                 html += '</div>';
@@ -24733,7 +24861,9 @@ ${_clip(contextSections, 2600)}`;
             _museTransitionTimer = setTimeout(function() {
                 _musePresetIdx = idx;
                 localStorage.setItem(MUSE_PRESET_IDX_KEY, String(idx));
-                if (typeof _pushToGist === 'function') _pushToGist(true);
+                // Debounce Gist push — auto-rotate can switch every 30s so don't push on every switch
+                clearTimeout(_musePresetSaveTimer);
+                _musePresetSaveTimer = setTimeout(function() { if (typeof _pushToGist === 'function') _pushToGist(true); }, 4000);
                 try { _museClips = JSON.parse(localStorage.getItem(_museCurrentKey()) || '[]'); } catch(_) { _museClips = []; }
                 _museToast('Playlist ' + (['A','B','C','D','E','F'][idx] || (idx+1)) + ' — ' + _museClips.length + ' รายการ');
                 _museClips.forEach(function(c) {
@@ -24851,7 +24981,7 @@ ${_clip(contextSections, 2600)}`;
                         + '</div>';
                 } else {
                     var durLabel = c.duration > 0
-                        ? '<span style="color:color-mix(in srgb,var(--accent) 80%,var(--text-dim));font-weight:700;">⏱ ' + c.duration + ' วิ</span>'
+                        ? '<span style="color:color-mix(in srgb,var(--accent) 80%,var(--text-dim));font-weight:700;">⏱ ' + c.duration + ' วินาที</span>'
                         : '<button id="muse-dur-fetch-' + i + '" onclick="_museFetchClipDuration(' + i + ')" title="ตรวจสอบความยาวคลิปจาก TikTok" '
                           + 'style="background:none;border:none;padding:0;cursor:pointer;font-size:9px;color:var(--text-dim);font-weight:600;opacity:0.7;">⏱ ตรวจสอบ</button>';
                     middleHtml = '<div style="flex:1;min-width:0;">'
@@ -24879,7 +25009,7 @@ ${_clip(contextSections, 2600)}`;
                         + '<div style="display:flex;align-items:center;gap:3px;" title="ความยาวคลิป (วินาที) — เปิด TikTok เพื่อเช็ค">'
                         + '<input type="number" min="1" max="3600" value="' + dur + '" placeholder="—" oninput="_museSetDuration(' + i + ',this.value)" '
                         + 'style="width:52px;height:28px;font-size:11px;padding:0 6px;background:var(--bg-card2);border:1px solid var(--border);border-radius:7px;outline:none;color:var(--text-primary);text-align:center;">'
-                        + '<span style="font-size:9px;color:var(--text-dim);font-weight:600;">วิ</span>'
+                        + '<span style="font-size:9px;color:var(--text-dim);font-weight:600;">วินาที</span>'
                         + '</div>'
                         + '</div>';
                 }
@@ -25097,7 +25227,7 @@ ${_clip(contextSections, 2600)}`;
             _museSaveCurrentPreset();
             _museActiveIdx = _museClips.length > 0 ? Math.min(_museActiveIdx, _museClips.length - 1) : -1;
             _museRenderSlots();
-            if (_museEditOpen) _museRenderEditList();
+            if (_museEditOpen) { _museRenderPresetTabs(); _museRenderEditList(); _museUpdateAddFooter(); }
             _museToast('ลบ ' + (removed && removed.type === 'image' ? 'รูปภาพ' : 'Video') + ' แล้ว — เหลือ ' + _museClips.length + '/' + _museGetSlotCount());
         }
 
@@ -27387,7 +27517,11 @@ ${_clip(contextSections, 2600)}`;
                                 _museAutoRotateDurations = md.autoRotate.durations.slice(0, MUSE_PRESET_KEYS.length);
                                 while (_museAutoRotateDurations.length < MUSE_PRESET_KEYS.length) _museAutoRotateDurations.push(30);
                             }
-                            try { localStorage.setItem(MUSE_AUTOROTATE_KEY, JSON.stringify({ enabled: _museAutoRotateEnabled, durations: _museAutoRotateDurations })); } catch(e) {}
+                            if (Array.isArray(md.autoRotate.included)) {
+                                _museAutoRotateIncluded = md.autoRotate.included.slice(0, MUSE_PRESET_KEYS.length);
+                                while (_museAutoRotateIncluded.length < MUSE_PRESET_KEYS.length) _museAutoRotateIncluded.push(true);
+                            }
+                            try { localStorage.setItem(MUSE_AUTOROTATE_KEY, JSON.stringify({ enabled: _museAutoRotateEnabled, durations: _museAutoRotateDurations, included: _museAutoRotateIncluded })); } catch(e) {}
                         }
                         if (typeof md.slotCount === 'number' && localStorage.getItem(MUSE_SLOT_COUNT_KEY) === null) {
                             _museSlotCount = md.slotCount;
@@ -27730,7 +27864,7 @@ ${_clip(contextSections, 2600)}`;
                     passwordHashes: (function() { try { var _p = JSON.parse(localStorage.getItem('ps_muse_pws') || '[]'); while (_p.length < MUSE_PRESET_KEYS.length) _p.push(null); return _p; } catch(e) { return MUSE_PRESET_KEYS.map(function() { return null; }); } })(),
                     layoutMode: _museLayoutMode,
                     slotCount: _museSlotCount,
-                    autoRotate: { enabled: _museAutoRotateEnabled, durations: _museAutoRotateDurations },
+                    autoRotate: { enabled: _museAutoRotateEnabled, durations: _museAutoRotateDurations, included: _museAutoRotateIncluded },
                 },
                 profilePresets: {
                     presets:   (function() { try { return JSON.parse(localStorage.getItem('ps_profile_presets') || '[]'); } catch(e) { return []; } })(),
@@ -27851,7 +27985,11 @@ ${_clip(contextSections, 2600)}`;
                                     _museAutoRotateDurations = md.autoRotate.durations.slice(0, MUSE_PRESET_KEYS.length);
                                     while (_museAutoRotateDurations.length < MUSE_PRESET_KEYS.length) _museAutoRotateDurations.push(30);
                                 }
-                                try { localStorage.setItem(MUSE_AUTOROTATE_KEY, JSON.stringify({ enabled: _museAutoRotateEnabled, durations: _museAutoRotateDurations })); } catch(e) {}
+                                if (Array.isArray(md.autoRotate.included)) {
+                                    _museAutoRotateIncluded = md.autoRotate.included.slice(0, MUSE_PRESET_KEYS.length);
+                                    while (_museAutoRotateIncluded.length < MUSE_PRESET_KEYS.length) _museAutoRotateIncluded.push(true);
+                                }
+                                try { localStorage.setItem(MUSE_AUTOROTATE_KEY, JSON.stringify({ enabled: _museAutoRotateEnabled, durations: _museAutoRotateDurations, included: _museAutoRotateIncluded })); } catch(e) {}
                             }
                             if (_museInited) {
                                 _musePresetIdx = parseInt(localStorage.getItem(MUSE_PRESET_IDX_KEY) || '0') || 0;
@@ -28504,6 +28642,26 @@ ${_clip(contextSections, 2600)}`;
         let _lastSavedHash  = '';
         let _lastManualSyncTime = 0;
         let _lastEncBody    = null;    // cached encrypted Gist body for keepalive push on unload
+        let _lastGistPushTime = 0;     // timestamp of last completed PATCH (rate-limit guard)
+        let _gistCooldownTimer = null; // timer for deferred push after cooldown (null = no timer running)
+        const GIST_MIN_INTERVAL = 4000; // min ms between successive PATCHes (avoids GitHub secondary rate limit)
+        let _refreshEncTimer  = null;  // timer for pre-encrypting _lastEncBody without PATCHing
+
+        // Pre-encrypt current state → _lastEncBody, without sending a PATCH.
+        // Keeps keepalive accurate even when the 4s rate gate is delaying the real push.
+        async function _refreshEncBodyAsync() {
+            _refreshEncTimer = null;
+            const token = getGistToken();
+            if (!token) return;
+            try {
+                const encContent = await _gistEncrypt(token, _buildExportData());
+                _lastEncBody = JSON.stringify({ files: { [GIST_FILENAME]: { content: encContent } } });
+            } catch(e) { /* silent — keepalive will skip if _lastEncBody stays stale */ }
+        }
+        function _scheduleRefreshEncBody() {
+            clearTimeout(_refreshEncTimer);
+            _refreshEncTimer = setTimeout(_refreshEncBodyAsync, 300);
+        }
 
         // ── Shared export-data builder (single source of truth) ──────────────
         // ── API key encode/decode — base64 obfuscation for Gist storage ──────
@@ -28579,7 +28737,7 @@ ${_clip(contextSections, 2600)}`;
                     passwordHashes: (function() { try { var _p = JSON.parse(localStorage.getItem('ps_muse_pws') || '[]'); while (_p.length < MUSE_PRESET_KEYS.length) _p.push(null); return _p; } catch(e) { return MUSE_PRESET_KEYS.map(function() { return null; }); } })(),
                     layoutMode: _museLayoutMode,
                     slotCount: _museSlotCount,
-                    autoRotate: { enabled: _museAutoRotateEnabled, durations: _museAutoRotateDurations },
+                    autoRotate: { enabled: _museAutoRotateEnabled, durations: _museAutoRotateDurations, included: _museAutoRotateIncluded },
                 },
                 profilePresets: {
                     presets:   (function() { try { return JSON.parse(localStorage.getItem('ps_profile_presets') || '[]'); } catch(e) { return []; } })(),
@@ -28601,13 +28759,30 @@ ${_clip(contextSections, 2600)}`;
 
         async function _pushToGist(silent = false) {
             if (!getGistToken()) return;
-            if (_isSyncing) { _pendingSave = true; return; } // syncFromGist in progress — queue
-            if (_isSaving)  { _pendingSave = true; return; } // another PATCH in-flight — queue
+            if (_isSyncing) { _pendingSave = true; _scheduleRefreshEncBody(); return; } // syncFromGist in progress — queue
+            if (_isSaving)  { _pendingSave = true; _scheduleRefreshEncBody(); return; } // another PATCH in-flight — queue
             const hash = _dataHash();
             if (hash === _lastSavedHash) return; // nothing changed — skip
+            // Rate-limit guard: enforce minimum interval between PATCHes
+            const now = Date.now();
+            const elapsed = now - _lastGistPushTime;
+            if (_lastGistPushTime > 0 && elapsed < GIST_MIN_INTERVAL) {
+                _pendingSave = true;
+                _scheduleRefreshEncBody(); // pre-encrypt so keepalive has fresh body while waiting
+                if (!_gistCooldownTimer) { // don't override an existing timer (e.g. 403 2-min backoff)
+                    const delay = Math.max(GIST_MIN_INTERVAL - elapsed + 100, 100);
+                    _gistCooldownTimer = setTimeout(() => {
+                        _gistCooldownTimer = null;
+                        if (_pendingSave) { _pendingSave = false; _pushToGist(true); }
+                    }, delay);
+                }
+                return;
+            }
             _isSaving = true;
+            _lastGistPushTime = now;
             const token = getGistToken();
             const exportData = _buildExportData();
+            let _rateLimited = false;
             try {
                 const encContent = await _gistEncrypt(token, exportData);
                 _lastEncBody = JSON.stringify({ files: { [GIST_FILENAME]: { content: encContent } } });
@@ -28618,8 +28793,22 @@ ${_clip(contextSections, 2600)}`;
                 });
                 if (res.ok) {
                     _lastSavedHash = hash; // only update hash on confirmed success
+                    _lastGistPushTime = Date.now(); // update after confirmed success
                     const t = new Date(); const hm = t.getHours().toString().padStart(2,'0')+':'+t.getMinutes().toString().padStart(2,'0');
                     showGistStatus('AUTO SAVED ✓ ' + hm, 'text-emerald-400');
+                } else if (res.status === 403 || res.status === 429) {
+                    // Rate limited — back off 2 minutes, discard pending saves (data is safe in localStorage)
+                    _rateLimited = true;
+                    _pendingSave = false;
+                    clearTimeout(_gistCooldownTimer); // clear any pending timer before starting 2-min backoff
+                    _lastGistPushTime = now + (120 * 1000); // block for 2 min
+                    showGistStatus('SAVE FAILED ✗ (' + res.status + ') — retry ใน 2 นาที', 'text-rose-500');
+                    console.warn('[Gist] Rate limited (' + res.status + ') — blocking pushes for 2 min');
+                    _gistCooldownTimer = setTimeout(() => {
+                        _gistCooldownTimer = null; // mark timer as done before pushing
+                        _lastGistPushTime = 0;     // unblock
+                        _pushToGist(true);         // retry once after cooldown
+                    }, 120 * 1000);
                 } else {
                     showGistStatus('SAVE FAILED ✗ (' + res.status + ')', 'text-rose-500');
                     console.warn('[Gist] SAVE FAILED', res.status, await res.text().catch(()=>''));
@@ -28628,23 +28817,27 @@ ${_clip(contextSections, 2600)}`;
                 if (!silent) showGistStatus('OFFLINE — saved locally', 'text-amber-400');
             } finally {
                 _isSaving = false;
-                if (_pendingSave) {         // flush the queued save
+                if (!_rateLimited && _pendingSave && !_gistCooldownTimer) { // flush queued save (only if no timer already running)
                     _pendingSave = false;
-                    await _pushToGist(true);
+                    _gistCooldownTimer = setTimeout(() => {
+                        _gistCooldownTimer = null;
+                        _pushToGist(true);
+                    }, GIST_MIN_INTERVAL);
                 }
             }
         }
 
         // ── keepalive fire-and-forget Gist push (for pagehide / beforeunload) ─
         // fetch with keepalive=true lets browser complete the request even if page unloads
-        // Uses _lastEncBody (pre-encrypted by last _pushToGist) to avoid async on unload
+        // Uses _lastEncBody (pre-encrypted by _pushToGist or _refreshEncBodyAsync).
+        // _scheduleRefreshEncBody() keeps _lastEncBody fresh even when rate gate delays the real PATCH.
         function _pushToGistKeepalive() {
             const token = getGistToken();
             if (!token) return;
+            if (!_lastEncBody) return; // no encrypted body cached — skip rather than send unencrypted data
             if (_dataHash() === _lastSavedHash) return; // nothing changed
             try {
-                // Use cached body if available (avoids async crypto on page unload)
-                const body = _lastEncBody || JSON.stringify({ files: { [GIST_FILENAME]: { content: JSON.stringify(_buildExportData()) } } });
+                const body = _lastEncBody;
                 // keepalive fetch has ~64KB body limit — if payload is larger (photos included),
                 // try regular fetch first; keepalive as fallback
                 if (body.length < 60000) {
@@ -28707,7 +28900,7 @@ ${_clip(contextSections, 2600)}`;
                 + '|' + (localStorage.getItem('ps_muse_pws') || '');
             const psPresetsHash = (localStorage.getItem('ps_profile_presets') || '').length
                 + '|' + (localStorage.getItem('ps_profile_preset_idx') || '0');
-            return rHash + '::wl:' + watchlist.join(',') + '::av:' + avHash + '::pp:' + ppHash + '::pc:' + pcHash + '::lwc:' + lwcHash + '::muse:' + museHash + '::psp:' + psPresetsHash + '::ml:' + _museLayoutMode + '::sc:' + _museSlotCount + '::ar:' + _museAutoRotateEnabled + ':' + _museAutoRotateDurations.join(',');
+            return rHash + '::wl:' + watchlist.join(',') + '::av:' + avHash + '::pp:' + ppHash + '::pc:' + pcHash + '::lwc:' + lwcHash + '::muse:' + museHash + '::psp:' + psPresetsHash + '::ml:' + _museLayoutMode + '::sc:' + _museSlotCount + '::ar:' + _museAutoRotateEnabled + ':' + _museAutoRotateDurations.join(',') + ':' + _museAutoRotateIncluded.join(',');
         }
         setInterval(() => {
             if (!getGistToken()) return;
@@ -29483,10 +29676,13 @@ ${_clip(contextSections, 2600)}`;
             <!-- Header -->
             <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--border);flex-shrink:0">
                 <div style="display:flex;align-items:center;gap:10px">
-                    <div style="width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#0f2030,#1a3a5c)">
-                        <svg width="14" height="14" fill="none" stroke="#5eead4" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                    <div style="width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:color-mix(in srgb,var(--accent) 12%,var(--bg-card2));border:1px solid color-mix(in srgb,var(--accent) 22%,var(--border))">
+                        <svg width="16" height="16" fill="none" stroke="var(--accent)" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                     </div>
-                    <span style="font-size:13px;font-weight:800;color:var(--text-primary);letter-spacing:0.01em">Settings</span>
+                    <div>
+                        <div style="font-size:14px;font-weight:800;color:var(--text-primary);letter-spacing:0.01em;line-height:1.25">Settings</div>
+                        <div style="font-size:9.5px;font-weight:500;color:var(--text-dim);line-height:1.25;letter-spacing:0.02em">PSLink Configuration</div>
+                    </div>
                 </div>
                 <button onclick="closeSettingsModal()" style="width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--text-dim);background:var(--bg-card2);border:1px solid var(--border);cursor:pointer;transition:all 0.12s" onmouseover="this.style.color='var(--text-primary)';this.style.borderColor='var(--accent)'" onmouseout="this.style.color='var(--text-dim)';this.style.borderColor='var(--border)'">
                     <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2" stroke-linecap="round"><path d="M6 18L18 6M6 6l12 12"/></svg>
