@@ -5669,7 +5669,7 @@
                 </div>
 
                 <!-- Muse Card — 5 slots -->
-                <div id="muse-card" class="dash-card" style="overflow:hidden;padding:0;position:relative;">
+                <div id="muse-card" class="dash-card" style="overflow:hidden;padding:0;position:relative;height:336px;">
                     <div id="muse-slots" style="display:flex;width:100%;gap:2px;align-items:stretch;"></div>
                     <div id="muse-toast" style="position:absolute;bottom:14px;left:50%;transform:translateX(-50%);z-index:30;pointer-events:none;opacity:0;transition:opacity 0.3s;background:color-mix(in srgb,var(--accent) 10%,rgba(15,15,20,0.45));border:1px solid color-mix(in srgb,var(--accent) 28%,rgba(255,255,255,0.06));border-radius:20px;padding:5px 14px;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);font-size:10.5px;font-weight:400;color:rgba(255,255,255,0.82);letter-spacing:0.06em;white-space:nowrap;box-shadow:0 2px 12px rgba(0,0,0,0.2);"></div>
                     <!-- Button row: [A][B][C] [pencil] [↑ MUSE] -->
@@ -12529,7 +12529,7 @@
             rec.fixed   = fixedItems;
             rec.dynamic = dynamicItems;
             _lsSave('ps_records', JSON.stringify(records));
-            try { localStorage.setItem('ps_records_dirty', '1'); } catch(e) {}
+            try { localStorage.setItem('ps_data_dirty', '1'); } catch(e) {}
 
             // ── Update financial bar (Records tab) ────────────────────────────
             const fixedTotal   = sumArr(fixedItems);
@@ -12914,6 +12914,7 @@
 
         function saveWatchlist() {
             _lsSave('ps_watchlist', JSON.stringify(watchlist));
+            try { localStorage.setItem('ps_data_dirty', '1'); } catch(e) {}
             scheduleAutoSave(true); // immediate — user explicitly changed watchlist
         }
 
@@ -24271,7 +24272,12 @@ ${_clip(contextSections, 2600)}`;
         var _museAutoRotateDurations = [30, 30, 30, 30, 30, 30]; // seconds per playlist
         function _museCalcAutoSlots() {
             var card = document.getElementById('muse-card');
-            var w = card ? card.offsetWidth : window.innerWidth;
+            var w = card ? card.offsetWidth : 0;
+            // If card isn't laid out yet (behind splash, hidden tab), use parent or viewport width
+            if (w < 100) {
+                var parent = card ? card.parentElement : null;
+                w = (parent && parent.offsetWidth > 100) ? parent.offsetWidth : window.innerWidth;
+            }
             // target slot width varies by mode to preserve 9:16 proportions
             var targetW = _museLayoutMode === 0 ? 185 : (_museLayoutMode === 2 ? 253 : 197);
             return Math.max(3, Math.min(10, Math.floor(w / targetW)));
@@ -24475,7 +24481,7 @@ ${_clip(contextSections, 2600)}`;
             var container = document.getElementById('muse-slots');
             if (!container) return;
             var html = '';
-            var arStyle = _museLayoutMode === 0 ? '' : 'aspect-ratio:9/16;';
+            var arStyleFilled = _museLayoutMode === 0 ? '' : 'aspect-ratio:9/16;';
             for (var i = 0; i < _museGetSlotCount(); i++) {
                 var clip = i < _museClips.length ? _museClips[i] : null;
                 if (clip) {
@@ -24495,14 +24501,14 @@ ${_clip(contextSections, 2600)}`;
                         + ' ondragleave="_museSlotDragLeave(event,' + i + ')"'
                         + ' ondrop="_museSlotDrop(event,' + i + ')"';
                     if (isImage) {
-                        html += '<div id="muse-slot-' + i + '" class="muse-slot-filled" style="flex:1;' + arStyle + 'position:relative;background:#111;overflow:hidden;"' + dndAttrs + '>'
+                        html += '<div id="muse-slot-' + i + '" class="muse-slot-filled" style="flex:1;' + arStyleFilled + 'position:relative;background:#111;overflow:hidden;"' + dndAttrs + '>'
                             + gripHtml
                             + '<img src="' + clip.src + '" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;">'
                             + '<div style="position:absolute;bottom:8px;left:8px;width:24px;height:24px;border-radius:50%;background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.25);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5" fill="rgba(255,255,255,0.7)" stroke="none"/><path d="M21 15l-5-5L5 21" stroke-linecap="round" stroke-linejoin="round"/></svg></div>'
                             + '</div>';
                     } else {
                     var hasThumbnail = clip.thumbnail && clip.thumbnail.startsWith('http');
-                    html += '<div id="muse-slot-' + i + '" class="muse-slot-filled" style="flex:1;' + arStyle + 'position:relative;background:#111;overflow:hidden;cursor:pointer;" onclick="_museSlotClick(' + i + ')"' + dndAttrs + '>'
+                    html += '<div id="muse-slot-' + i + '" class="muse-slot-filled" style="flex:1;' + arStyleFilled + 'position:relative;background:#111;overflow:hidden;cursor:pointer;" onclick="_museSlotClick(' + i + ')"' + dndAttrs + '>'
                         + gripHtml
                         + '<iframe id="muse-iframe-' + i + '" src="about:blank" frameborder="0" scrolling="no" allow="autoplay;clipboard-write;encrypted-media;picture-in-picture;web-share" allowfullscreen style="display:none;position:absolute;top:0;left:0;width:325px;height:578px;border:none;transform-origin:top left;"></iframe>'
                         + '<div id="muse-cover-' + i + '" style="position:absolute;inset:0;">'
@@ -24513,7 +24519,7 @@ ${_clip(contextSections, 2600)}`;
                         + '</div>';
                     }
                 } else {
-                    html += '<div id="muse-slot-' + i + '" style="flex:1;' + arStyle + 'position:relative;background:var(--muse-slot-bg);overflow:hidden;display:flex;align-items:center;justify-content:center;border-right:1px solid var(--muse-slot-border);">'
+                    html += '<div id="muse-slot-' + i + '" style="flex:1;position:relative;background:var(--muse-slot-bg);overflow:hidden;display:flex;align-items:center;justify-content:center;border-right:1px solid var(--muse-slot-border);">'
                         + '<div style="position:absolute;inset:6px;border:1px dashed var(--border);border-radius:4px;pointer-events:none;opacity:0.6;"></div>'
                         + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="color:var(--text-dim);opacity:0.45;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'
                         + '</div>';
@@ -24672,12 +24678,17 @@ ${_clip(contextSections, 2600)}`;
         function _museApplyLayout() {
             var card = document.getElementById('muse-card');
             var slots = document.getElementById('muse-slots');
+            var hasClips = _museClips && _museClips.length > 0;
             if (_museLayoutMode === 0) {
                 // Compact: fixed 334px height, slots stretch to fill (no aspect-ratio)
                 if (card && !_museCollapsed) card.style.height = '336px';
                 if (slots) { slots.style.gap = '3px'; slots.style.height = '100%'; }
+            } else if (!hasClips) {
+                // Wide/Tall with no clips: cap height so empty slots don't stretch
+                if (card && !_museCollapsed) card.style.height = '336px';
+                if (slots) { slots.style.gap = '2px'; slots.style.height = '100%'; }
             } else {
-                // Wide / Tall: auto height, aspect-ratio:9/16 per slot drives height
+                // Wide / Tall with clips: auto height, aspect-ratio:9/16 per slot drives height
                 if (card) card.style.height = '';
                 if (slots) { slots.style.gap = '2px'; slots.style.height = ''; }
             }
@@ -24901,6 +24912,7 @@ ${_clip(contextSections, 2600)}`;
                 });
                 _museActiveIdx = _museClips.length > 0 ? 0 : -1;
                 _museRenderSlots();
+                _museApplyLayout();
                 if (_museEditOpen) { _museRenderPresetTabs(); _museRenderEditList(); _museUpdateAddFooter(); _museUpdateLockBtn(); }
                 _museClips.forEach(function(c, i) {
                     if (!c.thumbnail && c.type !== 'image') _museFetchThumbnail(c, function() { _museUpdateSlotCover(i); });
@@ -27347,6 +27359,11 @@ ${_clip(contextSections, 2600)}`;
                 showGistStatus('กำลัง SYNC อยู่ — รอสักครู่', 'text-amber-400');
                 return;
             }
+            // Block if auto-save PATCH is in progress — prevent concurrent PATCH race
+            if (_isSaving) {
+                showGistStatus('กำลัง SAVE อยู่ — รอสักครู่', 'text-amber-400');
+                return;
+            }
             // Rate-limit guard: respect the same cooldown as _pushToGist
             const now = Date.now();
             const elapsed = now - _lastGistPushTime;
@@ -27375,7 +27392,7 @@ ${_clip(contextSections, 2600)}`;
                     _lastEncBody = body; // keep keepalive cache in sync
                     // Update hash so _pushToGist knows Gist is now current
                     _lastSavedHash = _dataHash();
-                    try { localStorage.removeItem('ps_records_dirty'); } catch(e) {}
+                    try { localStorage.removeItem('ps_data_dirty'); } catch(e) {}
                     showGistStatus('SAVED ✓', 'text-emerald-500');
                 } else if (res.status === 401) {
                     showGistStatus('TOKEN หมดอายุ ✗', 'text-rose-500');
@@ -27483,7 +27500,7 @@ ${_clip(contextSections, 2600)}`;
                     if (Array.isArray(data.records)) {
                         if (isInitialLoad) {
                             const _hasSyncHistory = !!localStorage.getItem('ps_gist_sync_ts');
-                            const _isDirty = localStorage.getItem('ps_records_dirty') === '1';
+                            const _isDirty = localStorage.getItem('ps_data_dirty') === '1';
                             if (_isDirty) {
                                 // Local has unsaved changes (push was pending/rate-limited before refresh)
                                 // → keep local records and push them to Gist after sync
@@ -27514,10 +27531,18 @@ ${_clip(contextSections, 2600)}`;
                     }
                     if (Array.isArray(data.watchlist) && !hasLocalChanges) {
                         if (isInitialLoad) {
+                            const _isDirtyWl = localStorage.getItem('ps_data_dirty') === '1';
+                            if (_isDirtyWl) {
+                                // Local has unsaved changes — keep local watchlist too
+                                const _localWlRaw = localStorage.getItem('ps_watchlist');
+                                const _localWl = _localWlRaw ? (() => { try { return JSON.parse(_localWlRaw); } catch(e) { return data.watchlist; } })() : data.watchlist;
+                                watchlist = Array.isArray(_localWl) ? _localWl : data.watchlist;
+                                _wlMergedExtras = true;
+                                console.log('[Gist] Dirty flag set — keeping local watchlist, will push to Gist');
+                            } else
                             // Only merge local-only stocks if this device has synced Gist before.
                             // Fresh device/origin → use Gist directly to avoid pushing stale localStorage back.
-                            const _hasSyncHistoryWl = !!localStorage.getItem('ps_gist_sync_ts');
-                            if (_hasSyncHistoryWl) {
+                            if (!!localStorage.getItem('ps_gist_sync_ts')) {
                                 const _localWlRaw = localStorage.getItem('ps_watchlist');
                                 const _localWl = _localWlRaw ? (() => { try { return JSON.parse(_localWlRaw); } catch(e) { return []; } })() : [];
                                 const _gistSet = new Set(data.watchlist);
@@ -27787,7 +27812,7 @@ ${_clip(contextSections, 2600)}`;
                 if (_localIsNewer) {
                     // Local has data Gist doesn't have → clear hash so pending push isn't skipped
                     _lastSavedHash = '';
-                    setTimeout(() => _pushToGist(true), 2000); // push after 2s
+                    _pendingSave = true; // finally block will flush after _isSyncing = false
                 } else {
                     _lastSavedHash = _dataHash();
                 }
@@ -27878,6 +27903,8 @@ ${_clip(contextSections, 2600)}`;
                 }
 
                 // ── Now run full syncFromGist to restore data ──
+                // Set hash so syncFromGist sees hasLocalChanges=false → Gist data is applied
+                _lastSavedHash = _dataHash();
                 await syncFromGist(false);
 
                 // ── Update settings modal inputs with restored keys ──
@@ -28144,7 +28171,7 @@ ${_clip(contextSections, 2600)}`;
                     // Save records and watchlist
                     _lsSave('ps_records',   JSON.stringify(records));
                     _lsSave('ps_watchlist', JSON.stringify(watchlist));
-                    try { localStorage.setItem('ps_records_dirty', '1'); } catch(e) {}
+                    try { localStorage.setItem('ps_data_dirty', '1'); } catch(e) {}
                     prewarmWatchlistLogos(80);
 
                     // Reload records tab
@@ -28233,7 +28260,7 @@ ${_clip(contextSections, 2600)}`;
 
                     _sortRecords();
                     _lsSave('ps_records', JSON.stringify(records));
-                    try { localStorage.setItem('ps_records_dirty', '1'); } catch(e) {}
+                    try { localStorage.setItem('ps_data_dirty', '1'); } catch(e) {}
                     loadMonth(curMonth);
 
                     const _summary = [added ? added + ' เดือนใหม่' : '', replaced ? replaced + ' เดือนแทนที่' : ''].filter(Boolean).join(', ');
@@ -28404,7 +28431,7 @@ ${_clip(contextSections, 2600)}`;
         function executeClear() {
             records = records.filter(r => r.id !== curMonth);
             _lsSave('ps_records', JSON.stringify(records));
-            try { localStorage.setItem('ps_records_dirty', '1'); } catch(e) {}
+            try { localStorage.setItem('ps_data_dirty', '1'); } catch(e) {}
             closeModal();
             loadMonth(curMonth);
             scheduleAutoSave(true); // immediate — month cleared
@@ -28979,8 +29006,6 @@ ${_clip(contextSections, 2600)}`;
             }
             _isSaving = true;
             _lastGistPushTime = now;
-            // Mark local as dirty — cleared on success so initial load knows if a push was pending
-            try { localStorage.setItem('ps_records_dirty', '1'); } catch(e) {}
             const token = getGistToken();
             const exportData = _buildExportData();
             let _rateLimited = false;
@@ -28995,7 +29020,7 @@ ${_clip(contextSections, 2600)}`;
                 if (res.ok) {
                     _lastSavedHash = hash; // only update hash on confirmed success
                     _lastGistPushTime = Date.now(); // update after confirmed success
-                    try { localStorage.removeItem('ps_records_dirty'); } catch(e) {} // push succeeded — local is in sync
+                    try { localStorage.removeItem('ps_data_dirty'); } catch(e) {} // push succeeded — local is in sync
                     const t = new Date(); const hm = t.getHours().toString().padStart(2,'0')+':'+t.getMinutes().toString().padStart(2,'0');
                     showGistStatus('AUTO SAVED ✓ ' + hm, 'text-emerald-400');
                 } else if (res.status === 403 || res.status === 429) {
