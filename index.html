@@ -24639,6 +24639,7 @@ ${_clip(contextSections, 2600)}`;
             var idx = _MUSE_SLOT_CYCLE.indexOf(_museSlotCount);
             _museSlotCount = _MUSE_SLOT_CYCLE[(idx + 1) % _MUSE_SLOT_CYCLE.length];
             localStorage.setItem(MUSE_SLOT_COUNT_KEY, String(_museSlotCount));
+            console.log(`[MUSE DIAG] toggleSlotCount → _museSlotCount=${_museSlotCount} stored=${localStorage.getItem(MUSE_SLOT_COUNT_KEY)}`);
             if (typeof _pushToGist === 'function') _pushToGist(true);
             _museRenderSlots();
             _museApplyLayout();
@@ -24790,6 +24791,7 @@ ${_clip(contextSections, 2600)}`;
         function _museToggleLayout() {
             _museLayoutMode = (_museLayoutMode + 1) % 3;
             localStorage.setItem(MUSE_LAYOUT_KEY, String(_museLayoutMode));
+            console.log(`[MUSE DIAG] toggleLayout → _museLayoutMode=${_museLayoutMode} stored=${localStorage.getItem(MUSE_LAYOUT_KEY)}`);
             if (typeof _pushToGist === 'function') _pushToGist(true);
             _museRenderSlots();
             _museApplyLayout();
@@ -27568,6 +27570,7 @@ ${_clip(contextSections, 2600)}`;
                     // MUSE playlists + active preset + collapse state
                     if (data.museData) {
                         const md = data.museData;
+                        console.log(`[Gist DIAG] MUSE block — isInitialLoad:${isInitialLoad} _museInited:${_museInited} gist:{ layoutMode:${md.layoutMode}, slotCount:${md.slotCount}, presetIdx:${md.activePresetIdx}, collapsed:${md.collapsed} } local:{ layout:${localStorage.getItem(MUSE_LAYOUT_KEY)}, slotCount:${localStorage.getItem(MUSE_SLOT_COUNT_KEY)}, presetIdx:${localStorage.getItem(MUSE_PRESET_IDX_KEY)}, collapsed:${localStorage.getItem(MUSE_COLLAPSED_KEY)} } inMem:{ layout:${_museLayoutMode}, slots:${_museSlotCount} }`);
                         if (Array.isArray(md.presets)) {
                             for (let i = 0; i < MUSE_PRESET_KEYS.length; i++) {
                                 const presetData = i < md.presets.length ? md.presets[i] : [];
@@ -27591,6 +27594,9 @@ ${_clip(contextSections, 2600)}`;
                         if (typeof md.layoutMode === 'number' && (isInitialLoad || localStorage.getItem(MUSE_LAYOUT_KEY) === null)) {
                             _museLayoutMode = md.layoutMode;
                             try { localStorage.setItem(MUSE_LAYOUT_KEY, String(md.layoutMode)); } catch(e) {}
+                            console.log(`[Gist DIAG] MUSE layoutMode SET → ${md.layoutMode}`);
+                        } else {
+                            console.log(`[Gist DIAG] MUSE layoutMode SKIPPED — typeof:${typeof md.layoutMode} isInit:${isInitialLoad} lsVal:${localStorage.getItem(MUSE_LAYOUT_KEY)}`);
                         }
                         if (md.autoRotate && (isInitialLoad || localStorage.getItem(MUSE_AUTOROTATE_KEY) === null)) {
                             _museAutoRotateEnabled = !!md.autoRotate.enabled;
@@ -27607,6 +27613,9 @@ ${_clip(contextSections, 2600)}`;
                         if (typeof md.slotCount === 'number' && (isInitialLoad || localStorage.getItem(MUSE_SLOT_COUNT_KEY) === null)) {
                             _museSlotCount = md.slotCount;
                             try { localStorage.setItem(MUSE_SLOT_COUNT_KEY, String(md.slotCount)); } catch(e) {}
+                            console.log(`[Gist DIAG] MUSE slotCount SET → ${md.slotCount}`);
+                        } else {
+                            console.log(`[Gist DIAG] MUSE slotCount SKIPPED — typeof:${typeof md.slotCount} isInit:${isInitialLoad} lsVal:${localStorage.getItem(MUSE_SLOT_COUNT_KEY)}`);
                         }
                         // Re-apply if card already initialized (Gist sync on running session)
                         if (_museInited) {
@@ -27614,6 +27623,7 @@ ${_clip(contextSections, 2600)}`;
                             _museCollapsed = localStorage.getItem(MUSE_COLLAPSED_KEY) === '1';
                             _museLayoutMode = parseInt(localStorage.getItem(MUSE_LAYOUT_KEY) || '0') || 0;
                             _museSlotCount  = parseInt(localStorage.getItem(MUSE_SLOT_COUNT_KEY) || '0') || 0;
+                            console.log(`[Gist DIAG] MUSE _museInited re-apply — layout:${_museLayoutMode} slots:${_museSlotCount} presetIdx:${_musePresetIdx} collapsed:${_museCollapsed}`);
                             // Respect password lock — auto-switch to first unlocked preset
                             var _syncPws = _museGetPws();
                             if (_syncPws[_musePresetIdx] && !_museUnlockedPresets.has(_musePresetIdx)) {
@@ -28976,6 +28986,7 @@ ${_clip(contextSections, 2600)}`;
             _lastGistPushTime = now;
             const token = getGistToken();
             const exportData = _buildExportData();
+            console.log(`[Gist DIAG] _pushToGist payload — muse:{ layout:${exportData.museData?.layoutMode}, slots:${exportData.museData?.slotCount} } records:${exportData.records?.length}`);
             let _rateLimited = false;
             try {
                 const encContent = await _gistEncrypt(token, exportData);
