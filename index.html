@@ -30159,6 +30159,15 @@ ${_clip(contextSections, 2600)}`;
                         }
                         if (_cw.font && localStorage.getItem('ps_clock_font') === null)
                             try { localStorage.setItem('ps_clock_font', _cw.font); } catch(e) {}
+                        // Re-apply to live clock widget — it already initialized with defaults
+                        // before Gist data arrived, so we must push the restored values into it
+                        if (typeof _clockInited !== 'undefined' && _clockInited) {
+                            _clockRestoreSettings(); _clockApplyColor(); _clockApplyDateVis(); _clockApplyFont();
+                            _clockRestorePos(); _clockRestoreFabPos();
+                            // If Gist says hidden but clock defaulted to visible, fix it
+                            var _gVis = localStorage.getItem('ps_clock_vis');
+                            if (_gVis === '0') _clockHide();
+                        }
                     }
                     // Profile card: restore notes, free images, pills config
                     if (data.profileCard) {
