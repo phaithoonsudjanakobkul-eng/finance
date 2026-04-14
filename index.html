@@ -12524,7 +12524,23 @@
 
             // ── Persist to records ─────────────────────────────────────────────
             let rec = records.find(r => r.id === month);
-            if (!rec) { rec = { id: month, payday: 0, fixed: [], dynamic: [] }; records.push(rec); _sortRecords(); }
+            if (!rec) {
+                // Don't create a ghost record when form is entirely empty — this happens
+                // when loadMonth fires at boot before Gist data has loaded, or when the
+                // user navigates to a month they've never touched.
+                // Creating an empty record sets ps_data_dirty='1', which causes
+                // syncFromGist(true) to prefer empty local data over real Gist records.
+                if (payday === 0 && fixedItems.length === 0 && dynamicItems.length === 0) {
+                    // Still update dashboard UI (shows correct empty-state) and schedule
+                    // hash check — just don't persist the ghost record or set dirty flag
+                    updateDashboard();
+                    scheduleAutoSave();
+                    return;
+                }
+                rec = { id: month, payday: 0, fixed: [], dynamic: [] };
+                records.push(rec);
+                _sortRecords();
+            }
             rec.payday  = payday;
             rec.fixed   = fixedItems;
             rec.dynamic = dynamicItems;
