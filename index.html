@@ -27333,6 +27333,7 @@ ${_clip(contextSections, 2600)}`;
 
         async function syncFromGist(isInitialLoad = false) {
             const token = getGistToken();
+            console.log(`[Gist DIAG] syncFromGist(${isInitialLoad}) — token:${token?'SET':'EMPTY'} _isSaving:${_isSaving} _isSyncing:${_isSyncing} _gistInitialSyncComplete:${_gistInitialSyncComplete}`);
             if (!token) { document.getElementById('gist-modal').classList.remove('hidden'); return; }
             if (location.protocol === 'file:') {
                 showGistStatus('⚠ เปิดจาก file:// — ต้อง host บน https:// เพื่อ sync Gist', 'text-amber-400');
@@ -27340,6 +27341,7 @@ ${_clip(contextSections, 2600)}`;
             }
             // ถ้ากำลัง PATCH อยู่ → รอให้ push เสร็จก่อนค่อย sync (ป้องกัน race condition)
             if (_isSaving) {
+                console.warn('[Gist DIAG] _isSaving=true at sync start — scheduling 1500ms retry');
                 setTimeout(() => syncFromGist(isInitialLoad), 1500);
                 return;
             }
@@ -27386,8 +27388,10 @@ ${_clip(contextSections, 2600)}`;
                 }
                 if (!content) { showGistStatus('ไม่มีข้อมูลใน Gist', 'text-gray-400'); return; }
 
+                console.log(`[Gist DIAG] content downloaded: ${(content.length/1024).toFixed(1)} KB, first 80 chars: ${content.slice(0,80)}`);
                 if (isInitialLoad) _splashStatus('ถอดรหัสข้อมูล...');
                 const data = await _gistDecrypt(token, content);
+                console.log(`[Gist DIAG] decrypted — records:${Array.isArray(data?.records)?data.records.length:'N/A'} watchlist:${Array.isArray(data?.watchlist)?data.watchlist.length:'N/A'} ts:${data?.lastModifiedTs} hasApiKeys:${!!data?.apiKeys}`);
                 const prevRecordsSig = (() => { try { return JSON.stringify(records || []); } catch(e) { return ''; } })();
 
                 // Support both array format (legacy) and object format
@@ -27739,9 +27743,10 @@ ${_clip(contextSections, 2600)}`;
                     _lastSavedHash = _dataHash();
                 }
                 try { localStorage.setItem('ps_gist_sync_ts', String(Date.now())); } catch(e) {}
+                console.log(`[Gist DIAG] syncFromGist SUCCESS — records:${records.length} watchlist:${watchlist.length}`);
                 showGistStatus('SYNCED ✓', 'text-emerald-500');
             } catch(e) {
-                console.error('[Gist] syncFromGist error:', e);
+                console.error('[Gist DIAG] syncFromGist EXCEPTION:', e?.message || e);
                 // Diagnose common causes
                 const msg = e?.message || '';
                 if (msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('Load failed')) {
@@ -27761,6 +27766,9 @@ ${_clip(contextSections, 2600)}`;
                 }
             } finally {
                 _isSyncing = false;
+                // Mark initial sync done — unblocks _pushToGist (which was guarded to prevent
+                // corrupting Gist with empty data before we knew what was in Gist)
+                if (isInitialLoad) _gistInitialSyncComplete = true;
                 if (_pendingSave) {
                     _pendingSave = false;
                     // Push merged data to Gist, then pre-warm _lastEncBody so keepalive
@@ -27842,9 +27850,12 @@ ${_clip(contextSections, 2600)}`;
                 //   → if gistTs=0 (legacy Gist): falls to else → Gist applied directly  ✓
                 try { localStorage.removeItem('ps_gist_sync_ts'); } catch(e) {}
                 try { localStorage.removeItem('ps_gist_push_ts'); } catch(e) {}
+                // Mark wizard done so Wizard overlay doesn't re-appear after reload
+                try { localStorage.setItem('ps_wizard_done', '1'); } catch(e) {}
 
                 // Option B: Show success → reload → Splash → syncFromGist(isInitialLoad=true) → enter app
                 const keyNames = keysRestored > 0 ? ` (${keysRestored} API keys)` : '';
+                console.log(`[Gist DIAG] _applyGistToken success — keysRestored:${keysRestored}, about to reload`);
                 if (statusEl) { statusEl.textContent = `Connected ✓${keyNames}`; statusEl.style.color = '#10b981'; }
                 if (btn) { btn.textContent = 'Setup เสร็จสมบูรณ์ ✓'; btn.style.background = '#10b981'; btn.disabled = true; }
                 _reloading = true;           // tell finally to leave the button alone — page reloads shortly
@@ -28536,6 +28547,10 @@ ${_clip(contextSections, 2600)}`;
                 }
                 _startWsWatchdog();
                 _splashStatus('เชื่อมต่อ WebSocket' + (isMarketOpen() ? ' (ตลาดเปิด)' : ' (ตลาดปิด)'));
+                // Sync hash to current state before boot sync — prevents _lastSavedHash='' from
+                // triggering a spurious empty-data push that sets _isSaving=true and causes
+                // syncFromGist(true) to return early (1.5s retry after splash already hidden)
+                _lastSavedHash = _dataHash();
                 syncFromGist(true).then(function() {
                     // Preload ALL watchlist logos and wait until finished before hiding splash
                     const _FHLOGO = 'https://static2.finnhub.io/file/publicdatany/finnhubimage/stock_logo/';
@@ -28781,6 +28796,10 @@ ${_clip(contextSections, 2600)}`;
         let _lastSavedHash  = '';
         let _lastManualSyncTime = 0;
         let _lastEncBody    = null;    // cached encrypted Gist body for keepalive push on unload
+        // SAFETY: must complete syncFromGist(true) before ANY push is allowed.
+        // Prevents corrupting the Gist with empty data during the Apply→reload window
+        // (token set + API keys stored → _dataHash changes → push would fire with records=[])
+        let _gistInitialSyncComplete = false;
         let _lastGistPushTime = 0;     // timestamp of last completed PATCH (rate-limit guard)
         let _gistCooldownTimer = null; // timer for deferred push after cooldown (null = no timer running)
         const GIST_MIN_INTERVAL = 4000; // min ms between successive PATCHes (avoids GitHub secondary rate limit)
@@ -28901,6 +28920,14 @@ ${_clip(contextSections, 2600)}`;
 
         async function _pushToGist(silent = false) {
             if (!getGistToken()) return;
+            // Block push during Apply→reload sequence (token just set, data not yet loaded)
+            if (window._gistReloading) { console.warn('[Gist] _pushToGist blocked: _gistReloading=true'); return; }
+            // Block push before initial syncFromGist(true) completes — prevents corrupting Gist
+            // with empty local state (records=[], watchlist=[]) before we know what's in Gist
+            if (!_gistInitialSyncComplete) {
+                console.warn('[Gist] _pushToGist blocked: initial sync not yet complete, queuing');
+                _pendingSave = true; return;
+            }
             if (_isSyncing) { _pendingSave = true; return; } // syncFromGist in progress — queue (don't pre-encrypt: data not yet loaded)
             if (_isSaving)  { _pendingSave = true; _scheduleRefreshEncBody(); return; } // another PATCH in-flight — queue
             const hash = _dataHash();
