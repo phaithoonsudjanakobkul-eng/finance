@@ -1,0 +1,15 @@
+{
+  "name": "pslink",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "node dev-server.js",
+    "dev:tunnel": "node dev-server.js tunnel",
+    "dev:headless": "node dev-server.js --no-open"
+  },
+  "devDependencies": {
+    "live-server": "^1.2.2",
+    "local-ssl-proxy": "^2.0.5",
+    "qrcode-terminal": "^0.12.0",
+    "serve": "^14.2.6"
+  }
+}

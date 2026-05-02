@@ -1,0 +1,50 @@
+# ─── Sensitive — NEVER commit ─────────────────────────────────
+ssh-key-*.key
+ssh-key-*.key.pub
+*.pem
+*.crt
+.certs/
+.env
+.env.*
+*credentials*.json
+*secret*.json
+
+# ─── PSQ templates (contain company quotation data) ──────────
+1.*.xlsx
+2.*.xlsx
+*.xlsx
+*.eml
+
+# ─── AI models (multi-GB, regenerated locally / R2 sync) ─────
+models/
+UpscaleImages/
+SampleImages/
+NewUI/
+"email test"/
+files.zip
+*.onnx
+*.safetensors
+
+# ─── Backup snapshots (per CLAUDE.md Rule 16 — strict retention) ─
+backup*.html
+mockup-*.html
+
+# ─── Backend service source (deployed separately to Fly.io) ───
+docker-compose.yml
+pslink-collabora/
+pslink-pdf-worker/
+pslink-wopi/
+
+# ─── Node + IDE ──────────────────────────────────────────────
+node_modules/
+.chrome-dev/
+.vscode/
+.idea/
+.claude/
+.psup-convert/
+*.log
+
+# ─── OS ──────────────────────────────────────────────────────
+Thumbs.db
+.DS_Store
+desktop.ini

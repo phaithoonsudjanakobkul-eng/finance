@@ -3117,6 +3117,227 @@
         }
 
         /* ─────────────────────────────────────────────────────────────
+           CINEMATIC — Utilities polish (Lv1 body-bleed + Lv2 hero empty state)
+           Lv1: warm body bleed (transparent content + glass sidebar +
+                accent hover/active + mono-caps section labels + glass SOON badge).
+           Lv2: #cine-util-hero injected into #util-content when no tool active —
+                Fraunces italic headline + mono caps subline + 6-tool chip grid +
+                ambient orb radial. Built/torn-down by _cineEnsureUtilHero().
+           No backdrop-filter (Chromium flicker bug, see project memory).
+           ───────────────────────────────────────────────────────────── */
+
+        /* Lv1.a — strip util-content solid bg.
+           #util-content has inline style="background:var(--bg-main)" at line ~12428,
+           so override needs !important. */
+        html[data-preset="cinematic"] #util-content {
+            background: transparent !important;
+        }
+
+        /* Lv1.b — sidebar: near-transparent so warm body bleeds through;
+           only a soft veil + hairline border hold its boundary. Heavy panel
+           feels disconnected from the canvas; ghost panel reads as "extension". */
+        html[data-preset="cinematic"] #util-sidebar {
+            background: linear-gradient(180deg,
+                rgba(20, 12, 16, 0.22) 0%,
+                rgba(16, 10, 14, 0.32) 100%) !important;
+            border-right: 1px solid color-mix(in srgb, var(--accent) 14%, transparent);
+        }
+
+        /* Lv1.c — sidebar edge separator inherits base accent-tint hairline +
+           rotation-flip handle; no cinematic-specific override needed (the
+           base #util-sidebar-edge rule already uses var(--accent) tokens). */
+
+        /* Lv1.d — section labels: mono caps + accent hairline below */
+        html[data-preset="cinematic"] .util-cat {
+            font-family: var(--font-mono);
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: rgba(245, 241, 232, 0.42);
+            padding: 18px 16px 6px;
+            position: relative;
+        }
+        html[data-preset="cinematic"] .util-cat::after {
+            content: '';
+            position: absolute;
+            left: 16px;
+            bottom: 1px;
+            width: 14px;
+            height: 1px;
+            background: color-mix(in srgb, var(--accent) 55%, transparent);
+        }
+
+        /* Lv1.e — item hover: warm accent tint */
+        html[data-preset="cinematic"] .util-item {
+            transition: background 0.15s ease, transform 0.1s ease;
+        }
+        html[data-preset="cinematic"] .util-item:hover {
+            background: color-mix(in srgb, var(--accent) 9%, transparent);
+        }
+
+        /* Lv1.f — active state: accent left bar + glass tint + accent title */
+        html[data-preset="cinematic"] .util-item.util-active {
+            background: color-mix(in srgb, var(--accent) 14%, transparent);
+            box-shadow:
+                inset 2px 0 0 var(--accent),
+                0 1px 6px rgba(0, 0, 0, 0.25);
+        }
+
+        /* Lv1.g — SOON / BETA badge: glass treatment matching cinematic chips */
+        html[data-preset="cinematic"] .util-soon {
+            background: rgba(20, 12, 16, 0.55);
+            border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+            color: rgba(245, 241, 232, 0.55);
+        }
+
+        /* Lv2 — hero empty state.
+           Injected by _cineEnsureUtilHero() into #util-content when on cinematic +
+           utilities tab + no active util tool. Fraunces italic headline + mono
+           subline + 6 chips for active tools + ambient orb backdrop. */
+        html[data-preset="cinematic"] #cine-util-hero {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 48px;
+            overflow: hidden;
+            pointer-events: auto;
+            z-index: 1;
+        }
+        html[data-preset="cinematic"] #cine-util-hero .cuh-orb {
+            position: absolute;
+            top: 42%;
+            left: 50%;
+            width: 580px;
+            height: 580px;
+            transform: translate(-50%, -50%);
+            background: radial-gradient(ellipse at center,
+                color-mix(in srgb, var(--accent) 11%, transparent) 0%,
+                color-mix(in srgb, var(--accent) 3%, transparent) 38%,
+                transparent 65%);
+            filter: blur(34px);
+            pointer-events: none;
+            z-index: 0;
+        }
+        html[data-preset="cinematic"] #cine-util-hero .cuh-inner {
+            position: relative;
+            z-index: 1;
+            text-align: center;
+            max-width: 920px;
+            width: 100%;
+        }
+        html[data-preset="cinematic"] #cine-util-hero .cuh-eyebrow {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.32em;
+            text-transform: uppercase;
+            color: color-mix(in srgb, var(--accent) 82%, transparent);
+            margin-bottom: 22px;
+        }
+        html[data-preset="cinematic"] #cine-util-hero .cuh-headline {
+            font-family: 'Fraunces', Georgia, serif;
+            font-style: italic;
+            font-weight: 400;
+            font-size: clamp(48px, 6.4vw, 84px);
+            font-optical-sizing: auto;
+            line-height: 1.04;
+            letter-spacing: -0.018em;
+            color: rgba(245, 241, 232, 0.96);
+            margin: 0 0 20px;
+        }
+        html[data-preset="cinematic"] #cine-util-hero .cuh-subline {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 0.26em;
+            text-transform: uppercase;
+            color: rgba(245, 241, 232, 0.42);
+            margin-bottom: 44px;
+        }
+        html[data-preset="cinematic"] #cine-util-hero .cuh-chips {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 10px;
+            max-width: 880px;
+            margin: 0 auto;
+        }
+        html[data-preset="cinematic"] #cine-util-hero .cuh-chip {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 13px 16px;
+            border-radius: 12px;
+            background: rgba(20, 12, 16, 0.32);
+            border: 1px solid color-mix(in srgb, var(--accent) 11%, transparent);
+            box-shadow:
+                inset 0 1px 0 rgba(255, 255, 255, 0.04),
+                0 1px 2px rgba(0, 0, 0, 0.18);
+            cursor: pointer;
+            text-align: left;
+            transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+            color: rgba(245, 241, 232, 0.92);
+            font-family: inherit;
+        }
+        html[data-preset="cinematic"] #cine-util-hero .cuh-chip:hover {
+            transform: translateY(-2px);
+            border-color: color-mix(in srgb, var(--accent) 38%, transparent);
+            background: rgba(26, 16, 22, 0.5);
+            box-shadow:
+                inset 0 1px 0 rgba(255, 255, 255, 0.06),
+                0 8px 24px rgba(0, 0, 0, 0.4);
+        }
+        html[data-preset="cinematic"] #cine-util-hero .cuh-chip-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        html[data-preset="cinematic"] #cine-util-hero .cuh-chip-text {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            min-width: 0;
+            flex: 1;
+        }
+        html[data-preset="cinematic"] #cine-util-hero .cuh-chip-title {
+            font-family: 'Fraunces', Georgia, serif;
+            font-style: italic;
+            font-weight: 500;
+            font-size: 16px;
+            line-height: 1.18;
+            color: rgba(245, 241, 232, 0.96);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        html[data-preset="cinematic"] #cine-util-hero .cuh-chip-sub {
+            font-family: var(--font-mono);
+            font-size: 9px;
+            font-weight: 600;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: rgba(245, 241, 232, 0.46);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-top: 2px;
+        }
+        @media (max-width: 700px) {
+            html[data-preset="cinematic"] #cine-util-hero {
+                padding: 32px 18px;
+            }
+            html[data-preset="cinematic"] #cine-util-hero .cuh-chips {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* ─────────────────────────────────────────────────────────────
            ORIGIN — Font Set Upgrade (F1 + F2 + F4)
            Scoped via --font-* overrides so Phosphor keeps its own terminal
            fonts (Share Tech Mono, VT323, etc.) via its variant colors block.
@@ -7156,32 +7377,145 @@
         #util-sidebar.util-sidebar-hidden {
             width: 0; padding: 0; overflow: hidden;
         }
+        /* Edge toggle — minimal Linear/Vercel-style handle.
+           Token-driven (var(--accent), var(--border), var(--bg-card),
+           var(--text-primary)) so it adapts to every preset automatically:
+           Origin blue, Phosphor neon, Cinematic coral / Aurora aero-blue.
+           Default: subtle 13×36 glass pill, 72% opacity.
+           Hover:   grows to 18×46, accent border + glow ring, full opacity.
+           Active:  brief scale 0.94 for tactile press.
+           Hidden:  whole pill rotates 180° via sibling selector (no JS swap).
+           ─────────────────────────────────────────────────────────────── */
         #util-sidebar-edge {
-            width: 16px; flex-shrink: 0; border: none; background: transparent;
+            width: 18px; flex-shrink: 0; border: none; background: transparent;
             cursor: pointer; display: flex; align-items: center; justify-content: center;
             position: relative; padding: 0;
         }
+        /* Divider hairline — accent-tinted, with a clear gap around the pill
+           so the line doesn't read as a slice through the handle. Hover state
+           bumps the line color/width but keeps the gap intact. */
         #util-sidebar-edge::before {
             content: ''; position: absolute; left: 50%; top: 0; bottom: 0;
-            width: 1px; background: var(--border); transform: translateX(-50%);
-            transition: background 0.15s;
+            width: 1px;
+            background: linear-gradient(to bottom,
+                color-mix(in srgb, var(--accent) 14%, var(--border)) 0%,
+                color-mix(in srgb, var(--accent) 14%, var(--border)) calc(50% - 28px),
+                transparent calc(50% - 22px),
+                transparent calc(50% + 22px),
+                color-mix(in srgb, var(--accent) 14%, var(--border)) calc(50% + 28px),
+                color-mix(in srgb, var(--accent) 14%, var(--border)) 100%);
+            transform: translateX(-50%);
+            transition: width 0.18s ease;
         }
-        #util-sidebar-edge:hover::before { background: color-mix(in srgb, var(--accent) 40%, var(--border)); }
+        #util-sidebar-edge:hover::before {
+            width: 2px;
+            background: linear-gradient(to bottom,
+                color-mix(in srgb, var(--accent) 55%, var(--border)) 0%,
+                color-mix(in srgb, var(--accent) 55%, var(--border)) calc(50% - 32px),
+                transparent calc(50% - 26px),
+                transparent calc(50% + 26px),
+                color-mix(in srgb, var(--accent) 55%, var(--border)) calc(50% + 32px),
+                color-mix(in srgb, var(--accent) 55%, var(--border)) 100%);
+        }
         .util-sidebar-handle {
             position: relative; z-index: 1;
-            width: 16px; height: 48px;
-            background: var(--bg-card); border: 1px solid var(--border);
-            border-radius: 8px;
-            display: flex; align-items: center; justify-content: center;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.08);
-            transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
-            color: var(--text-dim);
+            width: 13px; height: 36px;
+            background: color-mix(in srgb, var(--bg-card) 78%, transparent);
+            border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
+            border-radius: 999px;
+            display: grid; place-items: center;
+            box-shadow:
+                0 1px 3px rgba(0,0,0,0.18),
+                inset 0 1px 0 rgba(255,255,255,0.05);
+            color: color-mix(in srgb, var(--text-primary) 55%, transparent);
+            opacity: 0.72;
+            transition:
+                width 0.22s cubic-bezier(0.4,0,0.2,1),
+                height 0.22s cubic-bezier(0.4,0,0.2,1),
+                background 0.18s ease,
+                border-color 0.18s ease,
+                box-shadow 0.18s ease,
+                color 0.18s ease,
+                opacity 0.18s ease,
+                transform 0.28s cubic-bezier(0.4,0,0.2,1);
         }
         #util-sidebar-edge:hover .util-sidebar-handle {
-            background: var(--bg-card2);
-            border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
-            box-shadow: 0 2px 8px rgba(0,0,0,0.13);
+            width: 18px; height: 46px;
+            background: var(--bg-card);
+            border-color: color-mix(in srgb, var(--accent) 65%, var(--border));
             color: var(--accent);
+            opacity: 1;
+            box-shadow:
+                0 4px 14px rgba(0,0,0,0.22),
+                0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent),
+                inset 0 1px 0 rgba(255,255,255,0.08);
+        }
+        #util-sidebar-edge:active .util-sidebar-handle {
+            transform: scale(0.94);
+            transition: transform 0.08s ease;
+        }
+        /* When sidebar is hidden, flip chevron via rotation — sibling combinator
+           (#util-sidebar and #util-sidebar-edge are siblings inside #util-shell).
+           Avoids the JS path-swap that the previous version used. */
+        #util-sidebar.util-sidebar-hidden ~ #util-sidebar-edge .util-sidebar-handle {
+            transform: rotate(180deg);
+        }
+        #util-sidebar.util-sidebar-hidden ~ #util-sidebar-edge:active .util-sidebar-handle {
+            transform: rotate(180deg) scale(0.94);
+        }
+
+        /* Close-tool button — pinned to top of #util-sidebar (replaces a
+           previous floating top-right placement that collided with every
+           tool's own toolbar/icons).  Hidden by default; .is-shown added by
+           JS in showUtilTool() and removed in _closeActiveUtilTool(). */
+        #util-close-tool {
+            display: none;
+            width: calc(100% - 14px);
+            margin: 4px 7px 10px;
+            padding: 9px 13px;
+            align-items: center;
+            gap: 9px;
+            background: color-mix(in srgb, var(--bg-card) 78%, transparent);
+            border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
+            border-radius: 9px;
+            color: color-mix(in srgb, var(--text-primary) 70%, transparent);
+            font-family: var(--font-mono);
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+            cursor: pointer;
+            text-align: left;
+            box-shadow:
+                0 1px 3px rgba(0,0,0,0.18),
+                inset 0 1px 0 rgba(255,255,255,0.05);
+            transition:
+                background 0.18s ease,
+                border-color 0.18s ease,
+                color 0.18s ease,
+                transform 0.12s ease,
+                box-shadow 0.18s ease;
+        }
+        #util-close-tool.is-shown { display: inline-flex; }
+        #util-close-tool:hover {
+            background: var(--bg-card);
+            border-color: color-mix(in srgb, var(--accent) 65%, var(--border));
+            color: var(--accent);
+            box-shadow:
+                0 4px 12px rgba(0,0,0,0.22),
+                0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent),
+                inset 0 1px 0 rgba(255,255,255,0.08);
+        }
+        #util-close-tool:active {
+            transform: scale(0.98);
+            transition: transform 0.08s ease;
+        }
+        #util-close-tool svg {
+            flex-shrink: 0;
+            transition: transform 0.18s ease;
+        }
+        #util-close-tool:hover svg {
+            transform: translateX(-2px);
         }
 
         /* ── Microscopy workspace ── */
@@ -12304,6 +12638,17 @@
                 <!-- ── Sidebar ── -->
                 <div id="util-sidebar">
 
+                    <!-- Close-tool: pinned to top of sidebar, shown only when a tool is active.
+                         Top-right of util-content collides with most tools' own toolbars
+                         (PSF list/info icons, PSI engine bar, PSQ company switcher) —
+                         sidebar header is the one zone safe across every tool. -->
+                    <button id="util-close-tool" onclick="_closeActiveUtilTool()" title="Back to all tools">
+                        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M8 3 L3.5 6.5 L8 10"/>
+                        </svg>
+                        <span>Back</span>
+                    </button>
+
                     <!-- Business -->
                     <div class="util-cat">Business</div>
                     <button onclick="showUtilTool('ps-quotation')" id="util-btn-ps-quotation" class="util-item">
@@ -12416,10 +12761,10 @@
                 </div><!-- /util-sidebar -->
 
                 <!-- ── Sidebar edge toggle ── -->
-                <button id="util-sidebar-edge" onclick="_toggleUtilSidebar()" title="ซ่อน sidebar">
+                <button id="util-sidebar-edge" onclick="_toggleUtilSidebar()" title="Hide sidebar">
                     <div class="util-sidebar-handle">
-                        <svg id="util-sidebar-chevron" width="6" height="28" viewBox="0 0 6 28" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M5 1.5 C2.5 6 1 10 1 14 C1 18 2.5 22 5 26.5"/>
+                        <svg id="util-sidebar-chevron" width="7" height="12" viewBox="0 0 7 12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M5 1.5 L1.5 6 L5 10.5"/>
                         </svg>
                     </div>
                 </button>
@@ -12809,19 +13154,17 @@
 
         function _applyUtilSidebar() {
             const sb = document.getElementById('util-sidebar');
-            const ch = document.getElementById('util-sidebar-chevron');
             if (!sb) return;
             const edge = document.getElementById('util-sidebar-edge');
+            // Chevron flip is now CSS-driven via the sibling selector
+            // (#util-sidebar.util-sidebar-hidden ~ #util-sidebar-edge .util-sidebar-handle).
+            // JS only toggles the class + updates the title for accessibility.
             if (_utilSidebarHidden) {
                 sb.classList.add('util-sidebar-hidden');
-                // Curve opens right › (mirror: anchor left, bulge right)
-                if (ch) ch.querySelector('path').setAttribute('d', 'M1 1.5 C3.5 6 5 10 5 14 C5 18 3.5 22 1 26.5');
-                if (edge) edge.title = 'แสดง sidebar';
+                if (edge) edge.title = 'Show sidebar';
             } else {
                 sb.classList.remove('util-sidebar-hidden');
-                // Curve opens left ‹ (anchor right, bulge left)
-                if (ch) ch.querySelector('path').setAttribute('d', 'M5 1.5 C2.5 6 1 10 1 14 C1 18 2.5 22 5 26.5');
-                if (edge) edge.title = 'ซ่อน sidebar';
+                if (edge) edge.title = 'Hide sidebar';
             }
         }
 
@@ -12860,6 +13203,24 @@
 
         function showUtilTool(id) {
             _fitUtilShell();
+            // Defensive splash cleanup — kill any orphan splash backdrops left
+            // by previous flows (e.g. user closed tool via "กลับหน้าหลัก" while
+            // splash was up, or a legacy session left one behind).
+            // CRITICAL: when removing a splash whose panel is still empty
+            // (user never clicked "เปิด" so _utilInitTool never ran), reset
+            // panel._rendered = false so re-clicking that tool re-triggers
+            // the splash flow.  Without this, the prev-cleanup branch below
+            // can't see the splash anymore (we just removed it) and skips
+            // its own _rendered reset → tool A reopens as an empty panel.
+            document.querySelectorAll('[id^="util-splash-"]').forEach(function(s) {
+                if (!s.parentNode) return;
+                const toolId = s.id.replace('util-splash-', '');
+                const orphanPanel = document.getElementById('util-panel-' + toolId);
+                if (orphanPanel && !orphanPanel.hasChildNodes()) {
+                    orphanPanel._rendered = false;
+                }
+                s.parentNode.removeChild(s);
+            });
             // Deactivate previous
             if (_activeUtilTool) {
                 const prevBtn = document.getElementById('util-btn-' + _activeUtilTool);
@@ -12879,6 +13240,14 @@
             _activeUtilTool = id;
             const btn = document.getElementById('util-btn-' + id);
             if (btn) btn.classList.add('util-active');
+            // Show the floating "back" button — only relevant while a tool is active
+            const closeBtn = document.getElementById('util-close-tool');
+            if (closeBtn) closeBtn.classList.add('is-shown');
+            // Cinematic hero is an empty-state — remove now that a tool is active.
+            // MUST run AFTER _activeUtilTool = id; otherwise the helper still
+            // sees noActiveTool === true and keeps the hero visible (regression
+            // 2026-05-03 — purple drop-zone showed with hero bleeding through).
+            if (typeof _cineEnsureUtilHero === 'function') _cineEnsureUtilHero();
             const panel = document.getElementById('util-panel-' + id);
             if (!panel) return;
             // Apply util-content style for this tool on every switch
@@ -12898,6 +13267,48 @@
                 return;
             }
             panel.style.display = 'block';
+        }
+
+        // Close the active tool and return to the entry state (cinematic hero
+        // or default panel).  Tool DOM/state is preserved — reopening picks up
+        // where the user left off (PSQ counters, PSI image+annotations, PSUP
+        // queue all persist via localStorage anyway).
+        function _closeActiveUtilTool() {
+            if (!_activeUtilTool) return;
+            const id = _activeUtilTool;
+            // Remove sidebar active highlight
+            const sbBtn = document.getElementById('util-btn-' + id);
+            if (sbBtn) sbBtn.classList.remove('util-active');
+            // Hide active panel
+            const panel = document.getElementById('util-panel-' + id);
+            if (panel) panel.style.display = 'none';
+            // Remove lingering splash backdrop — mirrors the prevBackdrop
+            // cleanup in showUtilTool.  Without this, closing a tool while its
+            // first-launch splash is still up leaves the splash in DOM; the
+            // next showUtilTool() check (`if (_activeUtilTool)`) is false
+            // because we cleared it below, so its cleanup branch is skipped
+            // and the orphan splash overlays whatever the user opens next.
+            const splash = document.getElementById('util-splash-' + id);
+            if (splash && splash.parentNode) {
+                splash.parentNode.removeChild(splash);
+                if (panel && !panel.hasChildNodes()) panel._rendered = false;
+            }
+            // Hide the close button itself
+            const closeBtn = document.getElementById('util-close-tool');
+            if (closeBtn) closeBtn.classList.remove('is-shown');
+            // Clear active tool state
+            _activeUtilTool = null;
+            // Reset content area styling (removes workstation height/padding/body class)
+            _applyUtilContentStyle(null);
+            // Restore entry state: cinematic hero (if cinematic preset) or default panel.
+            // _cineEnsureUtilHero handles BOTH paths — it shows the default panel when
+            // not on cinematic, or builds the hero when on cinematic.
+            if (typeof _cineEnsureUtilHero === 'function') {
+                _cineEnsureUtilHero();
+            } else {
+                const def = document.getElementById('util-panel-default');
+                if (def) def.style.display = 'flex';  // 'flex' not '' — see _cineEnsureUtilHero
+            }
         }
 
         function _utilInitTool(id, panel, tool) {
@@ -29718,6 +30129,9 @@ ${paras}
             if (t === 'watchlist' && typeof _cineEnsureMarketsHero === 'function') {
                 requestAnimationFrame(_cineEnsureMarketsHero);
             }
+            if (t === 'utilities' && typeof _cineEnsureUtilHero === 'function') {
+                requestAnimationFrame(_cineEnsureUtilHero);
+            }
             document.getElementById('tab-news').classList.toggle('hidden', t !== 'news');
             document.getElementById('tab-utilities').classList.toggle('hidden', t !== 'utilities');
             if (t === 'utilities') { try { _fitUtilShell(); _applyUtilSidebar(); } catch(e){} }
@@ -43069,6 +43483,87 @@ ${_clip(contextSections, 2600)}`;
                 img.removeAttribute('src');
             });
         }
+        // ── Cinematic Utilities hero (empty state) ────────────────────
+        // Replaces the tiny gear+placeholder of #util-panel-default with a
+        // Fraunces italic hero + 6 tool chips when on cinematic + utilities tab
+        // + no active tool. Cleans up + restores default panel on switch-away.
+        // Chip icons are cloned from the sidebar #util-btn-* nodes so they
+        // stay visually consistent if the sidebar icons are ever updated.
+        function _cineEnsureUtilHero() {
+            const isCine = document.documentElement.getAttribute('data-preset') === 'cinematic';
+            const utilTab = document.getElementById('tab-utilities');
+            const onUtilTab = utilTab && !utilTab.classList.contains('hidden');
+            const noActiveTool = !_activeUtilTool;
+            const defaultPanel = document.getElementById('util-panel-default');
+            let hero = document.getElementById('cine-util-hero');
+            const showHero = isCine && onUtilTab && noActiveTool;
+            if (!showHero) {
+                if (hero && hero.parentNode) hero.parentNode.removeChild(hero);
+                // Non-cinematic + no active tool → restore the original tiny default panel.
+                // MUST use 'flex' explicitly: the HTML inline style was display:flex, but
+                // earlier code set style.display='none' (clobbering 'flex') and clearing
+                // with '' removes the property → fallback is display:block, breaking the
+                // align/justify-content centering.
+                if (defaultPanel && !isCine && noActiveTool) {
+                    defaultPanel.style.display = 'flex';
+                }
+                return;
+            }
+            // Cinematic mode owns the empty-state surface — hide the tiny default
+            if (defaultPanel) defaultPanel.style.display = 'none';
+            if (hero) return; // already built; static content, no refresh needed
+            const content = document.getElementById('util-content');
+            if (!content) return;
+            const activeTools = [
+                'ps-quotation', 'ps-specflow', 'ps-micro-imaging',
+                'ps-upscaler', 'ps-bg-remover', 'ps-ai-studio'
+            ];
+            function buildChip(toolId) {
+                const btn = document.getElementById('util-btn-' + toolId);
+                if (!btn) return '';
+                const iconNode = btn.querySelector('.util-icon');
+                const titleEl  = btn.querySelector('.util-item-title');
+                const subEl    = btn.querySelector('.util-item-sub');
+                // Clone icon, swap class so cuh-chip-icon styling applies (keeps inline bg)
+                const iconHtml = iconNode
+                    ? iconNode.outerHTML.replace('class="util-icon"', 'class="cuh-chip-icon"')
+                    : '';
+                const title = titleEl ? titleEl.textContent : toolId;
+                const sub   = subEl   ? subEl.textContent   : '';
+                return '<button class="cuh-chip" onclick="showUtilTool(\'' + toolId + '\')">' +
+                    iconHtml +
+                    '<div class="cuh-chip-text">' +
+                        '<div class="cuh-chip-title"></div>' +
+                        '<div class="cuh-chip-sub"></div>' +
+                    '</div>' +
+                '</button>';
+            }
+            let chipsHtml = '';
+            activeTools.forEach(function(id) { chipsHtml += buildChip(id); });
+            hero = document.createElement('div');
+            hero.id = 'cine-util-hero';
+            hero.innerHTML =
+                '<div class="cuh-orb"></div>' +
+                '<div class="cuh-inner">' +
+                    '<div class="cuh-eyebrow">PSLINK · UTILITIES</div>' +
+                    '<h1 class="cuh-headline">Choose a tool</h1>' +
+                    '<div class="cuh-subline">6 TOOLS LIVE · 12 COMING SOON · 100% OFFLINE</div>' +
+                    '<div class="cuh-chips">' + chipsHtml + '</div>' +
+                '</div>';
+            content.appendChild(hero);
+            // Set chip text via textContent to avoid HTML injection from tool labels
+            hero.querySelectorAll('.cuh-chip').forEach(function(chip, i) {
+                const toolId = activeTools[i];
+                const btn = document.getElementById('util-btn-' + toolId);
+                if (!btn) return;
+                const titleEl = btn.querySelector('.util-item-title');
+                const subEl   = btn.querySelector('.util-item-sub');
+                const t = chip.querySelector('.cuh-chip-title');
+                const s = chip.querySelector('.cuh-chip-sub');
+                if (t && titleEl) t.textContent = titleEl.textContent;
+                if (s && subEl)   s.textContent = subEl.textContent;
+            });
+        }
         function _cineUpdateMuseBackdrop() {
             const isCine = document.documentElement.getAttribute('data-preset') === 'cinematic';
             // Helpers self-cleanup when not cinematic — call them in both branches
@@ -43080,6 +43575,7 @@ ${_clip(contextSections, 2600)}`;
             _cineEnsureMiniFrames();
             _cineEnsureProfileTriRow();
             _cineEnsureMarketsHero();
+            _cineEnsureUtilHero();
             if (!isCine) {
                 document.querySelectorAll('.cine-muse-backdrop').forEach(el => el.remove());
                 return;
