@@ -40,9 +40,20 @@ node_modules/
 .chrome-dev/
 .vscode/
 .idea/
-.claude/
+# .claude — ignore everything except memory-sync hook files
+# (whitelisted entries below are tracked for seamless restore on new machine)
+.claude/*
+!.claude/settings.json
+!.claude/hooks/
+.claude/hooks/*
+!.claude/hooks/sync-memory.ps1
 .psup-convert/
 *.log
+
+# ─── Memory backup (auto-synced via Stop hook) ───────────────
+# Gitignored to avoid history noise from per-session memory updates;
+# OneDrive sync handles cloud backup of .memory_backup/
+.memory_backup/
 
 # ─── OS ──────────────────────────────────────────────────────
 Thumbs.db

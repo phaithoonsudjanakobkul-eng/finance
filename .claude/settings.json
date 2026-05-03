@@ -1,0 +1,36 @@
+{
+  "_comment": "Project-level Claude Code config — auto-loaded when opening PSLink Project workspace. See .claude/hooks/sync-memory.ps1 for memory backup/restore logic.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"C:\\Users\\kumic\\OneDrive\\Desktop\\Dev\\PSLink Project\\.claude\\hooks\\sync-memory.ps1\" -Mode Restore"
+          }
+        ]
+      },
+      {
+        "matcher": "resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"C:\\Users\\kumic\\OneDrive\\Desktop\\Dev\\PSLink Project\\.claude\\hooks\\sync-memory.ps1\" -Mode Restore"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"C:\\Users\\kumic\\OneDrive\\Desktop\\Dev\\PSLink Project\\.claude\\hooks\\sync-memory.ps1\" -Mode Backup"
+          }
+        ]
+      }
+    ]
+  }
+}
