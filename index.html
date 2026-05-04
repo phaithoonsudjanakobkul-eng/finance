@@ -19873,9 +19873,10 @@ async function processImage(srcBmp, scale, tileSize, tier, id, tierMul) {
         const PSUP_MODEL_REGISTRY = {
             'ultrasharp-v1': {
                 // 4x-UltraSharp by Kim2091 (2022) — community ESRGAN photo-tuned. Current default.
-                // Architecture: ESRGAN/RRDBNet 23 RRDBs · 64 MB fp32 opset 14 · License: CC-BY-NC-SA-4.0
+                // Architecture: ESRGAN/RRDBNet 23 RRDBs · 64 MB fp32 opset 17 · License: CC-BY-NC-SA-4.0
                 key:      '4x-UltraSharp-onnx',
                 file:     '4x-UltraSharp.onnx',
+                cdnUrl:   'https://huggingface.co/Kim2091/UltraSharp/resolve/main/ONNX/4x-UltraSharp-fp32-opset17.onnx',
                 tileSize: 192,
                 arch:     'ESRGAN',
                 label:    'UltraSharp v1',
@@ -19889,6 +19890,7 @@ async function processImage(srcBmp, scale, tileSize, tier, id, tierMul) {
                 // (FP16 variant was deleted from HF, fp32 only)
                 key:      '4x-UltraSharpV2-onnx',
                 file:     '4x-UltraSharpV2_fp32_op17.onnx',
+                cdnUrl:   'https://huggingface.co/Kim2091/UltraSharpV2/resolve/main/4x-UltraSharpV2_fp32_op17.onnx',
                 tileSize: 128,
                 arch:     'DAT2',
                 label:    'UltraSharp v2',
@@ -19901,6 +19903,7 @@ async function processImage(srcBmp, scale, tileSize, tier, id, tierMul) {
                 // Trained on BHI-filtered dataset (390k tiles · Blockiness+HyperIQA+IC9600) · License: CC-BY-4.0
                 // ONNX exported locally from .safetensors via spandrel + torch.onnx (static 128×128 trace —
                 // DAT window-attention bakes int math during tracing, dynamic axes break Reshape ops).
+                // No public ONNX — convert via .psup-convert/convert.py then upload to R2 (Settings).
                 key:      '4xBHI_dat2_real-onnx',
                 file:     '4xBHI_dat2_real_fp32_op17.onnx',
                 tileSize: 128,
@@ -19979,10 +19982,17 @@ async function processImage(srcBmp, scale, tileSize, tier, id, tierMul) {
                 } catch(e) { console.warn('[psup] R2 fetch failed, falling back to local', e); }
             }
 
-            // 3. Local file fallback (dev mode / first-time before upload)
-            if (onProgress) onProgress({ data: { status: 'downloading', file: 'local · ' + m.label } });
-            const res = await fetch(url);
-            if (!res.ok) throw new Error('model 404: ' + m.file + ' — upload to R2 in Settings or place in models/realesrgan/');
+            // 3. Public CDN (HuggingFace) — first-time auto-fetch, IDB-cached after.
+            //    Falls back to local file `models/realesrgan/{file}` only if cdnUrl absent (e.g. BHI — local convert).
+            const fetchUrl = m.cdnUrl || url;
+            if (onProgress) onProgress({ data: { status: 'downloading', file: (m.cdnUrl ? 'CDN · ' : 'local · ') + m.label } });
+            const res = await fetch(fetchUrl);
+            if (!res.ok) {
+                if (m.cdnUrl) {
+                    throw new Error('model fetch failed (' + res.status + '): ' + m.cdnUrl);
+                }
+                throw new Error(m.file + ' has no public CDN — convert via .psup-convert/convert.py then upload to R2 in Settings');
+            }
             const buf = new Uint8Array(await res.arrayBuffer());
             if (typeof _r2IdbPut === 'function') {
                 try { await _r2IdbPut(idbKey, new Blob([buf])); } catch(e){}
@@ -19997,13 +20007,13 @@ async function processImage(srcBmp, scale, tileSize, tier, id, tierMul) {
             if (typeof getGistToken !== 'function' || !getGistToken()) { cb('error', 'ตั้งค่า Gist token ก่อน'); return false; }
             if (typeof R2_WORKER_URL === 'undefined' || !R2_WORKER_URL || !R2_AUTH_TOKEN) { cb('error', 'ตั้งค่า R2 ก่อน'); return false; }
             const m = (modelId && PSUP_MODEL_REGISTRY[modelId]) || _psupGetModelEntry();
-            const url    = _psupModelUrl(m);
-            const r2Key  = _psupModelR2Key(m);
-            const idbKey = _psupModelIdbKey(m);
+            const fetchUrl = m.cdnUrl || _psupModelUrl(m);
+            const r2Key    = _psupModelR2Key(m);
+            const idbKey   = _psupModelIdbKey(m);
             try {
-                cb('progress', 'Fetching local · ' + m.label + '…');
-                const res = await fetch(url);
-                if (!res.ok) { cb('error', m.file + ' 404 (' + res.status + ')'); return false; }
+                cb('progress', 'Fetching ' + (m.cdnUrl ? 'CDN' : 'local') + ' · ' + m.label + '…');
+                const res = await fetch(fetchUrl);
+                if (!res.ok) { cb('error', m.file + ' fetch failed (' + res.status + ')'); return false; }
                 const buf = await res.arrayBuffer();
                 cb('progress', 'Encrypting (' + (buf.byteLength / (1024*1024)).toFixed(1) + ' MB)…');
                 const encBlob = await _r2EncryptBlob(getGistToken(), new Blob([buf]));

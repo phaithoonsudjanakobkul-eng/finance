@@ -149,12 +149,9 @@ Off-viewport rows skip DOM writes entirely — burst ticks touching a symbol who
 
 #### 2c. Sparkline Semantics (Movement column)
 
-Sparkline represents **regular session only** (09:30-16:00 ET) — matches TradingView's 1D view. Pre-market and after-hours ticks never mutate the sparkline, only `wlDataCache.c` (so the LAST price column reflects AH/pre-market while the sparkline tip stays at close). Three invariants must hold together — see [`project_sparkline_semantics`](memory file) for the full architecture and the 2026-04-21 bug chain that exposed all three:
-1. **Filter**: `fetchAlpacaSparkline` + `fetchFinnhubSparkline` use `inRegularSessionEt` (09:30-16:00), never `inExtendedDayEt`.
-2. **Market-open guard**: Every write to `wlSparklineCache[sym].prices` — including the inline bypass in `_handleTrade` — MUST gate on `_isMarketOpenCached()`. Do NOT use `_frameMktOpen` for this guard in `_handleTrade`: callers outside `_rafFlushQuotes` (tab-switch catchup, WS message handler, IntersectionObserver row-enter) leave `_frameMktOpen` stale from earlier frames.
-3. **Cache slice**: `_collectSparklineCacheData` / `_applySparklineCacheData` slice to `-400` (≥ `SPARKLINE_POINTS_TARGET` = 320) so save→load roundtrip preserves the full session shape. Smaller slice silently drops early-session bars and produces a "rising only" sparkline that misses the morning dip.
+Sparkline = **regular session only** (09:30-16:00 ET, matches TradingView 1D). Pre/AH ticks update `wlDataCache.c` (LAST price) but **never** the sparkline. **3 invariants must hold together** (filter + market-open guard via `_isMarketOpenCached()` not `_frameMktOpen` + cache slice ≥ 320 bars) — full architecture, code refs, and 2026-04-21 bug chain in [`project_sparkline_semantics`](memory).
 
-**Intentional divergence (do NOT "fix"):** When market is closed (after-hours / pre-market), the sparkline tip and the displayed LAST price legitimately diverge — sparkline tip = regular session close, LAST = live AH/pre-market price. This is by design, matching how TradingView's 1D view freezes at close while the live ticker continues. Future engineer who sees this and tries to push AH ticks into the sparkline to "sync them up" will recreate the 2026-04-21 bug chain.
+**Intentional divergence (do NOT "fix")**: when market closed, sparkline tip and LAST price legitimately diverge — by design. Pushing AH ticks into the sparkline to "sync them up" recreates the bug chain.
 
 #### 2d. Two-Frame Staged Tab Switch
 
@@ -195,27 +192,9 @@ Entering Watchlist from another tab defers heavy work across two frames so the t
 
 #### 6a. Muse Pan/Zoom on Still Images (cross-device sync)
 
-Muse stills support drag-to-pan + Ctrl+wheel zoom + pinch zoom (1×–4×), with state synced cross-device via Gist using normalized fractions.
+Muse stills support drag-pan + Ctrl+wheel/pinch zoom (1×–4×), state synced via Gist using normalized fractions (`panFracX/Y` device-independent, derived to pixels on load via `_museSyncPxFromFrac`). **Architecture**: `object-position` + `transform: translate3d` split (pure translate breaks at scale 1; pure object-position breaks at zoom). Full architecture, 3 no-flash invariants, ResizeObserver wiring, Gist export shape, and **DON'T re-explore log** (translate-only / 2D transform / `will-change:transform` all failed — use `contain: paint` instead) in [`project_muse_pan_zoom`](memory).
 
-**The pan split — `object-position` AND `transform: translate3d`:** Naive translate-only fails — at scale 1, translating the IMG moves it OUT of slot bounds (slot's `overflow:hidden` clips → black background). Pure transform also breaks at scale 1 (no zoom-induced overflow to absorb pan). Fix: assign as much pan as possible to `object-position` first (uses natural `cover` overflow), remainder to `translate3d` (uses zoom-induced room). At scale 1 + portrait-in-portrait both maxes are 0 → pan locked. Correct.
-
-**Cross-device sync via `panFracX` / `panFracY`:** Pixel pan is device-local (slot dimensions vary). Stored as normalized fraction `panFracX = panX / (N × cw)`, range ±0.5. Invariant under slot scaling because slot aspect is hardcoded 9:16. On image load: `panX = panFracX * N * cw` using local device dims. Functions: `_museSyncFracFromPx(img, clip)` after pan/zoom interaction, `_museSyncPxFromFrac(img, clip)` after image load (returns true if legacy migration occurred → caller saves to Gist).
-
-**`_museStillResizeObserver`** re-derives panX from panFracX on slot dim changes (splash hide → visible, browser maximize/restore, responsive breakpoints). rAF-coalesced. Disconnect on every `_museRenderSlots` rebuild before innerHTML; re-observe attached IMGs.
-
-**Three invariants that must hold:**
-1. **Don't clear transform when `clientWidth=0`** (transient layout during resize). `_museApplyStillTransform` returns early instead. Without this, browser maximize/restore shows a black flash.
-2. **All transform values use `translate3d(...,0)` not `translate(...)`** — forces a stable GPU composite layer. Switching between empty and 2D transform thrashes the layer (visible flash).
-3. **`panFracX/Y` is the source of truth, `panX/Y` is runtime cache.** Always derive pixels from fractions on image load. Update both on interaction. Don't trust pixels after dimension change.
-
-**Gist export:** `_buildExportData()` muse path preserves `kind`, `zoom`, `panFracX`, `panFracY`, `objectPosition`. Earlier version stripped these for R2 clips, causing pan/zoom loss on save.
-
-**DON'T re-explore (already tried, all failed):**
-- Translate-only pan (no `object-position`) — fails at scale 1 with non-zero pan, exposes slot black background.
-- 2D transform (`translate(x,y) scale(N)`) — flickers during resize. Must use `translate3d(x,y,0)`.
-- `will-change: transform` on `.muse-still` — caused IMG to render at low-res ("ภาพแตก"). Use `contain: paint` on `.muse-slot-inner` instead (isolates painting so inner #111 background doesn't show through during compositor flash).
-
-**Hot keys:** Drag = pan (mouse + 1-finger touch). Ctrl+wheel = zoom (1×–4×, step 0.15). Wheel WITHOUT Ctrl is reserved for muse preset cycling — don't change. Pinch = zoom. Reset button clears all pan/zoom state to centered + 1×.
+**Hot keys (don't change):** drag = pan, Ctrl+wheel = zoom, **wheel WITHOUT Ctrl is reserved for muse preset cycling**, pinch = zoom, reset clears all.
 
 #### 6b. Muse Video Trim (WebM converter)
 
@@ -403,17 +382,13 @@ Auth: `Authorization: Bearer <token>` on every request. All tokens (`ps_psq_wopi
 
 Home PC runs the same Docker stack locally and exposes it via Tailscale Funnel at `https://pslink-home.tailaec085.ts.net:10000` → `http://localhost:8082`. PSLink probes this URL with 1.5 s timeout — success = badge `PDF · LOCAL`, timeout = `PDF · CLOUD` fallback. Funnel publishes a public-internet URL with valid Let's Encrypt cert; devices off the Tailnet can still reach it (just with public-internet latency, not LAN speed).
 
-**CRITICAL — Tailscale Funnel + Collabora sub-cell text clipboard is fundamentally broken.** Whole-cell Ctrl+C/V works locally; sub-cell (double-click → select word → Ctrl+X/V) breaks because Tailscale's wireguard MTU / chunked-encoding / WebSocket frame timing mangles Collabora's `navigator.clipboard.writeText()` plain-text paste path. Hours of debugging tried (`--o:server_name`, `net.proto=HTTPS`, `net.proxy_prefix=true`, alias mappings, `:latest` vs older Collabora tags, HTTP vs `https+insecure://` passthrough, full clean rebuild) — all failed. Cloud Fly.io edge proxy never has the bug. **Therefore Collabora + WOPI run on Cloud Fly.io ALWAYS, never local. Only the PDF worker runs locally.** Don't re-debug — see [project_pslink_hybrid_tailscale](memory) for full incident log.
+**CRITICAL — Tailscale Funnel + Collabora sub-cell text clipboard is fundamentally broken** (whole-cell Ctrl+C/V works; sub-cell select-paste fails — wireguard MTU/WebSocket frame timing mangles Collabora's `clipboard.writeText`). All debugging attempts exhausted; cloud Fly.io edge has no bug. **Therefore Collabora + WOPI run on Cloud Fly.io ALWAYS, never local. Only PDF worker runs locally.** Don't re-debug — full incident log + 6 gotchas in [`project_pslink_hybrid_tailscale`](memory).
 
 **Per-device override** (`ps_psq_local_base_override`, NOT synced via Gist) wins over the synced home URL. Use case: work laptop runs its own Docker + Tailscale Funnel under a different hostname (e.g. `pslink-work.tailaec085.ts.net`). Set the override in browser console; home keeps using home, laptop uses laptop, off-network devices fall back to cloud. See [WORK-LAPTOP-SETUP.md](WORK-LAPTOP-SETUP.md) for the full setup runbook (a Claude on the work laptop can execute it end-to-end).
 
-**xlsx recalc gotchas (critical for both pslink-wopi and pslink-pdf-worker):** SheetJS does NOT evaluate formulas, so cached SUM/BAHTTEXT values stay at template defaults (often 0). Both workers must run a soffice-headless recalc step before serving. Two silent failures to know:
-- `--outdir` MUST differ from input dir, or soffice exits 0 with no actual recalc (overwrites refused silently with `SfxBaseModel::impl_store ... 0x4c0c` on stderr but exit code 0). Use separate `inDir/` + `outDir/` and `fs.existsSync(outPath)` verification.
-- Default `OOXMLRecalcMode` / `ODFRecalcMode` is `2` (Prompt) → headless never recalcs. Write `${profile}/user/registrymodifications.xcu` with `<value>0</value>` (Always recalc) before launching soffice via `-env:UserInstallation=file://${profile}`.
+**xlsx recalc gotchas (critical for both pslink-wopi and pslink-pdf-worker):** SheetJS doesn't evaluate formulas — both workers must run soffice-headless recalc before serving. **2 silent failures**: (1) `--outdir` MUST differ from input dir or soffice exits 0 with no actual recalc; (2) default `OOXMLRecalcMode` is `2` (Prompt) → must write `registrymodifications.xcu` with `<value>0</value>`. Reference: `pslink-wopi/server.js` `RECALC_XCU` + `recalcXlsx`. ~1100 ms per single-sheet xlsx on Fly.io. Full details in [`project_soffice_recalc_gotchas`](memory) + [NOTES-soffice-recalc.md](NOTES-soffice-recalc.md).
 
-Reference implementations: `pslink-wopi/server.js` `RECALC_XCU` + `recalcXlsx`, `pslink-pdf-worker/server.js` same pattern. Full pipeline `~1100 ms` typical per single-sheet xlsx on Fly.io shared-cpu-1x. See [NOTES-soffice-recalc.md](NOTES-soffice-recalc.md).
-
-**Local HTTPS dev** (`dev-server.js` + `dev.bat`): `mkcert` root CA installed in Windows trust store; `.certs/cert.pem` + `key.pem` cover `localhost`, `127.0.0.1`, `::1`, `10.5.0.2` (Tailscale IP at issue time). Expires 2028-08-01. Re-run mkcert if Wi-Fi LAN testing needed (different IP not in cert SANs). Used by `dev-server.js` via `local-ssl-proxy --cert/--key`. `dev.bat` modes: default (HTTPS local + Chrome + DevTools), `tunnel` (+ Cloudflare Tunnel public URL for mobile testing), `headless` (no auto-open browser).
+**Local HTTPS dev** (`dev-server.js` + `dev.bat`): mkcert HTTPS via `.certs/cert.pem`+`key.pem` (covers localhost + Tailscale IP, expires 2028-08-01). Modes: default / `tunnel` (+ Cloudflare Tunnel for mobile/webhook testing) / `headless`. Re-run mkcert if Wi-Fi LAN testing needed (different IP not in cert SANs). Setup details in [`project_dev_server_mkcert`](memory).
 
 ## Theming System
 
@@ -585,20 +560,21 @@ Prefix: `ps_` for all keys. Major ones:
 
 15. **Ask before acting** — If uncertain about the approach, scope, or side effects of a change, always ask the user before implementing or modifying code. Don't guess intent — confirm first.
 
-16. **Backup before editing** — Before every edit to `index.html`, create a backup copy in the same folder:
-    - Format: `backup{N} - {short description of what will be changed}.html`
-    - `{N}` continues from the highest existing backup number (check existing files first)
-    - Example: `backup13 - add currency converter widget.html`
+16. **Backup before editing** — Before every edit to `index.html`, create a backup copy in **`.backups/`** subfolder (NOT root — keeps Glob/ls noise low):
+    - Path: `.backups/backup{N} - {short description}.html`
+    - `{N}` continues from highest existing — check via `ls .backups/ | tail -3`
+    - Example: `.backups/backup268 - add currency converter widget.html`
     - Only then proceed to edit the main file.
-    - **Retention policy (strict, revised 2026-05-01)** — backups are not git history; they multiply fast and the user owns the project folder. Default to NOT keeping over time. Be ruthless:
-        - **Always keep**: the latest **10** backups (rollback window for active work) AND **milestones** — snapshots tied to a meaningful boundary that you'd actually want to diff against months later.
-        - **Milestone test — narrow, not generous (keep ONLY if YES to one):**
-            (a) Ships a new top-level module end-to-end and visible in nav (PSI, Muse trim, PSF, PSQ, PSUP, PSBGR, PS AI Studio, Phosphor preset, Privacy mode, R2 sync). **One per module, not one per phase.** A second "PSQ Phase A++" backup is NOT a milestone if Phase A was already milestoned.
-            (b) Marks `before {risky rework}` immediately preceding a redesign / rename / architecture swap (e.g., `before psup phase1 mvp`, `before theme rename tv→onyx`).
-            (c) Captures a perf or correctness invariant whose derivation took real debugging effort and is hard to re-discover from the diff alone (Intl cache hoist, sparkline 3-invariant fix, GPU layer + IntersectionObserver culling, WebSocket frame-coalesce).
-        - **Default behavior is SKIP** — most backups are noise: polish iterations within a module (`backup184-202` PSUP iterations), bug-fix iterations on the same problem (`fix X` → `fix X again` → `fix X final`), test/diagnostic snapshots, "before {tiny tweak}" backups, anything superseded by the next backup, anything where the diff is one small surgical change. None of these survive long-term.
-        - **Cleanup cadence**: when total backups exceed **20**, ask the user before doing a sweep. Don't auto-delete — the user owns retention decisions. Past sweeps for reference: 2026-04-29 (219→33), 2026-05-01 (54→10).
-        - **Naming discipline**: short descriptions help future-you decide what's a milestone. "before X" + concrete action beats "fix bug" or "polish". If you can't write a backup name that distinguishes it from neighbors, it's noise — don't create the backup.
+    - **Why subfolder (not root)**: 53 backups in root bloated `Glob "*.html"` and `ls` outputs by ~2-3k tokens per scan. Moved 2026-05-05.
+    - **Retention policy (strict)** — backups are LOCAL ONLY (`.gitignore`d), git history covers full deploy log. Be ruthless:
+        - **Always keep**: latest **10** + **milestones** (rule below).
+        - **Milestone test — narrow (keep ONLY if YES to one):**
+            (a) Ships a new top-level module visible in nav (PSI, Muse trim, PSF, PSQ, PSUP, PSBGR, PS AI Studio, Phosphor, Cinematic, Privacy mode, R2 sync). **One per module, not one per phase.**
+            (b) Marks `before {risky rework}` immediately preceding redesign/rename/architecture swap.
+            (c) Captures a perf/correctness invariant whose derivation took real debugging effort (Intl cache, sparkline 3-invariant, IntersectionObserver culling, WebSocket frame-coalesce).
+        - **Default = SKIP**: polish iterations, bug-fix iterations, test snapshots, "before tiny tweak", anything superseded by next backup. None survive long-term.
+        - **Cleanup cadence**: when `.backups/` exceeds **20**, ask user before sweep. Don't auto-delete. Past sweeps: 2026-04-29 (219→33), 2026-05-01 (54→10), 2026-05-05 (53→11 + moved to `.backups/`).
+        - **Naming**: "before X" + concrete action beats "fix bug" / "polish". If name doesn't distinguish from neighbors → noise → don't create.
 
 17. **Security — STRICT** — Personal data (photos, videos, clips, profile images, Muse media) is highly sensitive. Treat every piece of user content as confidential:
     - **Encryption at rest**: All data synced to Gist MUST be AES-256-GCM encrypted via `_gistEncrypt()`. Never store plaintext personal data in Gist — not even filenames or metadata.

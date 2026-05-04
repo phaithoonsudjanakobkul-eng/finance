@@ -26,6 +26,8 @@ files.zip
 *.safetensors
 
 # ─── Backup snapshots (per CLAUDE.md Rule 16 — strict retention) ─
+# Backups live in .backups/ subfolder (moved 2026-05-05 to declutter root)
+.backups/
 backup*.html
 mockup-*.html
 
