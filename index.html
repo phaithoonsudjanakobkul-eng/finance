@@ -1713,40 +1713,29 @@
            Finance row also uses cols 2-5 via subgrid below — ensures Bottom card
            leftmost edge aligns pixel-perfect with Hero column right edge across
            ALL viewports (not just small laptops). */
+        /* Phase 14b — 2-col grid: Hero (col 1, 28%) | Right (col 2, 72%) for row 1.
+           Bottom finance + Charts span both cols (full width) so their LEFT edge
+           aligns with Hero LEFT edge = page-padding edge. Reverted Phase 13's
+           5-col + subgrid trickery: pi-keng wants Hero/Bottom/Charts ALL flush
+           to the same left margin (not Bottom-card-aligned-to-Hero-right-edge). */
         html[data-preset="cinematic"] #dash-content:not(.hidden) {
             display: grid !important;
-            grid-template-columns: auto repeat(4, 1fr);
+            grid-template-columns: minmax(280px, 28%) 1fr;
             grid-template-rows: minmax(540px, auto) auto auto auto;
             grid-template-areas:
-                "muse   side   side   side   side"
-                "fin    fin    fin    fin    fin"
-                "charts charts charts charts charts"
-                "footer footer footer footer footer";
+                "muse   side"
+                "fin    fin"
+                "charts charts"
+                "footer footer";
             gap: 14px !important;
             align-items: stretch;
-        }
-        /* Bottom finance row alignment — applies globally (all viewports).
-           #ddr-fin uses display:contents to "disappear" so #dash-fin-row promotes
-           to direct child of dash-content grid → can use subgrid to inherit
-           the 5-col tracks. First card sits at col 2 (right after Hero column). */
-        html[data-preset="cinematic"] #ddr-fin {
-            display: contents !important;
-        }
-        html[data-preset="cinematic"] #dash-fin-row {
-            display: grid !important;
-            grid-template-columns: subgrid !important;
-            grid-area: fin !important;
-            gap: 12px !important;
-        }
-        html[data-preset="cinematic"] #dash-fin-row > *:first-child {
-            grid-column: 2 !important;
         }
         html[data-preset="cinematic"] #ddr-muse {
             grid-area: muse;
             min-height: 0;
             display: flex;
             align-items: stretch;
-            justify-content: center;
+            justify-content: flex-start;
         }
         html[data-preset="cinematic"] #ddr-row1 { grid-area: side; min-height: 0; display: flex; flex-direction: column; }
         html[data-preset="cinematic"] #ddr-fin { grid-area: fin; }
@@ -1803,14 +1792,14 @@
                space (Pinned / 3-cards / Mini frames). Bottom 4 cards (#ddr-fin)
                also use 28% first column so the leftmost edge aligns vertically
                with Hero. */
-            /* Override: Hero col 28% (fixed, not aspect-driven). Grid areas
-               inherited from default rule above (already 5-col). */
+            /* Phase 14b: 2-col grid (Hero 28% | Right 72%). Bottom finance
+               + Charts span full width below — Hero/Bottom/Charts all flush
+               to page-padding LEFT edge. */
             html[data-preset="cinematic"] #dash-content:not(.hidden) {
-                grid-template-columns: minmax(280px, 28%) repeat(4, 1fr) !important;
+                grid-template-columns: minmax(280px, 28%) 1fr !important;
                 grid-template-rows: minmax(calc(100vh - 90px), auto) auto auto auto !important;
             }
             html[data-preset="cinematic"] #muse-card {
-                aspect-ratio: auto !important;
                 width: 100% !important;
                 height: 100% !important;
                 min-height: 0 !important;
@@ -2152,17 +2141,13 @@
             border-color: var(--cine-glass-border-strong) !important;
         }
 
-        /* Muse hero: portrait 9:16 — width auto-derived from height,
-           so the card hugs the media and the right stack gets the
-           remaining horizontal space. No max-height: hero must stretch
-           to match the right stack (alerts + profile + mini-frames +
-           gaps) or the stack tail overflows below hero bottom. The
-           90vh ceiling prevents extreme content from breaking layout
-           on very small viewports. */
+        /* Muse hero — Phase 14b: fill col 1 (28%) entirely. Photo inside uses
+           object-fit: cover so it crops to fit any aspect. Was width:auto +
+           aspect-ratio 9/16 which made the card narrower than its grid track,
+           leaving a left-edge gap (column track centered Hero via flex). */
         html[data-preset="cinematic"] #muse-card {
-            aspect-ratio: 9 / 16 !important;
+            width: 100% !important;
             height: 100% !important;
-            width: auto !important;
             min-height: 540px !important;
             max-height: 90vh;
             border-radius: 16px !important;
