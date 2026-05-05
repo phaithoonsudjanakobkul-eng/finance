@@ -2149,15 +2149,15 @@
             border-color: var(--cine-glass-border-strong) !important;
         }
 
-        /* Muse hero — Phase 14b: fill col 1 (28%) entirely. Photo inside uses
-           object-fit: cover so it crops to fit any aspect. Was width:auto +
-           aspect-ratio 9/16 which made the card narrower than its grid track,
-           leaving a left-edge gap (column track centered Hero via flex). */
+        /* Muse hero — Phase 14d: fill col 1 entirely + full row 1 height.
+           Removed `max-height: 90vh` (was 1296px at 1440-tall viewport while
+           row 1 = 100vh-90 = 1350 → Hero short by 54px). Row 1 grid template
+           is the height controller — Hero just inherits via height:100%.
+           min-height kept at 540 for very small viewports. */
         html[data-preset="cinematic"] #muse-card {
             width: 100% !important;
             height: 100% !important;
             min-height: 540px !important;
-            max-height: 90vh;
             border-radius: 16px !important;
             border: 0.5px solid var(--cine-glass-border-strong) !important;
             position: relative !important;
@@ -2466,15 +2466,17 @@
         /* Mini Frames glass card (D) — Muse preset chips A-F as 3rd card
            in the right stack. Click switches preset via _museLoadPreset. */
         .cine-mini-frames { display: none; }
+        /* Mini frames — content-sized (NOT flex 1 1 0). Slots have aspect-ratio
+           3/4 with max-height 215, so the strip naturally sizes to slot height
+           + chrome (~245px max). Pinned + Aux share the remaining row 1 height
+           via their own flex 1 1 0, so Right column stacks: [Pinned-grow]
+           [Aux-grow] [Mini-content]. Stretching Mini caused empty space below
+           the small slots — symptom pi-keng saw at 2560 ("content เล็ก"). */
         html[data-preset="cinematic"] .cine-mini-frames {
             display: flex !important;
             flex-direction: column !important;
             padding: 14px !important;
-            flex: 1 1 0 !important;
-            min-height: 0 !important;
-        }
-        html[data-preset="cinematic"] .cine-mf-grid {
-            flex: 1 1 auto !important;
+            flex: 0 0 auto !important;
         }
         html[data-preset="cinematic"] .cine-mf-header {
             display: flex;
