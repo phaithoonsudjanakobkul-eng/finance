@@ -2514,8 +2514,23 @@
             flex-wrap: nowrap !important;
             flex: 1 1 auto !important;
             gap: 10px !important;
+            justify-content: space-evenly !important;
             overflow: hidden !important;
             min-height: 0 !important;
+        }
+        /* Hide slots 7-10 at desktop/wide so visible slots (1-6) fill row
+           cleanly with no half-clipped slot. justify-content: space-evenly
+           distributes any leftover space evenly between slots + edges so the
+           strip never looks bunched-left or empty-right. */
+        html[data-preset="cinematic"] .cine-mf-chip:nth-child(n+7) {
+            display: none !important;
+        }
+        /* Narrow viewport (≤1499 — work laptop, small notebook): slot natural
+           width is smaller (~110-180px) so 7 slots can fit; reveal slot 7. */
+        @media (max-width: 1499px) {
+            html[data-preset="cinematic"] .cine-mf-chip:nth-child(7) {
+                display: block !important;
+            }
         }
         html[data-preset="cinematic"] .cine-mf-header {
             display: flex;
