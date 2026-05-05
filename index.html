@@ -1770,7 +1770,7 @@
            below (specificity tie requires source-order win). */
         @media (max-width: 1399px) {
             html[data-preset="cinematic"] #profile-wl-console {
-                max-height: 280px !important;
+                max-height: 220px !important;
             }
         }
 
@@ -1780,30 +1780,25 @@
            default keeps the wrapper invisible to layout in non-cinematic
            presets if it somehow lingers; cinematic flips to grid. */
         .cine-profile-row { display: contents; }
+        /* 3-column row: [Payday] [Month] [Profile]. Order via flex/grid `order`
+           so DOM stays sane (JS appends in profile→payday→month order). Profile
+           anchored right because Aux cards are quick-glance numbers users want
+           on the leading edge. */
         html[data-preset="cinematic"] .cine-profile-row {
             display: grid !important;
-            grid-template-columns: 2fr 1fr 1fr;
+            grid-template-columns: 1fr 1fr 2fr;
             gap: 12px;
             align-items: stretch;
             min-height: 340px;
         }
-        /* Small laptop (901-1399px) — keep 3-column row but reorder so Aux comes first.
-           Order on screen: [Payday] [Month] [Profile]. Profile compact via Phase 4 below
-           (photo-wrap 252→160). Aux compact via Phase 2 (min-h 220, font 76). */
-        @media (max-width: 1399px) and (min-width: 901px) {
-            html[data-preset="cinematic"] .cine-profile-row {
-                grid-template-columns: 1fr 1fr 2fr;
-            }
-            html[data-preset="cinematic"] .cine-profile-row > #profile-card-main {
-                grid-column: auto;
-                order: 3;
-            }
-            html[data-preset="cinematic"] .cine-profile-row > #cine-payday-card {
-                order: 1;
-            }
-            html[data-preset="cinematic"] .cine-profile-row > #cine-month-card {
-                order: 2;
-            }
+        html[data-preset="cinematic"] .cine-profile-row > #profile-card-main {
+            order: 3;
+        }
+        html[data-preset="cinematic"] .cine-profile-row > #cine-payday-card {
+            order: 1;
+        }
+        html[data-preset="cinematic"] .cine-profile-row > #cine-month-card {
+            order: 2;
         }
         @media (max-width: 900px) {
             html[data-preset="cinematic"] .cine-profile-row {
@@ -1919,16 +1914,16 @@
            Reduces vertical footprint ~120px so Mini frames sit closer to the fold. */
         @media (max-width: 1399px) {
             html[data-preset="cinematic"] .cine-profile-row {
-                min-height: 220px;
+                min-height: 180px;
             }
             html[data-preset="cinematic"] .cine-payday-card,
             html[data-preset="cinematic"] .cine-month-card {
-                min-height: 220px;
-                padding: 18px 20px 16px;
+                min-height: 180px;
+                padding: 16px 18px 14px;
             }
             html[data-preset="cinematic"] .cine-payday-num,
             html[data-preset="cinematic"] .cine-month-num {
-                font-size: 76px;
+                font-size: 68px;
             }
         }
 
@@ -1940,7 +1935,7 @@
                 width: 160px !important;
             }
             html[data-preset="cinematic"] #profile-card-main {
-                min-height: 220px !important;
+                min-height: 180px !important;
             }
         }
 
