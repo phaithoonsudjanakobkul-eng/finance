@@ -1801,7 +1801,7 @@
            Replaces fixed 240px which looked tiny next to scaled-up Aux numbers
            on home desktop 2560×1440. */
         html[data-preset="cinematic"] #profile-photo-wrap {
-            width: clamp(160px, 22vh, 320px) !important;
+            width: clamp(160px, 28vh, 400px) !important;
         }
 
         /* Cinematic Responsive — Phase 1: Pinned watchlist
@@ -1906,7 +1906,7 @@
         }
         html[data-preset="cinematic"] .cine-aux-label {
             font-family: 'JetBrains Mono', 'SF Mono', monospace;
-            font-size: 9px;
+            font-size: clamp(9px, 1.1vh, 14px);
             font-weight: 600;
             letter-spacing: 0.2em;
             text-transform: uppercase;
@@ -1934,7 +1934,7 @@
            displays. */
         html[data-preset="cinematic"] .cine-payday-num {
             font-family: 'Fraunces', Georgia, serif;
-            font-size: clamp(68px, 9vh, 140px);
+            font-size: clamp(68px, 13vh, 180px);
             font-weight: 400;
             line-height: 0.92;
             color: var(--accent);
@@ -1949,7 +1949,7 @@
         }
         html[data-preset="cinematic"] .cine-payday-sublabel {
             font-family: 'JetBrains Mono', 'SF Mono', monospace;
-            font-size: 10px;
+            font-size: clamp(10px, 1.25vh, 15px);
             font-weight: 600;
             letter-spacing: 0.2em;
             text-transform: uppercase;
@@ -1963,7 +1963,7 @@
            Same clamp() as Payday for consistent proportions across viewports. */
         html[data-preset="cinematic"] .cine-month-num {
             font-family: 'Fraunces', Georgia, serif;
-            font-size: clamp(68px, 9vh, 140px);
+            font-size: clamp(68px, 13vh, 180px);
             font-weight: 400;
             line-height: 0.92;
             color: var(--text-primary);
@@ -1972,7 +1972,7 @@
         }
         html[data-preset="cinematic"] .cine-month-sublabel {
             font-family: 'JetBrains Mono', 'SF Mono', monospace;
-            font-size: 10px;
+            font-size: clamp(10px, 1.25vh, 15px);
             font-weight: 600;
             letter-spacing: 0.2em;
             text-transform: uppercase;
@@ -2039,10 +2039,33 @@
         html[data-preset="cinematic"] .cine-card-bottom-date {
             font-family: 'Fraunces', Georgia, serif;
             font-style: italic;
-            font-size: 13px;
+            font-size: clamp(13px, 1.5vh, 18px);
             font-weight: 400;
             color: rgba(245, 241, 232, 0.50);
             letter-spacing: 0.02em;
+        }
+
+        /* Phase 14g — content scaling for Pinned table + Profile description.
+           Pinned cells use !important to beat inline font-size:11px in JS-built
+           rows (_renderPinnedWl). Profile text inside #profile-display-notes
+           scales the address block to match the now-scaled Aux numbers + photo
+           on home desktop 2560×1440. Floors match prior fixed sizes (small
+           viewports unchanged). */
+        html[data-preset="cinematic"] #wl-pinned-list .pinned-sym,
+        html[data-preset="cinematic"] #wl-pinned-list [id^="wl-pinned-price-"],
+        html[data-preset="cinematic"] #wl-pinned-list [id^="wl-pinned-chg-"],
+        html[data-preset="cinematic"] #wl-pinned-list [id^="wl-pinned-pct-"] span,
+        html[data-preset="cinematic"] #wl-pinned-list [id^="wl-pinned-high-"],
+        html[data-preset="cinematic"] #wl-pinned-list [id^="wl-pinned-low-"] {
+            font-size: clamp(11px, 1.3vh, 16px) !important;
+        }
+        html[data-preset="cinematic"] #profile-display-notes {
+            font-size: clamp(12px, 1.4vh, 17px) !important;
+            line-height: 1.55 !important;
+        }
+        html[data-preset="cinematic"] [id^="profilePhoto"] ~ * {
+            /* placeholder selector — will iterate if more profile elements
+               surface in user feedback */
         }
 
         /* LOW Alerts empty state — when no alerts, render a centered
