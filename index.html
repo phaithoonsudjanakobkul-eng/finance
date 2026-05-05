@@ -1776,32 +1776,27 @@
             align-items: stretch;
             min-height: 340px;
         }
-        /* Small laptop (1024-1399px) — keep 3-column horizontal but compact.
-           Previously fell through to 2-column stack which dumped Profile/Payday/Month
-           across ~1100px vertical, pushing Muse cards 3 viewports down on 720p screens. */
-        @media (max-width: 1399px) and (min-width: 1024px) {
-            html[data-preset="cinematic"] .cine-profile-row {
-                grid-template-columns: 1.5fr 1fr 1fr;
-                min-height: 240px;
-            }
-            html[data-preset="cinematic"] .cine-payday-card,
-            html[data-preset="cinematic"] .cine-month-card {
-                min-height: 240px;
-                padding: 18px 20px 16px;
-            }
-            html[data-preset="cinematic"] .cine-payday-num,
-            html[data-preset="cinematic"] .cine-month-num {
-                font-size: 76px;
-            }
-        }
-        /* Tablet (901-1023px) — old 2-column stack: Payday|Month above, Profile full-width below */
-        @media (max-width: 1023px) and (min-width: 901px) {
+        @media (max-width: 1399px) {
             html[data-preset="cinematic"] .cine-profile-row {
                 grid-template-columns: 1fr 1fr;
             }
             html[data-preset="cinematic"] .cine-profile-row > #profile-card-main {
                 grid-column: 1 / -1;
             }
+        }
+        /* Small-laptop scale-down — Cinematic preset only.
+           Cinematic is designed for 27"+ widescreen; below 1400px the 3-card profile row,
+           muse hero, and watchlist crowd or stack vertically. CSS zoom (Chromium) shrinks
+           the entire viewport so the original widescreen layout stays intact, just smaller.
+           Mouse coordinates and event handling work correctly under zoom in Chromium. */
+        @media (max-width: 1399px) and (min-width: 1280px) {
+            html[data-preset="cinematic"] body { zoom: 0.85; }
+        }
+        @media (max-width: 1279px) and (min-width: 1100px) {
+            html[data-preset="cinematic"] body { zoom: 0.78; }
+        }
+        @media (max-width: 1099px) and (min-width: 901px) {
+            html[data-preset="cinematic"] body { zoom: 0.72; }
         }
         @media (max-width: 900px) {
             html[data-preset="cinematic"] .cine-profile-row {
