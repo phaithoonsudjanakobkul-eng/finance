@@ -1808,13 +1808,17 @@
             html[data-preset="cinematic"] .cine-mf-grid {
                 flex: 1 1 auto !important;
             }
-            /* Bottom row alignment: empty first col matches Hero, 4 cards in col 2 */
-            html[data-preset="cinematic"] #ddr-fin {
+            /* Bottom finance row: 4 cards align with Hero edge.
+               Apply on #dash-fin-row (the actual card container; #ddr-fin wraps it
+               with drag handle + collapsed bar). Tailwind class
+               `grid-cols-1 md:grid-cols-2 lg:grid-cols-4` lives at (0,1,0) specificity
+               — overridden cleanly by this (0,2,1) + !important rule. */
+            html[data-preset="cinematic"] #dash-fin-row {
                 display: grid !important;
                 grid-template-columns: minmax(280px, 28%) repeat(4, 1fr) !important;
                 gap: 12px !important;
             }
-            html[data-preset="cinematic"] #ddr-fin > *:first-child {
+            html[data-preset="cinematic"] #dash-fin-row > *:first-child {
                 grid-column: 2 !important;
             }
         }
