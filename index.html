@@ -1795,11 +1795,13 @@
             flex: 1 1 auto !important;
             min-height: 220px;
         }
-        /* Profile photo: portrait aspect for phone-shot photos. 240px width
-           inside a ~340px-tall card → ~216×324 visible photo (2:3 portrait).
-           Was 320px which forced near-square that didn't fit phone uploads. */
+        /* Profile photo: portrait aspect, scales with viewport height so the
+           photo grows on wider/taller monitors. clamp() floor 160px (min for
+           face legibility), ceiling 320px (cap for ultratall displays).
+           Replaces fixed 240px which looked tiny next to scaled-up Aux numbers
+           on home desktop 2560×1440. */
         html[data-preset="cinematic"] #profile-photo-wrap {
-            width: 240px !important;
+            width: clamp(160px, 22vh, 320px) !important;
         }
 
         /* Cinematic Responsive — Phase 1: Pinned watchlist
@@ -1924,10 +1926,15 @@
             gap: 14px;
         }
 
-        /* Payday card — accent-colored hero number */
+        /* Payday card — accent-colored hero number. clamp() scales with
+           viewport height so the hero number stays proportional to its
+           card across notebook (960h → 86px) → home desktop (1440h → 130px),
+           with hard floor 68px (matches former @media 1799 minimum) and
+           ceiling 140px to keep cards from looking gimmicky on ultratall
+           displays. */
         html[data-preset="cinematic"] .cine-payday-num {
             font-family: 'Fraunces', Georgia, serif;
-            font-size: 104px;
+            font-size: clamp(68px, 9vh, 140px);
             font-weight: 400;
             line-height: 0.92;
             color: var(--accent);
@@ -1936,7 +1943,7 @@
             text-shadow: 0 4px 28px color-mix(in srgb, var(--accent) 24%, transparent);
         }
         html[data-preset="cinematic"] .cine-payday-num.is-today {
-            font-size: 42px;
+            font-size: clamp(36px, 4vh, 56px);
             font-style: italic;
             font-weight: 500;
         }
@@ -1952,10 +1959,11 @@
             display: none;
         }
 
-        /* Month progress card — neutral hero number (no accent), accent only on bar */
+        /* Month progress card — neutral hero number (no accent), accent only on bar.
+           Same clamp() as Payday for consistent proportions across viewports. */
         html[data-preset="cinematic"] .cine-month-num {
             font-family: 'Fraunces', Georgia, serif;
-            font-size: 104px;
+            font-size: clamp(68px, 9vh, 140px);
             font-weight: 400;
             line-height: 0.92;
             color: var(--text-primary);
@@ -1996,19 +2004,16 @@
                 min-height: 180px;
                 padding: 16px 18px 14px;
             }
-            html[data-preset="cinematic"] .cine-payday-num,
-            html[data-preset="cinematic"] .cine-month-num {
-                font-size: 68px;
-            }
+            /* font-size override removed: clamp(68px, 9vh, 140px) on the
+               default rule already gives 68px floor at small viewports. */
         }
 
         /* Cinematic Responsive — Phase 4: Profile card compact at <=1399px.
            Photo-wrap 252→160 + min-height matching aux cards, so 3-column row
            [Payday][Month][Profile] fits horizontally without forcing internal layout breaks. */
         @media (max-width: 1799px) and (min-width: 901px) {
-            html[data-preset="cinematic"] #profile-photo-wrap {
-                width: 160px !important;
-            }
+            /* photo-wrap width override removed: clamp(160px, 22vh, 320px) on
+               the default rule already floors at 160px for small viewports. */
             html[data-preset="cinematic"] #profile-card-main {
                 min-height: 180px !important;
                 overflow: hidden !important;
