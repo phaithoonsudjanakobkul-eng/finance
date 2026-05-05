@@ -35404,14 +35404,17 @@ ${paras}
             // so @media queries can override the grid template without touching inline styles
             const GSTYLE = 'display:grid;grid-template-columns:var(--pinned-gcols);justify-content:center;column-gap:5px;align-items:center;';
             const hdStyle = 'font-family:var(--font-mono);font-size:8px;font-weight:700;letter-spacing:0.1em;color:var(--text-secondary);text-transform:uppercase;white-space:nowrap;text-align:center;display:block;';
+            // Header alignment must match row content: SYM=left, TREND=center,
+            // LAST/CHG/%CHG/HIGH/LOW=right. Default hdStyle has text-align:center —
+            // override per-column for numeric cols so header sits over the value.
             const header = '<div style="' + GSTYLE + 'padding:0 2px 4px 2px;border-bottom:1px solid color-mix(in srgb,var(--border) 80%,transparent);margin-bottom:2px;">' +
                 '<span style="' + hdStyle + 'text-align:left;">SYM</span>' +
                 '<span style="' + hdStyle + '">TREND</span>' +
-                '<span style="' + hdStyle + '">LAST</span>' +
-                '<span class="wl-pinned-col-hide" style="' + hdStyle + '">CHG</span>' +
-                '<span style="' + hdStyle + '">%CHG</span>' +
-                '<span class="wl-pinned-col-hide" style="' + hdStyle + '">HIGH</span>' +
-                '<span class="wl-pinned-col-hide" style="' + hdStyle + '">LOW</span>' +
+                '<span style="' + hdStyle + 'text-align:right;">LAST</span>' +
+                '<span class="wl-pinned-col-hide" style="' + hdStyle + 'text-align:right;">CHG</span>' +
+                '<span style="' + hdStyle + 'text-align:right;">%CHG</span>' +
+                '<span class="wl-pinned-col-hide" style="' + hdStyle + 'text-align:right;">HIGH</span>' +
+                '<span class="wl-pinned-col-hide" style="' + hdStyle + 'text-align:right;">LOW</span>' +
                 '</div>';
             const rows = pinned.map(function(sym) {
                 const d = wlDataCache[sym] || {};
