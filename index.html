@@ -25476,26 +25476,26 @@ ${paras}
                 .replace(/"/g, '&quot;');
         }
 
-        // Convert plain text remarks to HTML — preserve line breaks + auto-link URLs.
-        // Supports markdown-style [display text](url) for custom hyperlink labels;
-        // bare URLs still auto-link to themselves.
-        // word-break:break-all on <a> so long URLs wrap inside fixed table columns.
+        // Convert plain text remarks to HTML — preserve line breaks + smart-link URLs.
+        //   • bare URL                              → <a>คลิกที่นี่</a> (default label)
+        //   • [custom]url  or  [custom](url)        → <a>custom</a>      (override)
+        // word-break:break-all kept defensively in case user puts a long custom label.
         function _psecFmtRemark(s) {
             if (!s) return '';
             const linkStyle = 'color:#0066cc;word-break:break-all;overflow-wrap:break-word;';
+            const DEFAULT_LINK_LABEL = 'คลิกที่นี่';
             let html = _psecHe(s);
-            // Step 1: pull out [text](url) markdown links into placeholders so the
-            // bare-URL auto-linker doesn't re-wrap them.
+            // Step 1: pull [text]url / [text](url) into placeholder tokens so the
+            // bare-URL pass below can't re-wrap them.
             const slots = [];
-            // Accept both [text](url) AND [text]url (parens optional, whitespace allowed between)
             html = html.replace(/\[([^\]\n]+)\]\s*\(?\s*(https?:\/\/[^\s)<]+)\s*\)?/g, function(_, text, url) {
                 const i = slots.length;
                 slots.push('<a href="' + url + '" style="' + linkStyle + '">' + text + '</a>');
                 return 'PSEC' + i + 'LINK';
             });
-            // Step 2: auto-link remaining bare URLs
-            html = html.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" style="' + linkStyle + '">$1</a>');
-            // Step 3: restore markdown links
+            // Step 2: bare URLs → render as DEFAULT_LINK_LABEL (not the full URL)
+            html = html.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" style="' + linkStyle + '">' + DEFAULT_LINK_LABEL + '</a>');
+            // Step 3: restore custom-label links from placeholder tokens
             html = html.replace(/PSEC(\d+)LINK/g, function(_, i) { return slots[parseInt(i, 10)]; });
             return html.replace(/\n/g, '<br>');
         }
@@ -26354,7 +26354,7 @@ ${paras}
                 return '<div style="display:grid;grid-template-columns:1fr 60px 1fr 28px;gap:6px;align-items:start;">' +
                     '<input type="text" placeholder="Item" value="' + _psecHe(it.name || '') + '" oninput="_psecOnItemChange(' + i + ', \'name\', this.value)" style="font-family:\'Tahoma\',sans-serif;font-size:11px;padding:6px 8px;border:1px solid var(--border);border-radius:4px;background:var(--surface,#fff);color:var(--text-primary);">' +
                     '<input type="text" placeholder="Qty" value="' + _psecHe(it.qty || '') + '" oninput="_psecOnItemChange(' + i + ', \'qty\', this.value)" style="font-family:\'Tahoma\',sans-serif;font-size:11px;padding:6px 8px;border:1px solid var(--border);border-radius:4px;background:var(--surface,#fff);color:var(--text-primary);text-align:center;">' +
-                    '<input type="text" placeholder="Remark / URL  ·  [ดูสินค้า]https://..." value="' + _psecHe(it.remark || '') + '" oninput="_psecOnItemChange(' + i + ', \'remark\', this.value)" title="• ใส่ URL ตรงๆ → auto-link เป็นลิงก์ยาว\n• ใช้ [ข้อความ]URL → แสดงแค่ข้อความเป็นลิงก์ (ไม่ต้องมีวงเล็บ)\n• [ข้อความ](URL) ก็ได้ (markdown มาตรฐาน)" style="font-family:\'Tahoma\',sans-serif;font-size:11px;padding:6px 8px;border:1px solid var(--border);border-radius:4px;background:var(--surface,#fff);color:var(--text-primary);">' +
+                    '<input type="text" placeholder="Remark / URL — วาง URL ตรงๆ จะกลายเป็น &quot;คลิกที่นี่&quot;" value="' + _psecHe(it.remark || '') + '" oninput="_psecOnItemChange(' + i + ', \'remark\', this.value)" title="• วาง URL ตรงๆ → auto กลายเป็นลิงก์ &quot;คลิกที่นี่&quot;\n• ถ้าอยากเปลี่ยนข้อความ ใช้ [ข้อความ]URL เช่น [ดูสินค้า]https://..." style="font-family:\'Tahoma\',sans-serif;font-size:11px;padding:6px 8px;border:1px solid var(--border);border-radius:4px;background:var(--surface,#fff);color:var(--text-primary);">' +
                     '<button onclick="_psecDelItem(' + i + ')" title="ลบ" style="font-family:var(--font-mono);font-size:14px;border:1px solid var(--border);border-radius:4px;background:transparent;color:var(--text-dim);cursor:pointer;line-height:1;padding:0;">×</button>' +
                 '</div>';
             }).join('');
