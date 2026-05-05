@@ -25829,6 +25829,59 @@ ${paras}
               '</table>';
         }
 
+        // Branded K/V row — gray row dividers (signature accent stays in section labels & banner, not here)
+        function _psecBanner_KVRow(label, value) {
+            const pZero = 'margin:0;mso-margin-top-alt:0;mso-margin-bottom-alt:0;mso-line-height-rule:exactly;';
+            return '<tr>' +
+                '<td style="padding:6pt 14pt 6pt 0;width:130pt;vertical-align:top;border-bottom:1px solid ' + _PSEC_BORDER + ';">' +
+                  '<p style="' + pZero + 'font-family:' + _PSEC_FF + ';font-size:9.5pt;color:#4b5563;font-weight:bold;line-height:1.4;">' + _psecHe(label) + '</p>' +
+                '</td>' +
+                '<td style="padding:6pt 0;vertical-align:top;border-bottom:1px solid ' + _PSEC_BORDER + ';">' +
+                  '<p style="' + pZero + 'font-family:' + _PSEC_FF + ';font-size:11pt;color:' + _PSEC_TEXT + ';font-weight:600;line-height:1.4;">' + _psecHe(value || '—') + '</p>' +
+                '</td>' +
+            '</tr>';
+        }
+
+        // Branded section label — 3pt brand-blue LEFT BAR + bold brand text.
+        // Distinct from Console/Spec '[ ]' brackets while keeping the branded-color identity.
+        function _psecBanner_SectionLabel(text) {
+            return '<table cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;margin:0 0 8pt 0;">' +
+              '<tr>' +
+                '<td bgcolor="' + _PSEC_BRAND + '" style="width:3pt;background:' + _PSEC_BRAND + ';background-color:' + _PSEC_BRAND + ';line-height:1pt;font-size:1pt;">&nbsp;</td>' +
+                '<td style="padding:0 0 0 8pt;vertical-align:middle;">' +
+                  '<p style="margin:0;mso-margin-top-alt:0;mso-margin-bottom-alt:0;mso-line-height-rule:exactly;font-family:' + _PSEC_FF + ';font-size:11pt;font-weight:bold;color:' + _PSEC_BRAND + ';line-height:1.3;">' + _psecHe(text) + '</p>' +
+                '</td>' +
+              '</tr>' +
+            '</table>';
+        }
+
+        // Branded numbered notes — bold brand-blue numbers + hanging indent (matches Console/Spec quality)
+        function _psecBanner_NotesBlock(raw) {
+            const trimmed = (raw || '').trim();
+            if (!trimmed) return '';
+            const lines = trimmed.split(/\r?\n/).map(function(l){ return l.trim(); }).filter(Boolean);
+            if (lines.length === 0) return '';
+            const pZero = 'margin:0;mso-margin-top-alt:0;mso-margin-bottom-alt:0;mso-line-height-rule:exactly;';
+            if (lines.length === 1) {
+                return '<p style="' + pZero + 'font-family:' + _PSEC_FF + ';font-size:11pt;color:' + _PSEC_TEXT + ';line-height:1.5;">' + _psecHe(lines[0]) + '</p>';
+            }
+            const rows = lines.map(function(l, i){
+                const padBottom = (i === lines.length - 1) ? 0 : 5;
+                return '<tr>' +
+                    '<td style="padding:0 8pt ' + padBottom + 'pt 0;width:24pt;vertical-align:top;">' +
+                      '<p style="' + pZero + 'font-family:' + _PSEC_FF + ';font-size:11pt;font-weight:bold;color:' + _PSEC_BRAND + ';line-height:1.5;text-align:right;">' + (i + 1) + '.</p>' +
+                    '</td>' +
+                    '<td style="padding:0 0 ' + padBottom + 'pt 0;vertical-align:top;">' +
+                      '<p style="' + pZero + 'font-family:' + _PSEC_FF + ';font-size:11pt;color:' + _PSEC_TEXT + ';line-height:1.5;word-wrap:break-word;overflow-wrap:break-word;">' + _psecHe(l) + '</p>' +
+                    '</td>' +
+                '</tr>';
+            }).join('');
+            return '<table cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">' + rows + '</table>';
+        }
+
+        // 4pt spacer row — same pattern as Console/Spec for K/V table breathing space
+        const _PSEC_BANNER_TOP_SPACER_ROW = '<tr><td colspan="2" style="padding:0;height:4pt;line-height:4pt;font-size:1pt;border:0;">&nbsp;</td></tr>';
+
         function _psecBanner_Approve(tplId, form) {
             const isBid = tplId === 'approve-bid';
             const verb = isBid ? 'ยื่นซอง' : 'สั่งของ';
@@ -25840,26 +25893,29 @@ ${paras}
             const subline = (form.agency || '—') + (submitInfo ? ' · ' + submitInfo : '');
 
             const rows =
-                _psecKVRow('หน่วยงาน', form.agency || '') +
-                _psecKVRow('EQ List', form.eqList || '') +
-                _psecKVRow('รายการสินค้าหลัก', form.mainItems || '');
+                _psecBanner_KVRow('หน่วยงาน', form.agency || '') +
+                _psecBanner_KVRow('EQ List', form.eqList || '') +
+                _psecBanner_KVRow('รายการสินค้าหลัก', form.mainItems || '');
 
             let notesBlock = '';
             if ((form.notes || '').trim()) {
                 notesBlock =
-                    _psecHairline(_PSEC_BORDER, 4, 8) +
-                    _psecPara('<b>หมายเหตุ</b>', 4) +
-                    _psecPara(_psecNotesToHtml(form.notes), 0);
+                    _psecSpacer(14) +
+                    _psecBanner_SectionLabel('หมายเหตุ') +
+                    _psecBanner_NotesBlock(form.notes);
             }
 
             return '<table cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%;border-collapse:collapse;font-family:' + _PSEC_FF + ';">' +
               '<tr><td style="padding:0;">' +
                 _psecBanner_BuildBanner(overline, headline, subline) +
                 _psecSpacer(12) +
-                _psecPara('Dear All,', 10) +
-                _psecPara('รบกวนตรวจเช็คเพื่อ Approve Configuration สำหรับ' + _psecHe(verb), 14) +
-                '<table cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%;border-collapse:collapse;margin:0 0 12pt 0;">' + rows + '</table>' +
+                _psecPara('Dear All,', 6) +
+                _psecPara('รบกวนตรวจเช็คเพื่อ Approve Configuration สำหรับ' + _psecHe(verb), 12) +
+                '<table cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%;border-collapse:collapse;border-top:1px solid ' + _PSEC_BORDER + ';">' + _PSEC_BANNER_TOP_SPACER_ROW + rows + '</table>' +
                 notesBlock +
+                _psecSpacer(14) +
+                _psecHairline(_PSEC_BORDER, 0, 0) +
+                _psecSpacer(10) +
                 _psecPara(_psecHe(_psecResolveClosing(tplId, form)), 0) +
               '</td></tr>' +
             '</table>';
@@ -25873,11 +25929,15 @@ ${paras}
                 .filter(Boolean).join(' · ') || '—';
 
             const headRows =
-                (form.eqList ? _psecKVRow('เลขที่ใบเสนอราคา', form.eqList) : '') +
-                (form.mainItemsOversea ? _psecKVRow('รายการหลัก (Oversea)', form.mainItemsOversea) : '') +
-                (form.agency ? _psecKVRow('หน่วยงาน', form.agency) : '') +
-                (form.orderDate ? _psecKVRow('ใบสั่งซื้อวันที่', form.orderDate) : '') +
-                (form.expireDate ? _psecKVRow('หมดสัญญาวันที่', form.expireDate) : '');
+                (form.eqList ? _psecBanner_KVRow('เลขที่ใบเสนอราคา', form.eqList) : '') +
+                (form.mainItemsOversea ? _psecBanner_KVRow('รายการหลัก (Oversea)', form.mainItemsOversea) : '') +
+                (form.agency ? _psecBanner_KVRow('หน่วยงาน', form.agency) : '') +
+                (form.orderDate ? _psecBanner_KVRow('ใบสั่งซื้อวันที่', form.orderDate) : '') +
+                (form.expireDate ? _psecBanner_KVRow('หมดสัญญาวันที่', form.expireDate) : '');
+
+            const headBlock = headRows
+                ? '<table cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%;border-collapse:collapse;border-top:1px solid ' + _PSEC_BORDER + ';">' + _PSEC_BANNER_TOP_SPACER_ROW + headRows + '</table>'
+                : '';
 
             let itemsBlock = '';
             if (items.length > 0) {
@@ -25902,7 +25962,7 @@ ${paras}
                 const headerTd = 'background:' + _PSEC_BRAND + ';background-color:' + _PSEC_BRAND + ';padding:6pt 8pt;';
                 const headerP = '<p style="' + cellPZero + 'font-family:' + _PSEC_FF + ';font-size:10pt;font-weight:bold;color:#ffffff;line-height:1.3;';
                 itemsBlock =
-                    _psecPara('<b>รายการสินค้า LOCAL</b>', 4, 11, _PSEC_BRAND) +
+                    _psecBanner_SectionLabel('รายการสินค้า LOCAL') +
                     '<table cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%;table-layout:fixed;border-collapse:collapse;">' +
                       '<tr>' +
                         '<th bgcolor="' + _PSEC_BRAND + '" align="center" width="7%" style="' + headerTd + 'text-align:center;width:7%;">' + headerP + 'text-align:center;">#</p></th>' +
@@ -25918,7 +25978,10 @@ ${paras}
 
             let notesBlock = '';
             if ((form.notes || '').trim()) {
-                notesBlock = _psecPara('<b>หมายเหตุ:</b> ' + _psecNotesToHtml(form.notes), 8);
+                notesBlock =
+                    _psecSpacer(12) +
+                    _psecBanner_SectionLabel('หมายเหตุ') +
+                    _psecBanner_NotesBlock(form.notes);
             }
 
             return '<table cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%;border-collapse:collapse;font-family:' + _PSEC_FF + ';">' +
@@ -25927,10 +25990,13 @@ ${paras}
                 _psecSpacer(12) +
                 _psecPara('เรียน ฝ่ายจัดซื้อ', 4) +
                 _psecPara('รบกวนสั่งของตามรายละเอียดดังนี้', 10) +
-                (headRows ? '<table cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;">' + headRows + '</table>' + _psecSpacer(12) : '') +
+                headBlock +
+                (headBlock ? _psecSpacer(12) : '') +
                 notesBlock +
                 itemsBlock +
-                _psecSpacer(8) +
+                _psecSpacer(12) +
+                _psecHairline(_PSEC_BORDER, 0, 0) +
+                _psecSpacer(10) +
                 _psecPara(_psecHe(_psecResolveClosing('order', form)), 0) +
               '</td></tr>' +
             '</table>';
