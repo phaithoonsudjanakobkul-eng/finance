@@ -310,6 +310,44 @@ Multi-model background remover. Current: smart dispatch (color-key for flat-bg, 
 
 Word document spec-sheet flow generator (integrated 2026-04-18, milestone backup78). Builds DOCX from PSLink data using docx.js. Reference implementation for the single-column scrollable workstation pattern in Coding Rule 13's "Utilities panel architecture" — sticky header `flex-shrink:0` + scrollable body `flex:1; min-height:0; overflow-y:auto`.
 
+### 15. PS Email Composer (PSEC) — Utilities tab
+
+Generates paste-ready Outlook HTML emails for SCIED workflows. State persisted in `localStorage.ps_psec_state` + Gist (`psecState` field via `_buildExportData`).
+
+**Template registry** (`_psecTemplates`):
+- 4-step internal Approve workflow: `approve-budget` (1) → `approve-bid` (2) → `approve-order` (3) → `order` (4, FW ฝ่ายจัดซื้อ)
+- Standalone (not in workflow): `quotation-customer` — uses `step: null` to hide stepper dots + tplbar step badge. When adding new standalone templates (e.g. RFQ, customer follow-up), use `step: null` and the stepper guards in `_psecUpdateTagline` + `_psecRenderTplBar` skip them automatically.
+
+**3-style architecture** (`_PSEC_STYLES`):
+- `exec` (Console — dark navy hero, mono ID), `banner` (Branded — full-width brand banner), `editorial` (Spec — brand stripe + heavy black rules).
+- Each style implements `buildApprove(tplId, form)`, `buildOrder(form)`, `buildQuotation(form)`. Body content is shared across styles via helpers like `_psecQuotation_Body(form, opts)`; only header chrome differs.
+
+**Word HTML engine quirks (DO NOT re-debug):**
+- `<font color>` is **stripped** by Word — use `<span style="color:#xxx">` instead.
+- Vertical spacing: `<table style="margin">` is **ignored** — use `_psecSpacer(pt)` (1pt-line `<p>`) for gaps.
+- Hairlines: `border-top` on empty table **collapses** — use `_psecHairline(color)` (1pt-tall `<td bgcolor>` row).
+- Hero block: Word injects phantom `<o:p>` after last `<p>` in cell → causes white strip on dark bg. Fix: append color-matched `<p>` absorber inside hero td (see `_psecExec_Hero`).
+- K/V row spacing: Word adds implicit `<p>` margins → wrap cell text in `<p style="margin:0;mso-margin-top-alt:0;mso-margin-bottom-alt:0;mso-line-height-rule:exactly;">`.
+- `table-layout:fixed` + `word-wrap:break-word; word-break:break-all; overflow-wrap:break-word;` REQUIRED on item table cells so long URLs wrap inside columns instead of expanding the table.
+
+**Clipboard fix (Outlook paste fidelity):**
+- Chromium's `navigator.clipboard.write(ClipboardItem)` sanitizes inline styles aggressively — Outlook receives stripped HTML.
+- Workaround in `_psecCopyRich`: offscreen `contenteditable` div → `document.execCommand('copy')` with custom copy event handler that writes raw HTML to `clipboardData`. Falls back to `ClipboardItem` if execCommand fails.
+- User's Outlook setting must be **"Keep Source Formatting"** (not "Merge Formatting") for full fidelity. Setting lives in: Outlook → File → Options → Mail → "Pasting from other programs".
+
+**`</body>`/`</html>` literal hazard (live-server bug):**
+- live-server's HTML injector finds the FIRST `</body>` in raw text and splits the script block, breaking the page.
+- Fix in `_psecWrapHtmlDoc`: use `_LT = '<'` then concat — `_LT + '/body>'` instead of `'</body>'`. Apply to any future code that builds HTML strings as JS source.
+
+**Quotation details rendering (markdown-style):**
+- `_psecQuotation_RenderDetails` splits on `\n\s*\n` (blank line) for paragraph breaks, single `\n` becomes `<br>` (line break).
+- Mirrors GitHub/Slack convention — single Enter = continued thought (tight), double Enter = new paragraph (gap).
+
+**Default template & persistence:**
+- Fresh device default: `quotation-customer`. After first use, `_psecState.lastTemplate` + `lastStyle` (saved in localStorage + Gist) take over.
+
+**Preview frame is hardcoded LIGHT theme** regardless of PSLink theme — uses inline `#ffffff/#d1d5db/#374151` so action buttons stay visible in Cinematic dark presets. Preview chrome includes inlined base64 Microsoft Outlook 2018-2024 brand icon (96×96, ~8KB) for instant recognition. Don't route through theme classes — Cinematic + other dark presets bury button visibility.
+
 ## API Integrations
 
 **External data APIs:**
