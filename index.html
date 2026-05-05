@@ -1772,6 +1772,14 @@
             max-height: none !important;
             min-height: 180px;
         }
+        /* Cinematic Phase 14 — Row 1 inside ratio: LOW Alerts vs Pinned.
+           Default inline style is `flex:0 0 36%` (Slate/Onyx default look). Per
+           pi-keng's wireframe, Cinematic gives PINNED more room because users
+           track 5+ symbols there but typically 0-2 LOW alerts. Override the
+           inline-style flex via (0,3,1) + !important. */
+        html[data-preset="cinematic"] #profile-wl-console > div:first-child {
+            flex: 0 0 28% !important;
+        }
         html[data-preset="cinematic"] #profile-card-main {
             height: auto !important;
             flex: 1 1 auto !important;
