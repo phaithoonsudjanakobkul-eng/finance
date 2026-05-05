@@ -1763,25 +1763,14 @@
             width: 240px !important;
         }
 
-        /* Cinematic Responsive — Phase 1+2: small-laptop compact mode
-           Phase 1: Pinned watchlist — cap height + inner scroll (was consuming Hero column).
-           Phase 2: Aux cards (Payday/Month) — shrink min-height + hero number + padding to fit
-                    the lower half of viewport without pushing Mini frames off-screen. */
+        /* Cinematic Responsive — Phase 1: Pinned watchlist
+           At <=1399px (small laptop), cap pinned card height so its inner list scrolls
+           instead of consuming Hero column height (which would push Profile/Aux cards
+           below the fold). Phase 2 aux-card overrides live AFTER the base aux rules
+           below (specificity tie requires source-order win). */
         @media (max-width: 1399px) {
             html[data-preset="cinematic"] #profile-wl-console {
                 max-height: 280px !important;
-            }
-            html[data-preset="cinematic"] .cine-profile-row {
-                min-height: 220px;
-            }
-            html[data-preset="cinematic"] .cine-payday-card,
-            html[data-preset="cinematic"] .cine-month-card {
-                min-height: 220px;
-                padding: 18px 20px 16px;
-            }
-            html[data-preset="cinematic"] .cine-payday-num,
-            html[data-preset="cinematic"] .cine-month-num {
-                font-size: 76px;
             }
         }
 
@@ -1913,6 +1902,24 @@
             background: linear-gradient(90deg, var(--accent) 0%, color-mix(in srgb, var(--accent) 35%, transparent) 100%);
             border-radius: 1px;
             transition: width 0.6s ease;
+        }
+
+        /* Cinematic Responsive — Phase 2: Aux cards compact at <=1399px.
+           Placed AFTER base aux rules (line 1803-1916) to win specificity tie via source order.
+           Reduces vertical footprint ~120px so Mini frames sit closer to the fold. */
+        @media (max-width: 1399px) {
+            html[data-preset="cinematic"] .cine-profile-row {
+                min-height: 220px;
+            }
+            html[data-preset="cinematic"] .cine-payday-card,
+            html[data-preset="cinematic"] .cine-month-card {
+                min-height: 220px;
+                padding: 18px 20px 16px;
+            }
+            html[data-preset="cinematic"] .cine-payday-num,
+            html[data-preset="cinematic"] .cine-month-num {
+                font-size: 76px;
+            }
         }
 
         /* Bottom date — shared between payday and month cards.
