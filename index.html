@@ -25616,7 +25616,13 @@ ${paras}
         }
 
         function _psecExec_SectionLabel(text) {
-            return '<p style="margin:0 0 8pt 0;mso-margin-top-alt:0;mso-line-height-rule:exactly;font-family:' + _PSEC_FF + ';font-size:9pt;font-weight:bold;color:#1f2937;line-height:1.3;text-transform:uppercase;">' + _psecHe(text) + '</p>';
+            // [ LABEL ] — mono brackets in dim color give panel-header / console feel
+            const bracket = '<span style="font-family:' + _PSEC_CONS_MONO + ';color:#9ca3af;font-weight:normal;">';
+            return '<p style="margin:0 0 8pt 0;mso-margin-top-alt:0;mso-line-height-rule:exactly;font-family:' + _PSEC_FF + ';font-size:9pt;font-weight:bold;color:#1f2937;line-height:1.3;text-transform:uppercase;">' +
+              bracket + '[&nbsp;</span>' +
+              _psecHe(text) +
+              bracket + '&nbsp;]</span>' +
+            '</p>';
         }
 
         function _psecExec_KVRow(label, value) {
@@ -25630,6 +25636,10 @@ ${paras}
                 '</td>' +
             '</tr>';
         }
+
+        // 4pt spacer row to insert at top of K/V table — gives breathing space
+        // between the table's border-top and the first row's content.
+        const _PSEC_EXEC_TOP_SPACER_ROW = '<tr><td colspan="2" style="padding:0;height:4pt;line-height:4pt;font-size:1pt;border:0;">&nbsp;</td></tr>';
 
         function _psecExec_Approve(tplId, form) {
             const isBid = tplId === 'approve-bid';
@@ -25663,9 +25673,11 @@ ${paras}
                 _psecSpacer(14) +
                 _psecPara('Dear All,', 6) +
                 _psecPara('รบกวนตรวจเช็คเพื่อ <b><font color="' + _PSEC_BRAND + '">Approve Configuration</font></b> สำหรับ' + _psecHe(verb) + _psecHe(submitSuffix), 12) +
-                '<table cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%;border-collapse:collapse;border-top:1px solid ' + _PSEC_CONS_DIVIDER + ';">' + rows + '</table>' +
+                '<table cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%;border-collapse:collapse;border-top:1px solid ' + _PSEC_CONS_DIVIDER + ';">' + _PSEC_EXEC_TOP_SPACER_ROW + rows + '</table>' +
                 notesBlock +
                 _psecSpacer(14) +
+                _psecHairline(_PSEC_CONS_DIVIDER, 0, 0) +
+                _psecSpacer(10) +
                 _psecPara(_psecHe(_psecResolveClosing(tplId, form)), 0) +
               '</td></tr>' +
             '</table>';
@@ -25686,7 +25698,7 @@ ${paras}
                 (form.expireDate ? _psecExec_KVRow('หมดสัญญาวันที่', form.expireDate) : '');
 
             const headBlock = headRows
-                ? '<table cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%;border-collapse:collapse;border-top:1px solid ' + _PSEC_CONS_DIVIDER + ';">' + headRows + '</table>'
+                ? '<table cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%;border-collapse:collapse;border-top:1px solid ' + _PSEC_CONS_DIVIDER + ';">' + _PSEC_EXEC_TOP_SPACER_ROW + headRows + '</table>'
                 : '';
 
             let itemsBlock = '';
@@ -25745,6 +25757,8 @@ ${paras}
                 notesBlock +
                 itemsBlock +
                 _psecSpacer(12) +
+                _psecHairline(_PSEC_CONS_DIVIDER, 0, 0) +
+                _psecSpacer(10) +
                 _psecPara(_psecHe(_psecResolveClosing('order', form)), 0) +
               '</td></tr>' +
             '</table>';
