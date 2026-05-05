@@ -26181,28 +26181,55 @@ ${paras}
         async function _psecCopy(what) {
             const form = _psecGetForm(_psecActiveTpl);
             const subject = _psecBuildSubject(_psecActiveTpl, form);
-            const html = _psecBuildBody(_psecActiveTpl, form);
+            const bodyHtml = _psecBuildBody(_psecActiveTpl, form);
             const text = _psecBuildBodyText(_psecActiveTpl, form);
+            // Wrap as full Word-namespaced HTML so Outlook keeps inline color/font/weight
+            const html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"><meta name="ProgId" content="Word.Document"><meta name="Generator" content="Microsoft Word 15"></head><body style="font-family:' + _PSEC_FF + ';font-size:11pt;color:' + _PSEC_TEXT + ';">' + bodyHtml + '</body></html>';
             try {
                 if (what === 'subject') {
                     await navigator.clipboard.writeText(subject);
                     _psecStatus('Subject คัดลอกแล้ว — Ctrl+V ในช่อง Subject ของ Outlook', 'ok');
-                } else if (what === 'body') {
+                    return;
+                }
+                // Render-then-copy via Selection + execCommand: bypasses Chromium clipboard
+                // sanitizer (which strips inline styles Outlook would otherwise honor).
+                const host = document.createElement('div');
+                host.setAttribute('contenteditable', 'true');
+                host.style.cssText = 'position:fixed;left:-99999px;top:0;width:800px;opacity:0;';
+                host.innerHTML = html;
+                document.body.appendChild(host);
+                const range = document.createRange();
+                range.selectNodeContents(host);
+                const sel = window.getSelection();
+                sel.removeAllRanges();
+                sel.addRange(range);
+                function _onCopyEv(e) {
+                    try {
+                        e.clipboardData.setData('text/html', html);
+                        e.clipboardData.setData('text/plain', text);
+                        e.preventDefault();
+                    } catch (err) {}
+                }
+                document.addEventListener('copy', _onCopyEv, true);
+                let ok = false;
+                try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+                document.removeEventListener('copy', _onCopyEv, true);
+                sel.removeAllRanges();
+                host.parentNode.removeChild(host);
+                if (!ok && window.ClipboardItem) {
                     await navigator.clipboard.write([new ClipboardItem({
                         'text/html':  new Blob([html], { type: 'text/html' }),
                         'text/plain': new Blob([text], { type: 'text/plain' })
                     })]);
+                    ok = true;
+                }
+                if (!ok) throw new Error('clipboard blocked');
+                if (what === 'body') {
                     _psecStatus('Body คัดลอกแล้ว — เปิด Outlook → New Mail → Ctrl+V ในช่อง body', 'ok');
-                } else { // 'all' — copy body, then return subject in status text
-                    await navigator.clipboard.write([new ClipboardItem({
-                        'text/html':  new Blob([html], { type: 'text/html' }),
-                        'text/plain': new Blob([text], { type: 'text/plain' })
-                    })]);
-                    if (subject) {
-                        _psecStatus('Body คัดลอกแล้ว · Subject: "' + subject + '" (กด Copy Subject ก่อนวาง subject เอง)', 'ok');
-                    } else {
-                        _psecStatus('Body คัดลอกแล้ว — Forward เมล Approve เดิม → วาง body ที่ TOP ของ draft', 'ok');
-                    }
+                } else if (subject) {
+                    _psecStatus('Body คัดลอกแล้ว · Subject: "' + subject + '" (กด Copy Subject ก่อนวาง subject เอง)', 'ok');
+                } else {
+                    _psecStatus('Body คัดลอกแล้ว — Forward เมล Approve เดิม → วาง body ที่ TOP ของ draft', 'ok');
                 }
             } catch (e) {
                 _psecStatus('Clipboard error: ' + (e && e.message ? e.message : e), 'err');
