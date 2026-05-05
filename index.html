@@ -1763,6 +1763,16 @@
             width: 240px !important;
         }
 
+        /* Cinematic Responsive — Phase 1: Pinned watchlist
+           At <=1399px (small laptop), cap pinned card height so its inner list scrolls
+           instead of consuming Hero column height (which would push Profile/Aux cards
+           below the fold). Inner #wl-pinned-list already has overflow-y:auto + min-height:0. */
+        @media (max-width: 1399px) {
+            html[data-preset="cinematic"] #profile-wl-console {
+                max-height: 280px !important;
+            }
+        }
+
         /* Profile row split into 3 cards (Cinematic only): Profile (50%) |
            Payday (25%) | Month progress (25%). Wraps #profile-card-main
            via JS helper _cineEnsureProfileTriRow. `display: contents`
