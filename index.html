@@ -25608,7 +25608,7 @@ ${paras}
                 headBlock +
                 notesBlock +
                 _psecHairline(_PSEC_BORDER, 6, 8) +
-                _psecPara('Thanks,', 0, 11, _PSEC_DIM) +
+                _psecPara('Thanks,', 0) +
               '</td></tr>' +
             '</table>';
         }
@@ -25672,7 +25672,7 @@ ${paras}
                 notesBlock +
                 itemsBlock +
                 _psecHairline(_PSEC_BORDER, 14, 8) +
-                _psecPara('ขอบคุณครับ', 0, 11, _PSEC_DIM) +
+                _psecPara('ขอบคุณครับ', 0) +
               '</td></tr>' +
             '</table>';
         }
@@ -25730,11 +25730,12 @@ ${paras}
             return '<table cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%;border-collapse:collapse;font-family:' + _PSEC_FF + ';">' +
               '<tr><td style="padding:0;">' +
                 _psecBanner_BuildBanner(overline, headline, subline) +
+                _psecSpacer(12) +
                 _psecPara('Dear All,', 10) +
                 _psecPara('รบกวนตรวจเช็คเพื่อ Approve Configuration สำหรับ' + _psecHe(verb), 14) +
                 '<table cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%;border-collapse:collapse;margin:0 0 12pt 0;">' + rows + '</table>' +
                 notesBlock +
-                _psecPara('Thanks,', 0, 11, _PSEC_DIM) +
+                _psecPara('Thanks,', 0) +
               '</td></tr>' +
             '</table>';
         }
@@ -25797,13 +25798,14 @@ ${paras}
             return '<table cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%;border-collapse:collapse;font-family:' + _PSEC_FF + ';">' +
               '<tr><td style="padding:0;">' +
                 _psecBanner_BuildBanner(overline, headline, subline) +
+                _psecSpacer(12) +
                 _psecPara('เรียน ฝ่ายจัดซื้อ', 4) +
                 _psecPara('รบกวนสั่งของตามรายละเอียดดังนี้', 10) +
                 (headRows ? '<table cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;">' + headRows + '</table>' + _psecSpacer(12) : '') +
                 notesBlock +
                 itemsBlock +
                 _psecSpacer(8) +
-                _psecPara('ขอบคุณครับ', 0, 11, _PSEC_DIM) +
+                _psecPara('ขอบคุณครับ', 0) +
               '</td></tr>' +
             '</table>';
         }
@@ -25861,7 +25863,7 @@ ${paras}
                 '<table cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%;border-collapse:collapse;margin:0 0 14pt 0;">' + rows + '</table>' +
                 notesBlock +
                 _psecHairline(_PSEC_BORDER, 12, 10) +
-                _psecPara('Thanks,', 0, 11, _PSEC_DIM) +
+                _psecPara('Thanks,', 0) +
               '</td></tr>' +
             '</table>';
         }
@@ -25921,7 +25923,7 @@ ${paras}
                 notesBlock +
                 itemsBlock +
                 _psecHairline(_PSEC_BORDER, 12, 10) +
-                _psecPara('ขอบคุณครับ', 0, 11, _PSEC_DIM) +
+                _psecPara('ขอบคุณครับ', 0) +
               '</td></tr>' +
             '</table>';
         }
