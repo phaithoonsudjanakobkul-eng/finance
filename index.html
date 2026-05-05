@@ -25411,21 +25411,29 @@ ${paras}
         const _psecTemplates = {
             'approve-budget': {
                 label: 'Approve Configuration — ตั้งงบประมาณ',
+                shortLabel: 'ตั้งงบประมาณ',
+                step: 1,
                 fields: ['agency', 'eqList', 'mainItems', 'notes', 'closing'],
                 defaultClosing: 'Thanks,',
             },
             'approve-bid': {
                 label: 'Approve Configuration — ยื่นซอง',
+                shortLabel: 'ยื่นซอง',
+                step: 2,
                 fields: ['agency', 'eqList', 'mainItems', 'submitDate', 'submitTime', 'notes', 'closing'],
                 defaultClosing: 'Thanks,',
             },
             'approve-order': {
                 label: 'Approve Configuration — สั่งของ',
+                shortLabel: 'Approve สั่งของ',
+                step: 3,
                 fields: ['agency', 'eqList', 'mainItems', 'notes', 'closing'],
                 defaultClosing: 'Thanks,',
             },
             'order': {
                 label: 'สั่งของ (วาง TOP ของ FW: ฝ่ายจัดซื้อ)',
+                shortLabel: 'FW ฝ่ายจัดซื้อ',
+                step: 4,
                 fields: ['eqList', 'mainItemsOversea', 'agency', 'orderDate', 'expireDate', 'notes', 'localItems', 'closing'],
                 defaultClosing: 'ขอบคุณครับ',
             },
@@ -26309,23 +26317,24 @@ ${paras}
             _psecActiveStyle = (_psecState.lastStyle && _PSEC_STYLES[_psecState.lastStyle]) ? _psecState.lastStyle : 'exec';
             panel.innerHTML =
                 '<div style="height:100%;display:flex;flex-direction:column;background:var(--bg-main);box-sizing:border-box;">' +
-                  '<div style="display:flex;align-items:center;gap:14px;padding:14px 20px 12px;flex-shrink:0;border-bottom:1px solid var(--border);background:var(--surface,var(--bg-main));flex-wrap:wrap;">' +
-                    '<div>' +
+                  // Top header row — title + dynamic step tagline + Clear button
+                  '<div style="display:flex;align-items:center;gap:14px;padding:14px 20px 10px;flex-shrink:0;background:var(--surface,var(--bg-main));flex-wrap:wrap;">' +
+                    '<div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;">' +
                       '<div style="font-family:var(--font-main);font-size:17px;font-weight:800;color:var(--text-primary);line-height:1.2;">PS Email Composer</div>' +
-                      '<div style="font-family:var(--font-mono);font-size:9px;color:var(--text-dim);margin-top:1px;">Approve Configuration / สั่งของ — paste-ready Outlook HTML</div>' +
+                      '<div id="psec-tagline" style="font-family:var(--font-mono);font-size:10px;color:var(--text-dim);"></div>' +
                     '</div>' +
-                    '<div style="margin-left:auto;display:flex;align-items:center;gap:14px;flex-wrap:wrap;">' +
-                      '<div style="display:flex;align-items:center;gap:8px;">' +
-                        '<span style="font-family:var(--font-mono);font-size:9px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.08em;">Style</span>' +
-                        '<div id="psec-style-bar" style="display:flex;gap:4px;flex-wrap:wrap;"></div>' +
-                      '</div>' +
-                      '<div style="width:1px;height:22px;background:var(--border);"></div>' +
-                      '<div style="display:flex;align-items:center;gap:8px;">' +
-                        '<span style="font-family:var(--font-mono);font-size:9px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.08em;">Template</span>' +
-                        '<div id="psec-tpl-bar" style="display:flex;gap:6px;flex-wrap:wrap;"></div>' +
-                      '</div>' +
-                      '<div style="width:1px;height:22px;background:var(--border);"></div>' +
-                      '<button onclick="_psecClearForm()" title="ล้างข้อมูลทั้งหมดใน template ที่เลือกอยู่" style="font-family:var(--font-mono);font-size:11px;font-weight:600;padding:6px 12px;border:1px solid var(--border);border-radius:999px;background:transparent;color:var(--danger,#dc2626);cursor:pointer;white-space:nowrap;">Clear</button>' +
+                    '<button onclick="_psecClearForm()" title="ล้างข้อมูลทั้งหมดใน template ที่เลือกอยู่" style="margin-left:auto;font-family:var(--font-mono);font-size:11px;font-weight:600;padding:5px 12px;border:1px solid var(--border);border-radius:999px;background:transparent;color:var(--danger,#dc2626);cursor:pointer;white-space:nowrap;">Clear</button>' +
+                  '</div>' +
+                  // Controls row — Style + Template selectors
+                  '<div style="display:flex;align-items:center;gap:18px;padding:0 20px 12px;flex-shrink:0;border-bottom:1px solid var(--border);background:var(--surface,var(--bg-main));flex-wrap:wrap;">' +
+                    '<div style="display:flex;align-items:center;gap:8px;">' +
+                      '<span style="font-family:var(--font-mono);font-size:9px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.08em;">Style</span>' +
+                      '<div id="psec-style-bar" style="display:flex;gap:4px;flex-wrap:wrap;"></div>' +
+                    '</div>' +
+                    '<div style="width:1px;height:22px;background:var(--border);"></div>' +
+                    '<div style="display:flex;align-items:center;gap:8px;">' +
+                      '<span style="font-family:var(--font-mono);font-size:9px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.08em;">Template</span>' +
+                      '<div id="psec-tpl-bar" style="display:flex;gap:6px;flex-wrap:wrap;"></div>' +
                     '</div>' +
                   '</div>' +
                   '<div style="flex:1;min-height:0;display:flex;gap:14px;padding:14px 20px;box-sizing:border-box;overflow:hidden;">' +
@@ -26353,6 +26362,7 @@ ${paras}
             _psecRenderStyleBar();
             _psecRenderTplBar();
             _psecRenderForm();
+            _psecUpdateTagline();
         }
 
         function _psecRenderStyleBar() {
@@ -26381,12 +26391,25 @@ ${paras}
             const bar = document.getElementById('psec-tpl-bar');
             if (!bar) return;
             bar.innerHTML = Object.keys(_psecTemplates).map(function(id) {
+                const tpl = _psecTemplates[id];
                 const isActive = id === _psecActiveTpl;
                 const bg = isActive ? 'var(--accent)' : 'transparent';
                 const color = isActive ? '#ffffff' : 'var(--text-secondary,var(--text-primary))';
                 const border = isActive ? 'var(--accent)' : 'var(--border)';
-                return '<button onclick="_psecSwitchTpl(\'' + id + '\')" style="font-family:var(--font-mono);font-size:11px;font-weight:600;padding:6px 12px;border:1px solid ' + border + ';border-radius:999px;background:' + bg + ';color:' + color + ';cursor:pointer;white-space:nowrap;">' + _psecTemplates[id].label + '</button>';
+                const stepBadgeColor = isActive ? 'rgba(255,255,255,0.85)' : 'var(--text-dim)';
+                const stepStr = '<span style="opacity:0.7;color:' + stepBadgeColor + ';margin-right:6px;font-weight:700;">' + tpl.step + '</span>';
+                return '<button onclick="_psecSwitchTpl(\'' + id + '\')" title="' + _psecHe(tpl.label) + '" style="font-family:var(--font-mono);font-size:11px;font-weight:600;padding:6px 12px;border:1px solid ' + border + ';border-radius:999px;background:' + bg + ';color:' + color + ';cursor:pointer;white-space:nowrap;">' + stepStr + (tpl.shortLabel || tpl.label) + '</button>';
             }).join('');
+        }
+
+        // Update tagline text on template change
+        function _psecUpdateTagline() {
+            const el = document.getElementById('psec-tagline');
+            if (!el) return;
+            const tpl = _psecTemplates[_psecActiveTpl];
+            const total = Object.keys(_psecTemplates).length;
+            if (!tpl) { el.textContent = ''; return; }
+            el.textContent = 'Step ' + tpl.step + ' / ' + total + '  ·  ' + (tpl.shortLabel || tpl.label) + '  ·  paste-ready Outlook HTML';
         }
 
         function _psecSwitchTpl(id) {
@@ -26396,6 +26419,7 @@ ${paras}
             _psecSaveState();
             _psecRenderTplBar();
             _psecRenderForm();
+            _psecUpdateTagline();
         }
 
         // Wipe form data of the currently-selected template (with confirmation).
@@ -26420,21 +26444,21 @@ ${paras}
                 if (!def) return '';
                 if (def.type === 'textarea') {
                     return '<label style="display:flex;flex-direction:column;gap:4px;">' +
-                        '<span style="font-family:var(--font-mono);font-size:10px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.04em;">' + def.label + '</span>' +
+                        '<span style="font-family:var(--font-mono);font-size:10px;font-weight:700;color:var(--text-secondary,var(--text-dim));text-transform:uppercase;letter-spacing:0.08em;">' + def.label + '</span>' +
                         '<textarea id="psec-f-' + fname + '" rows="4" placeholder="' + (def.placeholder || '') + '" oninput="_psecOnFieldChange(\'' + fname + '\', this.value)" style="font-family:\'Tahoma\',sans-serif;font-size:12px;padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface,#fff);color:var(--text-primary);resize:vertical;min-height:64px;">' + _psecHe(form[fname] || '') + '</textarea>' +
                     '</label>';
                 }
                 if (def.type === 'items') {
                     return '<div style="display:flex;flex-direction:column;gap:6px;">' +
                         '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">' +
-                          '<span style="font-family:var(--font-mono);font-size:10px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.04em;">' + def.label + '</span>' +
+                          '<span style="font-family:var(--font-mono);font-size:10px;font-weight:700;color:var(--text-secondary,var(--text-dim));text-transform:uppercase;letter-spacing:0.08em;">' + def.label + '</span>' +
                           '<button class="psf-btn psf-btn-ghost" onclick="_psecAddItem()" style="font-size:11px;padding:4px 10px;">+ เพิ่มแถว</button>' +
                         '</div>' +
                         '<div id="psec-items-list" style="display:flex;flex-direction:column;gap:6px;"></div>' +
                     '</div>';
                 }
                 return '<label style="display:flex;flex-direction:column;gap:4px;">' +
-                    '<span style="font-family:var(--font-mono);font-size:10px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.04em;">' + def.label + '</span>' +
+                    '<span style="font-family:var(--font-mono);font-size:10px;font-weight:700;color:var(--text-secondary,var(--text-dim));text-transform:uppercase;letter-spacing:0.08em;">' + def.label + '</span>' +
                     '<input id="psec-f-' + fname + '" type="text" placeholder="' + (def.placeholder || '') + '" value="' + _psecHe(form[fname] || '') + '" oninput="_psecOnFieldChange(\'' + fname + '\', this.value)" style="font-family:\'Tahoma\',sans-serif;font-size:12px;padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface,#fff);color:var(--text-primary);">' +
                 '</label>';
             }).join('');
@@ -52885,6 +52909,7 @@ ${_clip(contextSections, 2600)}`;
                                     _psecRenderTplBar();
                                     _psecRenderStyleBar();
                                     _psecRenderForm();
+                                    if (typeof _psecUpdateTagline === 'function') _psecUpdateTagline();
                                 }
                             }
                         } catch(e) { console.warn('[Gist] psecState restore failed:', e); }
