@@ -1787,12 +1787,22 @@
             align-items: stretch;
             min-height: 340px;
         }
-        @media (max-width: 1399px) {
+        /* Small laptop (901-1399px) — keep 3-column row but reorder so Aux comes first.
+           Order on screen: [Payday] [Month] [Profile]. Profile compact via Phase 4 below
+           (photo-wrap 252→160). Aux compact via Phase 2 (min-h 220, font 76). */
+        @media (max-width: 1399px) and (min-width: 901px) {
             html[data-preset="cinematic"] .cine-profile-row {
-                grid-template-columns: 1fr 1fr;
+                grid-template-columns: 1fr 1fr 2fr;
             }
             html[data-preset="cinematic"] .cine-profile-row > #profile-card-main {
-                grid-column: 1 / -1;
+                grid-column: auto;
+                order: 3;
+            }
+            html[data-preset="cinematic"] .cine-profile-row > #cine-payday-card {
+                order: 1;
+            }
+            html[data-preset="cinematic"] .cine-profile-row > #cine-month-card {
+                order: 2;
             }
         }
         @media (max-width: 900px) {
@@ -1919,6 +1929,18 @@
             html[data-preset="cinematic"] .cine-payday-num,
             html[data-preset="cinematic"] .cine-month-num {
                 font-size: 76px;
+            }
+        }
+
+        /* Cinematic Responsive — Phase 4: Profile card compact at <=1399px.
+           Photo-wrap 252→160 + min-height matching aux cards, so 3-column row
+           [Payday][Month][Profile] fits horizontally without forcing internal layout breaks. */
+        @media (max-width: 1399px) and (min-width: 901px) {
+            html[data-preset="cinematic"] #profile-photo-wrap {
+                width: 160px !important;
+            }
+            html[data-preset="cinematic"] #profile-card-main {
+                min-height: 220px !important;
             }
         }
 
