@@ -1768,7 +1768,7 @@
            instead of consuming Hero column height (which would push Profile/Aux cards
            below the fold). Phase 2 aux-card overrides live AFTER the base aux rules
            below (specificity tie requires source-order win). */
-        @media (max-width: 1399px) {
+        @media (max-width: 1799px) {
             /* Per pi-keng's wireframe: Hero column 28% × full viewport;
                Right column 72% with 3 children that EACH take ~1/3 of vertical
                space (Pinned / 3-cards / Mini frames). Bottom 4 cards (#ddr-fin)
@@ -1961,7 +1961,7 @@
         /* Cinematic Responsive — Phase 2: Aux cards compact at <=1399px.
            Placed AFTER base aux rules (line 1803-1916) to win specificity tie via source order.
            Reduces vertical footprint ~120px so Mini frames sit closer to the fold. */
-        @media (max-width: 1399px) {
+        @media (max-width: 1799px) {
             html[data-preset="cinematic"] .cine-profile-row {
                 min-height: 180px;
             }
@@ -1979,7 +1979,7 @@
         /* Cinematic Responsive — Phase 4: Profile card compact at <=1399px.
            Photo-wrap 252→160 + min-height matching aux cards, so 3-column row
            [Payday][Month][Profile] fits horizontally without forcing internal layout breaks. */
-        @media (max-width: 1399px) and (min-width: 901px) {
+        @media (max-width: 1799px) and (min-width: 901px) {
             html[data-preset="cinematic"] #profile-photo-wrap {
                 width: 160px !important;
             }
