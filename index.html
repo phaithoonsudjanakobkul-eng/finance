@@ -1708,17 +1708,38 @@
            the natural portrait — no empty sides, blur backdrop only
            covers the tiny letterbox if any. Right stack is wider than
            reference but matches the portrait constraint. */
+        /* 5-column grid: Hero (col 1, auto width on big screens, 28% on small)
+           + Right stack (cols 2-5 via grid-area: side spanning 4 cols).
+           Finance row also uses cols 2-5 via subgrid below — ensures Bottom card
+           leftmost edge aligns pixel-perfect with Hero column right edge across
+           ALL viewports (not just small laptops). */
         html[data-preset="cinematic"] #dash-content:not(.hidden) {
             display: grid !important;
-            grid-template-columns: auto minmax(0, 1fr);
+            grid-template-columns: auto repeat(4, 1fr);
             grid-template-rows: minmax(540px, auto) auto auto auto;
             grid-template-areas:
-                "muse   side"
-                "fin    fin"
-                "charts charts"
-                "footer footer";
+                "muse   side   side   side   side"
+                "fin    fin    fin    fin    fin"
+                "charts charts charts charts charts"
+                "footer footer footer footer footer";
             gap: 14px !important;
             align-items: stretch;
+        }
+        /* Bottom finance row alignment — applies globally (all viewports).
+           #ddr-fin uses display:contents to "disappear" so #dash-fin-row promotes
+           to direct child of dash-content grid → can use subgrid to inherit
+           the 5-col tracks. First card sits at col 2 (right after Hero column). */
+        html[data-preset="cinematic"] #ddr-fin {
+            display: contents !important;
+        }
+        html[data-preset="cinematic"] #dash-fin-row {
+            display: grid !important;
+            grid-template-columns: subgrid !important;
+            grid-area: fin !important;
+            gap: 12px !important;
+        }
+        html[data-preset="cinematic"] #dash-fin-row > *:first-child {
+            grid-column: 2 !important;
         }
         html[data-preset="cinematic"] #ddr-muse {
             grid-area: muse;
@@ -1774,14 +1795,11 @@
                space (Pinned / 3-cards / Mini frames). Bottom 4 cards (#ddr-fin)
                also use 28% first column so the leftmost edge aligns vertically
                with Hero. */
+            /* Override: Hero col 28% (fixed, not aspect-driven). Grid areas
+               inherited from default rule above (already 5-col). */
             html[data-preset="cinematic"] #dash-content:not(.hidden) {
                 grid-template-columns: minmax(280px, 28%) repeat(4, 1fr) !important;
                 grid-template-rows: minmax(calc(100vh - 90px), auto) auto auto auto !important;
-                grid-template-areas:
-                    "muse   side   side   side   side"
-                    "fin    fin    fin    fin    fin"
-                    "charts charts charts charts charts"
-                    "footer footer footer footer footer" !important;
             }
             html[data-preset="cinematic"] #muse-card {
                 aspect-ratio: auto !important;
@@ -1818,24 +1836,6 @@
                with drag handle + collapsed bar). Tailwind class
                `grid-cols-1 md:grid-cols-2 lg:grid-cols-4` lives at (0,1,0) specificity
                — overridden cleanly by this (0,2,1) + !important rule. */
-            /* dash-content now has 5 columns. Hero on col 1 (grid-area: muse),
-               Right stack spans col 2-5 (grid-area: side). For finance row alignment:
-               #ddr-fin uses display:contents to "disappear" from layout, promoting
-               #dash-fin-row to be a direct child of dash-content. Then dash-fin-row
-               uses subgrid to inherit the 5-col tracks → cards align pixel-perfect
-               with Hero edge. (Chrome subgrid only propagates 1 level, hence contents.) */
-            html[data-preset="cinematic"] #ddr-fin {
-                display: contents !important;
-            }
-            html[data-preset="cinematic"] #dash-fin-row {
-                display: grid !important;
-                grid-template-columns: subgrid !important;
-                grid-area: fin !important;
-                gap: 12px !important;
-            }
-            html[data-preset="cinematic"] #dash-fin-row > *:first-child {
-                grid-column: 2 !important;
-            }
             /* Pinned watchlist — base CSS caps grid column max widths (~583px total).
                Override to 1fr columns so the table stretches the full Right column
                width (~1230px on notebook) instead of leaving empty space on the right. */
