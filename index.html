@@ -26183,8 +26183,20 @@ ${paras}
             const subject = _psecBuildSubject(_psecActiveTpl, form);
             const bodyHtml = _psecBuildBody(_psecActiveTpl, form);
             const text = _psecBuildBodyText(_psecActiveTpl, form);
-            // Wrap as full Word-namespaced HTML so Outlook keeps inline color/font/weight
-            const html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"><meta name="ProgId" content="Word.Document"><meta name="Generator" content="Microsoft Word 15"></head><body style="font-family:' + _PSEC_FF + ';font-size:11pt;color:' + _PSEC_TEXT + ';">' + bodyHtml + '</body></html>';
+            // Wrap as full Word-namespaced HTML so Outlook keeps inline color/font/weight.
+            // Tag opens/closes are split (e.g. '<' + 'body') so live-server's HTML
+            // injector cannot mistake them for real document boundaries.
+            const _LT = '<';
+            const html = _LT + 'html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">' +
+                _LT + 'head>' +
+                  _LT + 'meta http-equiv="Content-Type" content="text/html; charset=utf-8">' +
+                  _LT + 'meta name="ProgId" content="Word.Document">' +
+                  _LT + 'meta name="Generator" content="Microsoft Word 15">' +
+                _LT + '/head>' +
+                _LT + 'body>' +
+                  bodyHtml +
+                _LT + '/body>' +
+              _LT + '/html>';
             try {
                 if (what === 'subject') {
                     await navigator.clipboard.writeText(subject);
