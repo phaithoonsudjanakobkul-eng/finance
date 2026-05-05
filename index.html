@@ -1775,8 +1775,13 @@
                also use 28% first column so the leftmost edge aligns vertically
                with Hero. */
             html[data-preset="cinematic"] #dash-content:not(.hidden) {
-                grid-template-columns: minmax(280px, 28%) 1fr !important;
+                grid-template-columns: minmax(280px, 28%) repeat(4, 1fr) !important;
                 grid-template-rows: minmax(calc(100vh - 90px), auto) auto auto auto !important;
+                grid-template-areas:
+                    "muse   side   side   side   side"
+                    "fin    fin    fin    fin    fin"
+                    "charts charts charts charts charts"
+                    "footer footer footer footer footer" !important;
             }
             html[data-preset="cinematic"] #muse-card {
                 aspect-ratio: auto !important;
@@ -1813,9 +1818,18 @@
                with drag handle + collapsed bar). Tailwind class
                `grid-cols-1 md:grid-cols-2 lg:grid-cols-4` lives at (0,1,0) specificity
                — overridden cleanly by this (0,2,1) + !important rule. */
+            /* dash-content now has 5 columns. Hero on col 1 (already via grid-area: muse).
+               #ddr-row1 (Right stack) spans col 2-5 via grid-area: side (defined above).
+               #ddr-fin spans full row via grid-area: fin → use subgrid so finance cards
+               inherit the 5-col tracks and align pixel-perfect with Hero column. */
+            html[data-preset="cinematic"] #ddr-fin {
+                display: grid !important;
+                grid-template-columns: subgrid !important;
+            }
             html[data-preset="cinematic"] #dash-fin-row {
                 display: grid !important;
-                grid-template-columns: minmax(280px, 28%) repeat(4, 1fr) !important;
+                grid-template-columns: subgrid !important;
+                grid-column: 1 / -1 !important;
                 gap: 12px !important;
             }
             html[data-preset="cinematic"] #dash-fin-row > *:first-child {
