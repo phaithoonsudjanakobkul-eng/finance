@@ -25417,12 +25417,25 @@ ${paras}
                 fields: ['agency', 'eqList', 'mainItems', 'notes', 'closing'],
                 defaultClosing: 'Thanks,',
             },
+            'approve-budget': {
+                label: 'Approve Configuration — ตั้งงบประมาณ',
+                fields: ['agency', 'eqList', 'mainItems', 'notes', 'closing'],
+                defaultClosing: 'Thanks,',
+            },
             'order': {
                 label: 'สั่งของ (วาง TOP ของ FW: ฝ่ายจัดซื้อ)',
                 fields: ['eqList', 'mainItemsOversea', 'agency', 'orderDate', 'expireDate', 'notes', 'localItems', 'closing'],
                 defaultClosing: 'ขอบคุณครับ',
             },
         };
+
+        // tplId → verb used in body text "สำหรับ<verb>" and overline tail.
+        // Add new approve-* templates here when introducing more verbs.
+        function _psecApproveVerb(tplId) {
+            if (tplId === 'approve-bid')    return 'ยื่นซอง';
+            if (tplId === 'approve-budget') return 'ตั้งงบประมาณ';
+            return 'สั่งของ'; // approve-order (default)
+        }
 
         const _psecFieldDefs = {
             agency:           { label: 'หน่วยงาน', type: 'text', placeholder: 'เช่น คณะวิทยาศาสตร์ มหาวิทยาลัยนเรศวร' },
@@ -25686,8 +25699,8 @@ ${paras}
 
         function _psecExec_Approve(tplId, form) {
             const isBid = tplId === 'approve-bid';
-            const verb = isBid ? 'ยื่นซอง' : 'สั่งของ';
-            const overline = isBid ? 'SCIED · APPROVE CONFIG · ยื่นซอง' : 'SCIED · APPROVE CONFIG · สั่งของ';
+            const verb = _psecApproveVerb(tplId);
+            const overline = 'SCIED · APPROVE CONFIG · ' + verb;
             const headline = form.eqList || verb;
             const submitInfo = isBid && (form.submitDate || form.submitTime)
                 ? 'กำหนดยื่น ' + (form.submitDate || '') + (form.submitTime ? '  ·  ' + form.submitTime : '')
@@ -25884,8 +25897,8 @@ ${paras}
 
         function _psecBanner_Approve(tplId, form) {
             const isBid = tplId === 'approve-bid';
-            const verb = isBid ? 'ยื่นซอง' : 'สั่งของ';
-            const overline = isBid ? 'SCIED · APPROVE CONFIGURATION · ยื่นซอง' : 'SCIED · APPROVE CONFIGURATION · สั่งของ';
+            const verb = _psecApproveVerb(tplId);
+            const overline = 'SCIED · APPROVE CONFIGURATION · ' + verb;
             const headline = form.eqList || verb;
             const submitInfo = isBid && (form.submitDate || form.submitTime)
                 ? 'กำหนดยื่น ' + (form.submitDate || '') + (form.submitTime ? ' (' + form.submitTime + ')' : '')
@@ -26082,8 +26095,8 @@ ${paras}
 
         function _psecEdit_Approve(tplId, form) {
             const isBid = tplId === 'approve-bid';
-            const verb = isBid ? 'ยื่นซอง' : 'สั่งของ';
-            const overline = isBid ? 'SCIED · APPROVE CONFIGURATION · ยื่นซอง' : 'SCIED · APPROVE CONFIGURATION · สั่งของ';
+            const verb = _psecApproveVerb(tplId);
+            const overline = 'SCIED · APPROVE CONFIGURATION · ' + verb;
             const heading = form.eqList || verb;
             const submitInfo = isBid && (form.submitDate || form.submitTime)
                 ? 'กำหนดยื่น ' + (form.submitDate || '') + (form.submitTime ? '  ·  ' + form.submitTime : '')
@@ -26213,7 +26226,7 @@ ${paras}
 
         function _psecBuildApproveText(tplId, form) {
             const isBid = tplId === 'approve-bid';
-            const verb = isBid ? 'ยื่นซอง' : 'สั่งของ';
+            const verb = _psecApproveVerb(tplId);
             const submitSuffix = isBid && (form.submitDate || form.submitTime)
                 ? ' (กำหนดยื่น ' + (form.submitDate || '') + (form.submitTime ? ' – ' + form.submitTime : '') + ')'
                 : '';
