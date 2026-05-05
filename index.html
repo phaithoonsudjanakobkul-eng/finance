@@ -25522,7 +25522,13 @@ ${paras}
             if (mb == null) mb = 6;
             if (!fs) fs = 11;
             if (!color) color = _PSEC_TEXT;
-            return '<p style="margin:0 0 ' + mb + 'pt 0;mso-margin-top-alt:0;mso-margin-bottom-alt:' + mb + 'pt;font-family:' + _PSEC_FF + ';font-size:' + fs + 'pt;color:' + color + ';line-height:1.55;mso-line-height-rule:exactly;">' + html + '</p>';
+            return '<p style="margin:0 0 ' + mb + 'pt 0;font-family:' + _PSEC_FF + ';font-size:' + fs + 'pt;color:' + color + ';line-height:1.5;">' + html + '</p>';
+        }
+
+        // Word-safe vertical spacer — Word ignores <table style="margin">, so use a
+        // 1pt-line empty paragraph to force consistent gap between sections.
+        function _psecSpacer(pt) {
+            return '<p style="margin:0;height:' + pt + 'pt;line-height:' + pt + 'pt;font-size:1pt;">&nbsp;</p>';
         }
 
         function _psecHairline(color, mt, mb) {
@@ -25769,8 +25775,8 @@ ${paras}
                 const headerTd = 'background:' + _PSEC_BRAND + ';background-color:' + _PSEC_BRAND + ';padding:6pt 8pt;';
                 const headerP = '<p style="' + cellPZero + 'font-family:' + _PSEC_FF + ';font-size:10pt;font-weight:bold;color:#ffffff;line-height:1.3;';
                 itemsBlock =
-                    _psecPara('<b>รายการสินค้า LOCAL</b>', 6, 11, _PSEC_BRAND) +
-                    '<table cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%;border-collapse:collapse;margin:0 0 6pt 0;">' +
+                    _psecPara('<b>รายการสินค้า LOCAL</b>', 4, 11, _PSEC_BRAND) +
+                    '<table cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%;border-collapse:collapse;">' +
                       '<tr>' +
                         '<th bgcolor="' + _PSEC_BRAND + '" align="center" style="' + headerTd + 'text-align:center;width:32pt;">' + headerP + 'text-align:center;">#</p></th>' +
                         '<th bgcolor="' + _PSEC_BRAND + '" align="left" style="' + headerTd + 'text-align:left;">' + headerP + '">Item</p></th>' +
@@ -25779,7 +25785,8 @@ ${paras}
                       '</tr>' +
                       rows +
                     '</table>' +
-                    '<p style="margin:0 0 12pt 0;mso-margin-top-alt:0;mso-margin-bottom-alt:12pt;font-family:' + _PSEC_FF + ';font-size:9.5pt;color:' + _PSEC_DIM + ';font-style:italic;line-height:1.4;mso-line-height-rule:exactly;">** Link ของสินค้าที่แนบมาอาจไม่ใช่ราคาที่ต่ำที่สุด หากมีผู้จัดจำหน่ายรายอื่นที่ราคาต่ำกว่าให้ซื้อผู้จัดจำหน่ายรายนั้น</p>';
+                    _psecSpacer(6) +
+                    '<p style="margin:0;font-family:' + _PSEC_FF + ';font-size:9.5pt;color:' + _PSEC_DIM + ';font-style:italic;line-height:1.4;">** Link ของสินค้าที่แนบมาอาจไม่ใช่ราคาที่ต่ำที่สุด หากมีผู้จัดจำหน่ายรายอื่นที่ราคาต่ำกว่าให้ซื้อผู้จัดจำหน่ายรายนั้น</p>';
             }
 
             let notesBlock = '';
@@ -25790,11 +25797,12 @@ ${paras}
             return '<table cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%;border-collapse:collapse;font-family:' + _PSEC_FF + ';">' +
               '<tr><td style="padding:0;">' +
                 _psecBanner_BuildBanner(overline, headline, subline) +
-                _psecPara('เรียน ฝ่ายจัดซื้อ', 8) +
-                _psecPara('รบกวนสั่งของตามรายละเอียดดังนี้', 12) +
-                (headRows ? '<table cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%;border-collapse:collapse;margin:0 0 12pt 0;">' + headRows + '</table>' : '') +
+                _psecPara('เรียน ฝ่ายจัดซื้อ', 4) +
+                _psecPara('รบกวนสั่งของตามรายละเอียดดังนี้', 10) +
+                (headRows ? '<table cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;">' + headRows + '</table>' + _psecSpacer(12) : '') +
                 notesBlock +
                 itemsBlock +
+                _psecSpacer(8) +
                 _psecPara('ขอบคุณครับ', 0, 11, _PSEC_DIM) +
               '</td></tr>' +
             '</table>';
