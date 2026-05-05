@@ -26356,20 +26356,29 @@ ${paras}
                         // Chrome header — branded with Microsoft Outlook icon for instant recognition
                         '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 12px;border-bottom:1px solid #e5e7eb;background:#f5f7fa;flex-shrink:0;">' +
                           '<span style="display:inline-flex;align-items:center;gap:8px;">' +
-                            // Microsoft Outlook brand icon — blue gradient rounded square with white "O"
-                            // ring + envelope flap detail (matches official MS Outlook 365 icon design).
+                            // Microsoft Office Outlook (2018–2024) brand icon —
+                            // composite: back envelope (with letter pattern inside) + V-flap +
+                            // foreground rounded blue square with white "O" ring overlapping.
                             '<svg width="22" height="22" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0;display:block;">' +
-                              '<defs>' +
-                                '<linearGradient id="psecOlBg" x1="0" y1="0" x2="0" y2="32" gradientUnits="userSpaceOnUse">' +
-                                  '<stop offset="0" stop-color="#1FA0EA"/>' +
-                                  '<stop offset="1" stop-color="#0364B8"/>' +
-                                '</linearGradient>' +
-                              '</defs>' +
-                              '<rect width="32" height="32" rx="4.5" fill="url(#psecOlBg)"/>' +
-                              // White "O" donut
-                              '<path d="M16 7.4c-4.74 0-8.6 3.86-8.6 8.6s3.86 8.6 8.6 8.6 8.6-3.86 8.6-8.6S20.74 7.4 16 7.4zm0 13.4c-2.65 0-4.8-2.15-4.8-4.8s2.15-4.8 4.8-4.8 4.8 2.15 4.8 4.8-2.15 4.8-4.8 4.8z" fill="#ffffff"/>' +
-                              // Small envelope-flap glyph inside the O (the iconic Outlook detail)
-                              '<path d="M13.6 14.4l2.4 1.8 2.4-1.8v3l-2.4 1.8-2.4-1.8z" fill="#0364B8" opacity="0.85"/>' +
+                              // Back envelope rectangle (medium blue)
+                              '<rect x="13" y="3" width="16" height="13" fill="#0F78D4"/>' +
+                              // Letter/document pattern inside back rectangle (lighter blue tiles)
+                              '<rect x="13" y="3" width="4" height="4" fill="#50D9FF"/>' +
+                              '<rect x="21" y="3" width="4" height="4" fill="#50D9FF"/>' +
+                              '<rect x="17" y="7" width="4" height="4" fill="#50D9FF"/>' +
+                              '<rect x="25" y="7" width="4" height="4" fill="#50D9FF"/>' +
+                              '<rect x="13" y="11" width="4" height="4" fill="#50D9FF"/>' +
+                              '<rect x="21" y="11" width="4" height="4" fill="#50D9FF"/>' +
+                              // Envelope flap (V shape pointing down — back/shadow side)
+                              '<path d="M13 16l8 5.5 8-5.5v8l-8 5.5-8-5.5z" fill="#28A8EA"/>' +
+                              // Envelope front face (lighter, the open-flap front)
+                              '<path d="M13 16h16v8l-8 5.5z" fill="#0F78D4"/>' +
+                              // Envelope flap fold line (darker accent)
+                              '<path d="M13 16l8 5.5 8-5.5" stroke="#064A8C" stroke-width="0.4" fill="none" opacity="0.4"/>' +
+                              // Foreground rounded blue square (front-left, overlapping envelope)
+                              '<rect x="1" y="10" width="14" height="14" rx="1.6" fill="#0364B8"/>' +
+                              // White "O" letter ring inside front square
+                              '<path d="M8 13.2c-2.1 0-3.8 1.7-3.8 3.8s1.7 3.8 3.8 3.8 3.8-1.7 3.8-3.8-1.7-3.8-3.8-3.8zm0 5.8c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z" fill="#ffffff"/>' +
                             '</svg>' +
                             '<span style="font-family:\'Segoe UI\',\'Helvetica Neue\',Arial,sans-serif;font-size:12px;font-weight:600;color:#1f2937;letter-spacing:-0.01em;">Microsoft Outlook</span>' +
                             '<span style="font-family:Consolas,\'Courier New\',monospace;font-size:9px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.1em;padding:2px 7px;background:#e5e7eb;border-radius:3px;">Preview</span>' +
