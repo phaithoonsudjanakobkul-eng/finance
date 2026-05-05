@@ -63,16 +63,20 @@ export default {
 			if (!r2Key || r2Key.length > 256) {
 				return errorResponse('Missing or invalid X-R2-Key header');
 			}
-			// Validate key format: muse/{a-f}/{hash}.enc.{ext} or profile/{name}.enc.jpg
-			if (!/^(muse\/[a-f]\/[a-f0-9]+|profile\/[a-z0-9-]+)\.enc\.(webm|jpg)$/.test(r2Key)) {
+			// Validate key format:
+			//   muse/{a-f}/{hash}.enc.{webm|jpg}  — Muse video clips + thumbnails
+			//   profile/{name}.enc.jpg            — avatar / profile photos
+			//   psup/{model}.enc.onnx             — PS Upscaler ONNX models (added 2026-05-05)
+			if (!/^(muse\/[a-f]\/[a-f0-9]+\.enc\.(webm|jpg)|profile\/[a-z0-9-]+\.enc\.jpg|psup\/[A-Za-z0-9._-]+\.enc\.onnx)$/.test(r2Key)) {
 				return errorResponse('Invalid key format');
 			}
 			const body = await request.arrayBuffer();
 			if (!body || body.byteLength === 0) {
 				return errorResponse('Empty body');
 			}
-			if (body.byteLength > 10 * 1024 * 1024) { // 10 MB limit
-				return errorResponse('File too large (max 10 MB)', 413);
+			// Size cap: 100 MB (PSUP models 49-67 MB encrypted; Cloudflare Worker free-tier max body 100 MB)
+			if (body.byteLength > 100 * 1024 * 1024) {
+				return errorResponse('File too large (max 100 MB)', 413);
 			}
 			await env.MEDIA_BUCKET.put(r2Key, body, {
 				httpMetadata: { contentType: 'application/octet-stream' },
