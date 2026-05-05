@@ -2257,14 +2257,10 @@
             background: transparent !important;
         }
 
-        /* Stats row: fluid auto-fit so cards reflow naturally at every width
-           (1-2-3-4 cols depending on viewport). Anti-pattern per refactor
-           prompt §6.5 to use repeat(N, 1fr) without auto-fit. */
-        html[data-preset="cinematic"] #dash-fin-row {
-            display: grid !important;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)) !important;
-            gap: 12px !important;
-        }
+        /* Stats row layout — see Phase 13 subgrid rule at line ~1735.
+           Legacy auto-fit rule REMOVED 2026-05-06: it was overriding the
+           subgrid via source order (same specificity, later in file).
+           Bottom row alignment with Hero edge is now handled there. */
 
         /* Charts row: 1.5fr | 1fr at desktop, single column on tablet/mobile */
         html[data-preset="cinematic"] #dash-charts-row {
