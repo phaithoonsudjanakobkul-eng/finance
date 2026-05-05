@@ -25477,10 +25477,12 @@ ${paras}
         }
 
         // Convert plain text remarks to HTML — preserve line breaks, auto-link URLs.
+        // word-break:break-all on <a> so long URLs wrap inside fixed table columns
+        // instead of forcing the row to expand horizontally.
         function _psecFmtRemark(s) {
             if (!s) return '';
             const escaped = _psecHe(s);
-            const linked = escaped.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" style="color:#0066cc;">$1</a>');
+            const linked = escaped.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" style="color:#0066cc;word-break:break-all;overflow-wrap:break-word;">$1</a>');
             return linked.replace(/\n/g, '<br>');
         }
 
@@ -25692,31 +25694,35 @@ ${paras}
                 const cellPZero = 'margin:0;mso-margin-top-alt:0;mso-margin-bottom-alt:0;mso-line-height-rule:exactly;';
                 const headerTd = 'background:#f3f5f8;background-color:#f3f5f8;border-top:1pt solid #1f2937;border-bottom:1pt solid #1f2937;padding:7pt 8pt;';
                 const headerP = '<p style="' + cellPZero + 'font-family:' + _PSEC_CONS_MONO + ';font-size:9pt;font-weight:bold;color:#1f2937;line-height:1.3;';
+                // word-wrap on data cells so long text/URLs break inside columns
+                // (Outlook + browsers honor this when combined with table-layout:fixed).
+                const wrapCss = 'word-wrap:break-word;word-break:break-all;overflow-wrap:break-word;';
                 const rows = items.map(function(it, i){
                     return '<tr>' +
-                        '<td style="border-bottom:1px solid ' + _PSEC_CONS_DIVIDER + ';padding:6pt 8pt;text-align:center;vertical-align:top;">' +
+                        '<td style="border-bottom:1px solid ' + _PSEC_CONS_DIVIDER + ';padding:6pt 8pt;text-align:center;vertical-align:top;' + wrapCss + '">' +
                           '<p style="' + cellPZero + 'font-family:' + _PSEC_CONS_MONO + ';font-size:10pt;color:' + _PSEC_DIM + ';line-height:1.3;text-align:center;">' + (i + 1) + '</p>' +
                         '</td>' +
-                        '<td style="border-bottom:1px solid ' + _PSEC_CONS_DIVIDER + ';padding:6pt 8pt;vertical-align:top;">' +
-                          '<p style="' + cellPZero + 'font-family:' + _PSEC_FF + ';font-size:11pt;color:' + _PSEC_TEXT + ';line-height:1.35;">' + _psecHe(it.name || '') + '</p>' +
+                        '<td style="border-bottom:1px solid ' + _PSEC_CONS_DIVIDER + ';padding:6pt 8pt;vertical-align:top;' + wrapCss + '">' +
+                          '<p style="' + cellPZero + 'font-family:' + _PSEC_FF + ';font-size:11pt;color:' + _PSEC_TEXT + ';line-height:1.35;' + wrapCss + '">' + _psecHe(it.name || '') + '</p>' +
                         '</td>' +
-                        '<td style="border-bottom:1px solid ' + _PSEC_CONS_DIVIDER + ';padding:6pt 8pt;text-align:center;vertical-align:top;">' +
+                        '<td style="border-bottom:1px solid ' + _PSEC_CONS_DIVIDER + ';padding:6pt 8pt;text-align:center;vertical-align:top;' + wrapCss + '">' +
                           '<p style="' + cellPZero + 'font-family:' + _PSEC_CONS_MONO + ';font-size:11pt;color:' + _PSEC_TEXT + ';font-weight:bold;line-height:1.35;text-align:center;">' + _psecHe(it.qty || '') + '</p>' +
                         '</td>' +
-                        '<td style="border-bottom:1px solid ' + _PSEC_CONS_DIVIDER + ';padding:6pt 8pt;vertical-align:top;">' +
-                          '<p style="' + cellPZero + 'font-family:' + _PSEC_FF + ';font-size:10.5pt;color:' + _PSEC_TEXT + ';line-height:1.4;">' + _psecFmtRemark(it.remark || '') + '</p>' +
+                        '<td style="border-bottom:1px solid ' + _PSEC_CONS_DIVIDER + ';padding:6pt 8pt;vertical-align:top;' + wrapCss + '">' +
+                          '<p style="' + cellPZero + 'font-family:' + _PSEC_FF + ';font-size:10.5pt;color:' + _PSEC_TEXT + ';line-height:1.4;' + wrapCss + '">' + _psecFmtRemark(it.remark || '') + '</p>' +
                         '</td>' +
                     '</tr>';
                 }).join('');
                 itemsBlock =
                     _psecSpacer(14) +
                     _psecExec_SectionLabel('รายการสินค้า LOCAL') +
-                    '<table cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%;border-collapse:collapse;">' +
+                    // table-layout:fixed locks column widths from first row → long content can't expand the table
+                    '<table cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%;table-layout:fixed;border-collapse:collapse;">' +
                       '<tr>' +
-                        '<th bgcolor="#f3f5f8" align="center" style="' + headerTd + 'text-align:center;width:32pt;">' + headerP + 'text-align:center;">#</p></th>' +
-                        '<th bgcolor="#f3f5f8" align="left" style="' + headerTd + 'text-align:left;">' + headerP + '">ITEM</p></th>' +
-                        '<th bgcolor="#f3f5f8" align="center" style="' + headerTd + 'text-align:center;width:48pt;">' + headerP + 'text-align:center;">QTY</p></th>' +
-                        '<th bgcolor="#f3f5f8" align="left" style="' + headerTd + 'text-align:left;">' + headerP + '">REMARK</p></th>' +
+                        '<th bgcolor="#f3f5f8" align="center" width="7%" style="' + headerTd + 'text-align:center;width:7%;">' + headerP + 'text-align:center;">#</p></th>' +
+                        '<th bgcolor="#f3f5f8" align="left" width="33%" style="' + headerTd + 'text-align:left;width:33%;">' + headerP + '">ITEM</p></th>' +
+                        '<th bgcolor="#f3f5f8" align="center" width="10%" style="' + headerTd + 'text-align:center;width:10%;">' + headerP + 'text-align:center;">QTY</p></th>' +
+                        '<th bgcolor="#f3f5f8" align="left" width="50%" style="' + headerTd + 'text-align:left;width:50%;">' + headerP + '">REMARK</p></th>' +
                       '</tr>' +
                       rows +
                     '</table>' +
@@ -25816,19 +25822,20 @@ ${paras}
             let itemsBlock = '';
             if (items.length > 0) {
                 const cellPZero = 'margin:0;mso-margin-top-alt:0;mso-margin-bottom-alt:0;mso-line-height-rule:exactly;';
+                const wrapCss = 'word-wrap:break-word;word-break:break-all;overflow-wrap:break-word;';
                 const rows = items.map(function(it, i){
                     return '<tr>' +
-                        '<td style="border-bottom:1px solid ' + _PSEC_BORDER + ';padding:5pt 8pt;text-align:center;vertical-align:top;">' +
+                        '<td style="border-bottom:1px solid ' + _PSEC_BORDER + ';padding:5pt 8pt;text-align:center;vertical-align:top;' + wrapCss + '">' +
                           '<p style="' + cellPZero + 'font-family:' + _PSEC_FF + ';font-size:10.5pt;color:' + _PSEC_DIM + ';line-height:1.4;text-align:center;">' + (i + 1) + '</p>' +
                         '</td>' +
-                        '<td style="border-bottom:1px solid ' + _PSEC_BORDER + ';padding:5pt 8pt;vertical-align:top;">' +
-                          '<p style="' + cellPZero + 'font-family:' + _PSEC_FF + ';font-size:11pt;color:' + _PSEC_TEXT + ';line-height:1.4;">' + _psecHe(it.name || '') + '</p>' +
+                        '<td style="border-bottom:1px solid ' + _PSEC_BORDER + ';padding:5pt 8pt;vertical-align:top;' + wrapCss + '">' +
+                          '<p style="' + cellPZero + 'font-family:' + _PSEC_FF + ';font-size:11pt;color:' + _PSEC_TEXT + ';line-height:1.4;' + wrapCss + '">' + _psecHe(it.name || '') + '</p>' +
                         '</td>' +
-                        '<td style="border-bottom:1px solid ' + _PSEC_BORDER + ';padding:5pt 8pt;text-align:center;vertical-align:top;">' +
+                        '<td style="border-bottom:1px solid ' + _PSEC_BORDER + ';padding:5pt 8pt;text-align:center;vertical-align:top;' + wrapCss + '">' +
                           '<p style="' + cellPZero + 'font-family:' + _PSEC_FF + ';font-size:11pt;color:' + _PSEC_TEXT + ';font-weight:600;line-height:1.4;text-align:center;">' + _psecHe(it.qty || '') + '</p>' +
                         '</td>' +
-                        '<td style="border-bottom:1px solid ' + _PSEC_BORDER + ';padding:5pt 8pt;vertical-align:top;">' +
-                          '<p style="' + cellPZero + 'font-family:' + _PSEC_FF + ';font-size:10.5pt;color:' + _PSEC_TEXT + ';line-height:1.4;">' + _psecFmtRemark(it.remark || '') + '</p>' +
+                        '<td style="border-bottom:1px solid ' + _PSEC_BORDER + ';padding:5pt 8pt;vertical-align:top;' + wrapCss + '">' +
+                          '<p style="' + cellPZero + 'font-family:' + _PSEC_FF + ';font-size:10.5pt;color:' + _PSEC_TEXT + ';line-height:1.4;' + wrapCss + '">' + _psecFmtRemark(it.remark || '') + '</p>' +
                         '</td>' +
                     '</tr>';
                 }).join('');
@@ -25836,12 +25843,12 @@ ${paras}
                 const headerP = '<p style="' + cellPZero + 'font-family:' + _PSEC_FF + ';font-size:10pt;font-weight:bold;color:#ffffff;line-height:1.3;';
                 itemsBlock =
                     _psecPara('<b>รายการสินค้า LOCAL</b>', 4, 11, _PSEC_BRAND) +
-                    '<table cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%;border-collapse:collapse;">' +
+                    '<table cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%;table-layout:fixed;border-collapse:collapse;">' +
                       '<tr>' +
-                        '<th bgcolor="' + _PSEC_BRAND + '" align="center" style="' + headerTd + 'text-align:center;width:32pt;">' + headerP + 'text-align:center;">#</p></th>' +
-                        '<th bgcolor="' + _PSEC_BRAND + '" align="left" style="' + headerTd + 'text-align:left;">' + headerP + '">Item</p></th>' +
-                        '<th bgcolor="' + _PSEC_BRAND + '" align="center" style="' + headerTd + 'text-align:center;width:48pt;">' + headerP + 'text-align:center;">Qty</p></th>' +
-                        '<th bgcolor="' + _PSEC_BRAND + '" align="left" style="' + headerTd + 'text-align:left;">' + headerP + '">Remark</p></th>' +
+                        '<th bgcolor="' + _PSEC_BRAND + '" align="center" width="7%" style="' + headerTd + 'text-align:center;width:7%;">' + headerP + 'text-align:center;">#</p></th>' +
+                        '<th bgcolor="' + _PSEC_BRAND + '" align="left" width="33%" style="' + headerTd + 'text-align:left;width:33%;">' + headerP + '">Item</p></th>' +
+                        '<th bgcolor="' + _PSEC_BRAND + '" align="center" width="10%" style="' + headerTd + 'text-align:center;width:10%;">' + headerP + 'text-align:center;">Qty</p></th>' +
+                        '<th bgcolor="' + _PSEC_BRAND + '" align="left" width="50%" style="' + headerTd + 'text-align:left;width:50%;">' + headerP + '">Remark</p></th>' +
                       '</tr>' +
                       rows +
                     '</table>' +
@@ -25943,23 +25950,24 @@ ${paras}
 
             let itemsBlock = '';
             if (items.length > 0) {
+                const wrapCss = 'word-wrap:break-word;word-break:break-all;overflow-wrap:break-word;';
                 const rows = items.map(function(it, i){
                     return '<tr>' +
-                        '<td style="border-bottom:1px solid ' + _PSEC_BORDER + ';padding:6pt 8pt;text-align:center;vertical-align:top;font-family:' + _PSEC_FF + ';font-size:10.5pt;color:' + _PSEC_DIM + ';font-style:italic;">' + (i + 1) + '</td>' +
-                        '<td style="border-bottom:1px solid ' + _PSEC_BORDER + ';padding:6pt 8pt;vertical-align:top;font-family:' + _PSEC_FF + ';font-size:11pt;color:#000000;">' + _psecHe(it.name || '') + '</td>' +
-                        '<td style="border-bottom:1px solid ' + _PSEC_BORDER + ';padding:6pt 8pt;text-align:center;vertical-align:top;font-family:' + _PSEC_FF + ';font-size:11pt;color:#000000;">' + _psecHe(it.qty || '') + '</td>' +
-                        '<td style="border-bottom:1px solid ' + _PSEC_BORDER + ';padding:6pt 8pt;vertical-align:top;font-family:' + _PSEC_FF + ';font-size:10.5pt;color:' + _PSEC_TEXT + ';line-height:1.45;">' + _psecFmtRemark(it.remark || '') + '</td>' +
+                        '<td style="border-bottom:1px solid ' + _PSEC_BORDER + ';padding:6pt 8pt;text-align:center;vertical-align:top;font-family:' + _PSEC_FF + ';font-size:10.5pt;color:' + _PSEC_DIM + ';font-style:italic;' + wrapCss + '">' + (i + 1) + '</td>' +
+                        '<td style="border-bottom:1px solid ' + _PSEC_BORDER + ';padding:6pt 8pt;vertical-align:top;font-family:' + _PSEC_FF + ';font-size:11pt;color:#000000;' + wrapCss + '">' + _psecHe(it.name || '') + '</td>' +
+                        '<td style="border-bottom:1px solid ' + _PSEC_BORDER + ';padding:6pt 8pt;text-align:center;vertical-align:top;font-family:' + _PSEC_FF + ';font-size:11pt;color:#000000;' + wrapCss + '">' + _psecHe(it.qty || '') + '</td>' +
+                        '<td style="border-bottom:1px solid ' + _PSEC_BORDER + ';padding:6pt 8pt;vertical-align:top;font-family:' + _PSEC_FF + ';font-size:10.5pt;color:' + _PSEC_TEXT + ';line-height:1.45;' + wrapCss + '">' + _psecFmtRemark(it.remark || '') + '</td>' +
                     '</tr>';
                 }).join('');
                 const headerCell = 'border-top:2pt solid #000000;border-bottom:1pt solid #000000;padding:6pt 8pt;font-family:' + _PSEC_FF + ';font-size:9.5pt;font-weight:bold;color:#000000;letter-spacing:0.06em;text-transform:uppercase;';
                 itemsBlock =
                     '<p style="margin:14pt 0 8pt 0;font-family:' + _PSEC_FF + ';font-size:10pt;font-weight:bold;color:#000000;letter-spacing:0.06em;line-height:1.4;mso-line-height-rule:exactly;">รายการสินค้า LOCAL</p>' +
-                    '<table cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%;border-collapse:collapse;margin:0 0 6pt 0;">' +
+                    '<table cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%;table-layout:fixed;border-collapse:collapse;margin:0 0 6pt 0;">' +
                       '<tr>' +
-                        '<th style="' + headerCell + 'text-align:center;width:32pt;">#</th>' +
-                        '<th style="' + headerCell + 'text-align:left;">Item</th>' +
-                        '<th style="' + headerCell + 'text-align:center;width:48pt;">Qty</th>' +
-                        '<th style="' + headerCell + 'text-align:left;">Remark</th>' +
+                        '<th width="7%" style="' + headerCell + 'text-align:center;width:7%;">#</th>' +
+                        '<th width="33%" style="' + headerCell + 'text-align:left;width:33%;">Item</th>' +
+                        '<th width="10%" style="' + headerCell + 'text-align:center;width:10%;">Qty</th>' +
+                        '<th width="50%" style="' + headerCell + 'text-align:left;width:50%;">Remark</th>' +
                       '</tr>' +
                       rows +
                     '</table>' +
