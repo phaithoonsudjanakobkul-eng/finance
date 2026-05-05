@@ -1717,11 +1717,14 @@
            Bottom finance row uses subgrid to inherit the 4 col tracks → first
            card width = Hero col 1 width = pixel-perfect alignment. Charts +
            Footer span all 4 cols (full width). Column gap matches dash-fin-row
-           gap-3 (12px) so subgrid tracks line up. Row gap stays 14px. */
+           gap-3 (12px) so subgrid tracks line up. Row gap stays 14px.
+           Row 1 uses `calc(100vh - 90px)` so Hero stretches to full viewport
+           height at ALL viewports (notebook 1707 + home 2560 + work 1280) —
+           was only applied at ≤1799 before, leaving Hero short on home desktop. */
         html[data-preset="cinematic"] #dash-content:not(.hidden) {
             display: grid !important;
             grid-template-columns: repeat(4, 1fr);
-            grid-template-rows: minmax(540px, auto) auto auto auto;
+            grid-template-rows: minmax(calc(100vh - 90px), auto) auto auto auto;
             grid-template-areas:
                 "muse   side   side   side"
                 "fin    fin    fin    fin"
