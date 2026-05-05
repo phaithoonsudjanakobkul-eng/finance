@@ -1818,22 +1818,29 @@
                with drag handle + collapsed bar). Tailwind class
                `grid-cols-1 md:grid-cols-2 lg:grid-cols-4` lives at (0,1,0) specificity
                — overridden cleanly by this (0,2,1) + !important rule. */
-            /* dash-content now has 5 columns. Hero on col 1 (already via grid-area: muse).
-               #ddr-row1 (Right stack) spans col 2-5 via grid-area: side (defined above).
-               #ddr-fin spans full row via grid-area: fin → use subgrid so finance cards
-               inherit the 5-col tracks and align pixel-perfect with Hero column. */
+            /* dash-content now has 5 columns. Hero on col 1 (grid-area: muse),
+               Right stack spans col 2-5 (grid-area: side). For finance row alignment:
+               #ddr-fin uses display:contents to "disappear" from layout, promoting
+               #dash-fin-row to be a direct child of dash-content. Then dash-fin-row
+               uses subgrid to inherit the 5-col tracks → cards align pixel-perfect
+               with Hero edge. (Chrome subgrid only propagates 1 level, hence contents.) */
             html[data-preset="cinematic"] #ddr-fin {
-                display: grid !important;
-                grid-template-columns: subgrid !important;
+                display: contents !important;
             }
             html[data-preset="cinematic"] #dash-fin-row {
                 display: grid !important;
                 grid-template-columns: subgrid !important;
-                grid-column: 1 / -1 !important;
+                grid-area: fin !important;
                 gap: 12px !important;
             }
             html[data-preset="cinematic"] #dash-fin-row > *:first-child {
                 grid-column: 2 !important;
+            }
+            /* Pinned watchlist — base CSS caps grid column max widths (~583px total).
+               Override to 1fr columns so the table stretches the full Right column
+               width (~1230px on notebook) instead of leaving empty space on the right. */
+            html[data-preset="cinematic"] #wl-pinned-list {
+                --pinned-gcols: minmax(60px, 1.4fr) minmax(54px, 1.2fr) minmax(72px, 1fr) minmax(60px, 1fr) minmax(72px, 1fr) minmax(72px, 1fr) minmax(72px, 1fr) !important;
             }
         }
 
