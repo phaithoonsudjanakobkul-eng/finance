@@ -1724,7 +1724,7 @@
         html[data-preset="cinematic"] #dash-content:not(.hidden) {
             display: grid !important;
             grid-template-columns: repeat(4, 1fr);
-            grid-template-rows: minmax(calc(100vh - 90px), auto) auto auto auto;
+            grid-template-rows: minmax(min(calc(100vh - 90px), 980px), auto) auto auto auto;
             grid-template-areas:
                 "muse   side   side   side"
                 "fin    fin    fin    fin"
