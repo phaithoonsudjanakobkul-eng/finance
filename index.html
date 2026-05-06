@@ -2372,11 +2372,85 @@
             html[data-preset="cinematic"] #profile-photo-wrap {
                 width: clamp(180px, 28vw, 280px) !important;
             }
-            /* Pinned watchlist: keep 4-col template (already gated at
-               ≤1279 elsewhere — no override needed here). max-height cap
-               relaxes so list scrolls less aggressively at tablet width. */
+            /* Pinned watchlist wrapper: stack LOW Alerts ABOVE Pinned
+               instead of side-by-side. Inline `display:flex` (row) at
+               desktop splits 36/64 — at narrow viewport that gives 36% ×
+               430 = 155px LOW column which clips the alert ticker text.
+               Switch to column + relax max-height + reset border on the
+               first child (was right-border for the desktop split). */
             html[data-preset="cinematic"] #profile-wl-console {
-                max-height: 320px !important;
+                flex-direction: column !important;
+                max-height: 520px !important;
+            }
+            html[data-preset="cinematic"] #profile-wl-console > div:first-child {
+                flex: 0 0 auto !important;
+                border-right: none !important;
+                border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent) !important;
+                min-height: 70px !important;
+                max-height: 140px !important;
+            }
+            /* Profile card: same problem — inline `display:flex` row splits
+               info-panel and 252px-wide photo column. At narrow viewport
+               the info column shrinks to ~178px which kills the address
+               text. Stack vertically: photo on top (full width banner),
+               notes below. The inline `height: calc(256px + 80px)` (336px)
+               needs `!important` to override since inline beats class
+               specificity by default. */
+            html[data-preset="cinematic"] #profile-card-main {
+                flex-direction: column !important;
+                height: auto !important;
+                min-height: unset !important;
+                overflow: visible !important;
+            }
+            html[data-preset="cinematic"] #profile-card-main > div:first-child {
+                flex: 0 0 auto !important;
+                order: 2 !important;
+            }
+            html[data-preset="cinematic"] #profile-photo-wrap {
+                width: 100% !important;
+                height: auto !important;
+                aspect-ratio: 16/9 !important;
+                order: 1 !important;
+            }
+            /* Photo image: cancel desktop's `top:8px;left:16px;width:calc(100%-24px)`
+               offsets — those carved out a 16px left gap for the preset-dots
+               column. At full-width mobile the gap looks like a misaligned
+               photo. Stretch image to fill the wrap. */
+            html[data-preset="cinematic"] #profilePhotoImg,
+            html[data-preset="cinematic"] #profile-photo-ring {
+                top: 0 !important;
+                left: 0 !important;
+                width: 100% !important;
+                height: 100% !important;
+                border-radius: 0 !important;
+            }
+            html[data-preset="cinematic"] #profile-preset-dots {
+                /* Hide preset dots column at mobile — vertical strip
+                   doesn't fit when photo is a horizontal banner */
+                display: none !important;
+            }
+            html[data-preset="cinematic"] #profile-view {
+                height: auto !important;
+                min-height: 100px !important;
+                padding: 14px 16px !important;
+            }
+            /* Charts: prevent Chart.js fixed-pixel canvas from overflowing
+               narrow viewport. Container gets min-width 0 so flex/grid
+               doesn't lock to canvas natural width; canvas is forced to
+               fit. width:100% + height:auto works because Chart.js
+               responsive:true scales internal coords. If a chart was
+               built without responsive:true, it'll just visually clip
+               instead of pushing horizontal scroll. */
+            html[data-preset="cinematic"] #dash-charts-row {
+                min-width: 0 !important;
+            }
+            html[data-preset="cinematic"] #dash-charts-row > div {
+                min-width: 0 !important;
+                overflow: hidden !important;
+            }
+            html[data-preset="cinematic"] #dash-charts-row canvas {
+                max-width: 100% !important;
+                height: auto !important;
             }
             /* Mini frames: fixed height so JS slot-count adapter
                (_cineUpdateMiniSlotCount) has a predictable parent
@@ -2415,7 +2489,14 @@
                 padding: 12px !important;
             }
             html[data-preset="cinematic"] #profile-photo-wrap {
-                width: clamp(140px, 36vw, 220px) !important;
+                aspect-ratio: 4/3 !important;
+            }
+            /* Force 1-col finance grid at mobile (defensive — Tailwind
+               md:grid-cols-2 only kicks at ≥768 so technically not
+               needed at ≤640, but belt-and-suspenders against any
+               other rule that might force 2-col at narrow viewport). */
+            html[data-preset="cinematic"] #dash-fin-row {
+                grid-template-columns: 1fr !important;
             }
         }
 
