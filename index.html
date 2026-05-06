@@ -1849,6 +1849,17 @@
                 --pinned-gcols: minmax(70px, 100px) minmax(80px, 1fr) minmax(72px, 95px) minmax(80px, 110px) !important;
             }
         }
+        /* Cinematic — Pinned 4-col gcols at ≤767px (mobile). Without
+           this, the global 7-col px-cap template above (488px min)
+           overflows iPhone widths (430-414-375) and clips %CHG values
+           at the right edge. SYM 56px (logo+ticker) | TREND 1fr fills
+           remaining | LAST 60px caps for "$xxx.xx" | %CHG 64px caps
+           for "▼-x.xx%". Total min 56+60+60+64 = 240px fits 375+. */
+        @media (max-width: 767px) {
+            html[data-preset="cinematic"] #wl-pinned-list {
+                --pinned-gcols: 56px minmax(60px, 1fr) minmax(60px, 78px) minmax(64px, 78px) !important;
+            }
+        }
 
         /* Profile row split into 3 cards (Cinematic only): Profile (50%) |
            Payday (25%) | Month progress (25%). Wraps #profile-card-main
@@ -2477,21 +2488,28 @@
             }
             html[data-preset="cinematic"] .cine-mf-chip {
                 aspect-ratio: 3/4 !important;
-                height: 84px !important;
-                width: 63px !important;
+                height: 104px !important;
+                width: 78px !important;
                 flex: 0 0 auto !important;
             }
-            /* Subtle scrollbar — visible enough to signal scroll, not
-               loud enough to dominate the card. */
+            /* Always-visible thin scrollbar — the chips overflow the
+               card horizontally so users need a visual cue that this
+               is a scroll-able row (not just a row of 3 chips). 5px
+               with brighter accent so it reads as "swipe me", not
+               4px transparent which most users miss. */
             html[data-preset="cinematic"] .cine-mf-grid::-webkit-scrollbar {
-                height: 4px;
+                height: 5px;
             }
             html[data-preset="cinematic"] .cine-mf-grid::-webkit-scrollbar-track {
-                background: transparent;
+                background: rgba(245, 241, 232, 0.04);
+                border-radius: 3px;
             }
             html[data-preset="cinematic"] .cine-mf-grid::-webkit-scrollbar-thumb {
-                background: rgba(245, 241, 232, 0.18);
-                border-radius: 2px;
+                background: rgba(245, 241, 232, 0.28);
+                border-radius: 3px;
+            }
+            html[data-preset="cinematic"] .cine-mf-grid::-webkit-scrollbar-thumb:hover {
+                background: rgba(245, 241, 232, 0.42);
             }
             /* Page padding at mobile/tablet — without this, cards touch
                the viewport edge and any soft glow / shadow on cards is
@@ -2501,6 +2519,27 @@
                glass borders show properly. */
             html[data-preset="cinematic"] #tab-dashboard {
                 padding: 12px !important;
+            }
+            /* Bump card border-radius from default 10px to 14px at
+               mobile/tablet. At narrow viewport the smaller curve
+               (10px on a 400px wide card) reads as "almost sharp" —
+               14px reads more clearly as "rounded card" matching
+               iOS / Material design conventions for mobile. */
+            html[data-preset="cinematic"] .dash-card {
+                border-radius: 14px !important;
+            }
+            /* LOW Alerts row content (rendered by JS into #wl-console-list):
+               at narrow viewport the alert row "ASTS [▼7D-90D] $63.87 ▼$67.53"
+               overflows because elements are flex-row without min-width:0.
+               Force min-width 0 on the inner row containers so flex children
+               can shrink below their intrinsic content size. Last value
+               truncates with ellipsis instead of clipping past card edge. */
+            html[data-preset="cinematic"] #wl-console-list > div {
+                min-width: 0 !important;
+                overflow: hidden !important;
+            }
+            html[data-preset="cinematic"] #wl-console-list > div > * {
+                min-width: 0 !important;
             }
             /* Aux cards: drop the 180px min-height that was sized for
                desktop column width — at full-width tablet/mobile the
