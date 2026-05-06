@@ -2452,12 +2452,55 @@
                 max-width: 100% !important;
                 height: auto !important;
             }
-            /* Mini frames: fixed height so JS slot-count adapter
-               (_cineUpdateMiniSlotCount) has a predictable parent
-               height to derive slot dimensions from. */
+            /* Mini frames at mobile/tablet — horizontal-scroll row of
+               compact chips. Desktop layout (chips fill row1 height via
+               aspect-ratio + flex 1 1 0) doesn't translate to stack mode
+               where there's no parent height. Switch to fixed-height
+               chips that overflow horizontally + native swipe scroll.
+               JS adapter (_cineUpdateMiniSlotCount) early-returns at
+               this viewport and shows all 10 chips so the scroll bar
+               has full content. */
             html[data-preset="cinematic"] .cine-mini-frames {
-                height: 220px !important;
+                height: auto !important;
                 min-height: 0 !important;
+                padding: 12px 14px !important;
+            }
+            html[data-preset="cinematic"] .cine-mf-grid {
+                overflow-x: auto !important;
+                overflow-y: hidden !important;
+                flex-wrap: nowrap !important;
+                justify-content: flex-start !important;
+                scroll-behavior: smooth;
+                -webkit-overflow-scrolling: touch;
+                padding-bottom: 6px;
+                gap: 8px !important;
+            }
+            html[data-preset="cinematic"] .cine-mf-chip {
+                aspect-ratio: 3/4 !important;
+                height: 84px !important;
+                width: 63px !important;
+                flex: 0 0 auto !important;
+            }
+            /* Subtle scrollbar — visible enough to signal scroll, not
+               loud enough to dominate the card. */
+            html[data-preset="cinematic"] .cine-mf-grid::-webkit-scrollbar {
+                height: 4px;
+            }
+            html[data-preset="cinematic"] .cine-mf-grid::-webkit-scrollbar-track {
+                background: transparent;
+            }
+            html[data-preset="cinematic"] .cine-mf-grid::-webkit-scrollbar-thumb {
+                background: rgba(245, 241, 232, 0.18);
+                border-radius: 2px;
+            }
+            /* Page padding at mobile/tablet — without this, cards touch
+               the viewport edge and any soft glow / shadow on cards is
+               clipped by the viewport, making the right edge read as
+               "sharp / no rounded shape" even though border-radius is
+               applied. 12px breathing room lets the rounded corners +
+               glass borders show properly. */
+            html[data-preset="cinematic"] #tab-dashboard {
+                padding: 12px !important;
             }
             /* Aux cards: drop the 180px min-height that was sized for
                desktop column width — at full-width tablet/mobile the
@@ -2477,15 +2520,11 @@
             }
         }
 
-        /* Mobile-only (≤767) — Mini frames hidden + finance forced 1-col.
-           The muse-preset switcher is a desktop-centric feature (4-6
-           thumbnails in a row); on mobile it renders as an empty pill
-           or as horizontal-scroll strip foreign to the dashboard
-           rhythm. Hide it; user switches preset via Settings if needed. */
+        /* Mobile-only (≤767) — finance forced 1-col + Mini frames
+           inherit the horizontal-scroll layout from the ≤1023 rule
+           above (no override needed; the chips just become swipeable
+           on touch devices). */
         @media (max-width: 767px) {
-            html[data-preset="cinematic"] .cine-mini-frames {
-                display: none !important;
-            }
             html[data-preset="cinematic"] #dash-fin-row {
                 grid-template-columns: 1fr !important;
             }
@@ -45246,6 +45285,16 @@ ${_clip(contextSections, 2600)}`;
         function _cineUpdateMiniSlotCount(grid) {
             if (!grid) grid = document.querySelector('.cine-mini-frames .cine-mf-grid');
             if (!grid) return;
+            // Mobile/tablet (≤1023): all 10 chips visible, CSS does
+            // horizontal-scroll. Reset any inline display:none left over
+            // from a desktop-viewport pass so the scroll row stays full.
+            if (window.matchMedia && window.matchMedia('(max-width: 1023px)').matches) {
+                const allChips = grid.querySelectorAll('.cine-mf-chip');
+                for (let i = 0; i < allChips.length; i++) {
+                    allChips[i].style.display = '';
+                }
+                return;
+            }
             const h = grid.clientHeight;
             const w = grid.clientWidth;
             if (h <= 0 || w <= 0) return;
