@@ -45589,8 +45589,9 @@ ${_clip(contextSections, 2600)}`;
             const content = document.getElementById('util-content');
             if (!content) return;
             const activeTools = [
-                'ps-quotation', 'ps-specflow', 'ps-micro-imaging',
-                'ps-upscaler', 'ps-bg-remover', 'ps-ai-studio'
+                'ps-quotation', 'ps-specflow', 'ps-email-composer',
+                'ps-micro-imaging', 'ps-upscaler', 'ps-bg-remover',
+                'ps-ai-studio'
             ];
             function buildChip(toolId) {
                 const btn = document.getElementById('util-btn-' + toolId);
@@ -45621,7 +45622,7 @@ ${_clip(contextSections, 2600)}`;
                 '<div class="cuh-inner">' +
                     '<div class="cuh-eyebrow">PSLINK · UTILITIES</div>' +
                     '<h1 class="cuh-headline">Choose a tool</h1>' +
-                    '<div class="cuh-subline">6 TOOLS LIVE · 12 COMING SOON · 100% OFFLINE</div>' +
+                    '<div class="cuh-subline">7 TOOLS LIVE · 11 COMING SOON · 100% OFFLINE</div>' +
                     '<div class="cuh-chips">' + chipsHtml + '</div>' +
                 '</div>';
             content.appendChild(hero);
