@@ -3254,38 +3254,37 @@
             text-transform: uppercase !important;
             box-shadow: none !important;
         }
-        /* Sticky-thead row-bleed fix — frost overlay as a real DIV that
-           mirrors the SURROUNDING glass-card's recipe (var(--cine-glass) +
-           same backdrop-filter blur), so it visually reads as a continuation
-           of the glass surface, not a separate "bar". Why mirror the
-           glass-card and not the body: the frost sits INSIDE the glass-card,
-           so the surrounding visible area (row strip below thead) shows
-           glass-card's appearance — applying the same recipe makes frost
-           blend seamlessly with the row strip background, no visible seam.
+        /* Sticky-thead row-bleed fix — frost overlay as a real DIV moved
+           OUT of the scroll container, into the glass-card directly, with
+           position:absolute. Why outside the scroll container:
+           - Inside scroll container, width:100% = scroll content width =
+             glass-card width MINUS scrollbar gutter (~3px) → frost ended
+             before glass-card's right edge, leaving a vertical seam and
+             unrounded right corner (user feedback 2026-05-09).
+           - Outside (sibling of scroll container, child of glass-card),
+             absolute left:0 + right:0 stretches frost across glass-card's
+             full inner width, ignoring scrollbar gutter → both ends round
+             naturally via glass-card's overflow:hidden + 14px radius.
+           Stacking: glass-card has backdrop-filter (creates stacking
+           context). Frost (positioned z:5) and thead-tr (sticky z:10, in
+           scroll container) both root in glass-card's context. Painting
+           order: scroll container content (rows + thead text) paints in
+           "non-positioned descendants" step, then frost (positioned z:5)
+           paints, then thead's stacking context (z:10) paints last → thead
+           text on top, frost in middle, rows behind. Frost's
+           backdrop-filter blurs the row content directly under it.
            thead stays transparent (memory feedback: no bg/blur on thead).
-           Geometry: sticky top:0 + height 38 + margin-bottom:-38 → frost
-           overlaps thead's location without shifting the table. z:9 sits
-           below thead's z:10 (line 5604) so thead text paints on top of the
-           frost; rows scrolling behind get backdrop-filter-blurred (since
-           frost is INSIDE glass-card, frost's backdrop = rows + parent's
-           filter result; the second blur pass blurs rows enough to be
-           non-readable behind the thead text). top-corner border-radius
-           matches glass-card's 14px so the right/left edges round naturally
-           with the card outline. inset:0 + width:auto avoids the
-           "right vertical edge" that width:100% can produce when the
-           scroll container's content area extends past the viewport (e.g.,
-           when table is wider than visible width on horizontal scroll). */
+           Height 32px matches actual thead height (8+16+8 padding-content-
+           padding) — earlier 38px was too tall and "ate into first row". */
         #cine-thead-frost { display: none; }
         html[data-preset="cinematic"] #cine-thead-frost {
             display: block;
-            position: sticky;
+            position: absolute;
             top: 0;
             left: 0;
             right: 0;
-            width: 100%;
-            height: 38px;
-            margin-bottom: -38px;
-            z-index: 9;
+            height: 32px;
+            z-index: 5;
             pointer-events: none;
             background: var(--cine-glass);
             backdrop-filter: blur(20px) saturate(140%);
@@ -12891,8 +12890,8 @@
             <!-- Watchlist Table -->
             <div id="wl-table-panel">
             <div class="glass-card overflow-hidden">
-                <div id="wl-table-scroll" style="overflow-x:auto;overflow-y:auto;scrollbar-gutter:auto;max-height:inherit">
                 <div id="cine-thead-frost" aria-hidden="true"></div>
+                <div id="wl-table-scroll" style="overflow-x:auto;overflow-y:auto;scrollbar-gutter:auto;max-height:inherit">
                 <table id="watchlist-table" class="w-full min-w-[800px]">
                     <colgroup>
                         <col style="width:26px"> <col style="width:114px"> <col style="width:150px"> <col style="width:48px"> <col style="width:88px">
