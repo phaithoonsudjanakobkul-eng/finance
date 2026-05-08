@@ -3262,6 +3262,36 @@
                 linear-gradient(135deg, var(--cine-bg-base) 0%, var(--cine-bg-base-mid) 50%, var(--cine-bg-base) 100%) !important;
             background-attachment: fixed !important;
         }
+        /* Scrollbar-gutter filler — thead lives inside #wl-table-scroll, so
+           thead's width = scroll content width = glass-card width MINUS the
+           3px scrollbar gutter. The gap shows glass-card's normal recipe
+           (cream tint + blurred body) which differs from thead's body
+           gradient → user sees a small notch at top-right (feedback
+           "ตรงที่วงสีแดงมันว่างอยู่เพราะเป็น Scroll bar" 2026-05-09).
+           Filler covers the 3px gutter at the top with the SAME body
+           gradient as thead, fixed-attachment so the gradient slice at the
+           filler's right-edge viewport position aligns pixel-perfect with
+           thead's gradient at that same position. Glass-card's overflow:
+           hidden + 14px radius rounds the filler's top-right corner
+           naturally. Only filler the thead height (32px) — below that, the
+           gutter sits inside the row strip area where glass-card's normal
+           recipe matches the surrounding visual. */
+        #cine-thead-gutter-fill { display: none; }
+        html[data-preset="cinematic"] #cine-thead-gutter-fill {
+            display: block;
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 4px;
+            height: 32px;
+            pointer-events: none;
+            z-index: 5;
+            background:
+                radial-gradient(ellipse at 75% 25%, var(--cine-bg-warm) 0%, transparent 55%),
+                radial-gradient(ellipse at 15% 85%, var(--cine-bg-cool) 0%, transparent 60%),
+                linear-gradient(135deg, var(--cine-bg-base) 0%, var(--cine-bg-base-mid) 50%, var(--cine-bg-base) 100%);
+            background-attachment: fixed;
+        }
         html[data-preset="cinematic"] #watchlist-table thead tr,
         html[data-preset="cinematic"] #watchlist-table thead tr th {
             background: transparent !important;
@@ -12875,6 +12905,7 @@
             <!-- Watchlist Table -->
             <div id="wl-table-panel">
             <div class="glass-card overflow-hidden">
+                <div id="cine-thead-gutter-fill" aria-hidden="true"></div>
                 <div id="wl-table-scroll" style="overflow-x:auto;overflow-y:auto;scrollbar-gutter:auto;max-height:inherit">
                 <table id="watchlist-table" class="w-full min-w-[800px]">
                     <colgroup>
