@@ -3241,9 +3241,29 @@
            Specificity (1,2,4) matches Onyx rule at line ~622. */
         html[data-preset="cinematic"] #wl-table-panel .glass-card thead tr,
         html[data-preset="cinematic"] #wl-table-panel .glass-card thead tr th,
+        /* Cinematic thead — body's 3-layer gradient mirrored with
+           background-attachment:fixed so thead's pixels match the body
+           pixels at the same viewport location. Visually IDENTICAL to
+           "body bleed through transparent thead" (which was the design
+           intent), but OPAQUE (linear-gradient base layer is solid
+           --cine-bg-base / --cine-bg-base-mid, no transparent stops) so
+           rows scrolling behind the sticky thead cannot bleed through.
+           Variant-aware via --cine-bg-* tokens (photo = warm, aurora =
+           cool). 5 prior frost-overlay approaches in this session all
+           failed for various reasons (pseudo render, nested backdrop-
+           filter not blurring scroll content, glass-card recipe mismatch,
+           scrollbar gutter seam, opaque-bar feel). This approach is the
+           simplest: thead has its own bg, naturally sticky-positions,
+           gets clipped by glass-card overflow:hidden + 14px radius on
+           both ends, and is exactly viewport-aligned with the body gradient
+           so the "body bleed" appearance is preserved. */
         html[data-preset="cinematic"] #watchlist-table thead tr,
         html[data-preset="cinematic"] #watchlist-table thead tr th {
-            background: transparent !important;
+            background:
+                radial-gradient(ellipse at 75% 25%, var(--cine-bg-warm) 0%, transparent 55%),
+                radial-gradient(ellipse at 15% 85%, var(--cine-bg-cool) 0%, transparent 60%),
+                linear-gradient(135deg, var(--cine-bg-base) 0%, var(--cine-bg-base-mid) 50%, var(--cine-bg-base) 100%) !important;
+            background-attachment: fixed !important;
             backdrop-filter: none !important;
             -webkit-backdrop-filter: none !important;
             border-top: none !important;
@@ -3253,42 +3273,6 @@
             font-weight: 700 !important;
             text-transform: uppercase !important;
             box-shadow: none !important;
-        }
-        /* Sticky-thead row-bleed fix — frost overlay as a real DIV moved
-           OUT of the scroll container, into the glass-card directly, with
-           position:absolute. Why outside the scroll container:
-           - Inside scroll container, width:100% = scroll content width =
-             glass-card width MINUS scrollbar gutter (~3px) → frost ended
-             before glass-card's right edge, leaving a vertical seam and
-             unrounded right corner (user feedback 2026-05-09).
-           - Outside (sibling of scroll container, child of glass-card),
-             absolute left:0 + right:0 stretches frost across glass-card's
-             full inner width, ignoring scrollbar gutter → both ends round
-             naturally via glass-card's overflow:hidden + 14px radius.
-           Stacking: glass-card has backdrop-filter (creates stacking
-           context). Frost (positioned z:5) and thead-tr (sticky z:10, in
-           scroll container) both root in glass-card's context. Painting
-           order: scroll container content (rows + thead text) paints in
-           "non-positioned descendants" step, then frost (positioned z:5)
-           paints, then thead's stacking context (z:10) paints last → thead
-           text on top, frost in middle, rows behind. Frost's
-           backdrop-filter blurs the row content directly under it.
-           thead stays transparent (memory feedback: no bg/blur on thead).
-           Height 32px matches actual thead height (8+16+8 padding-content-
-           padding) — earlier 38px was too tall and "ate into first row". */
-        #cine-thead-frost { display: none; }
-        html[data-preset="cinematic"] #cine-thead-frost {
-            display: block;
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 32px;
-            z-index: 5;
-            pointer-events: none;
-            background: var(--cine-glass);
-            backdrop-filter: blur(20px) saturate(140%);
-            -webkit-backdrop-filter: blur(20px) saturate(140%);
         }
         html[data-preset="cinematic"] #watchlist-table tbody tr.wl-row {
             background: transparent !important;
@@ -12890,7 +12874,6 @@
             <!-- Watchlist Table -->
             <div id="wl-table-panel">
             <div class="glass-card overflow-hidden">
-                <div id="cine-thead-frost" aria-hidden="true"></div>
                 <div id="wl-table-scroll" style="overflow-x:auto;overflow-y:auto;scrollbar-gutter:auto;max-height:inherit">
                 <table id="watchlist-table" class="w-full min-w-[800px]">
                     <colgroup>
