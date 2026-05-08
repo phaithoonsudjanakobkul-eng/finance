@@ -3254,26 +3254,25 @@
             text-transform: uppercase !important;
             box-shadow: none !important;
         }
-        /* Sticky-thead row-bleed fix — frost overlay as a REAL DIV (not
-           ::before pseudo, which silently failed on the scroll container in
-           Chromium when the next sibling is `<table>` — table layout box
-           interferes with the pseudo's sticky positioning).
-           Why not on thead itself: th = table-cell display, where
-           backdrop-filter doesn't reliably render (4 prior attempts on
-           thead failed 2026-05-02). A block-level div on the scroll container
-           forms a proper stacking context, so backdrop-filter works.
-           thead itself stays transparent — warm body radial gradient still
-           bleeds through (now blurred via the div's backdrop-filter).
-           Geometry: position:sticky top:0 pins it at the top of the scroll
-           viewport. height matches thead. margin-bottom:-{H}px absorbs the
-           div's own height so the table doesn't shift down. z-index 9 sits
-           below thead's z:10 (line 5604) but above tbody rows (no z-index)
-           — thead text paints crisp on top, row content scrolling under
-           the frost gets blurred to non-readable mush. The slight warm tint
-           (0.18 alpha matching --cine-bg-warm) ensures the frost is
-           visually present even at top-of-scroll where there's no row
-           content to blur against — without it, the frost would be invisible
-           when there's nothing behind to filter. */
+        /* Sticky-thead row-bleed fix — frost overlay as a real DIV with
+           the body's exact 3-layer gradient mirrored, anchored via
+           `background-attachment: fixed`. Why this approach:
+           - thead stays transparent (memory feedback: no bg/blur on thead)
+           - frost is OPAQUE (linear-gradient base layer has no transparent
+             stops) → row content scrolling under cannot bleed through
+           - `background-attachment: fixed` maps the radial gradients to
+             viewport coords (same as body's fixed bg), so the frost's pixels
+             match body bleed-through pixel-for-pixel at the thead's location
+             → no visual seam between frost and surrounding body
+           - Works in both photo (warm) and aurora (cool) variants because
+             --cine-bg-warm/cool/base/base-mid tokens are variant-driven
+           - No backdrop-filter — prior backdrop-filter attempts on thead
+             (table-cell layout) silently failed (2026-05-02 incident); this
+             approach doesn't need it because the gradient itself is opaque
+           Geometry: sticky top:0 + height 38 + margin-bottom:-38 → frost
+           overlaps thead's location without shifting the table. z:9 sits
+           below thead's z:10 (line 5604) so thead text paints on top of
+           the frost; rows scroll behind both at z:auto. */
         #cine-thead-frost { display: none; }
         html[data-preset="cinematic"] #cine-thead-frost {
             display: block;
@@ -3284,9 +3283,11 @@
             margin-bottom: -38px;
             z-index: 9;
             pointer-events: none;
-            background: color-mix(in srgb, var(--cine-bg-base) 18%, transparent);
-            backdrop-filter: blur(16px) saturate(140%);
-            -webkit-backdrop-filter: blur(16px) saturate(140%);
+            background:
+                radial-gradient(ellipse at 75% 25%, var(--cine-bg-warm) 0%, transparent 55%),
+                radial-gradient(ellipse at 15% 85%, var(--cine-bg-cool) 0%, transparent 60%),
+                linear-gradient(135deg, var(--cine-bg-base) 0%, var(--cine-bg-base-mid) 50%, var(--cine-bg-base) 100%);
+            background-attachment: fixed;
         }
         html[data-preset="cinematic"] #watchlist-table tbody tr.wl-row {
             background: transparent !important;
