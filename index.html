@@ -3254,40 +3254,43 @@
             text-transform: uppercase !important;
             box-shadow: none !important;
         }
-        /* Sticky-thead row-bleed fix — frost overlay as a real DIV with
-           the body's exact 3-layer gradient mirrored, anchored via
-           `background-attachment: fixed`. Why this approach:
-           - thead stays transparent (memory feedback: no bg/blur on thead)
-           - frost is OPAQUE (linear-gradient base layer has no transparent
-             stops) → row content scrolling under cannot bleed through
-           - `background-attachment: fixed` maps the radial gradients to
-             viewport coords (same as body's fixed bg), so the frost's pixels
-             match body bleed-through pixel-for-pixel at the thead's location
-             → no visual seam between frost and surrounding body
-           - Works in both photo (warm) and aurora (cool) variants because
-             --cine-bg-warm/cool/base/base-mid tokens are variant-driven
-           - No backdrop-filter — prior backdrop-filter attempts on thead
-             (table-cell layout) silently failed (2026-05-02 incident); this
-             approach doesn't need it because the gradient itself is opaque
+        /* Sticky-thead row-bleed fix — frost overlay as a real DIV that
+           mirrors the SURROUNDING glass-card's recipe (var(--cine-glass) +
+           same backdrop-filter blur), so it visually reads as a continuation
+           of the glass surface, not a separate "bar". Why mirror the
+           glass-card and not the body: the frost sits INSIDE the glass-card,
+           so the surrounding visible area (row strip below thead) shows
+           glass-card's appearance — applying the same recipe makes frost
+           blend seamlessly with the row strip background, no visible seam.
+           thead stays transparent (memory feedback: no bg/blur on thead).
            Geometry: sticky top:0 + height 38 + margin-bottom:-38 → frost
            overlaps thead's location without shifting the table. z:9 sits
-           below thead's z:10 (line 5604) so thead text paints on top of
-           the frost; rows scroll behind both at z:auto. */
+           below thead's z:10 (line 5604) so thead text paints on top of the
+           frost; rows scrolling behind get backdrop-filter-blurred (since
+           frost is INSIDE glass-card, frost's backdrop = rows + parent's
+           filter result; the second blur pass blurs rows enough to be
+           non-readable behind the thead text). top-corner border-radius
+           matches glass-card's 14px so the right/left edges round naturally
+           with the card outline. inset:0 + width:auto avoids the
+           "right vertical edge" that width:100% can produce when the
+           scroll container's content area extends past the viewport (e.g.,
+           when table is wider than visible width on horizontal scroll). */
         #cine-thead-frost { display: none; }
         html[data-preset="cinematic"] #cine-thead-frost {
             display: block;
             position: sticky;
             top: 0;
+            left: 0;
+            right: 0;
             width: 100%;
             height: 38px;
             margin-bottom: -38px;
             z-index: 9;
             pointer-events: none;
-            background:
-                radial-gradient(ellipse at 75% 25%, var(--cine-bg-warm) 0%, transparent 55%),
-                radial-gradient(ellipse at 15% 85%, var(--cine-bg-cool) 0%, transparent 60%),
-                linear-gradient(135deg, var(--cine-bg-base) 0%, var(--cine-bg-base-mid) 50%, var(--cine-bg-base) 100%);
-            background-attachment: fixed;
+            background: var(--cine-glass);
+            backdrop-filter: blur(20px) saturate(140%);
+            -webkit-backdrop-filter: blur(20px) saturate(140%);
+            border-radius: 14px 14px 0 0;
         }
         html[data-preset="cinematic"] #watchlist-table tbody tr.wl-row {
             background: transparent !important;
