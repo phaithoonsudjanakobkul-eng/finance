@@ -3241,29 +3241,30 @@
            Specificity (1,2,4) matches Onyx rule at line ~622. */
         html[data-preset="cinematic"] #wl-table-panel .glass-card thead tr,
         html[data-preset="cinematic"] #wl-table-panel .glass-card thead tr th,
-        /* Cinematic thead — body's 3-layer gradient mirrored with
-           background-attachment:fixed so thead's pixels match the body
-           pixels at the same viewport location. Visually IDENTICAL to
-           "body bleed through transparent thead" (which was the design
-           intent), but OPAQUE (linear-gradient base layer is solid
-           --cine-bg-base / --cine-bg-base-mid, no transparent stops) so
-           rows scrolling behind the sticky thead cannot bleed through.
-           Variant-aware via --cine-bg-* tokens (photo = warm, aurora =
-           cool). 5 prior frost-overlay approaches in this session all
-           failed for various reasons (pseudo render, nested backdrop-
-           filter not blurring scroll content, glass-card recipe mismatch,
-           scrollbar gutter seam, opaque-bar feel). This approach is the
-           simplest: thead has its own bg, naturally sticky-positions,
-           gets clipped by glass-card overflow:hidden + 14px radius on
-           both ends, and is exactly viewport-aligned with the body gradient
-           so the "body bleed" appearance is preserved. */
-        html[data-preset="cinematic"] #watchlist-table thead tr,
-        html[data-preset="cinematic"] #watchlist-table thead tr th {
+        /* Cinematic thead — bg applied to <thead> (table-header-group)
+           ONLY, with body's 3-layer gradient + background-attachment:fixed.
+           Why thead and not tr/th: applying to each <th> (table-cell)
+           caused each cell to render its OWN gradient inside its bounds
+           → wave/tile pattern at cell boundaries (user feedback
+           "เป็นคลื่นหมดเลย" 2026-05-09). The thead element renders the
+           gradient as one continuous fill across the full header width.
+           Fixed attachment maps the gradient to viewport coords so it
+           aligns pixel-perfect with the body's bg → visually equivalent
+           to "body bleeding through transparent thead", but OPAQUE
+           (linear-gradient base layer has no transparent stops) so rows
+           scrolling under the sticky thead cannot bleed through.
+           tr and th are forced transparent so they don't paint over
+           thead's gradient. Variant-aware via --cine-bg-* tokens. */
+        html[data-preset="cinematic"] #watchlist-table thead {
             background:
                 radial-gradient(ellipse at 75% 25%, var(--cine-bg-warm) 0%, transparent 55%),
                 radial-gradient(ellipse at 15% 85%, var(--cine-bg-cool) 0%, transparent 60%),
                 linear-gradient(135deg, var(--cine-bg-base) 0%, var(--cine-bg-base-mid) 50%, var(--cine-bg-base) 100%) !important;
             background-attachment: fixed !important;
+        }
+        html[data-preset="cinematic"] #watchlist-table thead tr,
+        html[data-preset="cinematic"] #watchlist-table thead tr th {
+            background: transparent !important;
             backdrop-filter: none !important;
             -webkit-backdrop-filter: none !important;
             border-top: none !important;
