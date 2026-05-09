@@ -46,6 +46,11 @@ node_modules/
 .chrome-dev/
 .vscode/
 .idea/
+
+# ─── Vite build artifacts (Session 2 scaffold, 2026-05-09) ───
+dist/
+.vite/
+*.tsbuildinfo
 # .claude — ignore everything except memory-sync hook files
 # (whitelisted entries below are tracked for seamless restore on new machine)
 .claude/*

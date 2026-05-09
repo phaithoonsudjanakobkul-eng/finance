@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>PSLink v2 — Vite Scaffold (Session 3a)</title>
+    <link rel="icon" href="data:," />
+    <style>
+        :root {
+            color-scheme: dark;
+            --bg: #0d0d0d;
+            --fg: #f5f5f7;
+            --accent: #089981;
+            --dim: #888;
+            --card: #1a1a1a;
+            --border: #2a2a2a;
+            --mono: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
+            --sans: 'Inter', system-ui, sans-serif;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: var(--sans); background: var(--bg); color: var(--fg); padding: 32px; line-height: 1.5; min-height: 100vh; }
+        h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 8px; }
+        h2 { font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent); margin-top: 24px; margin-bottom: 12px; }
+        p  { color: var(--dim); font-size: 14px; margin-bottom: 16px; }
+        .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+        button { font-family: var(--sans); font-size: 14px; font-weight: 600; background: var(--accent); color: #000; border: 0; padding: 10px 20px; border-radius: 8px; cursor: pointer; transition: opacity .15s; }
+        button:hover  { opacity: .85; }
+        button[disabled] { opacity: .5; cursor: not-allowed; }
+        pre { font-family: var(--mono); font-size: 12px; background: #000; color: var(--accent); padding: 16px; border-radius: 8px; overflow: auto; white-space: pre-wrap; word-break: break-word; min-height: 60px; }
+        code { font-family: var(--mono); font-size: 12px; background: #000; padding: 2px 6px; border-radius: 4px; color: var(--accent); }
+        ul { padding-left: 20px; color: var(--dim); font-size: 13px; }
+        li { margin-bottom: 4px; }
+        .pill { display: inline-block; font-family: var(--mono); font-size: 11px; padding: 2px 8px; border-radius: 999px; background: var(--accent); color: #000; font-weight: 700; vertical-align: middle; margin-left: 8px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+    </style>
+</head>
+<body>
+    <h1>PSLink v2 <span class="pill">Vite scaffold</span></h1>
+    <p>Session 3a proof-of-concept page. Production app still ships from root <code>index.html</code>. This page tests the Vite + lazy-import infrastructure that future Session 3 sub-sessions will grow into the full shell.</p>
+
+    <h2>Lazy module loader</h2>
+    <div class="card">
+        <p>Click any module below to load it via dynamic <code>import()</code>. Each module ships as its own chunk under <code>dist/assets/</code>; first click downloads + initializes, subsequent clicks hit cache. Idle pre-warm fires after 2s to fetch all chunks in the background.</p>
+        <p style="font-size:12px;color:#888;">PSAI now renders its full settings panel (Session 3d UI port). Other modules return JSON describing their state until their UI port lands.</p>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;">
+            <button data-module="psai">Load PSAI <span style="font-size:10px;opacity:.7;">(real UI)</span></button>
+            <button data-module="psbgr">Load PSBGR <span style="font-size:10px;opacity:.7;">(real UI)</span></button>
+            <button data-module="psec">Load PSEC <span style="font-size:10px;opacity:.7;">(real UI)</span></button>
+            <button data-module="psf">Load PSF</button>
+            <button data-module="psi">Load PSI</button>
+            <button data-module="psq">Load PSQ</button>
+            <button data-module="psup">Load PSUP <span style="font-size:10px;opacity:.7;">(real UI)</span></button>
+        </div>
+    </div>
+
+    <h2>Module mount point</h2>
+    <div id="module-mount" class="card" style="min-height:120px;background:var(--bg);">
+        <p style="color:var(--dim);">Modules with a real UI (currently PSAI) render here. Other modules report status to <code>#demo-output</code>.</p>
+    </div>
+
+    <pre id="demo-output">Click any module button above...</pre>
+
+    <h2>What's wired (Session 3 complete)</h2>
+    <div class="grid">
+        <div class="card">
+            <strong>core/bus.js</strong> — pub/sub event bus (Architecture conv. Hard Rule §4)
+        </div>
+        <div class="card">
+            <strong>core/storage.js</strong> — lsSave wrapper (F1-compatible, quota-safe)
+        </div>
+        <div class="card">
+            <strong>main.js</strong> — entry + lazy loader + idle pre-warm
+        </div>
+        <div class="card">
+            <strong>modules/psai/</strong> — Flux Kontext settings + env guards
+        </div>
+        <div class="card">
+            <strong>modules/psbgr/</strong> — tier registry + state container
+        </div>
+        <div class="card">
+            <strong>modules/psec/</strong> — template registry + state I/O
+        </div>
+        <div class="card">
+            <strong>modules/psf/</strong> — rows + history scaffolding (largest module)
+        </div>
+        <div class="card">
+            <strong>modules/psi/</strong> — imaging state + calibration + OpenCV loader contract
+        </div>
+        <div class="card">
+            <strong>modules/psq/</strong> — counter helpers + period logic + storage keys + workers
+        </div>
+        <div class="card">
+            <strong>modules/psup/</strong> — 3-model registry + queue + memory monitor
+        </div>
+    </div>
+
+    <h2>Status</h2>
+    <ul>
+        <li>Production root <code>index.html</code> = unchanged (still ships via dev-server.js auto-deploy)</li>
+        <li>This page (<code>src/index.html</code>) = Vite-native shell, builds to <code>dist/src/index.html</code></li>
+        <li>Cutover: Phase B end (Session 3 final) — root will be replaced with full Vite output</li>
+    </ul>
+
+    <script type="module" src="/src/main.js"></script>
+</body>
+</html>

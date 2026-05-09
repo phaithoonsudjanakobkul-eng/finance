@@ -1,0 +1,53 @@
+{
+  "_comment": "PSLink — TypeScript config (Session 2 scaffold, 2026-05-09). Incremental TS adoption per locked decision #4: allowJs+checkJs from day 1 so JSDoc gets type-checked, full .ts conversion deferred to Phase 4a. Run via: npm run type-check",
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2020", "DOM", "DOM.Iterable", "WebWorker"],
+
+    "allowJs": true,
+    "checkJs": true,
+    "strict": true,
+    "noEmit": true,
+
+    "jsx": "preserve",
+    "useDefineForClassFields": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+
+    "forceConsistentCasingInFileNames": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noFallthroughCasesInSwitch": true,
+
+    "paths": {
+      "@core/*":    ["./src/core/*"],
+      "@modules/*": ["./src/modules/*"],
+      "@tabs/*":    ["./src/tabs/*"],
+      "@widgets/*": ["./src/widgets/*"],
+      "@styles/*":  ["./src/styles/*"]
+    },
+
+    "types": ["vite/client"]
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.js",
+    "vite.config.js"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    ".backups",
+    "index.html",
+    "dev-server.js",
+    "pslink-pdf-worker",
+    "pslink-collabora",
+    "pslink-wopi",
+    "pslink-r2-worker"
+  ]
+}
