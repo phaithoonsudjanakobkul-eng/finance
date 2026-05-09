@@ -17936,6 +17936,14 @@
         function _psqEditorWireCollaboraMessages() {
             if (_psqCollaboraMsgHandler) return;
             _psqCollaboraMsgHandler = function(ev) {
+                // F4 (2026-05-09): origin guard — only accept messages from the
+                // configured Collabora origin. Without this, any iframe on the page
+                // (ad, oembed, malicious 3rd-party widget) can postMessage MessageId
+                // commands and trigger Save/etc. Read _psqCollabBase fresh each call
+                // so user changes via Settings take effect without reload.
+                var expectedOrigin = '';
+                try { expectedOrigin = new URL(_psqCollabBase).origin; } catch(_) {}
+                if (expectedOrigin && ev.origin !== expectedOrigin) return;
                 // Collabora postMessages are JSON strings — ignore everything else.
                 var data = ev.data;
                 if (typeof data !== 'string') return;
@@ -18662,20 +18670,39 @@
             };
         }
 
+        // F7 (2026-05-09): hardcoded 60s timeout ceiling on PDF render. Without
+        // it, oversized xlsx (formula-heavy / image-heavy) hangs the UI forever
+        // — Fly.io has no inherent ceiling and soffice-headless can chew through
+        // minutes of CPU on a single sheet. 60s matches the worker's own typical
+        // p99; anything longer is almost certainly a render hang.
+        var _PSQ_PDF_TIMEOUT_MS = 60000;
         async function _psqXlsxToPdf(xlsxBytes) {
             await _psqDetectEndpoint();
             var cfg = _psqGetPdfWorkerConfig();
             if (!cfg.url)   throw new Error('PDF worker URL not configured (localStorage.ps_pdf_worker_url)');
             if (!cfg.token) throw new Error('PDF worker auth token not configured (localStorage.ps_pdf_auth_token)');
             var endpoint = cfg.url + '/xlsx-to-pdf';
-            var resp = await fetch(endpoint, {
-                method: 'POST',
-                headers: {
-                    'Content-Type':  'application/octet-stream',
-                    'Authorization': 'Bearer ' + cfg.token
-                },
-                body: xlsxBytes
-            });
+            var ctrl  = new AbortController();
+            var timer = setTimeout(function() { ctrl.abort(); }, _PSQ_PDF_TIMEOUT_MS);
+            var resp;
+            try {
+                resp = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type':  'application/octet-stream',
+                        'Authorization': 'Bearer ' + cfg.token
+                    },
+                    body: xlsxBytes,
+                    signal: ctrl.signal
+                });
+            } catch(e) {
+                clearTimeout(timer);
+                if (e && e.name === 'AbortError') {
+                    throw new Error('PDF render timeout (>' + (_PSQ_PDF_TIMEOUT_MS/1000) + 's) — ไฟล์ใหญ่เกินไปหรือ worker ค้าง ลองใหม่');
+                }
+                throw e;
+            }
+            clearTimeout(timer);
             if (!resp.ok) {
                 var errText = '';
                 try { errText = await resp.text(); } catch(_) {}
@@ -56739,6 +56766,33 @@ ${_clip(contextSections, 2600)}`;
                 }
                 _pushToGistKeepalive();
             }
+        });
+
+        // F8 (2026-05-09): cross-tab race protection. Browser fires 'storage'
+        // event in OTHER tabs when localStorage changes — use this to detect a
+        // sibling PSLink tab editing critical state. Without this, two tabs
+        // silently overwrite each other on next sync. Prompt to reload (which
+        // syncs from Gist + reads fresh localStorage). Once-per-session guard
+        // prevents spam if many keys flip in quick succession.
+        window.addEventListener('storage', function(e) {
+            if (!e.key) return; // localStorage.clear() — ignore (treated as session reset)
+            var critical = ['ps_records','ps_watchlist','ps_pinned_wl','ps_avatar','ps_profile_photo'];
+            var isCritical = critical.indexOf(e.key) >= 0
+                || /^ps_muse_clips_/.test(e.key)
+                || /^ps_profile_(notes|presets|preset_idx|free_imgs)/.test(e.key);
+            if (!isCritical) return;
+            if (window._psStorageWarnShown) return;
+            window._psStorageWarnShown = true;
+            // Defer to next tick so the writing tab finishes its mutation first
+            setTimeout(function() {
+                var msg = 'อีก tab แก้ข้อมูล (' + e.key + ')\nข้อมูลใน tab นี้อาจเก่า — Reload หรือไม่?';
+                if (confirm(msg)) {
+                    location.reload();
+                } else {
+                    // user dismissed — re-arm after 30s so future changes can re-prompt
+                    setTimeout(function() { window._psStorageWarnShown = false; }, 30000);
+                }
+            }, 50);
         });
 
         // ── Suppress next visibilitychange-triggered sync ──
