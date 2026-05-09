@@ -3187,6 +3187,12 @@
             border-radius: 14px !important;
             box-shadow: var(--cine-inner-highlight) !important;
             position: relative !important;
+            /* Flex column so external thead bar (flex-shrink:0) sits on top and
+               #wl-table-scroll (flex:1; min-height:0) takes the remaining height.
+               This is what makes bar's right edge reach glass-card's rounded
+               corner — bar is OUTSIDE scroll container's scrollbar gutter. */
+            display: flex !important;
+            flex-direction: column !important;
         }
         /* Watchlist max-height — extend the 120px offset by the markets hero
            card height so the table fits the remaining viewport (and scrolls
@@ -3195,15 +3201,22 @@
            height is measured at runtime by _cineUpdateWlMaxHeight() and
            written to --cine-hero-h on <html>. Fallback 150px keeps the rule
            sensible if JS hasn't run yet. Skip when chart is open (.chart-open
-           hides hero via :has() rule above; original 100vh-120 rule applies). */
+           hides hero via :has() rule above; original 100vh-120 rule applies).
+           Selector scoped to #wl-table-scroll explicitly — must NOT match the
+           sibling external thead bar (#wl-thead-bar) that lives at the top. */
         html[data-preset="cinematic"] #wl-split-wrap:not(.chart-open) #wl-table-panel .glass-card,
-        html[data-preset="cinematic"] #wl-split-wrap:not(.chart-open) #wl-table-panel .glass-card > div {
+        html[data-preset="cinematic"] #wl-split-wrap:not(.chart-open) #wl-table-panel .glass-card > #wl-table-scroll {
             /* max-height (not height) — Origin-style: box hugs content when
                rows are few, caps + internal-scroll when rows fill. The cap
                value comes from JS measure (--cine-wl-h) which subtracts an
                explicit gap so the box doesn't sit flush with viewport bottom.
                Fallback covers pre-JS moment. */
             max-height: var(--cine-wl-h, calc(100vh - 320px)) !important;
+        }
+        /* Scroll container fills remaining height under the bar (flex column above). */
+        html[data-preset="cinematic"] #wl-table-panel .glass-card > #wl-table-scroll {
+            flex: 1 1 auto;
+            min-height: 0;
         }
         /* Inner scroll container also transparent — Onyx had it implicit. */
         html[data-preset="cinematic"] #wl-table-scroll,
@@ -3261,29 +3274,37 @@
             text-transform: uppercase !important;
             box-shadow: none !important;
         }
-        /* External thead bar — Cinematic only. Real <div> (not table-cell) so a
-           solid-glass background renders without the table-cell sticky bleed-
-           through quirk that defeated 11 prior in-table attempts. Sticky inside
-           #wl-table-scroll: vertical sticks at top:0; horizontal scrolls with
-           content automatically (no scroll-sync JS needed). Cell widths mirror
-           tbody td geometry via _wlSyncTheadBar — that handles column toggles,
-           chart-open hidden cells, and viewport resize uniformly. */
+        /* External thead bar — Cinematic only. Real <div> sibling above the
+           scroll container (NOT inside it) — that placement is what lets bar's
+           right edge reach glass-card's rounded top-right corner instead of
+           stopping at the scrollbar gutter. Bar itself: flex-shrink:0 block in
+           glass-card's flex column, overflow:hidden. Inner wrapper holds the
+           cells in a flex row with max-content width; horizontal scroll sync
+           via translateX (mobile / overflow case) updates the inner only.
+           Replaces the transparent <thead> bleed-through that 11 prior fixes
+           couldn't solve. See feedback_cinematic_thead_dont_touch.md. */
         #wl-thead-bar { display: none; }
         html[data-preset="cinematic"] #wl-thead-bar {
-            display: flex;
-            position: sticky;
-            top: 0;
-            left: 0;
-            z-index: 20;
-            width: max-content;
-            min-width: 100%;
+            display: block;
+            position: relative;
+            flex-shrink: 0;
+            width: 100%;
             height: 30px;
             box-sizing: border-box;
+            overflow: hidden;
+            z-index: 20;
             background:
                 linear-gradient(180deg,
                     color-mix(in srgb, var(--cine-bg-base, #1a0e12) 90%, transparent) 0%,
                     color-mix(in srgb, var(--cine-bg-base, #1a0e12) 94%, transparent) 100%);
             border-bottom: 1px solid color-mix(in srgb, var(--accent) 32%, transparent);
+        }
+        html[data-preset="cinematic"] #wl-thead-bar-inner {
+            display: flex;
+            width: max-content;
+            min-width: 100%;
+            height: 100%;
+            will-change: transform;
         }
         html[data-preset="cinematic"] .wl-thead-cell {
             flex-shrink: 0;
@@ -4898,7 +4919,11 @@
             max-height: calc(100vh - 120px);
             overflow: hidden;
         }
-        #wl-table-panel .glass-card > div {
+        /* Scoped to #wl-table-scroll explicitly — must NOT match the new external
+           thead bar (#wl-thead-bar) that became a sibling above the scroll container
+           in Cinematic. Without this scope, the bar would inherit overflow-y:auto +
+           max-height and the bar's own height/overflow rules would lose specificity. */
+        #wl-table-panel .glass-card > #wl-table-scroll {
             max-height: calc(100vh - 120px);
             overflow-y: auto;
             overflow-x: auto;
@@ -4937,7 +4962,7 @@
             max-height: calc(100vh - 120px) !important;
             overflow: hidden;
         }
-        #wl-split-wrap.chart-open #wl-table-panel .glass-card > div {
+        #wl-split-wrap.chart-open #wl-table-panel .glass-card > #wl-table-scroll {
             max-height: calc(100vh - 120px);
             overflow-y: auto;
             overflow-x: auto;
@@ -10144,9 +10169,13 @@
                 overflow-x: clip !important;
             }
 
-            /* Remove internal scroll — let watchlist flow to full height (page scrolls) */
+            /* Remove internal scroll — let watchlist flow to full height (page scrolls).
+               Scoped to #wl-table-scroll explicitly so the external thead bar
+               (#wl-thead-bar, sibling above scroll container in Cinematic) is not
+               accidentally given visible overflow — that would break its inner
+               translateX clipping and let cells spill past the bar boundary. */
             #wl-table-panel .glass-card,
-            #wl-table-panel .glass-card > div {
+            #wl-table-panel .glass-card > #wl-table-scroll {
                 max-height: none !important;
                 overflow-y: visible !important;
                 overflow-x: visible !important;
@@ -10679,7 +10708,7 @@
                 max-height: 50vh !important;
             }
             #wl-table-panel .glass-card,
-            #wl-table-panel .glass-card > div {
+            #wl-table-panel .glass-card > #wl-table-scroll {
                 max-height: none !important;
                 overflow-y: visible !important;
                 overflow-x: visible !important;
@@ -11069,7 +11098,7 @@
             #watchlist-table .wl-mob-chg-dn  { background: rgba(242,54,69,0.15) !important; color: var(--wl-dn) !important; }
             #watchlist-table .wl-mob-chgd-up { color: var(--wl-up) !important; }
             #watchlist-table .wl-mob-chgd-dn { color: var(--wl-dn) !important; }
-            #tab-watchlist, #wl-table-panel, #wl-table-panel .glass-card, #wl-table-panel .glass-card > div {
+            #tab-watchlist, #wl-table-panel, #wl-table-panel .glass-card, #wl-table-panel .glass-card > #wl-table-scroll {
                 overflow-x: hidden !important;
                 max-width: 100% !important;
             }
@@ -11130,7 +11159,7 @@
         /* iPhone / จอแคบ (≤450px) — 1 row แบบ Webull: Logo | Symbol+Name | Sparkline | Price */
         @media (max-width: 450px) {
             #tab-watchlist, #wl-table-panel, #wl-table-panel .glass-card,
-            #wl-table-panel .glass-card > div, #watchlist-table {
+            #wl-table-panel .glass-card > #wl-table-scroll, #watchlist-table {
                 min-width: 0 !important;
             }
             #watchlist-table .wl-mob-card-inner {
@@ -12920,36 +12949,40 @@
             <!-- Watchlist Table -->
             <div id="wl-table-panel">
             <div class="glass-card overflow-hidden">
-                <div id="wl-table-scroll" style="overflow-x:auto;overflow-y:auto;scrollbar-gutter:auto;max-height:inherit">
-                <!-- Cinematic external thead bar — replaces transparent in-table <thead> in Cinematic preset only.
-                     11 prior in-table fixes (frost div, backdrop-filter, solid bg) all failed the table-cell sticky
-                     bleed-through quirk. Bar is a real <div> sticky at top:0; widths sync from tbody td geometry
-                     via _wlSyncTheadBar. Hidden in non-Cinematic — original <thead> handles those presets. -->
+                <!-- Cinematic external thead bar — sibling above scroll container so its right edge
+                     reaches glass-card's rounded corner (instead of stopping at scrollbar gutter).
+                     11 prior in-table fixes failed the table-cell sticky bleed-through quirk; this
+                     architecture (real <div> outside scroll container) sidesteps both that quirk
+                     AND the previous fix's gutter-gap issue. Inner wrapper exists for horizontal
+                     scroll sync via translateX (mobile / overflow case). Hidden in non-Cinematic. -->
                 <div id="wl-thead-bar" aria-hidden="true">
-                    <div class="wl-thead-cell"></div>
-                    <div class="wl-thead-cell wl-thead-cl">SYMBOL</div>
-                    <div class="wl-thead-cell wl-thead-cl">NAME</div>
-                    <div class="wl-thead-cell wl-thead-cc">LOW</div>
-                    <div class="wl-thead-cell wl-thead-cc">SIGNAL</div>
-                    <div class="wl-thead-cell wl-thead-cc"><span class="wl-thb-d">ANALYST RATING</span><span class="wl-thb-m">RATING</span></div>
-                    <div class="wl-thead-cell wl-thead-cc">VALUATION</div>
-                    <div class="wl-thead-cell wl-thead-cc">MOVEMENT</div>
-                    <div class="wl-thead-cell wl-thead-cr">LAST</div>
-                    <div class="wl-thead-cell wl-thead-cr">CHG</div>
-                    <div class="wl-thead-cell wl-thead-cr">CHG%</div>
-                    <div class="wl-thead-cell wl-thead-cr wl-thead-premkt">PRE-MKT</div>
-                    <div class="wl-thead-cell wl-thead-cr">OPEN</div>
-                    <div class="wl-thead-cell wl-thead-cr">P.CLS</div>
-                    <div class="wl-thead-cell wl-thead-cr">HIGH</div>
-                    <div class="wl-thead-cell wl-thead-cr">LOW</div>
-                    <div class="wl-thead-cell wl-thead-cr">52W&middot;H</div>
-                    <div class="wl-thead-cell wl-thead-cr">52W&middot;L</div>
-                    <div class="wl-thead-cell wl-thead-cr">MCAP</div>
-                    <div class="wl-thead-cell wl-thead-cr">VOL&middot;10D</div>
-                    <div class="wl-thead-cell wl-thead-cr">BETA</div>
-                    <div class="wl-thead-cell wl-thead-cr">P/E</div>
-                    <div class="wl-thead-cell"></div>
+                    <div id="wl-thead-bar-inner">
+                        <div class="wl-thead-cell"></div>
+                        <div class="wl-thead-cell wl-thead-cl">SYMBOL</div>
+                        <div class="wl-thead-cell wl-thead-cl">NAME</div>
+                        <div class="wl-thead-cell wl-thead-cc">LOW</div>
+                        <div class="wl-thead-cell wl-thead-cc">SIGNAL</div>
+                        <div class="wl-thead-cell wl-thead-cc"><span class="wl-thb-d">ANALYST RATING</span><span class="wl-thb-m">RATING</span></div>
+                        <div class="wl-thead-cell wl-thead-cc">VALUATION</div>
+                        <div class="wl-thead-cell wl-thead-cc">MOVEMENT</div>
+                        <div class="wl-thead-cell wl-thead-cr">LAST</div>
+                        <div class="wl-thead-cell wl-thead-cr">CHG</div>
+                        <div class="wl-thead-cell wl-thead-cr">CHG%</div>
+                        <div class="wl-thead-cell wl-thead-cr wl-thead-premkt">PRE-MKT</div>
+                        <div class="wl-thead-cell wl-thead-cr">OPEN</div>
+                        <div class="wl-thead-cell wl-thead-cr">P.CLS</div>
+                        <div class="wl-thead-cell wl-thead-cr">HIGH</div>
+                        <div class="wl-thead-cell wl-thead-cr">LOW</div>
+                        <div class="wl-thead-cell wl-thead-cr">52W&middot;H</div>
+                        <div class="wl-thead-cell wl-thead-cr">52W&middot;L</div>
+                        <div class="wl-thead-cell wl-thead-cr">MCAP</div>
+                        <div class="wl-thead-cell wl-thead-cr">VOL&middot;10D</div>
+                        <div class="wl-thead-cell wl-thead-cr">BETA</div>
+                        <div class="wl-thead-cell wl-thead-cr">P/E</div>
+                        <div class="wl-thead-cell"></div>
+                    </div>
                 </div>
+                <div id="wl-table-scroll" style="overflow-x:auto;overflow-y:auto;scrollbar-gutter:auto;max-height:inherit">
                 <table id="watchlist-table" class="w-full min-w-[800px]">
                     <colgroup>
                         <col style="width:26px"> <col style="width:114px"> <col style="width:150px"> <col style="width:48px"> <col style="width:88px">
@@ -38352,11 +38385,16 @@ ${paras}
         // already reflect <col> widths + chart-open display:none + column toggles)
         // and mirrors into the corresponding bar cell. Falls back to <col>.style.width
         // when no rows have rendered yet (boot / empty watchlist).
+        // Bar lives OUTSIDE #wl-table-scroll (sibling above it). Cells live inside
+        // #wl-thead-bar-inner so horizontal scroll sync can transform that wrapper
+        // without affecting bar's bg/border (which must stay aligned to glass-card).
         function _wlSyncTheadBar() {
             const bar = document.getElementById('wl-thead-bar');
             if (!bar) return;
             if (getComputedStyle(bar).display === 'none') return; // skip in non-cinematic
-            const cells = bar.children;
+            const inner = document.getElementById('wl-thead-bar-inner');
+            if (!inner) return;
+            const cells = inner.children;
             if (!cells.length) return;
             let refRow = null;
             const rows = document.querySelectorAll('#watchlist-table tbody tr.wl-row');
@@ -38388,10 +38426,14 @@ ${paras}
                     cell.style.width = w + 'px';
                 }
             }
+            // Apply current scrollLeft so freshly-set widths render at the right offset.
+            const scroll = document.getElementById('wl-table-scroll');
+            if (scroll) inner.style.transform = 'translateX(' + (-scroll.scrollLeft) + 'px)';
         }
-        // Observe the scroll container to re-sync on container resize (panel
-        // grow/shrink, chart open/close geometry change) — belt-and-suspenders
-        // beyond the explicit hooks in _applyWlCols / _applyPreset / openQuickChart.
+        // Setup once on DOM ready: ResizeObserver for layout changes + horizontal
+        // scroll listener to keep bar inner aligned with table when user scrolls
+        // horizontally (mobile or overflow case, since bar is outside scroll container
+        // and won't auto-track horizontal scroll like a sticky child would).
         (function _wlInitTheadBarObserver() {
             const setup = () => {
                 const scroll = document.getElementById('wl-table-scroll');
@@ -38399,6 +38441,11 @@ ${paras}
                 if (typeof ResizeObserver !== 'undefined') {
                     new ResizeObserver(() => requestAnimationFrame(_wlSyncTheadBar)).observe(scroll);
                 }
+                scroll.addEventListener('scroll', () => {
+                    const inner = document.getElementById('wl-thead-bar-inner');
+                    if (!inner) return;
+                    inner.style.transform = 'translateX(' + (-scroll.scrollLeft) + 'px)';
+                }, { passive: true });
                 requestAnimationFrame(_wlSyncTheadBar);
             };
             if (document.readyState === 'loading') {
