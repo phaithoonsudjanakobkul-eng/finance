@@ -3241,57 +3241,13 @@
            Specificity (1,2,4) matches Onyx rule at line ~622. */
         html[data-preset="cinematic"] #wl-table-panel .glass-card thead tr,
         html[data-preset="cinematic"] #wl-table-panel .glass-card thead tr th,
-        /* Cinematic thead — bg applied to <thead> (table-header-group)
-           ONLY, with body's 3-layer gradient + background-attachment:fixed.
-           Why thead and not tr/th: applying to each <th> (table-cell)
-           caused each cell to render its OWN gradient inside its bounds
-           → wave/tile pattern at cell boundaries (user feedback
-           "เป็นคลื่นหมดเลย" 2026-05-09). The thead element renders the
-           gradient as one continuous fill across the full header width.
-           Fixed attachment maps the gradient to viewport coords so it
-           aligns pixel-perfect with the body's bg → visually equivalent
-           to "body bleeding through transparent thead", but OPAQUE
-           (linear-gradient base layer has no transparent stops) so rows
-           scrolling under the sticky thead cannot bleed through.
-           tr and th are forced transparent so they don't paint over
-           thead's gradient. Variant-aware via --cine-bg-* tokens. */
-        html[data-preset="cinematic"] #watchlist-table thead {
-            background:
-                radial-gradient(ellipse at 75% 25%, var(--cine-bg-warm) 0%, transparent 55%),
-                radial-gradient(ellipse at 15% 85%, var(--cine-bg-cool) 0%, transparent 60%),
-                linear-gradient(135deg, var(--cine-bg-base) 0%, var(--cine-bg-base-mid) 50%, var(--cine-bg-base) 100%) !important;
-            background-attachment: fixed !important;
-        }
-        /* Scrollbar-gutter filler — thead lives inside #wl-table-scroll, so
-           thead's width = scroll content width = glass-card width MINUS the
-           3px scrollbar gutter. The gap shows glass-card's normal recipe
-           (cream tint + blurred body) which differs from thead's body
-           gradient → user sees a small notch at top-right (feedback
-           "ตรงที่วงสีแดงมันว่างอยู่เพราะเป็น Scroll bar" 2026-05-09).
-           Filler covers the 3px gutter at the top with the SAME body
-           gradient as thead, fixed-attachment so the gradient slice at the
-           filler's right-edge viewport position aligns pixel-perfect with
-           thead's gradient at that same position. Glass-card's overflow:
-           hidden + 14px radius rounds the filler's top-right corner
-           naturally. Only filler the thead height (32px) — below that, the
-           gutter sits inside the row strip area where glass-card's normal
-           recipe matches the surrounding visual. */
-        #cine-thead-gutter-fill { display: none; }
-        html[data-preset="cinematic"] #cine-thead-gutter-fill {
-            display: block;
-            position: absolute;
-            top: 0;
-            right: 0;
-            width: 4px;
-            height: 32px;
-            pointer-events: none;
-            z-index: 5;
-            background:
-                radial-gradient(ellipse at 75% 25%, var(--cine-bg-warm) 0%, transparent 55%),
-                radial-gradient(ellipse at 15% 85%, var(--cine-bg-cool) 0%, transparent 60%),
-                linear-gradient(135deg, var(--cine-bg-base) 0%, var(--cine-bg-base-mid) 50%, var(--cine-bg-base) 100%);
-            background-attachment: fixed;
-        }
+        /* Watchlist header — minimal transparent + strong accent hairline.
+           Header has NO background fill; relies on typography (uppercase +
+           letter-spacing + dim color) and a 1px coral hairline below to
+           separate from data. Sits seamlessly within the warm body palette.
+           Specificity (1,2,4) matches Onyx rule at line ~622. */
+        html[data-preset="cinematic"] #wl-table-panel .glass-card thead tr,
+        html[data-preset="cinematic"] #wl-table-panel .glass-card thead tr th,
         html[data-preset="cinematic"] #watchlist-table thead tr,
         html[data-preset="cinematic"] #watchlist-table thead tr th {
             background: transparent !important;

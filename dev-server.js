@@ -3,7 +3,7 @@
  * PSLink Dev Server (Beefy Edition)
  *
  * Usage:
- *   npm run dev              HTTPS local + Chrome dev profile + DevTools
+ *   npm run dev              HTTPS local + Chrome
  *                            + AUTO-DEPLOY to GitHub Pages on save (90s debounce)
  *   npm run dev:tunnel       above + Cloudflare Tunnel public URL
  *   npm run dev:headless     no auto-open browser
@@ -257,9 +257,8 @@ function openBrowser(url) {
     exec(`start "" "${url}"`);
     return;
   }
-  log('chrome', `Opening Chrome with DevTools...`, 'cyan');
+  log('chrome', `Opening Chrome...`, 'cyan');
   const child = spawn(CHROME, [
-    '--auto-open-devtools-for-tabs',
     url,
   ], { detached: true, stdio: 'ignore' });
   child.unref();
