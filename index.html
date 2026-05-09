@@ -3261,6 +3261,65 @@
             text-transform: uppercase !important;
             box-shadow: none !important;
         }
+        /* External thead bar — Cinematic only. Real <div> (not table-cell) so a
+           solid-glass background renders without the table-cell sticky bleed-
+           through quirk that defeated 11 prior in-table attempts. Sticky inside
+           #wl-table-scroll: vertical sticks at top:0; horizontal scrolls with
+           content automatically (no scroll-sync JS needed). Cell widths mirror
+           tbody td geometry via _wlSyncTheadBar — that handles column toggles,
+           chart-open hidden cells, and viewport resize uniformly. */
+        #wl-thead-bar { display: none; }
+        html[data-preset="cinematic"] #wl-thead-bar {
+            display: flex;
+            position: sticky;
+            top: 0;
+            left: 0;
+            z-index: 20;
+            width: max-content;
+            min-width: 100%;
+            height: 30px;
+            box-sizing: border-box;
+            background:
+                linear-gradient(180deg,
+                    color-mix(in srgb, var(--cine-bg-base, #1a0e12) 90%, transparent) 0%,
+                    color-mix(in srgb, var(--cine-bg-base, #1a0e12) 94%, transparent) 100%);
+            border-bottom: 1px solid color-mix(in srgb, var(--accent) 32%, transparent);
+        }
+        html[data-preset="cinematic"] .wl-thead-cell {
+            flex-shrink: 0;
+            box-sizing: border-box;
+            padding: 6px 6px;
+            line-height: 18px;
+            font-family: 'Inter', 'IBM Plex Sans Thai', system-ui, sans-serif;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+            color: rgb(var(--cine-fg-rgb) / 0.55);
+            text-align: right;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        html[data-preset="cinematic"] .wl-thead-cl { text-align: left; }
+        html[data-preset="cinematic"] .wl-thead-cc { text-align: center; }
+        html[data-preset="cinematic"] .wl-thead-cr { text-align: right; }
+        html[data-preset="cinematic"] .wl-thead-premkt {
+            color: #f59e0b;
+            padding: 6px 8px;
+            letter-spacing: 0.05em;
+        }
+        html[data-preset="cinematic"] .wl-thb-m { display: none; }
+        @media (max-width: 1200px) {
+            html[data-preset="cinematic"] .wl-thb-d { display: none; }
+            html[data-preset="cinematic"] .wl-thb-m { display: inline; }
+        }
+        /* Hide original <thead> in cinematic — bar replaces it visually + spatially.
+           display:none collapses the row entirely so tbody starts at scroll top:0
+           directly under bar (no double-row stack). */
+        html[data-preset="cinematic"] #watchlist-table thead {
+            display: none !important;
+        }
         html[data-preset="cinematic"] #watchlist-table tbody tr.wl-row {
             background: transparent !important;
             border-bottom-color: var(--cine-glass-border) !important;
@@ -12862,6 +12921,35 @@
             <div id="wl-table-panel">
             <div class="glass-card overflow-hidden">
                 <div id="wl-table-scroll" style="overflow-x:auto;overflow-y:auto;scrollbar-gutter:auto;max-height:inherit">
+                <!-- Cinematic external thead bar — replaces transparent in-table <thead> in Cinematic preset only.
+                     11 prior in-table fixes (frost div, backdrop-filter, solid bg) all failed the table-cell sticky
+                     bleed-through quirk. Bar is a real <div> sticky at top:0; widths sync from tbody td geometry
+                     via _wlSyncTheadBar. Hidden in non-Cinematic — original <thead> handles those presets. -->
+                <div id="wl-thead-bar" aria-hidden="true">
+                    <div class="wl-thead-cell"></div>
+                    <div class="wl-thead-cell wl-thead-cl">SYMBOL</div>
+                    <div class="wl-thead-cell wl-thead-cl">NAME</div>
+                    <div class="wl-thead-cell wl-thead-cc">LOW</div>
+                    <div class="wl-thead-cell wl-thead-cc">SIGNAL</div>
+                    <div class="wl-thead-cell wl-thead-cc"><span class="wl-thb-d">ANALYST RATING</span><span class="wl-thb-m">RATING</span></div>
+                    <div class="wl-thead-cell wl-thead-cc">VALUATION</div>
+                    <div class="wl-thead-cell wl-thead-cc">MOVEMENT</div>
+                    <div class="wl-thead-cell wl-thead-cr">LAST</div>
+                    <div class="wl-thead-cell wl-thead-cr">CHG</div>
+                    <div class="wl-thead-cell wl-thead-cr">CHG%</div>
+                    <div class="wl-thead-cell wl-thead-cr wl-thead-premkt">PRE-MKT</div>
+                    <div class="wl-thead-cell wl-thead-cr">OPEN</div>
+                    <div class="wl-thead-cell wl-thead-cr">P.CLS</div>
+                    <div class="wl-thead-cell wl-thead-cr">HIGH</div>
+                    <div class="wl-thead-cell wl-thead-cr">LOW</div>
+                    <div class="wl-thead-cell wl-thead-cr">52W&middot;H</div>
+                    <div class="wl-thead-cell wl-thead-cr">52W&middot;L</div>
+                    <div class="wl-thead-cell wl-thead-cr">MCAP</div>
+                    <div class="wl-thead-cell wl-thead-cr">VOL&middot;10D</div>
+                    <div class="wl-thead-cell wl-thead-cr">BETA</div>
+                    <div class="wl-thead-cell wl-thead-cr">P/E</div>
+                    <div class="wl-thead-cell"></div>
+                </div>
                 <table id="watchlist-table" class="w-full min-w-[800px]">
                     <colgroup>
                         <col style="width:26px"> <col style="width:114px"> <col style="width:150px"> <col style="width:48px"> <col style="width:88px">
@@ -38057,6 +38145,11 @@ ${paras}
             }
 
             wrap.classList.add('chart-open');
+            // chart-open hides cells via display:none — re-sync cinematic bar
+            // widths so it matches the compact column layout.
+            if (typeof _wlSyncTheadBar === 'function') {
+                requestAnimationFrame(() => requestAnimationFrame(_wlSyncTheadBar));
+            }
             setCompactHeaders(true);
             // Scroll window so quick-chart-panel top lands at y=120 — matches the
             // 120px offset that watchlist's normal height uses (height: calc(100vh - 120)).
@@ -38251,7 +38344,67 @@ ${paras}
             });
             if (colEls[22]) colEls[22].style.width = Math.max(36, containerW - usedW) + 'px';
             _updateColBadge();
+            // Sync the cinematic external thead bar (no-op in non-cinematic).
+            // rAF lets the just-set <col> widths settle into td layout before measure.
+            requestAnimationFrame(_wlSyncTheadBar);
         }
+        // Cinematic external thead bar — width sync. Reads tbody td widths (which
+        // already reflect <col> widths + chart-open display:none + column toggles)
+        // and mirrors into the corresponding bar cell. Falls back to <col>.style.width
+        // when no rows have rendered yet (boot / empty watchlist).
+        function _wlSyncTheadBar() {
+            const bar = document.getElementById('wl-thead-bar');
+            if (!bar) return;
+            if (getComputedStyle(bar).display === 'none') return; // skip in non-cinematic
+            const cells = bar.children;
+            if (!cells.length) return;
+            let refRow = null;
+            const rows = document.querySelectorAll('#watchlist-table tbody tr.wl-row');
+            for (let i = 0; i < rows.length; i++) {
+                if (rows[i].getBoundingClientRect().width > 0) { refRow = rows[i]; break; }
+            }
+            if (refRow) {
+                const tds = refRow.children;
+                for (let i = 0; i < cells.length; i++) {
+                    const cell = cells[i];
+                    const td = tds[i];
+                    if (!td) { cell.style.display = 'none'; continue; }
+                    const cs = getComputedStyle(td);
+                    if (cs.display === 'none') { cell.style.display = 'none'; continue; }
+                    const w = td.getBoundingClientRect().width;
+                    if (w <= 0) { cell.style.display = 'none'; continue; }
+                    cell.style.display = '';
+                    cell.style.width = w + 'px';
+                }
+            } else {
+                const cols = document.querySelectorAll('#watchlist-table > colgroup > col');
+                for (let i = 0; i < cells.length; i++) {
+                    const cell = cells[i];
+                    const col = cols[i];
+                    if (!col) { cell.style.display = 'none'; continue; }
+                    const w = parseFloat(col.style.width) || 0;
+                    if (w <= 0) { cell.style.display = 'none'; continue; }
+                    cell.style.display = '';
+                    cell.style.width = w + 'px';
+                }
+            }
+        }
+        // Observe the scroll container to re-sync on container resize (panel
+        // grow/shrink, chart open/close geometry change) — belt-and-suspenders
+        // beyond the explicit hooks in _applyWlCols / _applyPreset / openQuickChart.
+        (function _wlInitTheadBarObserver() {
+            const setup = () => {
+                const scroll = document.getElementById('wl-table-scroll');
+                if (!scroll) { setTimeout(setup, 200); return; }
+                if (typeof ResizeObserver !== 'undefined') {
+                    new ResizeObserver(() => requestAnimationFrame(_wlSyncTheadBar)).observe(scroll);
+                }
+                requestAnimationFrame(_wlSyncTheadBar);
+            };
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', setup);
+            } else { setup(); }
+        })();
         function _wlToggleCol(key, on) {
             _lwcPrefs.cols = _lwcPrefs.cols || {};
             _lwcPrefs.cols[key] = on;
@@ -45028,6 +45181,11 @@ ${_clip(contextSections, 2600)}`;
                     _avatar.style.borderColor = _ac;
                     _avatar.style.boxShadow = '0 2px 12px color-mix(in srgb,' + _ac + ' 15%,transparent)';
                 }
+            }
+            // Cinematic bar visibility flips with data-preset attr — sync widths so
+            // freshly-shown bar cells align with column widths instead of natural-sizing.
+            if (typeof _wlSyncTheadBar === 'function') {
+                requestAnimationFrame(_wlSyncTheadBar);
             }
         }
 
