@@ -56660,33 +56660,49 @@ ${_clip(contextSections, 2600)}`;
 
         // ── Periodic safety-net: sync every 30s if data changed but wasn't saved ─
         // Uses _lastSavedHash from _pushToGist — only fires if something slipped through
+        //
+        // F2 (2026-05-09): swapped length proxies for djb2 content hash.
+        // Length-only proxies caused false-skip when 2 payloads happened to share
+        // structure + length (e.g., rename "Salary" 6 chars → "Wages " 6 chars,
+        // single-char edit in notes HTML, API key rotation to same-length key).
+        // djb2 is sync, fast (~100ns/KB), catches single-char changes; not crypto-grade
+        // but sufficient for a "did data change since last sync" guard. Real cross-device
+        // conflict resolution still uses lastModifiedTs timestamp in _buildExportData.
+        function _hashStr(s) {
+            if (!s) return '0';
+            let h = 5381;
+            for (let i = 0; i < s.length; i++) {
+                h = ((h << 5) + h + s.charCodeAt(i)) | 0; // h*33 + c, 32-bit
+            }
+            return (h >>> 0).toString(36); // unsigned base36 — short, collision-resistant
+        }
         function _dataHash() {
             const rHash = records.map(r =>
                 r.id + '|' + r.payday + '|' +
                 (r.fixed  ||[]).map(x=>(x.name||'')+(x.val||x.amount||0)+(x.isPaid?1:0)).join(',') + '|' +
                 (r.dynamic||[]).map(x=>(x.name||'')+(x.val||x.amount||0)+(x.isPaid?1:0)).join(',')
             ).join(';');
-            // Include avatar/profilePhoto length as proxy — avoids hashing full base64
-            // but still detects a new photo being set
-            const avHash = (db.avatar        ? String(db.avatar.length)        : '0');
-            const ppHash = (db.profilePhoto  ? String(db.profilePhoto.length)  : '0');
-            // Profile card: use length proxies to detect changes without hashing base64 imgs
+            // F2: hash actual base64 content (not just length) — catches content-changed-but-same-size
+            const avHash = _hashStr(db.avatar || '');
+            const ppHash = _hashStr(db.profilePhoto || '');
+            // Profile card: hash actual content for notes/free-imgs (single-char edits caught now)
             const pcHash = [
-                localStorage.getItem('ps_profile_notes_html')?.length || 0,
-                localStorage.getItem('ps_profile_free_imgs')?.length  || 0,
+                _hashStr(localStorage.getItem('ps_profile_notes_html') || ''),
+                _hashStr(localStorage.getItem('ps_profile_free_imgs')  || ''),
                 localStorage.getItem('ps_profile_pills_hidden')        || '',
                 localStorage.getItem('ps_pinned_wl')                   || '',
             ].join('|');
             const lwcHash = localStorage.getItem('ps_lwc_prefs') || '';
-            const museHash = MUSE_PRESET_KEYS.map(function(k) { return (localStorage.getItem(k) || '').length; }).join(',')
+            // F2: hash MUSE preset content (was length-only — clip swap with same-size payload escaped)
+            const museHash = MUSE_PRESET_KEYS.map(function(k) { return _hashStr(localStorage.getItem(k) || ''); }).join(',')
                 + '|' + (localStorage.getItem(MUSE_PRESET_IDX_KEY) || '0')
                 + '|' + (localStorage.getItem(MUSE_COLLAPSED_KEY) || '0')
                 + '|' + (localStorage.getItem('ps_muse_pws') || '');
-            const psPresetsHash = (localStorage.getItem('ps_profile_presets') || '').length
+            const psPresetsHash = _hashStr(localStorage.getItem('ps_profile_presets') || '')
                 + '|' + (localStorage.getItem('ps_profile_preset_idx') || '0');
-            // API keys: include presence/length (not content) for change detection
+            // F2: hash API key content (was length-only — same-length key rotation escaped detection)
             const apiKeysHash = ['ps_finnhub_key','ps_fmp_key','ps_erapi_key','ps_twelvedata_key','ps_alpaca_key','ps_alpaca_secret','ps_openrouter_key','ps_r2_worker_url','ps_r2_auth_token','ps_psq_wopi_url','ps_psq_wopi_token','ps_psq_collabora_url','ps_pdf_worker_url','ps_pdf_auth_token','ps_psq_local_base']
-                .map(k => (localStorage.getItem(k)||'').length).join(',');
+                .map(k => _hashStr(localStorage.getItem(k)||'')).join(',');
             const themeHash = (localStorage.getItem('ps_theme')||'') + '|' + (localStorage.getItem('ps_dark')||'');
             const fxHash = (localStorage.getItem('ps_fx_self_mid')||'') + '|' + (localStorage.getItem('ps_fx_self_date')||'');
             const tabHash = localStorage.getItem('ps_tab') || 'dashboard';
