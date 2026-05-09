@@ -2,6 +2,7 @@
 
 **Decision committed**: 2026-05-08
 **Target completion**: before 2026-05-25 (before file hits 70k lines)
+**Effort budget**: ~7-13 sessions total (~20-35 ชม. รวม) for AI-assisted single-dev work — NOT human-team weeks
 **Owner**: Phaithoon (พี่เก่ง) + Claude (จูน)
 
 This document is the single source of truth for migrating PSLink from a single 57.8k-line `index.html` to a modern Vite + dynamic-import architecture. It is OneDrive-synced so it stays in sync between work laptop and personal laptop.
@@ -173,7 +174,97 @@ src/widgets/
 
 ---
 
-## Session 2 plan (target: within 1 week)
+## Storage & Worker audit (verified 2026-05-09)
+
+This section is the verified ground truth for every storage / sync / worker touchpoint in the current monolith. Audited via 3 parallel Explore agents over `index.html`. Numbers reflect actual code at audit time.
+
+### Summary stats
+
+| Surface | Functions | Endpoints / keys | Coverage |
+|---|---|---|---|
+| localStorage | 254 calls (86 get, 167 set, 1 remove) | 90+ unique `ps_*` keys across 14 prefixes | **12 of 167 setItem use `_lsSave` wrapper (4.7%)** ⚠ |
+| IndexedDB | 4 wrappers (`_r2InitIdb/Put/Get/Delete`) | 1 DB (`PSLinkMedia` v1), 1 store (`blobs`) | Graceful fail (silent on error); no quota check |
+| Gist sync | 11 core functions (sync/push/encrypt/hash/keepalive) | 1 Gist (AES-256-GCM encrypted) | All race guards present; salts verified |
+| R2 worker | 11 functions (upload/download/delete/derive/cache) | 4 endpoints + `/yahoo` proxy | Auth + decrypt OK; fire-and-forget upload misses retry |
+| Fly.io workers | Collabora + WOPI + PDF | Cloud always (Collabora/WOPI); Hybrid PDF | 1.5s probe + 3min cache; PDF timeout missing |
+| ComfyUI (PSAI) | 5 functions + WebSocket | localhost only (mixed-content guarded) | Defensive guards in place; WS reconnect missing |
+
+### 🔴 Critical findings (must fix before or during Session 2)
+
+| # | Finding | File:line | Risk |
+|---|---|---|---|
+| C1 | **`_lsSave` coverage 4.7%** — 168 raw `localStorage.setItem` bypass quota wrapper. API keys (`ps_gist_token`, `ps_finnhub_key`, `ps_alpaca_key/secret`) at lines 12430, 12573-12576 fail silently on quota | [index.html:56518](index.html#L56518) (wrapper) | App "saves" silently fails on quota — user re-types keys, lost again |
+| C2 | **`_dataHash()` is string concat, not crypto hash** — different payloads can hash identically; used as race guard, false-skip = data loss | [index.html:56663](index.html#L56663) | High-frequency edits could collide → Gist sync skip → data lost |
+| C3 | **TextEncoder + `crypto.subtle` + `btoa` polyfill** — if Vite bundles any shim, output bytes diverge → existing user Gist becomes unrecoverable | [index.html:46766](index.html#L46766), [56346](index.html#L56346) | **Catastrophic — entire user data unrecoverable post-migration** |
+| C4 | **Collabora `postMessage` origin = `*`** — accepts any iframe origin without validation; XSS vector if malicious iframe injected | [index.html:17941](index.html#L17941) | Security: arbitrary script context |
+| C5 | **`_r2UploadPhoto()` fire-and-forget** — no error handler; network drop = encrypted bytes orphaned in R2, no retry | [index.html:46961](index.html#L46961) | User photo "saved" silently fails |
+| C6 | **WOPI token expiry mid-edit** — 401 on CheckFileInfo silently fails, no re-auth flow | [index.html:17708](index.html#L17708), [17859](index.html#L17859), [17882](index.html#L17882) | Path E editor breaks mid-session, user loses edits |
+| C7 | **PDF worker unbounded timeout** — large xlsx render 60s+ hangs UI without timeout | [index.html:18668](index.html#L18668) | UI freeze, user thinks app crashed |
+| C8 | **Cross-tab race** — no `window.addEventListener('storage', ...)` listener; two PSLink tabs can corrupt `ps_records`, `ps_watchlist`, `ps_muse_clips_*` | (absent) | Silent data corruption when user opens 2 tabs |
+
+### 🟡 Important findings (fix in Session 3)
+
+| # | Finding | File:line | Notes |
+|---|---|---|---|
+| I1 | IDB version locked at 1, no upgrade path; no `onblocked` handler | [index.html:46703-46707](index.html#L46703-L46707) | Future schema change blocks |
+| I2 | `localStorage.clear()` never called → stale tokens on shared device | (absent) | Privacy concern |
+| I3 | `_r2DeleteKeys()` fire-and-forget orphans R2 blobs if offline | [index.html:47004](index.html#L47004) | Storage cost creep |
+| I4 | Concurrent same-key R2 uploads overwrite without warning | [index.html:46793](index.html#L46793) | PSUP model corruption race |
+| I5 | Gist token rotation doesn't revoke old token in localStorage | (absent) | Orphan token accumulates |
+| I6 | HKDF `info` param hardcoded `'aes-gcm-256'`, no assertion — divergent code paths could break decrypt | [index.html:46767](index.html#L46767), [56347](index.html#L56347) | Manual-review only |
+| I7 | Custom `btoa` wrapper at line 56354 vs native `btoa` at line 56340 — inconsistency, no test | [index.html:56340](index.html#L56340), [56354](index.html#L56354) | Edge-case byte sequence divergence |
+| I8 | ComfyUI WebSocket drop = no reconnect, user manual retry | [index.html:14718](index.html#L14718) | UX degradation |
+| I9 | Yahoo Finance proxy: no RPS/quota tracking; upstream 429 → 502 relay | pslink-r2-worker `src/index.js:112` | Quota exhaustion = silent stale data |
+
+### 🟢 Verified solid (no action needed)
+
+- AES-256-GCM + HKDF + native `crypto.subtle` — robust, salts confirmed (`PSLink-Gist-v1`, `PSLink-R2-v1`, domain-separated)
+- Gist race guards (`_isSyncing`, `_isSaving`, `_gistInitialSyncComplete`, `_dataHash` despite C2)
+- Gist 401 / 403 / 404 / 429 handling + 2-min backoff on rate limit
+- Gist `pagehide` keepalive via `sendBeacon` + 64KB guard + `ps_data_dirty` fallback
+- R2 IDB graceful fail (no hang on errors; lazy init pattern)
+- R2 async DOM re-find pattern (Rule 22 verified in `_r2LoadVideoForElement`)
+- R2 thumb 404 single-retry to full-size key
+- Collabora 15s save timeout (`AbortController` + `Promise.all` race)
+- Hybrid PDF 1.5s probe with cloud fallback (3-min TTL on detection cache)
+- PSAI mixed-content guard + `AbortController` on every fetch (5s probe / 15s prompt / 60s upload)
+- Boot-time theme migration (`_THEME_KEY_MIGRATION`: 'tv'→'onyx', 'apple'→'slate'); per-theme `ps_clock_color` migration
+- Logo / sparkline cache eviction on quota (LOGO_DATA_CACHE_KEY, SYMBOL_LOGO_CACHE_KEY, ps_wl_spark_cache_v5)
+
+### Vite migration risks (verified, ranked)
+
+1. **🔴 TextEncoder / `crypto.subtle` / `btoa` byte-identical** (C3) — Vite must NOT polyfill any of these. Lock via `tsconfig.lib: ["DOM"]` only + audit final bundle for crypto shims. **CI gate required (test F3 below).**
+2. **🔴 R2 globals init at module load** (`R2_WORKER_URL`, `R2_AUTH_TOKEN` at [index.html:46699-46700](index.html#L46699-L46700)) — Vite hoisting + lazy import order = token undefined early → fire-and-forget uploads fail. Convert to lazy getter `() => localStorage.getItem(...)`.
+3. **🔴 `_lsSave` import topology** — 12 callers spread across modules. On split: must live in shared core chunk to avoid duplication / skipped quota check.
+4. **🟡 Inline WebWorker blobs** (PSI histogram, PSUP queue, etc.) — Vite prefers `new Worker(new URL('./worker.js', import.meta.url))`. Inline blobs work but won't tree-shake; verify pattern during Session 3 extraction.
+5. **🟡 Collabora iframe `src` with `/pslink/` GitHub Pages base** — `_psqCollabBase + '/browser/.../cool.html'` must NOT be rewritten by Vite's base path. Store as runtime config, not computed at module load.
+6. **🟡 `JSON.stringify` key order in `_buildExportData()`** — minifier could reorder; affects `_dataHash` (after F2) and any downstream byte-comparison test. Pin via sorted-keys serializer if needed.
+7. **🟡 Module-load-time `localStorage.getItem`** at 46+ closure positions — fresh device returns `undefined`; defer to lazy getters during extraction.
+8. **🟢 Native `crypto.getRandomValues`** — not affected by Vite.
+9. **🟢 `crypto.subtle.encrypt/decrypt`** — native, not affected by Vite (assuming risk #1 stays clean).
+
+---
+
+## Critical pre-Session-2 fixes (locked 2026-05-09)
+
+These are NOT optional — they are pre-conditions for Session 2 to be safe. Each maps to a Critical finding above. All fixes apply to current monolith AND post-Vite codebase, so doing them now means we don't repeat the work post-split.
+
+| # | Fix | Maps to | Effort | Why now (vs after Vite) |
+|---|---|---|---|---|
+| **F1** | Audit all 168 raw `localStorage.setItem` calls → wrap with `_lsSave` (or inline try/catch). Priority: API keys ([12430](index.html#L12430), [12573-12576](index.html#L12573-L12576)) first | C1 | 1-2 hr | Easier to grep in single file; post-split = 8 module audits |
+| **F2** | Replace `_dataHash()` string-concat with `crypto.subtle.digest('SHA-256', ...)` returning hex (async — adjust callers) | C2 | 30 min | Standalone fix, no Vite dependency |
+| **F3** | Write byte-identical roundtrip **Vitest** BEFORE Session 2 starts. Encrypt sample `_buildExportData()` payload, save ciphertext fixture, decrypt with Vite bundle, assert byte equality | C3 | 2 hr | Catches polyfill regression the moment Vite is introduced |
+| **F4** | Add Collabora `postMessage` origin check — accept only `https://pslink-collabora.fly.dev` (and dev origin if local Collabora) | C4 | 15 min | Security fix, no migration dep |
+| **F5** | Wrap `_r2UploadPhoto`, `_r2DeleteKeys` in try/catch + retry queue (localStorage `ps_r2_pending_*`); flush on next sync | C5 + I3 | 1 hr | Same code shape post-migration; do once |
+| **F6** | Add WOPI 401 → re-fetch token + retry once flow in `_psqEditorUploadToWopi` and WOPI download | C6 | 1 hr | Path E reliability; no migration dep |
+| **F7** | Add `AbortController` + 60s timeout to `_psqXlsxToPdf` + UI progress feedback | C7 | 30 min | UX fix; no migration dep |
+| **F8** | Add `window.addEventListener('storage', ...)` listener that warns / reloads if another tab modifies critical keys (`ps_records`, `ps_watchlist`, `ps_muse_clips_*`) | C8 | 1 hr | Fixes silent data corruption regardless of Vite |
+
+**Total: 1-2 sessions (~2-4 ชม.).** Each F-fix is a small surgical change; the per-fix "effort" column estimates apply only if a fix uncovers deeper issues. Recommend completing F1-F8 in a dedicated `vite-prep-hardening` branch merged to main BEFORE branching `vite-migration`.
+
+---
+
+## Session 2 plan (target: 1 session, ~2-3 ชม.)
 
 **Goal**: Get Vite building current `index.html` as a single bundle, with TypeScript opt-in already wired. No splitting yet.
 
@@ -212,9 +303,9 @@ src/widgets/
 
 ---
 
-## Session 3 plan (target: within 2 weeks)
+## Session 3 plan (target: 2-4 sessions, ~6-12 ชม.)
 
-**Goal**: Split utilities into lazy-loaded modules using folder pattern. Setup CI/CD.
+**Goal**: Split utilities into lazy-loaded modules using folder pattern. Setup CI/CD. Heaviest phase because 7 modules + presets/tabs extraction + event bus + skill update all happen here. Can stretch across multiple sessions safely (each module extraction is independent).
 
 1. Extract per-prefix to module folders (follow Architecture conventions §3):
    ```
@@ -271,9 +362,11 @@ src/widgets/
 
 ---
 
-## Phase 4 plan (target: 1-2 weeks after Session 3)
+## Phase 4 plan (target: 4-6 sessions total, ~10-16 ชม., after Session 3)
 
 **Goal**: Lock in 10-year sustainability — full TypeScript, tests, Tauri Desktop shell.
+
+Breakdown: Phase 4a (TS convert) ~2-3 sessions, Phase 4b (tests) ~1-2 sessions, Phase 4c (Tauri) ~1 session.
 
 ### 4a. Convert .js → .ts (incremental TS already running since Session 2)
 
@@ -287,18 +380,41 @@ By this point `tsconfig.json` has `allowJs: true`, `checkJs: true`, `strict: tru
 
 ### 4b. Tests (Vitest + Playwright)
 
-**Vitest** for pure functions (target: critical paths, NOT 100% coverage):
-- Encryption round-trip (`_gistEncrypt` / `_gistDecrypt`) — must be byte-identical
-- Sparkline filter — 3 invariants (filter + market-open guard via `_isMarketOpenCached` + 320-bar slice)
-- Intl helper cache (`_ET_HM_FMT` etc.) — verify hot paths don't re-instantiate
-- PSQ period key + counter logic (Comp1 BE+1, Comp2 calendar)
-- Privacy mode masking — pre-paint default behavior
+Test scope is **critical paths only** — NOT 100% coverage. Tests are derived from the Storage & Worker audit (verified 2026-05-09) and must be in CI from Phase 4 onward. T1-T6 also run as the F3 pre-Session-2 gate.
 
-**Playwright** for critical e2e paths:
-- Records save → reload → data preserved
-- Watchlist add symbol → live tick render → flash animation
-- Gist sync round-trip (push from device A, pull on fresh device B profile)
-- Boot on fresh device (empty localStorage) → splash → render with no blank cells
+**Vitest — Crypto byte-identical (highest priority, blocks any deploy if fails):**
+- T1: `_gistEncrypt` / `_gistDecrypt` round-trip — encrypt sample `_buildExportData()` payload, decrypt, assert plaintext byte-for-byte equal
+- T2: HKDF key-derivation determinism — derive key from same token in current vs Vite bundle, compare via `crypto.subtle.exportKey('raw', ...)`
+- T3: HKDF salt + info verification — grep for all `'PSLink-Gist-v1'`, `'PSLink-R2-v1'`, `'aes-gcm-256'` literals; assert no typos / variant spellings
+- T4: TextEncoder consistency — encode 1000 random Unicode strings (incl. Thai, emoji, surrogate pairs) in current vs Vite, compare bytes
+- T5: Base64 roundtrip — `btoa(atob(x))` for 10,000 random byte sequences, assert 100% byte identity (catches custom-vs-native `btoa` divergence — finding I7)
+- T6: AES-GCM IV uniqueness — log first 1000 IVs per session, assert no duplicates (GCM security boundary)
+
+**Vitest — pure functions:**
+- T7: `_dataHash()` post-F2 — assert SHA-256 hex output stable + collision-free for 10,000 random record configs
+- T8: Sparkline filter — 3 invariants (regular-session filter + `_isMarketOpenCached` guard + 320-bar slice)
+- T9: Intl helper cache (`_ET_HM_FMT`, `_ET_DAY_FMT`, `_ET_DOW_FMT`) — verify hot paths don't re-instantiate
+- T10: PSQ period key + counter logic (Comp1 `BE+1` calendar, Comp2 `YYYY-MM`)
+- T11: Privacy mode masking — `<head>` inline default + `syncFromGist` reconciliation
+- T12: `_lsSave` quota fallback — simulate `QuotaExceededError`, assert eviction order (logo → symbol → sparkline) + retry succeeds
+
+**Vitest — storage / sync race conditions:**
+- T13: `_isSyncing` + `_isSaving` + `_pendingSave` — concurrent `syncFromGist` + `_pushToGist` must serialize, no double-PATCH
+- T14: `_dataHash` mismatch detection — modify state during sync, verify next push retries with new hash
+- T15: `pagehide` keepalive — payload >64KB sets `ps_data_dirty='1'` and skips sendBeacon
+
+**Playwright — critical e2e paths:**
+- E1: Records save → tab close → reopen → data preserved (localStorage path)
+- E2: Watchlist add symbol → live tick render → flash animation visible (WS pipeline)
+- E3: Gist sync round-trip — push from profile A, pull on fresh profile B, compare records / watchlist / Muse / PSQ state
+- E4: Fresh-device boot — empty localStorage → splash → render with NO blank cells (per Rule 23)
+- E5: Cross-tab race (post-F8) — open 2 tabs, modify `ps_records` in one, assert other shows reload prompt (not silent corruption)
+- E6: WOPI token expiry (post-F6) — invalidate token mid-edit, assert auto re-fetch + retry succeeds
+- E7: PDF render timeout (post-F7) — submit oversized xlsx, assert UI shows progress + 60s timeout error (not freeze)
+- E8: Privacy mode pre-paint — fresh device with `Gist meta.privacy=true` → numbers masked from first paint (no flash of real numbers)
+
+**Live user test (gate before merging Vite to main):**
+- L1: Pick 2 real test accounts with months of encrypted Gist data. Deploy Vite version to staging (`/v2/`). Run `syncFromGist`, verify 100% decryption success + zero data loss across all surfaces (records / watchlist / Muse / PSQ state / R2 photos / R2 video clips).
 
 ### 4c. Tauri Desktop shell
 
@@ -481,3 +597,9 @@ If Session 2 or 3 hits an irrecoverable issue:
   - Session 2 plan: added `tsconfig.json` + folder scaffold steps
   - Session 3 plan: 13 steps (was 8) covering folder pattern, presets/tabs extraction, event bus, scaffold-skill update, CLAUDE.md re-anchor
   - Success criteria split: "after Session 3" + "after Phase 4"
+- **2026-05-09 (afternoon)**: Timeline recalibrated for AI-assisted single-dev work — replaced "weeks" with "sessions" / "ชม.รวม" throughout. Standard human-team estimates (8-10 weeks) inflated by 5-10x. Total migration effort revised: ~7-13 sessions (~20-35 ชม.รวม) vs. original 8-10 weeks. Memory `feedback_time_estimates` saved.
+- **2026-05-09 (afternoon)**: Storage & worker audit completed via 3 parallel Explore agents. Verified ground truth for every storage/sync/worker touchpoint in current monolith. Added:
+  - **Storage & Worker audit** section — 8 🔴 critical findings (C1-C8), 9 🟡 important findings (I1-I9), 11 🟢 verified-solid items, 9 ranked Vite migration risks
+  - **Critical pre-Session-2 fixes** section — 8 mandatory fixes (F1-F8), 1-2 sessions (~2-4 ชม.), all to be done in a `vite-prep-hardening` branch BEFORE branching `vite-migration`
+  - **Phase 4b expanded** — test list grown from 9 → 24 tests (T1-T15 Vitest + E1-E8 Playwright + L1 live user test) derived from audit findings
+  - Key risks surfaced: (1) `_lsSave` covers only 4.7% of localStorage writes — 168 raw setItem bypass quota; (2) `_dataHash()` is string concat not SHA-256 — collision = data loss; (3) TextEncoder/crypto.subtle/btoa polyfill is THE catastrophic Vite risk — would break every existing user's Gist decryption; (4) Collabora postMessage origin = `*` is an XSS vector regardless of migration

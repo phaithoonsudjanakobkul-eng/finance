@@ -12427,7 +12427,7 @@
                 const token = tokenInput?.value?.trim();
                 if (!token) { if (statusEl) { statusEl.textContent = 'กรุณาใส่ Gist Key'; statusEl.style.color = '#f43f5e'; } return; }
 
-                localStorage.setItem('ps_gist_token', token);
+                _lsSave('ps_gist_token', token);
                 if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; btn.textContent = 'กำลังดึงข้อมูล...'; }
                 if (statusEl) { statusEl.textContent = 'SYNCING...'; statusEl.style.color = '#3b82f6'; }
                 const _prog = document.getElementById('wz-gist-progress');
@@ -12468,7 +12468,7 @@
                     if (data.apiKeys && typeof data.apiKeys === 'object') {
                         for (const k in data.apiKeys) {
                             const decoded = typeof _decKey === 'function' ? _decKey(data.apiKeys[k]) : '';
-                            if (decoded) { localStorage.setItem(k, decoded); keysRestored++; }
+                            if (decoded) { _lsSave(k, decoded); keysRestored++; }
                         }
                     }
 
@@ -12495,7 +12495,7 @@
                     await syncFromGist(true);
 
                     // Mark wizard done
-                    localStorage.setItem('ps_wizard_done', '1');
+                    _lsSave('ps_wizard_done', '1');
                     _splashStatus('กำลังโหลด Dashboard...');
 
                     // Render the correct tab behind splash.
@@ -12570,10 +12570,10 @@
                 const fhKey  = document.getElementById('wz-finnhub-key')?.value?.trim();
                 const alpKey = document.getElementById('wz-alpaca-key')?.value?.trim();
                 const alpSec = document.getElementById('wz-alpaca-secret')?.value?.trim();
-                if (fhKey)   localStorage.setItem('ps_finnhub_key', fhKey);
-                if (alpKey)  localStorage.setItem('ps_alpaca_key', alpKey);
-                if (alpSec)  localStorage.setItem('ps_alpaca_secret', alpSec);
-                localStorage.setItem('ps_wizard_done', '1');
+                if (fhKey)   _lsSave('ps_finnhub_key', fhKey);
+                if (alpKey)  _lsSave('ps_alpaca_key', alpKey);
+                if (alpSec)  _lsSave('ps_alpaca_secret', alpSec);
+                _lsSave('ps_wizard_done', '1');
                 document.getElementById('empty-state').classList.add('hidden');
                 showTab('dashboard', false, true);
                 if (typeof loadDashboard === 'function') loadDashboard();
@@ -12583,7 +12583,7 @@
 
             // Skip — just go to Dashboard
             function wzSkip() {
-                localStorage.setItem('ps_wizard_done', '1');
+                _lsSave('ps_wizard_done', '1');
                 document.getElementById('empty-state').classList.add('hidden');
                 showTab('dashboard', false, true);
                 if (typeof loadDashboard === 'function') loadDashboard();
@@ -13799,7 +13799,7 @@
             if (!backdrop) return;
             const chk = document.getElementById('util-splash-chk-' + toolId);
             if (chk && chk.checked) {
-                localStorage.setItem('ps_splash_seen_' + toolId, '1');
+                _lsSave('ps_splash_seen_' + toolId, '1');
             }
             const onOpen = backdrop._onOpen;
             // Fade out
@@ -13849,7 +13849,7 @@
 
         function _toggleUtilSidebar() {
             _utilSidebarHidden = !_utilSidebarHidden;
-            localStorage.setItem('ps_util_sidebar', _utilSidebarHidden ? '1' : '');
+            _lsSave('ps_util_sidebar', _utilSidebarHidden ? '1' : '');
             _applyUtilSidebar();
         }
 
@@ -14496,7 +14496,7 @@
 
         // ── localStorage I/O ─────────────────────────────────────────────
         function _psaiSaveSettings() {
-            try { localStorage.setItem(_PSAI_LS_SETTINGS, JSON.stringify(_psaiSettings)); } catch(e) {}
+            try { _lsSave(_PSAI_LS_SETTINGS, JSON.stringify(_psaiSettings)); } catch(e) {}
         }
         function _psaiLoadSettings() {
             try {
@@ -14510,7 +14510,7 @@
             try { return JSON.parse(localStorage.getItem(_PSAI_LS_PRESETS) || '[]'); } catch(e) { return []; }
         }
         function _psaiSavePresets(list) {
-            try { localStorage.setItem(_PSAI_LS_PRESETS, JSON.stringify(list)); } catch(e) {}
+            try { _lsSave(_PSAI_LS_PRESETS, JSON.stringify(list)); } catch(e) {}
         }
 
         function _psaiUuid() {
@@ -15503,7 +15503,7 @@
         }
 
         function _psqEmailTplSet(tpls) {
-            try { localStorage.setItem(PSQ_EMAIL_TPL_KEY, JSON.stringify(tpls)); }
+            try { _lsSave(PSQ_EMAIL_TPL_KEY, JSON.stringify(tpls)); }
             catch(e) { console.error('[PSQ email tpl] save failed:', e); }
             if (typeof scheduleAutoSave === 'function') scheduleAutoSave();
         }
@@ -15531,7 +15531,7 @@
         }
 
         function _psqCustomersSet(arr) {
-            try { localStorage.setItem(PSQ_CUSTOMERS_KEY, JSON.stringify(arr || [])); }
+            try { _lsSave(PSQ_CUSTOMERS_KEY, JSON.stringify(arr || [])); }
             catch(e) { console.error('[PSQ customers] save failed:', e); }
             if (typeof scheduleAutoSave === 'function') scheduleAutoSave();
         }
@@ -15607,7 +15607,7 @@
             try { return JSON.parse(localStorage.getItem('ps_psq_template_meta') || '{}'); } catch(e) { return {}; }
         }
         function _psqSaveTplMeta(m) {
-            try { localStorage.setItem('ps_psq_template_meta', JSON.stringify(m)); } catch(e) {}
+            try { _lsSave('ps_psq_template_meta', JSON.stringify(m)); } catch(e) {}
         }
         async function _psqSha256(bytes) {
             var h = await crypto.subtle.digest('SHA-256', bytes);
@@ -19083,7 +19083,7 @@
 
         // Persist to localStorage and queue a Gist push so counters sync across devices
         function _psqSaveState(s) {
-            try { localStorage.setItem(PSQ_STATE_KEY, JSON.stringify(s)); } catch (e) {}
+            try { _lsSave(PSQ_STATE_KEY, JSON.stringify(s)); } catch (e) {}
             if (typeof _pushToGist === 'function') { try { _pushToGist(); } catch (e) {} }
         }
 
@@ -20543,7 +20543,7 @@ async function processImage(srcBmp, scale, tileSize, tier, id, tierMul) {
             catch(e) { return def; }
         })();
         function _psupPersistSettings() {
-            try { localStorage.setItem('ps_psup_settings', JSON.stringify(_psupSettings)); } catch(e) {}
+            try { _lsSave('ps_psup_settings', JSON.stringify(_psupSettings)); } catch(e) {}
         }
         function _psupGetActive() {
             for (var i = 0; i < _psupQueue.length; i++) if (_psupQueue[i].id === _psupActiveId) return _psupQueue[i];
@@ -21967,7 +21967,7 @@ async function processImage(srcBmp, scale, tileSize, tier, id, tierMul) {
                 // Always update global default too — clicking the picker is a clear intent that this
                 // is the user's preferred model right now, so future drops should inherit it.
                 _psupCurrentModelId = newId;
-                try { localStorage.setItem('ps_psup_model', newId); } catch(_) {}
+                try { _lsSave('ps_psup_model', newId); } catch(_) {}
                 if (touched > 0) {
                     renderQueueList();
                     renderMetaStrip();
@@ -22693,8 +22693,8 @@ async function processImage(srcBmp, scale, tileSize, tier, id, tierMul) {
 
                     // If chosen preset is the active one, also update the live DOM + global flat keys
                     if (isActiveTarget) {
-                        try { localStorage.setItem('ps_profile_photo', thumbDataUrl); } catch(e){}
-                        try { localStorage.setItem('ps_profile_photo_ts', String(Date.now())); } catch(e){}
+                        try { _lsSave('ps_profile_photo', thumbDataUrl); } catch(e){}
+                        try { _lsSave('ps_profile_photo_ts', String(Date.now())); } catch(e){}
                         if (typeof setProfilePhoto === 'function') { try { setProfilePhoto(fullDataUrl); } catch(e){} }
                         if (typeof _r2IdbPut === 'function') { try { await _r2IdbPut('photo:full', fullDataUrl); } catch(e){} }
                     }
@@ -22808,7 +22808,7 @@ async function processImage(srcBmp, scale, tileSize, tier, id, tierMul) {
                         let arr = [];
                         try { arr = JSON.parse(localStorage.getItem(key) || '[]'); } catch(e){}
                         arr.push(clip);
-                        try { localStorage.setItem(key, JSON.stringify(arr)); } catch(e){}
+                        try { _lsSave(key, JSON.stringify(arr)); } catch(e){}
                         if (typeof scheduleAutoSave === 'function') { try { scheduleAutoSave(); } catch(e){} }
                     }
                     showPsupToast('✓ Added to Playlist ' + presetLetterUpper + (isActiveTarget ? '' : ' (background)'));
@@ -24374,7 +24374,7 @@ self.addEventListener('message', handle);
             const syncTierUI = () => tierBtns.forEach(b => b.classList.toggle('active', b.dataset.tier === _psbgrTier));
             tierBtns.forEach(b => b.addEventListener('click', () => {
                 _psbgrTier = b.dataset.tier;
-                try { localStorage.setItem('ps_bgr_tier', _psbgrTier); } catch(e) {}
+                try { _lsSave('ps_bgr_tier', _psbgrTier); } catch(e) {}
                 syncTierUI();
             }));
             syncTierUI();
@@ -26198,7 +26198,7 @@ ${paras}
         }
 
         function _psecSaveState() {
-            try { localStorage.setItem(_PSEC_LS, JSON.stringify(_psecState)); } catch (e) {}
+            try { _lsSave(_PSEC_LS, JSON.stringify(_psecState)); } catch (e) {}
             // Push to Gist so opening on another device picks up the same drafts/selection.
             // scheduleAutoSave is debounced (4s) — high-frequency typing won't spam Gist.
             if (typeof scheduleAutoSave === 'function') { try { scheduleAutoSave(); } catch(e){} }
@@ -28731,7 +28731,7 @@ ${paras}
             if (!entry || !entry.file || !psImagingState.scaleBar) return;
             var key = _psiSBStorageKey(entry.file);
             if (!key) return;
-            try { localStorage.setItem(key, JSON.stringify(psImagingState.scaleBar)); } catch(e) {}
+            try { _lsSave(key, JSON.stringify(psImagingState.scaleBar)); } catch(e) {}
         }
         function _psiSBNormalize(sb) {
             // Merge loaded object with current defaults so missing/old properties are filled in
@@ -31436,7 +31436,7 @@ ${paras}
             if (!(knownMicron > 0)) return;
             const ratio = _psiCalib.pixelDist / knownMicron;
             psImagingState.calibration = { ratio, unit: 'µm', timestamp: Date.now() };
-            try { localStorage.setItem('pslink_micro_calibration', JSON.stringify(psImagingState.calibration)); } catch(e) {}
+            try { _lsSave('pslink_micro_calibration', JSON.stringify(psImagingState.calibration)); } catch(e) {}
             _psiShowCalibResult(ratio);
             const statusEl = document.getElementById('micro-engine-status-ps-micro-imaging');
             if (statusEl) statusEl.textContent = 'Calibrated: ' + ratio.toFixed(2) + ' px/µm · offline';
@@ -31457,7 +31457,7 @@ ${paras}
             try { return JSON.parse(localStorage.getItem(_psiCpKey)) || []; } catch(e) { return []; }
         }
         function _psiCpPersist(profiles) {
-            try { localStorage.setItem(_psiCpKey, JSON.stringify(profiles)); } catch(e) {}
+            try { _lsSave(_psiCpKey, JSON.stringify(profiles)); } catch(e) {}
         }
 
         function _psiCpClose() {
@@ -31560,8 +31560,8 @@ ${paras}
             }
 
             psImagingState.calibration = { ratio: p.ratio, unit: 'µm', timestamp: Date.now() };
-            try { localStorage.setItem('pslink_micro_calibration', JSON.stringify(psImagingState.calibration)); } catch(e) {}
-            try { localStorage.setItem('pslink_calib_last_profile', pid); } catch(e) {}
+            try { _lsSave('pslink_micro_calibration', JSON.stringify(psImagingState.calibration)); } catch(e) {}
+            try { _lsSave('pslink_calib_last_profile', pid); } catch(e) {}
             _psiShowCalibResult(p.ratio);
             _psiCpActiveId = pid;
             _psiCpRender();
@@ -32603,7 +32603,7 @@ ${paras}
             } else {
                 _stopMainCanvasLoop();  // pause main sparkline canvas loop (save CPU/battery)
             }
-            if (save) try { localStorage.setItem('ps_tab', t); } catch(e) {}
+            if (save) try { _lsSave('ps_tab', t); } catch(e) {}
             if (save) scheduleAutoSave(true); // flush pending save on tab switch (not on initial load)
         }
 
@@ -32750,7 +32750,7 @@ ${paras}
             rec.fixed   = fixedItems;
             rec.dynamic = dynamicItems;
             _lsSave('ps_records', JSON.stringify(records));
-            try { localStorage.setItem('ps_data_dirty', '1'); } catch(e) {}
+            try { _lsSave('ps_data_dirty', '1'); } catch(e) {}
 
             // ── Update financial bar (Records tab) ────────────────────────────
             const fixedTotal   = sumArr(fixedItems);
@@ -33233,7 +33233,7 @@ ${paras}
             curMonth = m;
             const monthInput = document.getElementById('monthInput');
             if (monthInput) monthInput.value = m;
-            try { localStorage.setItem('ps_month', m); } catch(e) {}
+            try { _lsSave('ps_month', m); } catch(e) {}
 
             const fixedList = document.getElementById('fixed-list');
             const dynamicList = document.getElementById('dynamic-list');
@@ -33509,7 +33509,7 @@ ${paras}
                 _logoFailSaveTimer = null;
                 try {
                     const arr = Array.from(_logoFailedUrls).slice(-LOGO_FAIL_CACHE_MAX);
-                    localStorage.setItem(LOGO_FAIL_CACHE_KEY, JSON.stringify({ ts: Date.now(), items: arr }));
+                    _lsSave(LOGO_FAIL_CACHE_KEY, JSON.stringify({ ts: Date.now(), items: arr }));
                 } catch(e) {}
             }, 2000);
         }
@@ -33529,7 +33529,7 @@ ${paras}
 
         function saveWatchlist() {
             _lsSave('ps_watchlist', JSON.stringify(watchlist));
-            try { localStorage.setItem('ps_data_dirty', '1'); } catch(e) {}
+            try { _lsSave('ps_data_dirty', '1'); } catch(e) {}
             scheduleAutoSave(true); // immediate — user explicitly changed watchlist
         }
 
@@ -33572,8 +33572,8 @@ ${paras}
         }
         function _saveLogoDataCacheLocal(immediate = false) {
             const run = () => {
-                try { localStorage.setItem(LOGO_DATA_CACHE_KEY, JSON.stringify(_collectLogoDataCacheData())); } catch(e) {}
-                try { localStorage.setItem(SYMBOL_LOGO_CACHE_KEY, JSON.stringify(_collectSymbolLogoCacheData())); } catch(e) {}
+                try { _lsSave(LOGO_DATA_CACHE_KEY, JSON.stringify(_collectLogoDataCacheData())); } catch(e) {}
+                try { _lsSave(SYMBOL_LOGO_CACHE_KEY, JSON.stringify(_collectSymbolLogoCacheData())); } catch(e) {}
                 _logoCacheSaveTimer = null;
             };
             if (immediate) {
@@ -33785,7 +33785,7 @@ ${paras}
         function saveWlCache() {
             try {
                 const payload = { wl: wlDataCache, profile: profileCache, ts: Date.now() };
-                localStorage.setItem('ps_wl_cache', JSON.stringify(payload));
+                _lsSave('ps_wl_cache', JSON.stringify(payload));
             } catch(e) {}
         }
 
@@ -33890,7 +33890,7 @@ ${paras}
                 };
             });
             try {
-                localStorage.setItem('ps_wl_spark_cache_v5', JSON.stringify({ ts: now, data: cleaned }));
+                _lsSave('ps_wl_spark_cache_v5', JSON.stringify({ ts: now, data: cleaned }));
             } catch(e) {}
             if (!applyToMemory) return;
             Object.keys(cleaned).forEach(sym => {
@@ -33912,7 +33912,7 @@ ${paras}
             try {
                 const now = Date.now();
                 const out = _collectSparklineCacheData();
-                localStorage.setItem('ps_wl_spark_cache_v5', JSON.stringify({ ts: now, data: out }));
+                _lsSave('ps_wl_spark_cache_v5', JSON.stringify({ ts: now, data: out }));
             } catch(e) {}
         }
         function scheduleSaveSparklineCache(immediate = false) {
@@ -35198,7 +35198,7 @@ ${paras}
             const _pinned = JSON.parse(localStorage.getItem('ps_pinned_wl') || '[]');
             const _filtered = _pinned.filter(s => s !== symbol);
             if (_filtered.length !== _pinned.length) {
-                localStorage.setItem('ps_pinned_wl', JSON.stringify(_filtered));
+                _lsSave('ps_pinned_wl', JSON.stringify(_filtered));
                 _renderPinnedWl();
                 scheduleAutoSave(true);
             }
@@ -35882,7 +35882,7 @@ ${paras}
         ];
 
         function _saveLowCache() {
-            try { localStorage.setItem(LOW_LS_KEY, JSON.stringify(_lowCache)); } catch(e) {}
+            try { _lsSave(LOW_LS_KEY, JSON.stringify(_lowCache)); } catch(e) {}
         }
         function _loadLowCache() {
             try {
@@ -36058,7 +36058,7 @@ ${paras}
             const cleaned = pinned.filter(s => watchlist.includes(s));
             if (cleaned.length !== pinned.length) {
                 pinned = cleaned;
-                localStorage.setItem('ps_pinned_wl', JSON.stringify(pinned));
+                _lsSave('ps_pinned_wl', JSON.stringify(pinned));
             }
             // Always sync _pinnedSymSet so _handleTrade guard is up-to-date even if hash unchanged
             _pinnedSymSet = new Set(pinned);
@@ -36649,7 +36649,7 @@ ${paras}
             if (si < 0 || ti < 0 || si === ti) return;
             pinned.splice(si, 1);
             pinned.splice(ti, 0, _pinnedDragSym);
-            localStorage.setItem('ps_pinned_wl', JSON.stringify(pinned));
+            _lsSave('ps_pinned_wl', JSON.stringify(pinned));
             scheduleAutoSave(true);
             // DOM reorder only — no HTML rebuild, logos stay cached
             const list = document.getElementById('wl-pinned-list');
@@ -36791,7 +36791,7 @@ ${paras}
             if (checked) set.add(sym); else set.delete(sym);
             // Preserve watchlist order
             const ordered = watchlist.filter(function(s) { return set.has(s); });
-            localStorage.setItem('ps_pinned_wl', JSON.stringify(ordered));
+            _lsSave('ps_pinned_wl', JSON.stringify(ordered));
             _renderPinnedWl();
             scheduleAutoSave(true);
         }
@@ -37232,7 +37232,7 @@ ${paras}
             } catch(e) { _valuationCache = {}; }
         })();
         function _saveValuationCache() {
-            try { localStorage.setItem(_VAL_CACHE_KEY, JSON.stringify(_valuationCache)); } catch(e) {}
+            try { _lsSave(_VAL_CACHE_KEY, JSON.stringify(_valuationCache)); } catch(e) {}
         }
 
         // Compute composite score from available factors. Returns
@@ -38462,7 +38462,7 @@ ${paras}
 
         // ── Lightweight Charts + Alpaca IEX ────────────────────────────────────
         const _saveLwcPrefs = () => {
-            try { localStorage.setItem('ps_lwc_prefs', JSON.stringify({
+            try { _lsSave('ps_lwc_prefs', JSON.stringify({
                 type: _lwcType, autoScroll: _lwcAutoScroll, cols: _lwcPrefs.cols||{},
                 vwap: _lwcShowVwap, ema: _lwcShowEma, bb: _lwcShowBB, rsi: _lwcShowRsi, exth: _lwcShowExtH
             })); } catch(e){}
@@ -40089,7 +40089,7 @@ ${sourceText}`;
         function _saveScannerCacheLocal() {
             try {
                 if (!_scannerCache || !_scannerCacheTs) return;
-                localStorage.setItem(SCANNER_CACHE_KEY, JSON.stringify({
+                _lsSave(SCANNER_CACHE_KEY, JSON.stringify({
                     ts: _scannerCacheTs,
                     data: _scannerCache
                 }));
@@ -40724,7 +40724,7 @@ ${sourceText}`;
                         localStorage.removeItem('ps_avatar');
                         db.avatar = null;
                     }
-                    localStorage.setItem('ps_avatar_split_done', '1');
+                    _lsSave('ps_avatar_split_done', '1');
                 } catch(e) {}
             })();
             _loadScannerCacheLocal();
@@ -41417,7 +41417,7 @@ ${sourceText}`;
             if (!inp) return;
             const k = inp.value.trim();
             if (!k) return;
-            localStorage.setItem('ps_openrouter_key', k);
+            _lsSave('ps_openrouter_key', k);
             const panel = document.getElementById('ai-key-panel');
             if (panel) panel.classList.add('hidden');
             updateAiStatus();
@@ -41716,7 +41716,7 @@ ${sourceText}`;
                 const b = Math.max(NAV_SAFE, window.innerHeight - rc.bottom);
                 fab.style.setProperty('right',  r + 'px', 'important');
                 fab.style.setProperty('bottom', b + 'px', 'important');
-                try { localStorage.setItem('ps_ai_fab_pos', JSON.stringify({ r, b })); } catch(e2) {}
+                try { _lsSave('ps_ai_fab_pos', JSON.stringify({ r, b })); } catch(e2) {}
             }, { passive: false });
 
             fab.addEventListener('touchcancel', function() {
@@ -43262,7 +43262,7 @@ ${_clip(contextSections, 2600)}`;
                     aiChatHistory.push({ role:'assistant', content:reply });
                     if (aiChatHistory.length > 10) aiChatHistory = aiChatHistory.slice(-10);
                     await streamText(reply);
-                    try { localStorage.setItem('ps_ai_last_good_model', model); } catch(_e) {}
+                    try { _lsSave('ps_ai_last_good_model', model); } catch(_e) {}
                     replied = true;
                 }
                 if (!replied && !ctrl.signal.aborted) {
@@ -44196,8 +44196,8 @@ ${_clip(contextSections, 2600)}`;
 
             // Day rolled over → freeze yesterday's last mid as today's prev close
             if (_selfDate && _selfDate !== todayStr && sane(_selfMid) && _selfPrevDt !== todayStr) {
-                localStorage.setItem(_selfPrevKey, _selfMid.toString());
-                localStorage.setItem(_selfPrevDate, todayStr);
+                _lsSave(_selfPrevKey, _selfMid.toString());
+                _lsSave(_selfPrevDate, todayStr);
                 prevMid = _selfMid;
             } else if (_selfPrevDt === todayStr && sane(_selfPrev)) {
                 prevMid = _selfPrev;
@@ -44251,13 +44251,13 @@ ${_clip(contextSections, 2600)}`;
                             if (sane(close)) {
                                 midRate = close;
                                 src = 'TwelveData';
-                                localStorage.setItem(_tdRateKey, Date.now().toString());
-                                localStorage.setItem(_tdRateVal, close.toString());
+                                _lsSave(_tdRateKey, Date.now().toString());
+                                _lsSave(_tdRateVal, close.toString());
                             }
                             // Store API prev_close as fallback only (self-tracking has priority)
                             const pc = parseFloat(j.previous_close);
                             if (sane(pc) && !sane(_prevTdCached)) {
-                                localStorage.setItem(_prevTdKey, pc.toString());
+                                _lsSave(_prevTdKey, pc.toString());
                                 console.log('[FX] TwelveData API previous_close (fallback):', pc.toFixed(4));
                             }
                         }
@@ -44295,15 +44295,15 @@ ${_clip(contextSections, 2600)}`;
                         if (sane(j.c))  { midRate = j.c;  src = 'Finnhub'; }
                         else {
                             console.warn('[FX] Finnhub j.c invalid:', j.c, '→ blocked 24h');
-                            localStorage.setItem(_fhFxFailKey, Date.now().toString());
+                            _lsSave(_fhFxFailKey, Date.now().toString());
                         }
                         if (sane(j.pc) && !prevMid) {
                             prevMid = j.pc;
-                            localStorage.setItem(_prevKey, prevMid.toString());
+                            _lsSave(_prevKey, prevMid.toString());
                         }
                     } else {
                         console.warn('[FX] Finnhub HTTP', r.status, '→ blocked 24h');
-                        localStorage.setItem(_fhFxFailKey, Date.now().toString());
+                        _lsSave(_fhFxFailKey, Date.now().toString());
                     }
                 } catch(e) { console.warn('[FX] Finnhub err:', e.message); }
             }
@@ -44329,19 +44329,19 @@ ${_clip(contextSections, 2600)}`;
                             if (j.result === 'error') {
                                 console.warn('[FX] ERAPI error:', j['error-type']);
                                 if (j['error-type'] === 'quota-reached') {
-                                    localStorage.setItem(_erapiFailKey, Date.now().toString());
+                                    _lsSave(_erapiFailKey, Date.now().toString());
                                     console.warn('[FX] ERAPI quota reached → blocked 24h');
                                 }
                             } else if (sane(j.conversion_rates?.THB)) {
                                 midRate = j.conversion_rates.THB;
                                 src = 'ExchangeRate-API';
-                                localStorage.setItem(_midKey, Date.now().toString());
-                                localStorage.setItem(_midVal, midRate.toString());
-                                localStorage.setItem(_midSrc, src);
+                                _lsSave(_midKey, Date.now().toString());
+                                _lsSave(_midVal, midRate.toString());
+                                _lsSave(_midSrc, src);
                             }
                         } else {
                             console.warn('[FX] ERAPI HTTP', r.status);
-                            if (r.status === 429) localStorage.setItem(_erapiFailKey, Date.now().toString());
+                            if (r.status === 429) _lsSave(_erapiFailKey, Date.now().toString());
                         }
                     } catch(e) { console.warn('[FX] ERAPI err:', e.message); }
                 }
@@ -44360,7 +44360,7 @@ ${_clip(contextSections, 2600)}`;
                             const j2 = await r2.json();
                             if (sane(j2.conversion_rates?.THB)) {
                                 prevMid = j2.conversion_rates.THB;
-                                localStorage.setItem(_prevKey, prevMid.toString());
+                                _lsSave(_prevKey, prevMid.toString());
                             }
                         }
                     } catch(e) {}
@@ -44380,9 +44380,9 @@ ${_clip(contextSections, 2600)}`;
                             if (sane(j.rates?.THB)) {
                                 midRate = j.rates.THB;
                                 src = 'OpenER';
-                                localStorage.setItem(_midKey, Date.now().toString());
-                                localStorage.setItem(_midVal, midRate.toString());
-                                localStorage.setItem(_midSrc, src);
+                                _lsSave(_midKey, Date.now().toString());
+                                _lsSave(_midVal, midRate.toString());
+                                _lsSave(_midSrc, src);
                             }
                         }
                     } catch(e) {}
@@ -44402,9 +44402,9 @@ ${_clip(contextSections, 2600)}`;
                             if (sane(j.usd?.thb)) {
                                 midRate = j.usd.thb;
                                 src = 'fawaz';
-                                localStorage.setItem(_midKey, Date.now().toString());
-                                localStorage.setItem(_midVal, midRate.toString());
-                                localStorage.setItem(_midSrc, src);
+                                _lsSave(_midKey, Date.now().toString());
+                                _lsSave(_midVal, midRate.toString());
+                                _lsSave(_midSrc, src);
                             }
                         }
                     } catch(e) {}
@@ -44421,7 +44421,7 @@ ${_clip(contextSections, 2600)}`;
                         const j = await r.json();
                         if (sane(j.usd?.thb)) {
                             prevMid = j.usd.thb;
-                            localStorage.setItem(_prevKey, prevMid.toString());
+                            _lsSave(_prevKey, prevMid.toString());
                         }
                     }
                 } catch(e) {}
@@ -44495,8 +44495,8 @@ ${_clip(contextSections, 2600)}`;
 
             // ── Update self-tracking: save latest midRate for day-roll prev close ──
             if (midRate && sane(midRate)) {
-                localStorage.setItem(_selfMidKey, midRate.toString());
-                localStorage.setItem(_selfDateKey, todayStr);
+                _lsSave(_selfMidKey, midRate.toString());
+                _lsSave(_selfDateKey, todayStr);
             }
 
             fxPrevRate    = sellRate;
@@ -44590,8 +44590,8 @@ ${_clip(contextSections, 2600)}`;
 
             if (score !== null) {
                 _fgUpdateUI(score, classification);
-                localStorage.setItem(_fgCacheKey, JSON.stringify({ score, classification }));
-                localStorage.setItem(_fgCacheTs, Date.now().toString());
+                _lsSave(_fgCacheKey, JSON.stringify({ score, classification }));
+                _lsSave(_fgCacheTs, Date.now().toString());
                 console.log('[F&G] CNN score:', score, classification);
             } else {
                 console.warn('[F&G] all sources failed');
@@ -44651,11 +44651,11 @@ ${_clip(contextSections, 2600)}`;
                     const price    = meta?.regularMarketPrice;
                     const prevClose = meta?.chartPreviousClose ?? meta?.previousClose ?? meta?.regularMarketPreviousClose;
                     if (typeof price === 'number' && price > 0) {
-                        localStorage.setItem(cKey, price.toString());
-                        localStorage.setItem(tKey, Date.now().toString());
+                        _lsSave(cKey, price.toString());
+                        _lsSave(tKey, Date.now().toString());
                         if (typeof prevClose === 'number' && prevClose > 0) {
                             const chg = (price - prevClose) / prevClose * 100;
-                            localStorage.setItem(gKey, chg.toString());
+                            _lsSave(gKey, chg.toString());
                             _mktChg[assetId] = chg;
                         }
                         return price;
@@ -44681,16 +44681,16 @@ ${_clip(contextSections, 2600)}`;
                 if (!r.ok) throw new Error('HTTP ' + r.status);
                 const j = await r.json();
                 if (j?.bitcoin?.usd > 0) {
-                    localStorage.setItem('ps_mkt_btc', j.bitcoin.usd.toString());
+                    _lsSave('ps_mkt_btc', j.bitcoin.usd.toString());
                     _mktPrices.btc = j.bitcoin.usd;
-                    if (j?.bitcoin?.usd_24h_change != null) { localStorage.setItem('ps_mkt_chg_btc', j.bitcoin.usd_24h_change.toString()); _mktChg.btc = j.bitcoin.usd_24h_change; }
+                    if (j?.bitcoin?.usd_24h_change != null) { _lsSave('ps_mkt_chg_btc', j.bitcoin.usd_24h_change.toString()); _mktChg.btc = j.bitcoin.usd_24h_change; }
                 }
                 if (j?.ethereum?.usd > 0) {
-                    localStorage.setItem('ps_mkt_eth', j.ethereum.usd.toString());
+                    _lsSave('ps_mkt_eth', j.ethereum.usd.toString());
                     _mktPrices.eth = j.ethereum.usd;
-                    if (j?.ethereum?.usd_24h_change != null) { localStorage.setItem('ps_mkt_chg_eth', j.ethereum.usd_24h_change.toString()); _mktChg.eth = j.ethereum.usd_24h_change; }
+                    if (j?.ethereum?.usd_24h_change != null) { _lsSave('ps_mkt_chg_eth', j.ethereum.usd_24h_change.toString()); _mktChg.eth = j.ethereum.usd_24h_change; }
                 }
-                localStorage.setItem(tKey, Date.now().toString());
+                _lsSave(tKey, Date.now().toString());
             } catch(e) { console.warn('[Ticker] crypto:', e.message); }
         }
 
@@ -45114,13 +45114,13 @@ ${_clip(contextSections, 2600)}`;
             // If a darkOnly preset tries to apply in light mode (legacy storage,
             // mode toggle), heal the light slot to Origin and apply that instead.
             if (p.darkOnly && !document.documentElement.classList.contains('dark')) {
-                localStorage.setItem('ps_preset_light', 'origin');
+                _lsSave('ps_preset_light', 'origin');
                 return _applyPreset('origin', undefined);
             }
             _activePreset = id;
             const mode = _currentMode();
-            localStorage.setItem('ps_preset_' + mode, id);
-            localStorage.setItem('ps_preset', id); // kept for export/import backward compat
+            _lsSave('ps_preset_' + mode, id);
+            _lsSave('ps_preset', id); // kept for export/import backward compat
             const root = document.documentElement;
             // Set data-preset attr so CSS can target (e.g., [data-preset="phosphor"])
             root.setAttribute('data-preset', id);
@@ -45129,8 +45129,8 @@ ${_clip(contextSections, 2600)}`;
                 const v = variant || localStorage.getItem('ps_variant_' + mode) || localStorage.getItem('ps_preset_variant') || p.defaultVariant || p.variants[0];
                 const vUse = p.variants.includes(v) ? v : p.defaultVariant;
                 _activeVariant = vUse;
-                localStorage.setItem('ps_variant_' + mode, vUse);
-                localStorage.setItem('ps_preset_variant', vUse); // kept for export/import backward compat
+                _lsSave('ps_variant_' + mode, vUse);
+                _lsSave('ps_preset_variant', vUse); // kept for export/import backward compat
                 root.setAttribute('data-variant', vUse);
             } else {
                 root.removeAttribute('data-variant');
@@ -46198,17 +46198,17 @@ ${_clip(contextSections, 2600)}`;
             const _wasDisabled = _rootEl.classList.contains('disable-transitions');
             if (!_wasDisabled) _rootEl.classList.add('disable-transitions');
             _activeTheme = id;
-            localStorage.setItem('ps_theme', id);
+            _lsSave('ps_theme', id);
             // Remember last theme per mode for toggle button
-            localStorage.setItem(t.mode === 'dark' ? 'ps_theme_dark' : 'ps_theme_light', id);
+            _lsSave(t.mode === 'dark' ? 'ps_theme_dark' : 'ps_theme_light', id);
             // Set dark/light class + data-theme for CSS targeting
             document.documentElement.setAttribute('data-theme', id);
             if (t.mode === 'dark') {
                 document.documentElement.classList.add('dark');
-                localStorage.setItem('ps_dark', '1');
+                _lsSave('ps_dark', '1');
             } else {
                 document.documentElement.classList.remove('dark');
-                localStorage.setItem('ps_dark', '0');
+                _lsSave('ps_dark', '0');
             }
             // Apply CSS variables
             const root = document.documentElement;
@@ -46391,7 +46391,7 @@ ${_clip(contextSections, 2600)}`;
                 if (typeof scheduleAutoSave === 'function') scheduleAutoSave();
             } else if (otherModePreset === presetId) {
                 // Update variant stored for the other mode (takes effect when user toggles)
-                localStorage.setItem('ps_variant_' + otherMode, variant);
+                _lsSave('ps_variant_' + otherMode, variant);
                 if (typeof scheduleAutoSave === 'function') scheduleAutoSave();
             }
             // Not assigned anywhere → variant lives only on card (data-variant-preview).
@@ -46406,8 +46406,8 @@ ${_clip(contextSections, 2600)}`;
             if (preset && preset.darkOnly && mode === 'light') return;
             const card = document.querySelector('.preset-gallery-card[data-preset-preview="' + presetId + '"]');
             const variant = card ? (card.getAttribute('data-variant-preview') || '') : '';
-            localStorage.setItem('ps_preset_' + mode, presetId);
-            if (variant) localStorage.setItem('ps_variant_' + mode, variant);
+            _lsSave('ps_preset_' + mode, presetId);
+            if (variant) _lsSave('ps_variant_' + mode, variant);
             if (mode === _currentMode()) {
                 _applyPreset(presetId, variant || undefined);
             }
@@ -46425,7 +46425,7 @@ ${_clip(contextSections, 2600)}`;
             const _THEME_KEY_MIGRATION = { 'tv': 'onyx', 'apple': 'slate' };
             ['ps_theme', 'ps_theme_dark', 'ps_theme_light'].forEach(function(k) {
                 const v = localStorage.getItem(k);
-                if (v && _THEME_KEY_MIGRATION[v]) localStorage.setItem(k, _THEME_KEY_MIGRATION[v]);
+                if (v && _THEME_KEY_MIGRATION[v]) _lsSave(k, _THEME_KEY_MIGRATION[v]);
             });
 
             const saved = localStorage.getItem('ps_theme');
@@ -46439,16 +46439,16 @@ ${_clip(contextSections, 2600)}`;
             // ── One-time migration: global preset → per-mode preset (seed both dark+light from old global) ──
             const _oldP = localStorage.getItem('ps_preset');
             const _oldV = localStorage.getItem('ps_preset_variant');
-            if (_oldP && !localStorage.getItem('ps_preset_dark')) localStorage.setItem('ps_preset_dark', _oldP);
-            if (_oldP && !localStorage.getItem('ps_preset_light')) localStorage.setItem('ps_preset_light', _oldP);
-            if (_oldV && !localStorage.getItem('ps_variant_dark')) localStorage.setItem('ps_variant_dark', _oldV);
-            if (_oldV && !localStorage.getItem('ps_variant_light')) localStorage.setItem('ps_variant_light', _oldV);
+            if (_oldP && !localStorage.getItem('ps_preset_dark')) _lsSave('ps_preset_dark', _oldP);
+            if (_oldP && !localStorage.getItem('ps_preset_light')) _lsSave('ps_preset_light', _oldP);
+            if (_oldV && !localStorage.getItem('ps_variant_dark')) _lsSave('ps_variant_dark', _oldV);
+            if (_oldV && !localStorage.getItem('ps_variant_light')) _lsSave('ps_variant_light', _oldV);
             // ── Migration: darkOnly presets (Phosphor) cannot occupy the light slot.
             // Users who had phosphor in both slots from the seed migration above, or
             // from an older app version, get their light slot reset to Origin. ──
             const _lightSlot = localStorage.getItem('ps_preset_light');
             if (_lightSlot && _PRESETS[_lightSlot] && _PRESETS[_lightSlot].darkOnly) {
-                localStorage.setItem('ps_preset_light', 'origin');
+                _lsSave('ps_preset_light', 'origin');
             }
             // Init Design Preset — read per-mode based on current mode
             const _curMode = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
@@ -46467,7 +46467,7 @@ ${_clip(contextSections, 2600)}`;
             const on = html.classList.toggle('privacy-on');
             const btn = document.querySelector('.nav-privacy-btn');
             if (btn) btn.classList.toggle('on', on);
-            try { localStorage.setItem('ps_privacy', on ? '1' : '0'); } catch(e) {}
+            try { _lsSave('ps_privacy', on ? '1' : '0'); } catch(e) {}
             // Push to Gist so fresh devices (incognito, new browser) also boot masked.
             if (typeof scheduleAutoSave === 'function') scheduleAutoSave();
         }
@@ -46476,7 +46476,7 @@ ${_clip(contextSections, 2600)}`;
         // card uses theme tokens. Persisted in ps_profile_theme_adapt + Gist meta.
         function _setProfileThemeAdapt(on) {
             document.documentElement.classList.toggle('profile-adapt-theme', !!on);
-            try { localStorage.setItem('ps_profile_theme_adapt', on ? '1' : '0'); } catch(e) {}
+            try { _lsSave('ps_profile_theme_adapt', on ? '1' : '0'); } catch(e) {}
             // Re-render profile notes — sanitize / restore raw HTML based on flag
             if (typeof _loadProfileCard === 'function') _loadProfileCard();
             if (typeof scheduleAutoSave === 'function') scheduleAutoSave();
@@ -46491,7 +46491,7 @@ ${_clip(contextSections, 2600)}`;
 
         function toggleDarkMode() {
             const isDark = document.documentElement.classList.toggle('dark');
-            localStorage.setItem('ps_dark', isDark ? '1' : '0');
+            _lsSave('ps_dark', isDark ? '1' : '0');
             // _applyTheme handles everything: CSS vars, LWC applyOptions, accent elements
             const key = isDark ? 'ps_theme_dark' : 'ps_theme_light';
             const saved = localStorage.getItem(key);
@@ -46677,7 +46677,7 @@ ${_clip(contextSections, 2600)}`;
                 if (!html && notes) {
                     // Auto-migrate plain text → HTML on first display
                     html = notes.split('\n').map(l => `<div>${l || '<br>'}</div>`).join('');
-                    localStorage.setItem('ps_profile_notes_html', html);
+                    _lsSave('ps_profile_notes_html', html);
                 }
                 const adapt = localStorage.getItem('ps_profile_theme_adapt') === '1';
                 notesEl.innerHTML = adapt ? _psSanitizeProfileHtml(html || '') : (html || '');
@@ -47066,7 +47066,7 @@ ${_clip(contextSections, 2600)}`;
             if (typeof presetIdx !== 'number' || presetIdx < 0 || presetIdx >= MUSE_PRESET_KEYS.length) return;
             var arr = _museGetActiveSlots();
             arr[presetIdx] = (typeof slotIdx === 'number' && slotIdx >= 0) ? slotIdx : 0;
-            try { localStorage.setItem(MUSE_ACTIVE_SLOT_KEY, JSON.stringify(arr)); } catch(_) {}
+            try { _lsSave(MUSE_ACTIVE_SLOT_KEY, JSON.stringify(arr)); } catch(_) {}
             if (typeof scheduleAutoSave === 'function') scheduleAutoSave();
         }
         var _museLayoutMode = 0; // 0=compact (fixed 334px), 1=wide (aspect-ratio), 2=tall (aspect-ratio)
@@ -47204,7 +47204,7 @@ ${_clip(contextSections, 2600)}`;
             _museSlotCount = parseInt(localStorage.getItem(MUSE_SLOT_COUNT_KEY) || '0') || 0;
             // Migrate legacy key → preset A on first load
             if (!localStorage.getItem(MUSE_PRESET_KEYS[0]) && localStorage.getItem(MUSE_KEY)) {
-                localStorage.setItem(MUSE_PRESET_KEYS[0], localStorage.getItem(MUSE_KEY));
+                _lsSave(MUSE_PRESET_KEYS[0], localStorage.getItem(MUSE_KEY));
             }
             // If active preset is password-protected, auto-switch to first unlocked preset
             var _initPws = _museGetPws();
@@ -48999,14 +48999,14 @@ ${_clip(contextSections, 2600)}`;
                             var saved = false;
                             try {
                                 var _k = _museCurrentKey();
-                                localStorage.setItem(_k, JSON.stringify(_museClips));
+                                _lsSave(_k, JSON.stringify(_museClips));
                                 saved = true;
                             } catch(e1) {
                                 try {
                                     localStorage.removeItem(LOGO_DATA_CACHE_KEY);
                                     localStorage.removeItem(SYMBOL_LOGO_CACHE_KEY);
                                     localStorage.removeItem('ps_wl_spark_cache_v5');
-                                    localStorage.setItem(_k, JSON.stringify(_museClips));
+                                    _lsSave(_k, JSON.stringify(_museClips));
                                     saved = true;
                                 } catch(e2) { _museClips.pop(); }
                             }
@@ -49231,7 +49231,7 @@ ${_clip(contextSections, 2600)}`;
             if (!parent) return;
             var rows = Array.prototype.slice.call(parent.querySelectorAll(':scope > .dash-drag-row'));
             var order = rows.map(function(r) { return r.id; });
-            try { localStorage.setItem('ps_dash_section_order', JSON.stringify(order)); } catch(e) {}
+            try { _lsSave('ps_dash_section_order', JSON.stringify(order)); } catch(e) {}
             if (typeof scheduleAutoSave === 'function') scheduleAutoSave(true);
         }
 
@@ -49620,12 +49620,12 @@ ${_clip(contextSections, 2600)}`;
             var vw = window.innerWidth, vh = window.innerHeight;
             var corner = _clockNearestCorner(x, y, w, h, vw, vh);
             var off = _clockOffsetFromCorner(corner, x, y, w, h, vw, vh);
-            try { localStorage.setItem('ps_clock_pos', JSON.stringify({
+            try { _lsSave('ps_clock_pos', JSON.stringify({
                 corner: corner, dx: off.dx, dy: off.dy, w: w
             })); } catch(e) {}
-            try { localStorage.setItem(_clockColorKey(),     _clockColor); } catch(e) {}
-            try { localStorage.setItem('ps_clock_show_date', _clockShowDate ? '1' : '0'); } catch(e) {}
-            try { localStorage.setItem('ps_clock_font',      _clockFont); } catch(e) {}
+            try { _lsSave(_clockColorKey(),     _clockColor); } catch(e) {}
+            try { _lsSave('ps_clock_show_date', _clockShowDate ? '1' : '0'); } catch(e) {}
+            try { _lsSave('ps_clock_font',      _clockFont); } catch(e) {}
             if (typeof scheduleAutoSave === 'function') scheduleAutoSave();
         }
 
@@ -49638,7 +49638,7 @@ ${_clip(contextSections, 2600)}`;
             var vw = window.innerWidth, vh = window.innerHeight;
             var corner = _clockNearestCorner(x, y, fs, fs, vw, vh);
             var off = _clockOffsetFromCorner(corner, x, y, fs, fs, vw, vh);
-            try { localStorage.setItem('ps_clock_fab_pos', JSON.stringify({
+            try { _lsSave('ps_clock_fab_pos', JSON.stringify({
                 corner: corner, dx: off.dx, dy: off.dy
             })); } catch(e) {}
             if (typeof scheduleAutoSave === 'function') scheduleAutoSave();
@@ -49733,7 +49733,7 @@ ${_clip(contextSections, 2600)}`;
             if (widget) widget.style.display = 'flex';
             if (fab)    fab.style.display    = 'none';
             _clockStart();
-            try { localStorage.setItem('ps_clock_vis', '1'); } catch(e) {}
+            try { _lsSave('ps_clock_vis', '1'); } catch(e) {}
             if (typeof scheduleAutoSave === 'function') scheduleAutoSave();
         }
 
@@ -49742,7 +49742,7 @@ ${_clip(contextSections, 2600)}`;
             var fab    = document.getElementById('ps-clock-fab');
             if (widget) widget.style.display = 'none';
             _clockStop();
-            try { localStorage.setItem('ps_clock_vis', '0'); } catch(e) {}
+            try { _lsSave('ps_clock_vis', '0'); } catch(e) {}
             // FAB is visible on every tab (clock is a global widget now).
             if (fab) {
                 _clockRestoreFabPos();
@@ -49977,7 +49977,7 @@ ${_clip(contextSections, 2600)}`;
         // ══════════════════════════════════════════════════════════════════════════
 
         function _dashSaveCollapsed() {
-            try { localStorage.setItem('ps_dash_collapsed', JSON.stringify(_dashCollapsedState)); } catch(e) {}
+            try { _lsSave('ps_dash_collapsed', JSON.stringify(_dashCollapsedState)); } catch(e) {}
             if (typeof scheduleAutoSave === 'function') scheduleAutoSave(true);
         }
 
@@ -50005,7 +50005,7 @@ ${_clip(contextSections, 2600)}`;
 
         function _museToggleCollapse() {
             _museCollapsed = !_museCollapsed;
-            localStorage.setItem(MUSE_COLLAPSED_KEY, _museCollapsed ? '1' : '0');
+            _lsSave(MUSE_COLLAPSED_KEY, _museCollapsed ? '1' : '0');
             if (typeof _pushToGist === 'function') _pushToGist(true);
             _museApplyCollapse();
         }
@@ -50105,7 +50105,7 @@ ${_clip(contextSections, 2600)}`;
         function _museToggleSlotCount() {
             var idx = _MUSE_SLOT_CYCLE.indexOf(_museSlotCount);
             _museSlotCount = _MUSE_SLOT_CYCLE[(idx + 1) % _MUSE_SLOT_CYCLE.length];
-            localStorage.setItem(MUSE_SLOT_COUNT_KEY, String(_museSlotCount));
+            _lsSave(MUSE_SLOT_COUNT_KEY, String(_museSlotCount));
             _museClampPageOffset();
             if (typeof _pushToGist === 'function') _pushToGist(true);
             _museRenderSlots();
@@ -50117,7 +50117,7 @@ ${_clip(contextSections, 2600)}`;
 
         function _museSetLayoutMode(mode) {
             _museLayoutMode = mode;
-            localStorage.setItem(MUSE_LAYOUT_KEY, String(_museLayoutMode));
+            _lsSave(MUSE_LAYOUT_KEY, String(_museLayoutMode));
             _museClampPageOffset();
             if (typeof _pushToGist === 'function') _pushToGist(true);
             _museRenderSlots();
@@ -50129,12 +50129,12 @@ ${_clip(contextSections, 2600)}`;
 
         function _museSetSlotCount(count) {
             if (count === 0) {
-                if (_museSlotCount !== 0) localStorage.setItem('ps_muse_slot_last_fixed', String(_museSlotCount));
+                if (_museSlotCount !== 0) _lsSave('ps_muse_slot_last_fixed', String(_museSlotCount));
                 _museSlotCount = 0;
             } else {
                 _museSlotCount = count;
             }
-            localStorage.setItem(MUSE_SLOT_COUNT_KEY, String(_museSlotCount));
+            _lsSave(MUSE_SLOT_COUNT_KEY, String(_museSlotCount));
             _museClampPageOffset();
             if (typeof _pushToGist === 'function') _pushToGist(true);
             _museRenderSlots();
@@ -50152,7 +50152,7 @@ ${_clip(contextSections, 2600)}`;
             } catch(_) {}
         }
         function _museTransitionSave() {
-            localStorage.setItem(MUSE_TRANSITION_KEY, JSON.stringify({ type: _museTransitionType, speed: _museTransitionSpeed }));
+            _lsSave(MUSE_TRANSITION_KEY, JSON.stringify({ type: _museTransitionType, speed: _museTransitionSpeed }));
             clearTimeout(_museTransitionSaveTimer);
             _museTransitionSaveTimer = setTimeout(function() { if (typeof _pushToGist === 'function') _pushToGist(true); }, 1500);
         }
@@ -50438,7 +50438,7 @@ ${_clip(contextSections, 2600)}`;
         }
 
         function _museAutoRotateSave() {
-            localStorage.setItem(MUSE_AUTOROTATE_KEY, JSON.stringify({
+            _lsSave(MUSE_AUTOROTATE_KEY, JSON.stringify({
                 enabled: _museAutoRotateEnabled,
                 durations: _museAutoRotateDurations,
                 included: _museAutoRotateIncluded,
@@ -50819,10 +50819,10 @@ ${_clip(contextSections, 2600)}`;
                 _museSlotCount = _MUSE_SLOT_CYCLE.includes(last) ? last : 4;
             } else {
                 // Fixed → Auto: จำค่า fixed ไว้ก่อน
-                localStorage.setItem('ps_muse_slot_last_fixed', String(_museSlotCount));
+                _lsSave('ps_muse_slot_last_fixed', String(_museSlotCount));
                 _museSlotCount = 0;
             }
-            localStorage.setItem(MUSE_SLOT_COUNT_KEY, String(_museSlotCount));
+            _lsSave(MUSE_SLOT_COUNT_KEY, String(_museSlotCount));
             if (typeof _pushToGist === 'function') _pushToGist(true);
             _museRenderSlots();
             _museApplyLayout();
@@ -50836,7 +50836,7 @@ ${_clip(contextSections, 2600)}`;
             if (_museLayoutLpFired) { _museLayoutLpFired = false; return; }
             if (e && e.shiftKey) { _museToggleAuto(); return; } // Shift+click → toggle Auto
             _museLayoutMode = (_museLayoutMode + 1) % 3;
-            localStorage.setItem(MUSE_LAYOUT_KEY, String(_museLayoutMode));
+            _lsSave(MUSE_LAYOUT_KEY, String(_museLayoutMode));
             if (typeof _pushToGist === 'function') _pushToGist(true);
             _museRenderSlots();
             _museApplyLayout();
@@ -50870,7 +50870,7 @@ ${_clip(contextSections, 2600)}`;
             }
             _museTransitionTimer = setTimeout(function() {
                 _musePresetIdx = idx;
-                localStorage.setItem(MUSE_PRESET_IDX_KEY, String(idx));
+                _lsSave(MUSE_PRESET_IDX_KEY, String(idx));
                 // Debounce Gist push — auto-rotate can switch every 30s so don't push on every switch
                 clearTimeout(_musePresetSaveTimer);
                 _musePresetSaveTimer = setTimeout(function() { if (typeof _pushToGist === 'function') _pushToGist(true); }, 4000);
@@ -51055,8 +51055,8 @@ ${_clip(contextSections, 2600)}`;
             // 1. Swap localStorage clip data
             var keyA = MUSE_PRESET_KEYS[idxA], keyB = MUSE_PRESET_KEYS[idxB];
             var dataA = localStorage.getItem(keyA), dataB = localStorage.getItem(keyB);
-            if (dataA !== null) localStorage.setItem(keyB, dataA); else localStorage.removeItem(keyB);
-            if (dataB !== null) localStorage.setItem(keyA, dataB); else localStorage.removeItem(keyA);
+            if (dataA !== null) _lsSave(keyB, dataA); else localStorage.removeItem(keyB);
+            if (dataB !== null) _lsSave(keyA, dataB); else localStorage.removeItem(keyA);
             // 2. Swap passwords
             var pws = _museGetPws();
             while (pws.length < 6) pws.push('');
@@ -51070,7 +51070,7 @@ ${_clip(contextSections, 2600)}`;
             // 4. Update active preset index to follow its data
             if (_musePresetIdx === idxA)      _musePresetIdx = idxB;
             else if (_musePresetIdx === idxB) _musePresetIdx = idxA;
-            localStorage.setItem(MUSE_PRESET_IDX_KEY, String(_musePresetIdx));
+            _lsSave(MUSE_PRESET_IDX_KEY, String(_musePresetIdx));
             // 5. Reload clips for newly-active key
             try { _museClips = JSON.parse(localStorage.getItem(_museCurrentKey()) || '[]'); } catch(_) { _museClips = []; }
             // 6. Re-render UI
@@ -51965,7 +51965,7 @@ ${_clip(contextSections, 2600)}`;
                 _musePlayingSlot--;
             }
             _museSaveCurrentPreset();
-            localStorage.setItem(MUSE_PRESET_KEYS[destIdx], JSON.stringify(destClips));
+            _lsSave(MUSE_PRESET_KEYS[destIdx], JSON.stringify(destClips));
             _museToast('ย้ายรายการไป Playlist ' + ['A','B','C','D','E','F'][destIdx] + ' แล้ว');
             _museRenderSlots();
             if (_museEditOpen) { _museRenderPresetTabs(); _museRenderEditList(); }
@@ -52002,7 +52002,7 @@ ${_clip(contextSections, 2600)}`;
         }
 
         function _museSavePws(pws) {
-            localStorage.setItem('ps_muse_pws', JSON.stringify(pws));
+            _lsSave('ps_muse_pws', JSON.stringify(pws));
             if (typeof _pushToGist === 'function') _pushToGist(true);
         }
 
@@ -52103,7 +52103,7 @@ ${_clip(contextSections, 2600)}`;
             try { return new Set(JSON.parse(localStorage.getItem('ps_profile_pills_hidden') || '[]')); } catch(_) { return new Set(); }
         }
         function _pillsSetHidden(set) {
-            localStorage.setItem('ps_profile_pills_hidden', JSON.stringify([...set]));
+            _lsSave('ps_profile_pills_hidden', JSON.stringify([...set]));
         }
 
         function _renderProfilePills() {
@@ -52441,9 +52441,9 @@ ${_clip(contextSections, 2600)}`;
                 _r2UploadPhoto(result, 'profile/avatar.enc.jpg'); // full-res → R2 (encrypted)
                 _generateThumb(result, 128, 0.8).then(function(thumb) {
                     try {
-                        localStorage.setItem('ps_avatar', thumb); // thumbnail for Gist/splash
-                        localStorage.setItem('ps_avatar_ts', String(Date.now()));
-                        localStorage.setItem('ps_avatar_crop', cropJSON);
+                        _lsSave('ps_avatar', thumb); // thumbnail for Gist/splash
+                        _lsSave('ps_avatar_ts', String(Date.now()));
+                        _lsSave('ps_avatar_crop', cropJSON);
                     } catch(err) { console.warn('[IMG] avatar save error:', err.message); }
                 });
             } else {
@@ -52456,9 +52456,9 @@ ${_clip(contextSections, 2600)}`;
                 _r2UploadPhoto(result, 'profile/preset-' + _presetIdx + '.enc.jpg'); // preset → R2
                 _generateThumb(result, 400, 0.8).then(function(thumb) {
                     try {
-                        localStorage.setItem('ps_profile_photo', thumb); // thumbnail for Gist
-                        localStorage.setItem('ps_profile_photo_ts', String(Date.now()));
-                        localStorage.setItem('ps_profile_photo_crop', cropJSON);
+                        _lsSave('ps_profile_photo', thumb); // thumbnail for Gist
+                        _lsSave('ps_profile_photo_ts', String(Date.now()));
+                        _lsSave('ps_profile_photo_crop', cropJSON);
                     } catch(err) { console.warn('[IMG] profile photo save error:', err.message); }
                     // Save thumbnail into active preset
                     const _pp = _psGetActive();
@@ -53052,7 +53052,7 @@ ${_clip(contextSections, 2600)}`;
             // Track recent colors
             if (cmd === 'foreColor' || cmd === 'hiliteColor') {
                 _rteRecentColors = [val, ..._rteRecentColors.filter(c => c !== val)].slice(0, 12);
-                localStorage.setItem('ps_rte_colors', JSON.stringify(_rteRecentColors));
+                _lsSave('ps_rte_colors', JSON.stringify(_rteRecentColors));
                 rteRenderRecentColors();
             }
         }
@@ -53506,15 +53506,15 @@ ${_clip(contextSections, 2600)}`;
                 freeImgs.push({ src: img.src, left: img.style.left, top: img.style.top, width: img.style.width, rotation: img.dataset.rotation || '0', layer: img.dataset.imgLayer || 'front' });
             });
             try {
-                localStorage.setItem('ps_profile_notes_html', notesHtml);
-                localStorage.setItem('ps_profile_notes', notesPlain);
-                localStorage.setItem('ps_profile_free_imgs', JSON.stringify(freeImgs));
+                _lsSave('ps_profile_notes_html', notesHtml);
+                _lsSave('ps_profile_notes', notesPlain);
+                _lsSave('ps_profile_free_imgs', JSON.stringify(freeImgs));
             } catch(e) {
                 alert('ไม่สามารถบันทึกได้ — รูปภาพอาจมีขนาดใหญ่เกินพื้นที่จัดเก็บ');
                 return;
             }
-            localStorage.setItem('ps_profile_nickname', '');
-            localStorage.setItem('ps_profile_email', '');
+            _lsSave('ps_profile_nickname', '');
+            _lsSave('ps_profile_email', '');
             _psPresetCaptureCurrent();
             _psPresetsSave();
             _loadProfileCard();
@@ -53544,8 +53544,8 @@ ${_clip(contextSections, 2600)}`;
 
         function _psPresetsSave() {
             try {
-                localStorage.setItem('ps_profile_presets', JSON.stringify(_psPresets));
-                localStorage.setItem('ps_profile_preset_idx', String(_psPresetIdx));
+                _lsSave('ps_profile_presets', JSON.stringify(_psPresets));
+                _lsSave('ps_profile_preset_idx', String(_psPresetIdx));
             } catch(e) {
                 console.warn('[Presets] save failed:', e.message);
                 alert('ไม่สามารถบันทึก Preset ได้ — พื้นที่จัดเก็บอาจเต็ม ลองลดขนาดรูปภาพ');
@@ -53579,19 +53579,19 @@ ${_clip(contextSections, 2600)}`;
         // Write preset data into flat keys then reload card
         function _psPresetApply(preset) {
             if (!preset) return;
-            try { localStorage.setItem('ps_profile_notes_html', preset.notesHtml || ''); } catch(_) {}
-            try { localStorage.setItem('ps_profile_notes', preset.notes || ''); } catch(_) {}
-            try { localStorage.setItem('ps_profile_free_imgs', preset.freeImgs || '[]'); } catch(_) {}
-            try { localStorage.setItem('ps_profile_pills_hidden', preset.pillsHidden || '[]'); } catch(_) {}
+            try { _lsSave('ps_profile_notes_html', preset.notesHtml || ''); } catch(_) {}
+            try { _lsSave('ps_profile_notes', preset.notes || ''); } catch(_) {}
+            try { _lsSave('ps_profile_free_imgs', preset.freeImgs || '[]'); } catch(_) {}
+            try { _lsSave('ps_profile_pills_hidden', preset.pillsHidden || '[]'); } catch(_) {}
             if (preset.photo) {
-                try { localStorage.setItem('ps_profile_photo', preset.photo); } catch(_) {} // thumbnail
+                try { _lsSave('ps_profile_photo', preset.photo); } catch(_) {} // thumbnail
                 db.profilePhoto = preset.photo;
             } else {
                 localStorage.removeItem('ps_profile_photo');
                 db.profilePhoto = '';
             }
             if (preset.photoCrop) {
-                try { localStorage.setItem('ps_profile_photo_crop', preset.photoCrop); } catch(_) {}
+                try { _lsSave('ps_profile_photo_crop', preset.photoCrop); } catch(_) {}
             } else {
                 localStorage.removeItem('ps_profile_photo_crop');
             }
@@ -53703,14 +53703,14 @@ ${_clip(contextSections, 2600)}`;
                 const notesInput = document.getElementById('profile-input-notes');
                 if (notesInput) {
                     try {
-                        localStorage.setItem('ps_profile_notes_html', notesInput.innerHTML);
-                        localStorage.setItem('ps_profile_notes', notesInput.innerText);
+                        _lsSave('ps_profile_notes_html', notesInput.innerHTML);
+                        _lsSave('ps_profile_notes', notesInput.innerText);
                     } catch(_) {}
                 }
                 _psPresetCaptureCurrent();
             }
             _psPresetIdx = idx;
-            localStorage.setItem('ps_profile_preset_idx', String(idx));
+            _lsSave('ps_profile_preset_idx', String(idx));
             if (typeof _pushToGist === 'function') _pushToGist(true);
             _psPresetApply(_psPresets[idx]);
             _psPresetsRenderDots();
@@ -53739,8 +53739,8 @@ ${_clip(contextSections, 2600)}`;
                 const notesEl = document.getElementById('profile-input-notes');
                 if (notesEl) {
                     try {
-                        localStorage.setItem('ps_profile_notes_html', notesEl.innerHTML);
-                        localStorage.setItem('ps_profile_notes', notesEl.innerText);
+                        _lsSave('ps_profile_notes_html', notesEl.innerHTML);
+                        _lsSave('ps_profile_notes', notesEl.innerText);
                     } catch(_) {}
                 }
             }
@@ -53965,7 +53965,7 @@ ${_clip(contextSections, 2600)}`;
                 const fallback = _psPresets.findIndex(p => !p.passwordHash);
                 _psPresetIdx = fallback >= 0 ? fallback : 0;
             }
-            localStorage.setItem('ps_profile_preset_idx', String(_psPresetIdx));
+            _lsSave('ps_profile_preset_idx', String(_psPresetIdx));
             _psPresetApply(_psPresets[_psPresetIdx]); // always sync flat keys on load
 
             // Wheel scroll to switch presets (only when not editing)
@@ -54059,7 +54059,7 @@ ${_clip(contextSections, 2600)}`;
         function saveGistToken() {
             const token = document.getElementById('gist-token-input').value.trim();
             if (!token) return;
-            localStorage.setItem('ps_gist_token', token);
+            _lsSave('ps_gist_token', token);
             document.getElementById('gist-modal').classList.add('hidden');
             // After sync: if this is a first-time token entry (fresh device bypassing wizard),
             // watchlist + sparklines need to load immediately — same symptom as Bug 1 but
@@ -54150,7 +54150,7 @@ ${_clip(contextSections, 2600)}`;
                     // Update hash so _pushToGist knows Gist is now current
                     _lastSavedHash = _dataHash();
                     try { localStorage.removeItem('ps_data_dirty'); } catch(e) {}
-                    try { localStorage.setItem('ps_gist_push_ts', String(exportData.lastModifiedTs)); } catch(e) {} // cross-device conflict resolution
+                    try { _lsSave('ps_gist_push_ts', String(exportData.lastModifiedTs)); } catch(e) {} // cross-device conflict resolution
                     showGistStatus('SAVED ✓', 'text-emerald-500');
                 } else if (res.status === 401) {
                     showGistStatus('TOKEN หมดอายุ ✗', 'text-rose-500');
@@ -54368,7 +54368,7 @@ ${_clip(contextSections, 2600)}`;
                         if (!db.avatar || gistTs >= localTs) {
                             db.avatar = data.meta.avatar; // thumbnail (or full-res from old Gist)
                             setAvatarImage(db.avatar);
-                            try { localStorage.setItem('ps_avatar', db.avatar); } catch(e) {}
+                            try { _lsSave('ps_avatar', db.avatar); } catch(e) {}
                             // Try IDB for full-res → fallback R2 download (fresh device)
                             _r2IdbGet('avatar:full').then(function(full) {
                                 if (full && typeof full === 'string') { db.avatar = full; setAvatarImage(full); }
@@ -54386,7 +54386,7 @@ ${_clip(contextSections, 2600)}`;
                         if (!db.profilePhoto || gistTs >= localTs) {
                             db.profilePhoto = data.meta.profilePhoto; // thumbnail first
                             setProfilePhoto(db.profilePhoto);
-                            try { localStorage.setItem('ps_profile_photo', db.profilePhoto); } catch(e) {}
+                            try { _lsSave('ps_profile_photo', db.profilePhoto); } catch(e) {}
                             _r2IdbGet('photo:full').then(function(full) {
                                 if (full && typeof full === 'string') { db.profilePhoto = full; setProfilePhoto(full); }
                                 else {
@@ -54411,7 +54411,7 @@ ${_clip(contextSections, 2600)}`;
                         if (isInitialLoad) _splashStatus(`ใช้ Theme: ${gistTheme}`);
                     } else if (!localTheme && localDark === null && typeof data.meta?.dark === 'boolean') {
                         applyDarkMode(data.meta.dark);
-                        try { localStorage.setItem('ps_dark', data.meta.dark ? '1' : '0'); } catch(e) {}
+                        try { _lsSave('ps_dark', data.meta.dark ? '1' : '0'); } catch(e) {}
                     }
                     // Privacy Mode: restore from Gist so fresh devices (incognito, new browser)
                     // boot with the chosen masked state. Pre-paint inline script defaults to
@@ -54431,7 +54431,7 @@ ${_clip(contextSections, 2600)}`;
                             // Existing device, no Gist override → keep local setting
                             _privOn = localStorage.getItem('ps_privacy') === '1';
                         }
-                        try { localStorage.setItem('ps_privacy', _privOn ? '1' : '0'); } catch(e) {}
+                        try { _lsSave('ps_privacy', _privOn ? '1' : '0'); } catch(e) {}
                         document.documentElement.classList.toggle('privacy-on', _privOn);
                         const _privBtn = document.querySelector('.nav-privacy-btn');
                         if (_privBtn) _privBtn.classList.toggle('on', _privOn);
@@ -54440,7 +54440,7 @@ ${_clip(contextSections, 2600)}`;
                     {
                         const _gistAdapt = data.meta?.profileThemeAdapt;
                         if (typeof _gistAdapt === 'boolean') {
-                            try { localStorage.setItem('ps_profile_theme_adapt', _gistAdapt ? '1' : '0'); } catch(e) {}
+                            try { _lsSave('ps_profile_theme_adapt', _gistAdapt ? '1' : '0'); } catch(e) {}
                             document.documentElement.classList.toggle('profile-adapt-theme', _gistAdapt);
                             const _adaptCb = document.getElementById('s-profile-theme-adapt');
                             if (_adaptCb) _adaptCb.checked = _gistAdapt;
@@ -54452,12 +54452,12 @@ ${_clip(contextSections, 2600)}`;
                     // session's preset choice wins over a stale Gist value.
                     const _gp = data.meta?.preset;
                     if (_gp && typeof _gp === 'object' && (isInitialLoad || !localStorage.getItem('ps_preset'))) {
-                        if (_gp.active)        try { localStorage.setItem('ps_preset',         _gp.active); } catch(e) {}
-                        if (_gp.activeVariant) try { localStorage.setItem('ps_preset_variant', _gp.activeVariant); } catch(e) {}
-                        if (_gp.dark)          try { localStorage.setItem('ps_preset_dark',    _gp.dark); } catch(e) {}
-                        if (_gp.light)         try { localStorage.setItem('ps_preset_light',   _gp.light); } catch(e) {}
-                        if (_gp.variantDark)   try { localStorage.setItem('ps_variant_dark',   _gp.variantDark); } catch(e) {}
-                        if (_gp.variantLight)  try { localStorage.setItem('ps_variant_light',  _gp.variantLight); } catch(e) {}
+                        if (_gp.active)        try { _lsSave('ps_preset',         _gp.active); } catch(e) {}
+                        if (_gp.activeVariant) try { _lsSave('ps_preset_variant', _gp.activeVariant); } catch(e) {}
+                        if (_gp.dark)          try { _lsSave('ps_preset_dark',    _gp.dark); } catch(e) {}
+                        if (_gp.light)         try { _lsSave('ps_preset_light',   _gp.light); } catch(e) {}
+                        if (_gp.variantDark)   try { _lsSave('ps_variant_dark',   _gp.variantDark); } catch(e) {}
+                        if (_gp.variantLight)  try { _lsSave('ps_variant_light',  _gp.variantLight); } catch(e) {}
                         if (typeof _applyPreset === 'function') {
                             const _mode = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
                             const _pId  = localStorage.getItem('ps_preset_' + _mode) || localStorage.getItem('ps_preset') || '';
@@ -54473,7 +54473,7 @@ ${_clip(contextSections, 2600)}`;
                         const gistTab = data.uiState.tab;
                         const validTabs = ['dashboard', 'watchlist', 'edit', 'utilities'];
                         if (validTabs.includes(gistTab)) {
-                            try { localStorage.setItem('ps_tab', gistTab); } catch(e) {}
+                            try { _lsSave('ps_tab', gistTab); } catch(e) {}
                             // Switch to Gist's tab — UI was already rendered with boot's savedTab,
                             // so re-call showTab to correct it (splash still covers the transition)
                             showTab(gistTab, false, true);
@@ -54486,38 +54486,38 @@ ${_clip(contextSections, 2600)}`;
                         const validIds = ['ddr-row1', 'ddr-muse', 'ddr-fin', 'ddr-charts'];
                         const gistOrder = data.uiState.dashSectionOrder.filter(function(id) { return validIds.includes(id); });
                         if (gistOrder.length > 0) {
-                            try { localStorage.setItem('ps_dash_section_order', JSON.stringify(gistOrder)); } catch(e) {}
+                            try { _lsSave('ps_dash_section_order', JSON.stringify(gistOrder)); } catch(e) {}
                             _dashRestoreOrder();
                         }
                     }
                     // Dashboard section collapsed: restore from Gist only on fresh device
                     if (data.uiState?.dashSectionCollapsed && typeof data.uiState.dashSectionCollapsed === 'object' &&
                         isInitialLoad && localStorage.getItem('ps_dash_collapsed') === null) {
-                        try { localStorage.setItem('ps_dash_collapsed', JSON.stringify(data.uiState.dashSectionCollapsed)); } catch(e) {}
+                        try { _lsSave('ps_dash_collapsed', JSON.stringify(data.uiState.dashSectionCollapsed)); } catch(e) {}
                         _dashRestoreCollapsed();
                     }
                     // Clock widget: restore position, FAB position, visibility, color, date toggle (fresh device only)
                     if (data.uiState?.clockWidget && isInitialLoad) {
                         const _cw = data.uiState.clockWidget;
                         if (_cw.pos    && Object.keys(_cw.pos).length    && localStorage.getItem('ps_clock_pos')     === null)
-                            try { localStorage.setItem('ps_clock_pos',     JSON.stringify(_cw.pos)); } catch(e) {}
+                            try { _lsSave('ps_clock_pos',     JSON.stringify(_cw.pos)); } catch(e) {}
                         if (_cw.fabPos && Object.keys(_cw.fabPos).length  && localStorage.getItem('ps_clock_fab_pos') === null)
-                            try { localStorage.setItem('ps_clock_fab_pos', JSON.stringify(_cw.fabPos)); } catch(e) {}
-                        if (localStorage.getItem('ps_clock_vis')       === null) try { localStorage.setItem('ps_clock_vis',       _cw.vis === false ? '0' : '1'); } catch(e) {}
-                        if (localStorage.getItem('ps_clock_show_date') === null) try { localStorage.setItem('ps_clock_show_date', _cw.showDate ? '1' : '0'); }     catch(e) {}
+                            try { _lsSave('ps_clock_fab_pos', JSON.stringify(_cw.fabPos)); } catch(e) {}
+                        if (localStorage.getItem('ps_clock_vis')       === null) try { _lsSave('ps_clock_vis',       _cw.vis === false ? '0' : '1'); } catch(e) {}
+                        if (localStorage.getItem('ps_clock_show_date') === null) try { _lsSave('ps_clock_show_date', _cw.showDate ? '1' : '0'); }     catch(e) {}
                         // Per-theme colors
                         if (_cw.clockColors && typeof _cw.clockColors === 'object') {
                             Object.keys(_cw.clockColors).forEach(function(id) {
                                 if (localStorage.getItem('ps_clock_color_' + id) === null)
-                                    try { localStorage.setItem('ps_clock_color_' + id, _cw.clockColors[id]); } catch(e) {}
+                                    try { _lsSave('ps_clock_color_' + id, _cw.clockColors[id]); } catch(e) {}
                             });
                         } else if (_cw.color && _cw.color !== 'theme') {
                             // legacy single-color field — migrate to current theme slot
                             if (localStorage.getItem('ps_clock_color_' + (_activeTheme||'default')) === null)
-                                try { localStorage.setItem('ps_clock_color_' + (_activeTheme||'default'), _cw.color); } catch(e) {}
+                                try { _lsSave('ps_clock_color_' + (_activeTheme||'default'), _cw.color); } catch(e) {}
                         }
                         if (_cw.font && localStorage.getItem('ps_clock_font') === null)
-                            try { localStorage.setItem('ps_clock_font', _cw.font); } catch(e) {}
+                            try { _lsSave('ps_clock_font', _cw.font); } catch(e) {}
                         // Re-apply to live clock widget — it already initialized with defaults
                         // before Gist data arrived, so we must push the restored values into it
                         if (typeof _clockInited !== 'undefined' && _clockInited) {
@@ -54531,21 +54531,21 @@ ${_clip(contextSections, 2600)}`;
                     // Profile card: restore notes, free images, pills config
                     if (data.profileCard) {
                         const pc = data.profileCard;
-                        if (pc.notesHtml)   { try { localStorage.setItem('ps_profile_notes_html', pc.notesHtml); } catch(e) {} }
-                        if (pc.notes)       { try { localStorage.setItem('ps_profile_notes', pc.notes); } catch(e) {} }
-                        if (pc.freeImgs)    { try { localStorage.setItem('ps_profile_free_imgs', pc.freeImgs); } catch(e) {} }
-                        if (pc.pillsHidden) { try { localStorage.setItem('ps_profile_pills_hidden', pc.pillsHidden); } catch(e) {} }
-                        if (pc.pinnedWl)    { try { localStorage.setItem('ps_pinned_wl', pc.pinnedWl); } catch(e) {} }
+                        if (pc.notesHtml)   { try { _lsSave('ps_profile_notes_html', pc.notesHtml); } catch(e) {} }
+                        if (pc.notes)       { try { _lsSave('ps_profile_notes', pc.notes); } catch(e) {} }
+                        if (pc.freeImgs)    { try { _lsSave('ps_profile_free_imgs', pc.freeImgs); } catch(e) {} }
+                        if (pc.pillsHidden) { try { _lsSave('ps_profile_pills_hidden', pc.pillsHidden); } catch(e) {} }
+                        if (pc.pinnedWl)    { try { _lsSave('ps_pinned_wl', pc.pinnedWl); } catch(e) {} }
                         _loadProfileCard();
                         if (isInitialLoad) _splashStatus('กู้คืน Profile Card ✓');
                     }
                     // FX self-tracking: restore prev close data for cross-device continuity
                     if (data.fxSelfTrack) {
                         const fx = data.fxSelfTrack;
-                        if (fx.mid)    localStorage.setItem('ps_fx_self_mid', fx.mid);
-                        if (fx.date)   localStorage.setItem('ps_fx_self_date', fx.date);
-                        if (fx.prev)   localStorage.setItem('ps_fx_self_prev', fx.prev);
-                        if (fx.prevDt) localStorage.setItem('ps_fx_self_prev_dt', fx.prevDt);
+                        if (fx.mid)    _lsSave('ps_fx_self_mid', fx.mid);
+                        if (fx.date)   _lsSave('ps_fx_self_date', fx.date);
+                        if (fx.prev)   _lsSave('ps_fx_self_prev', fx.prev);
+                        if (fx.prevDt) _lsSave('ps_fx_self_prev_dt', fx.prevDt);
                     }
                     // PS Quotation: restore period counters + history so quotation numbers stay unique across devices.
                     // Merge strategy — take the HIGHER counter per competitor for the current period, preserving
@@ -54574,7 +54574,7 @@ ${_clip(contextSections, 2600)}`;
                                 merged[k] = { period: base.period, counter: base.counter, log: mergedLog };
                             });
                             if (merged.c1 || merged.c2) {
-                                try { localStorage.setItem('ps_psq_state', JSON.stringify(merged)); } catch(e) {}
+                                try { _lsSave('ps_psq_state', JSON.stringify(merged)); } catch(e) {}
                             }
                         } catch(e) { console.warn('[Gist] psqState restore failed:', e); }
                     }
@@ -54583,7 +54583,7 @@ ${_clip(contextSections, 2600)}`;
                     // If the composer panel is currently mounted, repopulate inputs immediately.
                     if (data.psecState && typeof data.psecState === 'object') {
                         try {
-                            localStorage.setItem('ps_psec_state', JSON.stringify(data.psecState));
+                            _lsSave('ps_psec_state', JSON.stringify(data.psecState));
                             if (typeof _psecState !== 'undefined') {
                                 _psecState = data.psecState;
                                 if (document.getElementById('psec-form-pane')) {
@@ -54618,7 +54618,7 @@ ${_clip(contextSections, 2600)}`;
                             });
                             await Promise.all(tplRestorePromises);
                             if (tplUpdated) {
-                                localStorage.setItem('ps_psq_template_meta', JSON.stringify(localTplMeta));
+                                _lsSave('ps_psq_template_meta', JSON.stringify(localTplMeta));
                                 if (typeof _psqRenderTplSettings === 'function') _psqRenderTplSettings();
                                 if (typeof _psqUpdateStatusBar === 'function') _psqUpdateStatusBar();
                                 if (typeof _psqCheckReady === 'function') _psqCheckReady();
@@ -54628,7 +54628,7 @@ ${_clip(contextSections, 2600)}`;
                     // PS Quotation email templates: last-write-wins (no merge — small text, user-edited)
                     if (data.psqEmailTemplates && typeof data.psqEmailTemplates === 'object') {
                         try {
-                            localStorage.setItem('ps_psq_email_templates', JSON.stringify(data.psqEmailTemplates));
+                            _lsSave('ps_psq_email_templates', JSON.stringify(data.psqEmailTemplates));
                             if (typeof _psqRenderEmailTplSection === 'function') _psqRenderEmailTplSection();
                         } catch(e) { console.warn('[Gist] psqEmailTemplates restore failed:', e); }
                     }
@@ -54657,7 +54657,7 @@ ${_clip(contextSections, 2600)}`;
                             localCust.forEach(addCust);
                             data.psqCustomers.forEach(addCust);
                             var merged = Object.values(byEmail);
-                            localStorage.setItem('ps_psq_customers', JSON.stringify(merged));
+                            _lsSave('ps_psq_customers', JSON.stringify(merged));
                         } catch(e) { console.warn('[Gist] psqCustomers restore failed:', e); }
                     }
                     // MUSE playlists + active preset + collapse state
@@ -54666,7 +54666,7 @@ ${_clip(contextSections, 2600)}`;
                         if (Array.isArray(md.presets)) {
                             for (let i = 0; i < MUSE_PRESET_KEYS.length; i++) {
                                 const presetData = i < md.presets.length ? md.presets[i] : [];
-                                try { localStorage.setItem(MUSE_PRESET_KEYS[i], JSON.stringify(Array.isArray(presetData) ? presetData : [])); } catch(e) {}
+                                try { _lsSave(MUSE_PRESET_KEYS[i], JSON.stringify(Array.isArray(presetData) ? presetData : [])); } catch(e) {}
                             }
                         }
                         // On initial load: always restore Gist's MUSE settings (Gist = cross-device truth).
@@ -54674,23 +54674,23 @@ ${_clip(contextSections, 2600)}`;
                         // forcing isInitialLoad override means a fresh browser always gets the right layout.
                         // On manual sync (isInitialLoad=false): only set if null (don't override live session).
                         if (typeof md.activePresetIdx === 'number' && (isInitialLoad || localStorage.getItem(MUSE_PRESET_IDX_KEY) === null)) {
-                            try { localStorage.setItem(MUSE_PRESET_IDX_KEY, String(md.activePresetIdx)); } catch(e) {}
+                            try { _lsSave(MUSE_PRESET_IDX_KEY, String(md.activePresetIdx)); } catch(e) {}
                         }
                         if (Array.isArray(md.activeSlots) && (isInitialLoad || localStorage.getItem(MUSE_ACTIVE_SLOT_KEY) === null)) {
                             var _aSlots = md.activeSlots.slice(0, MUSE_PRESET_KEYS.length);
                             while (_aSlots.length < MUSE_PRESET_KEYS.length) _aSlots.push(0);
-                            try { localStorage.setItem(MUSE_ACTIVE_SLOT_KEY, JSON.stringify(_aSlots)); } catch(e) {}
+                            try { _lsSave(MUSE_ACTIVE_SLOT_KEY, JSON.stringify(_aSlots)); } catch(e) {}
                         }
                         if (typeof md.collapsed === 'boolean' && (isInitialLoad || localStorage.getItem(MUSE_COLLAPSED_KEY) === null)) {
-                            try { localStorage.setItem(MUSE_COLLAPSED_KEY, md.collapsed ? '1' : '0'); } catch(e) {}
+                            try { _lsSave(MUSE_COLLAPSED_KEY, md.collapsed ? '1' : '0'); } catch(e) {}
                         }
                         if (Array.isArray(md.passwordHashes)) {
                             while (md.passwordHashes.length < MUSE_PRESET_KEYS.length) md.passwordHashes.push(null);
-                            try { localStorage.setItem('ps_muse_pws', JSON.stringify(md.passwordHashes)); } catch(e) {}
+                            try { _lsSave('ps_muse_pws', JSON.stringify(md.passwordHashes)); } catch(e) {}
                         }
                         if (typeof md.layoutMode === 'number' && (isInitialLoad || localStorage.getItem(MUSE_LAYOUT_KEY) === null)) {
                             _museLayoutMode = md.layoutMode;
-                            try { localStorage.setItem(MUSE_LAYOUT_KEY, String(md.layoutMode)); } catch(e) {}
+                            try { _lsSave(MUSE_LAYOUT_KEY, String(md.layoutMode)); } catch(e) {}
                         }
                         if (md.autoRotate && (isInitialLoad || localStorage.getItem(MUSE_AUTOROTATE_KEY) === null)) {
                             _museAutoRotateEnabled = !!md.autoRotate.enabled;
@@ -54702,11 +54702,11 @@ ${_clip(contextSections, 2600)}`;
                                 _museAutoRotateIncluded = md.autoRotate.included.slice(0, MUSE_PRESET_KEYS.length);
                                 while (_museAutoRotateIncluded.length < MUSE_PRESET_KEYS.length) _museAutoRotateIncluded.push(true);
                             }
-                            try { localStorage.setItem(MUSE_AUTOROTATE_KEY, JSON.stringify({ enabled: _museAutoRotateEnabled, durations: _museAutoRotateDurations, included: _museAutoRotateIncluded })); } catch(e) {}
+                            try { _lsSave(MUSE_AUTOROTATE_KEY, JSON.stringify({ enabled: _museAutoRotateEnabled, durations: _museAutoRotateDurations, included: _museAutoRotateIncluded })); } catch(e) {}
                         }
                         if (typeof md.slotCount === 'number' && (isInitialLoad || localStorage.getItem(MUSE_SLOT_COUNT_KEY) === null)) {
                             _museSlotCount = md.slotCount;
-                            try { localStorage.setItem(MUSE_SLOT_COUNT_KEY, String(md.slotCount)); } catch(e) {}
+                            try { _lsSave(MUSE_SLOT_COUNT_KEY, String(md.slotCount)); } catch(e) {}
                         }
                         // Re-apply if card already initialized (Gist sync on running session)
                         if (_museInited) {
@@ -54735,14 +54735,14 @@ ${_clip(contextSections, 2600)}`;
                     if (data.profilePresets) {
                         const pp = data.profilePresets;
                         if (Array.isArray(pp.presets) && pp.presets.length > 0) {
-                            try { localStorage.setItem('ps_profile_presets', JSON.stringify(pp.presets)); } catch(e) {}
+                            try { _lsSave('ps_profile_presets', JSON.stringify(pp.presets)); } catch(e) {}
                         }
                         // On initial load: always use Gist's activeIdx (Gist = cross-device source of truth).
                         // _psInit() runs before syncFromGist on reload path and writes '0' to
                         // ps_profile_preset_idx, making the old '=== null' check always fail on fresh devices.
                         // On manual sync (isInitialLoad=false): only set if null (don't override live session).
                         if (typeof pp.activeIdx === 'number' && (isInitialLoad || localStorage.getItem('ps_profile_preset_idx') === null)) {
-                            try { localStorage.setItem('ps_profile_preset_idx', String(pp.activeIdx)); } catch(e) {}
+                            try { _lsSave('ps_profile_preset_idx', String(pp.activeIdx)); } catch(e) {}
                         }
                         // Re-apply if already initialized in this session
                         if (typeof _psPresets !== 'undefined' && typeof _psPresetApply === 'function') {
@@ -54762,7 +54762,7 @@ ${_clip(contextSections, 2600)}`;
                     // chartPrefs: column picker state + chart settings — always restore from Gist
                     // (UI preference, not trading data — Gist is source of truth across devices)
                     if (data.chartPrefs) {
-                        try { localStorage.setItem('ps_lwc_prefs', JSON.stringify(data.chartPrefs)); } catch(e){}
+                        try { _lsSave('ps_lwc_prefs', JSON.stringify(data.chartPrefs)); } catch(e){}
                         if (data.chartPrefs.cols) { _lwcPrefs.cols = data.chartPrefs.cols; _applyWlCols(); }
                     }
                     // API keys: restore from Gist (base64-encoded) — fill missing keys only
@@ -54775,7 +54775,7 @@ ${_clip(contextSections, 2600)}`;
                             if (!decoded) continue;
                             const existing = localStorage.getItem(k);
                             if (!existing) {
-                                try { localStorage.setItem(k, decoded); _keysRestored++; } catch(e) {}
+                                try { _lsSave(k, decoded); _keysRestored++; } catch(e) {}
                             }
                         }
                         if (_keysRestored > 0) {
@@ -54823,7 +54823,7 @@ ${_clip(contextSections, 2600)}`;
 
                 // Update db-name-display with gist description
                 const dbName = gist.description || GIST_FILENAME;
-                try { localStorage.setItem('ps_dbname', dbName); } catch(e) {}
+                try { _lsSave('ps_dbname', dbName); } catch(e) {}
                 const nameEl = document.getElementById('db-name-display');
                 if (nameEl) { nameEl.innerText = dbName; nameEl.style.color = ''; }
 
@@ -54890,7 +54890,7 @@ ${_clip(contextSections, 2600)}`;
                 } else {
                     _lastSavedHash = _dataHash();
                 }
-                try { localStorage.setItem('ps_gist_sync_ts', String(Date.now())); } catch(e) {}
+                try { _lsSave('ps_gist_sync_ts', String(Date.now())); } catch(e) {}
                 showGistStatus('SYNCED ✓', 'text-emerald-500');
             } catch(e) {
                 console.error('[Gist DIAG] syncFromGist EXCEPTION:', e?.message || e);
@@ -54946,7 +54946,7 @@ ${_clip(contextSections, 2600)}`;
                 return;
             }
             // Save token to localStorage
-            localStorage.setItem('ps_gist_token', token);
+            _lsSave('ps_gist_token', token);
             updateSettingsBadges();
 
             // UI feedback
@@ -54985,7 +54985,7 @@ ${_clip(contextSections, 2600)}`;
                         if (!data.apiKeys[k]) continue;
                         const decoded = _decKey(data.apiKeys[k]);
                         if (decoded) {
-                            try { localStorage.setItem(k, decoded); keysRestored++; } catch(e) {}
+                            try { _lsSave(k, decoded); keysRestored++; } catch(e) {}
                         }
                     }
                 }
@@ -54998,7 +54998,7 @@ ${_clip(contextSections, 2600)}`;
                 try { localStorage.removeItem('ps_gist_sync_ts'); } catch(e) {}
                 try { localStorage.removeItem('ps_gist_push_ts'); } catch(e) {}
                 // Mark wizard done so Wizard overlay doesn't re-appear after reload
-                try { localStorage.setItem('ps_wizard_done', '1'); } catch(e) {}
+                try { _lsSave('ps_wizard_done', '1'); } catch(e) {}
 
                 // Option B: Show success → reload → Splash → syncFromGist(isInitialLoad=true) → enter app
                 const keyNames = keysRestored > 0 ? ` (${keysRestored} API keys)` : '';
@@ -55146,7 +55146,7 @@ ${_clip(contextSections, 2600)}`;
                             if (!db.avatar || gistTs >= localTs) {
                                 db.avatar = data.meta.avatar;
                                 setAvatarImage(db.avatar);
-                                try { localStorage.setItem('ps_avatar', db.avatar); } catch(e) {}
+                                try { _lsSave('ps_avatar', db.avatar); } catch(e) {}
                             }
                         }
                         if (data.meta?.profilePhoto) {
@@ -55155,12 +55155,12 @@ ${_clip(contextSections, 2600)}`;
                             if (!db.profilePhoto || gistTs >= localTs) {
                                 db.profilePhoto = data.meta.profilePhoto;
                                 setProfilePhoto(db.profilePhoto);
-                                try { localStorage.setItem('ps_profile_photo', db.profilePhoto); } catch(e) {}
+                                try { _lsSave('ps_profile_photo', db.profilePhoto); } catch(e) {}
                             }
                         }
                         // Restore dark mode
                         if (data.chartPrefs) {
-                    try { localStorage.setItem('ps_lwc_prefs', JSON.stringify(data.chartPrefs)); } catch(e){}
+                    try { _lsSave('ps_lwc_prefs', JSON.stringify(data.chartPrefs)); } catch(e){}
                     if (data.chartPrefs.cols) { _lwcPrefs.cols = data.chartPrefs.cols; _applyWlCols(); }
                 }
                 const localTheme = localStorage.getItem('ps_theme');
@@ -55177,7 +55177,7 @@ ${_clip(contextSections, 2600)}`;
                         if (data.settings && typeof data.settings === 'object') {
                             Object.entries(data.settings).forEach(([k, v]) => {
                                 if (k.startsWith('ps_') && v) {
-                                    try { localStorage.setItem(k, v); } catch(e) {}
+                                    try { _lsSave(k, v); } catch(e) {}
                                 }
                             });
                             updateSettingsBadges();
@@ -55185,11 +55185,11 @@ ${_clip(contextSections, 2600)}`;
                         // Profile card: notes, free images, pills visibility, pinned watchlist
                         if (data.profileCard) {
                             const pc = data.profileCard;
-                            if (pc.notesHtml)   { try { localStorage.setItem('ps_profile_notes_html', pc.notesHtml); } catch(e) {} }
-                            if (pc.notes)       { try { localStorage.setItem('ps_profile_notes', pc.notes); } catch(e) {} }
-                            if (pc.freeImgs)    { try { localStorage.setItem('ps_profile_free_imgs', pc.freeImgs); } catch(e) {} }
-                            if (pc.pillsHidden) { try { localStorage.setItem('ps_profile_pills_hidden', pc.pillsHidden); } catch(e) {} }
-                            if (pc.pinnedWl)    { try { localStorage.setItem('ps_pinned_wl', pc.pinnedWl); } catch(e) {} }
+                            if (pc.notesHtml)   { try { _lsSave('ps_profile_notes_html', pc.notesHtml); } catch(e) {} }
+                            if (pc.notes)       { try { _lsSave('ps_profile_notes', pc.notes); } catch(e) {} }
+                            if (pc.freeImgs)    { try { _lsSave('ps_profile_free_imgs', pc.freeImgs); } catch(e) {} }
+                            if (pc.pillsHidden) { try { _lsSave('ps_profile_pills_hidden', pc.pillsHidden); } catch(e) {} }
+                            if (pc.pinnedWl)    { try { _lsSave('ps_pinned_wl', pc.pinnedWl); } catch(e) {} }
                             _loadProfileCard();
                         }
                         // Muse Card: all 6 presets, settings, re-apply UI
@@ -55198,17 +55198,17 @@ ${_clip(contextSections, 2600)}`;
                             if (Array.isArray(md.presets)) {
                                 for (let i = 0; i < MUSE_PRESET_KEYS.length; i++) {
                                     const pd = i < md.presets.length ? md.presets[i] : [];
-                                    try { localStorage.setItem(MUSE_PRESET_KEYS[i], JSON.stringify(Array.isArray(pd) ? pd : [])); } catch(e) {}
+                                    try { _lsSave(MUSE_PRESET_KEYS[i], JSON.stringify(Array.isArray(pd) ? pd : [])); } catch(e) {}
                                 }
                             }
-                            if (typeof md.activePresetIdx === 'number') try { localStorage.setItem(MUSE_PRESET_IDX_KEY, String(md.activePresetIdx)); } catch(e) {}
-                            if (typeof md.collapsed === 'boolean') try { localStorage.setItem(MUSE_COLLAPSED_KEY, md.collapsed ? '1' : '0'); } catch(e) {}
+                            if (typeof md.activePresetIdx === 'number') try { _lsSave(MUSE_PRESET_IDX_KEY, String(md.activePresetIdx)); } catch(e) {}
+                            if (typeof md.collapsed === 'boolean') try { _lsSave(MUSE_COLLAPSED_KEY, md.collapsed ? '1' : '0'); } catch(e) {}
                             if (Array.isArray(md.passwordHashes)) {
                                 while (md.passwordHashes.length < MUSE_PRESET_KEYS.length) md.passwordHashes.push(null);
-                                try { localStorage.setItem('ps_muse_pws', JSON.stringify(md.passwordHashes)); } catch(e) {}
+                                try { _lsSave('ps_muse_pws', JSON.stringify(md.passwordHashes)); } catch(e) {}
                             }
-                            if (typeof md.layoutMode === 'number') { _museLayoutMode = md.layoutMode; try { localStorage.setItem(MUSE_LAYOUT_KEY, String(md.layoutMode)); } catch(e) {} }
-                            if (typeof md.slotCount === 'number') { _museSlotCount = md.slotCount; try { localStorage.setItem(MUSE_SLOT_COUNT_KEY, String(md.slotCount)); } catch(e) {} }
+                            if (typeof md.layoutMode === 'number') { _museLayoutMode = md.layoutMode; try { _lsSave(MUSE_LAYOUT_KEY, String(md.layoutMode)); } catch(e) {} }
+                            if (typeof md.slotCount === 'number') { _museSlotCount = md.slotCount; try { _lsSave(MUSE_SLOT_COUNT_KEY, String(md.slotCount)); } catch(e) {} }
                             if (md.autoRotate) {
                                 _museAutoRotateEnabled = !!md.autoRotate.enabled;
                                 if (Array.isArray(md.autoRotate.durations)) {
@@ -55219,7 +55219,7 @@ ${_clip(contextSections, 2600)}`;
                                     _museAutoRotateIncluded = md.autoRotate.included.slice(0, MUSE_PRESET_KEYS.length);
                                     while (_museAutoRotateIncluded.length < MUSE_PRESET_KEYS.length) _museAutoRotateIncluded.push(true);
                                 }
-                                try { localStorage.setItem(MUSE_AUTOROTATE_KEY, JSON.stringify({ enabled: _museAutoRotateEnabled, durations: _museAutoRotateDurations, included: _museAutoRotateIncluded })); } catch(e) {}
+                                try { _lsSave(MUSE_AUTOROTATE_KEY, JSON.stringify({ enabled: _museAutoRotateEnabled, durations: _museAutoRotateDurations, included: _museAutoRotateIncluded })); } catch(e) {}
                             }
                             if (_museInited) {
                                 _musePresetIdx = parseInt(localStorage.getItem(MUSE_PRESET_IDX_KEY) || '0') || 0;
@@ -55230,8 +55230,8 @@ ${_clip(contextSections, 2600)}`;
                         // Profile Presets: full restore + UI re-apply
                         if (data.profilePresets) {
                             const pp = data.profilePresets;
-                            if (Array.isArray(pp.presets) && pp.presets.length > 0) try { localStorage.setItem('ps_profile_presets', JSON.stringify(pp.presets)); } catch(e) {}
-                            if (typeof pp.activeIdx === 'number') try { localStorage.setItem('ps_profile_preset_idx', String(pp.activeIdx)); } catch(e) {}
+                            if (Array.isArray(pp.presets) && pp.presets.length > 0) try { _lsSave('ps_profile_presets', JSON.stringify(pp.presets)); } catch(e) {}
+                            if (typeof pp.activeIdx === 'number') try { _lsSave('ps_profile_preset_idx', String(pp.activeIdx)); } catch(e) {}
                             if (typeof _psPresets !== 'undefined' && typeof _psPresetApply === 'function') {
                                 try {
                                     const _rp = JSON.parse(localStorage.getItem('ps_profile_presets') || '[]');
@@ -55249,7 +55249,7 @@ ${_clip(contextSections, 2600)}`;
                         if (data.uiState?.tab) {
                             const validTabs = ['dashboard', 'watchlist', 'edit', 'utilities'];
                             if (validTabs.includes(data.uiState.tab)) {
-                                try { localStorage.setItem('ps_tab', data.uiState.tab); } catch(e) {}
+                                try { _lsSave('ps_tab', data.uiState.tab); } catch(e) {}
                             }
                         }
                         // UI state: restore dashboard section order
@@ -55257,13 +55257,13 @@ ${_clip(contextSections, 2600)}`;
                             const validIds = ['ddr-row1', 'ddr-muse', 'ddr-fin', 'ddr-charts'];
                             const importOrder = data.uiState.dashSectionOrder.filter(function(id) { return validIds.includes(id); });
                             if (importOrder.length > 0) {
-                                try { localStorage.setItem('ps_dash_section_order', JSON.stringify(importOrder)); } catch(e) {}
+                                try { _lsSave('ps_dash_section_order', JSON.stringify(importOrder)); } catch(e) {}
                                 _dashRestoreOrder();
                             }
                         }
                         // UI state: restore dashboard section collapsed
                         if (data.uiState?.dashSectionCollapsed && typeof data.uiState.dashSectionCollapsed === 'object') {
-                            try { localStorage.setItem('ps_dash_collapsed', JSON.stringify(data.uiState.dashSectionCollapsed)); } catch(e) {}
+                            try { _lsSave('ps_dash_collapsed', JSON.stringify(data.uiState.dashSectionCollapsed)); } catch(e) {}
                             _dashRestoreCollapsed();
                         }
                     } else {
@@ -55275,7 +55275,7 @@ ${_clip(contextSections, 2600)}`;
                     // Save records and watchlist
                     _lsSave('ps_records',   JSON.stringify(records));
                     _lsSave('ps_watchlist', JSON.stringify(watchlist));
-                    try { localStorage.setItem('ps_data_dirty', '1'); } catch(e) {}
+                    try { _lsSave('ps_data_dirty', '1'); } catch(e) {}
                     prewarmWatchlistLogos(80);
 
                     // Reload records tab
@@ -55298,7 +55298,7 @@ ${_clip(contextSections, 2600)}`;
                     // Show imported filename in status area (local mode)
                     const nameEl2 = document.getElementById('db-name-display');
                     if (nameEl2) { nameEl2.innerText = fileName; nameEl2.style.color = ''; }
-                    try { localStorage.setItem('ps_dbname', fileName); } catch(e) {}
+                    try { _lsSave('ps_dbname', fileName); } catch(e) {}
                     // Push imported data TO Gist — imported file wins over cloud
                     if (getGistToken()) {
                         showGistStatus('IMPORTED — กำลัง SAVE...', 'text-blue-500');
@@ -55364,7 +55364,7 @@ ${_clip(contextSections, 2600)}`;
 
                     _sortRecords();
                     _lsSave('ps_records', JSON.stringify(records));
-                    try { localStorage.setItem('ps_data_dirty', '1'); } catch(e) {}
+                    try { _lsSave('ps_data_dirty', '1'); } catch(e) {}
                     loadMonth(curMonth);
 
                     const _summary = [added ? added + ' เดือนใหม่' : '', replaced ? replaced + ' เดือนแทนที่' : ''].filter(Boolean).join(', ');
@@ -55401,13 +55401,13 @@ ${_clip(contextSections, 2600)}`;
             if (tab === 'display') _updateDisplayModeButtons();
             if (tab === 'usage') _refreshStorageUsage();
             if (tab === 'storage' && typeof _psupRenderModelRows === 'function') _psupRenderModelRows();
-            localStorage.setItem('ps_settings_tab', tab);
+            _lsSave('ps_settings_tab', tab);
         }
 
         function getDisplayMode() { return localStorage.getItem('ps_display_mode') || 'beginner'; }
         function setDisplayMode(mode) {
             if (mode !== 'beginner' && mode !== 'trader') return;
-            localStorage.setItem('ps_display_mode', mode);
+            _lsSave('ps_display_mode', mode);
             _updateDisplayModeButtons();
         }
         function _updateDisplayModeButtons() {
@@ -55608,7 +55608,7 @@ ${_clip(contextSections, 2600)}`;
                 if (!el) return;
                 const val = el.value.trim();
                 if (val && (!validator || validator(val)))
-                    localStorage.setItem(storageKey, val);
+                    _lsSave(storageKey, val);
             };
             save('s-finnhub-input',       'ps_finnhub_key');
             save('s-erapi-input',         'ps_erapi_key');
@@ -55677,7 +55677,7 @@ ${_clip(contextSections, 2600)}`;
         function executeClear() {
             records = records.filter(r => r.id !== curMonth);
             _lsSave('ps_records', JSON.stringify(records));
-            try { localStorage.setItem('ps_data_dirty', '1'); } catch(e) {}
+            try { _lsSave('ps_data_dirty', '1'); } catch(e) {}
             closeModal();
             loadMonth(curMonth);
             scheduleAutoSave(true); // immediate — month cleared
@@ -55764,7 +55764,7 @@ ${_clip(contextSections, 2600)}`;
             // Apply dark mode immediately — localStorage is the source of truth
             const savedDark = localStorage.getItem('ps_dark');
             applyDarkMode(savedDark === '1');
-            if (savedDark === null) localStorage.setItem('ps_dark', '0'); // init default
+            if (savedDark === null) _lsSave('ps_dark', '0'); // init default
 
             try {
                 _splashStatus('อ่าน Records จาก Local Storage...');
@@ -55783,7 +55783,7 @@ ${_clip(contextSections, 2600)}`;
                         _r2IdbPut('avatar:full', _av);
                         db.avatar = _av; // keep full-res in memory
                         _generateThumb(_av, 128, 0.8).then(function(thumb) {
-                            try { localStorage.setItem('ps_avatar', thumb); } catch(e) {}
+                            try { _lsSave('ps_avatar', thumb); } catch(e) {}
                         });
                     } else {
                         _r2IdbGet('avatar:full').then(function(full) {
@@ -55801,7 +55801,7 @@ ${_clip(contextSections, 2600)}`;
                         _r2IdbPut('photo:full', _pp);
                         db.profilePhoto = _pp;
                         _generateThumb(_pp, 400, 0.8).then(function(thumb) {
-                            try { localStorage.setItem('ps_profile_photo', thumb); } catch(e) {}
+                            try { _lsSave('ps_profile_photo', thumb); } catch(e) {}
                         });
                     } else {
                         _r2IdbGet('photo:full').then(function(full) {
@@ -55824,7 +55824,7 @@ ${_clip(contextSections, 2600)}`;
                                     p.photo = thumb;
                                     _changed = true;
                                     // Save after all thumbnails generated (last one wins)
-                                    try { localStorage.setItem('ps_profile_presets', JSON.stringify(_presets)); } catch(e) {}
+                                    try { _lsSave('ps_profile_presets', JSON.stringify(_presets)); } catch(e) {}
                                 });
                             }
                         });
@@ -56515,12 +56515,15 @@ ${_clip(contextSections, 2600)}`;
         }
 
         // ── Safe localStorage setter — warns on quota exceeded ────────────────
+        // NOTE: inner write uses bracket-notation so global replace_all of
+        // `_lsSave(` → `_lsSave(` skips THIS line (would otherwise
+        // recurse infinitely). DO NOT change the bracket form back.
         function _lsSave(key, value) {
             try {
-                localStorage.setItem(key, value);
+                localStorage['setItem'](key, value);
             } catch(e) {
                 if (e && (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED' || e.code === 22)) {
-                    showGistStatus('⚠ Storage เต็ม — บันทึก Gist เท่านั้น', 'text-rose-400');
+                    if (typeof showGistStatus === 'function') showGistStatus('⚠ Storage เต็ม — บันทึก Gist เท่านั้น', 'text-rose-400');
                 }
             }
         }
@@ -56570,8 +56573,8 @@ ${_clip(contextSections, 2600)}`;
                     _lastSavedHash = hash; // only update hash on confirmed success
                     _lastGistPushTime = Date.now(); // update after confirmed success
                     try { localStorage.removeItem('ps_data_dirty'); } catch(e) {} // push succeeded — local is in sync
-                    try { localStorage.setItem('ps_gist_push_ts', String(exportData.lastModifiedTs)); } catch(e) {} // timestamp for cross-device conflict resolution
-                    try { localStorage.setItem('ps_gist_last_size', String(new Blob([encContent]).size)); } catch(e) {} // actual UTF-8 bytes for Usage tab
+                    try { _lsSave('ps_gist_push_ts', String(exportData.lastModifiedTs)); } catch(e) {} // timestamp for cross-device conflict resolution
+                    try { _lsSave('ps_gist_last_size', String(new Blob([encContent]).size)); } catch(e) {} // actual UTF-8 bytes for Usage tab
                     const t = new Date(); const hm = t.getHours().toString().padStart(2,'0')+':'+t.getMinutes().toString().padStart(2,'0');
                     showGistStatus('AUTO SAVED ✓ ' + hm, 'text-emerald-400');
                 } else if (res.status === 403 || res.status === 429) {
@@ -56627,7 +56630,7 @@ ${_clip(contextSections, 2600)}`;
                 } else {
                     // Large payload (>64KB, e.g. photos included) — keepalive has a 64KB limit
                     // Mark as dirty so next session knows to push immediately on load
-                    try { localStorage.setItem('ps_data_dirty', '1'); } catch(e) {}
+                    try { _lsSave('ps_data_dirty', '1'); } catch(e) {}
                     // Best-effort regular fetch — may succeed if browser allows in-flight requests to complete
                     fetch(`https://api.github.com/gists/${GIST_ID}`, {
                         method: 'PATCH',
@@ -56708,7 +56711,7 @@ ${_clip(contextSections, 2600)}`;
             // Mark dirty if data has changed since last confirmed push — ensures next
             // session pushes immediately even if keepalive was cancelled/stale
             if (_pendingSave || _dataHash() !== _lastSavedHash) {
-                try { localStorage.setItem('ps_data_dirty', '1'); } catch(e) {}
+                try { _lsSave('ps_data_dirty', '1'); } catch(e) {}
             }
             _pushToGistKeepalive();
         });
@@ -56719,7 +56722,7 @@ ${_clip(contextSections, 2600)}`;
             if (!e.persisted) { // only on actual close, not BFCache entry
                 _saveLogoDataCacheLocal(true);
                 if (_pendingSave || _dataHash() !== _lastSavedHash) {
-                    try { localStorage.setItem('ps_data_dirty', '1'); } catch(e) {}
+                    try { _lsSave('ps_data_dirty', '1'); } catch(e) {}
                 }
                 _pushToGistKeepalive();
             }
@@ -57034,7 +57037,7 @@ ${_clip(contextSections, 2600)}`;
                     all: _newsFeedAll.slice(0, 220),
                     cache: _newsFeedCache,
                 };
-                localStorage.setItem(NEWS_SNAPSHOT_KEY, JSON.stringify(payload));
+                _lsSave(NEWS_SNAPSHOT_KEY, JSON.stringify(payload));
             } catch(e) {}
         }
         function _restoreNewsFeedSnapshot() {
