@@ -17847,18 +17847,41 @@
 
         // Upload current slot bytes to the WOPI host so Collabora can fetch them.
         // Returns the file id WOPI assigns (basically the safe filename).
+        // F6 (2026-05-09): WOPI fetch wrapper — re-syncs token from Gist on 401
+        // and retries once. WOPI token is a static bearer (no OAuth refresh);
+        // 401 usually means user rotated token via Settings → it landed in Gist
+        // but this tab's localStorage cache is stale. Re-sync from Gist refreshes.
+        // If retry also 401, surface a clear error so user knows to rotate token.
+        async function _psqWopiFetch(url, opts) {
+            opts = opts || {};
+            opts.headers = opts.headers || {};
+            opts.headers['Authorization'] = 'Bearer ' + getPsqWopiToken();
+            var resp = await fetch(url, opts);
+            if (resp.status !== 401) return resp;
+            // 401 → re-sync Gist (may have fresher token), retry once
+            if (typeof syncFromGist === 'function') {
+                try { await syncFromGist(false); } catch(_) {}
+            }
+            opts.headers['Authorization'] = 'Bearer ' + getPsqWopiToken();
+            resp = await fetch(url, opts);
+            if (resp.status === 401) {
+                if (typeof showGistStatus === 'function') {
+                    showGistStatus('WOPI token หมดอายุ — กรอกใหม่ใน Settings', 'text-rose-500');
+                }
+            }
+            return resp;
+        }
         async function _psqEditorUploadToWopi(slot) {
             var file = _psqEditorResolveSlotFile(slot);
             if (!file) throw new Error('no bytes for slot ' + slot);
             var name = (slot === 'main')  ? 'PS-Main.xlsx'
                      : (slot === 'comp1') ? 'Comp1-BT.xlsx'
                      : (slot === 'comp2') ? 'Comp2-QMVV.xlsx' : 'doc.xlsx';
-            var resp = await fetch(PSQ_WOPI_HOST_BROWSER + '/upload', {
+            var resp = await _psqWopiFetch(PSQ_WOPI_HOST_BROWSER + '/upload', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/octet-stream',
-                    'X-Filename': name,
-                    'Authorization': 'Bearer ' + getPsqWopiToken()
+                    'X-Filename': name
                 },
                 body: file.bytes
             });
@@ -17876,9 +17899,8 @@
             var stat = document.getElementById('psq-editor-preview-status');
             if (stat) stat.textContent = '— Path E · ดึง edits กลับมาจาก Collabora…';
             try {
-                var resp = await fetch(PSQ_WOPI_HOST_BROWSER + '/download/' + encodeURIComponent(ss.collaboraFileId), {
-                    cache: 'no-store',
-                    headers: { 'Authorization': 'Bearer ' + getPsqWopiToken() }
+                var resp = await _psqWopiFetch(PSQ_WOPI_HOST_BROWSER + '/download/' + encodeURIComponent(ss.collaboraFileId), {
+                    cache: 'no-store'
                 });
                 if (!resp.ok) throw new Error('download HTTP ' + resp.status);
                 var buf = new Uint8Array(await resp.arrayBuffer());
@@ -46981,7 +47003,72 @@ ${_clip(contextSections, 2600)}`;
             }
         }
 
-        // Upload a photo (data URL) to R2 encrypted — fire-and-forget
+        // F5 (2026-05-09): retry queue for fire-and-forget R2 ops. Without this,
+        // network drop during photo upload silently orphans encrypted bytes
+        // (user thinks photo "saved", actually lost). Queue stores r2Keys only;
+        // dataUrl re-sourced from IDB blob mirror on flush. Capped at 50 entries.
+        function _r2QueueOp(type, payload) {
+            try {
+                var key = 'ps_r2_pending_' + type;
+                var arr = JSON.parse(localStorage.getItem(key) || '[]');
+                arr.push(payload);
+                if (arr.length > 50) arr = arr.slice(-50);
+                _lsSave(key, JSON.stringify(arr));
+            } catch(e) {}
+        }
+        function _r2FlushPending() {
+            if (!R2_WORKER_URL || !R2_AUTH_TOKEN) return;
+            if (!getGistToken()) return;
+            // 1) Flush deletes (idempotent, batchable)
+            try {
+                var dels = JSON.parse(localStorage.getItem('ps_r2_pending_deletes') || '[]');
+                if (dels.length > 0) {
+                    var keys = dels.reduce(function(a, b) { return a.concat(b); }, []).filter(Boolean);
+                    if (keys.length > 0) {
+                        fetch(R2_WORKER_URL + '/delete', {
+                            method: 'POST',
+                            headers: { 'Authorization': 'Bearer ' + R2_AUTH_TOKEN, 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ keys: keys })
+                        }).then(function(r) {
+                            if (r && r.ok) localStorage.removeItem('ps_r2_pending_deletes');
+                        }).catch(function(){});
+                    }
+                }
+            } catch(e) {}
+            // 2) Flush uploads — re-source dataUrl from IDB blob mirror
+            try {
+                var ups = JSON.parse(localStorage.getItem('ps_r2_pending_uploads') || '[]');
+                if (ups.length === 0) return;
+                // Dedup
+                var seen = {};
+                ups = ups.filter(function(k){ if (seen[k]) return false; seen[k] = 1; return true; });
+                var remaining = [];
+                Promise.all(ups.map(function(r2Key) {
+                    var idbKey;
+                    if (r2Key === 'profile/avatar.enc.jpg') idbKey = 'avatar:full';
+                    else if (r2Key === 'profile/photo.enc.jpg') idbKey = 'photo:full';
+                    else { var m = /^profile\/preset-(\d+)\.enc\.jpg$/.exec(r2Key); if (m) idbKey = 'preset-photo:' + m[1]; }
+                    if (!idbKey) { return; } // unknown key shape — drop silently
+                    return _r2IdbGet(idbKey).then(function(blob) {
+                        if (!blob) return; // no source to re-upload — drop
+                        return new Promise(function(resolve) {
+                            var rd = new FileReader();
+                            rd.onload = function() {
+                                _r2UploadPhoto(rd.result, r2Key); // retry — will re-queue if fails again
+                                resolve();
+                            };
+                            rd.onerror = function() { remaining.push(r2Key); resolve(); };
+                            rd.readAsDataURL(blob);
+                        });
+                    }).catch(function(){ remaining.push(r2Key); });
+                })).then(function() {
+                    if (remaining.length > 0) _lsSave('ps_r2_pending_uploads', JSON.stringify(remaining));
+                    else localStorage.removeItem('ps_r2_pending_uploads');
+                });
+            } catch(e) {}
+        }
+
+        // Upload a photo (data URL) to R2 encrypted — fire-and-forget with F5 retry queue
         function _r2UploadPhoto(dataUrl, r2Key) {
             if (!R2_WORKER_URL || !R2_AUTH_TOKEN || !dataUrl) return;
             var token = getGistToken();
@@ -46994,7 +47081,13 @@ ${_clip(contextSections, 2600)}`;
                     headers: { 'Authorization': 'Bearer ' + R2_AUTH_TOKEN, 'X-R2-Key': r2Key, 'Content-Type': 'application/octet-stream' },
                     body: encBlob
                 });
-            }).catch(function() {});
+            }).then(function(res) {
+                // F5: server replied with error — queue for retry on next online window
+                if (!res || !res.ok) _r2QueueOp('uploads', r2Key);
+            }).catch(function() {
+                // F5: network/encrypt error — queue for retry
+                _r2QueueOp('uploads', r2Key);
+            });
         }
 
         // Download a photo from R2 → decrypt → return data URL (Promise)
@@ -47024,18 +47117,26 @@ ${_clip(contextSections, 2600)}`;
             }).catch(function() { return null; });
         }
 
-        // Delete R2 keys from IndexedDB cache + R2 bucket (fire-and-forget, non-blocking)
+        // Delete R2 keys from IndexedDB cache + R2 bucket — F5 retry queue on failure
         function _r2DeleteKeys(keys) {
             if (!Array.isArray(keys) || keys.length === 0) return;
-            // 1. Delete from IndexedDB cache
+            // 1. Delete from IndexedDB cache (always — local cleanup unconditional)
             keys.forEach(function(k) { if (k) _r2IdbDelete(k); });
-            // 2. Delete from R2 bucket via Worker (async, don't block UI)
+            // 2. Delete from R2 bucket via Worker
             if (!R2_WORKER_URL || !R2_AUTH_TOKEN) return;
+            var keysFiltered = keys.filter(Boolean);
+            if (keysFiltered.length === 0) return;
             fetch(R2_WORKER_URL + '/delete', {
                 method: 'POST',
                 headers: { 'Authorization': 'Bearer ' + R2_AUTH_TOKEN, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ keys: keys.filter(Boolean) })
-            }).catch(function() {}); // best-effort — if offline, orphaned files stay in R2
+                body: JSON.stringify({ keys: keysFiltered })
+            }).then(function(res) {
+                // F5: server returned error — queue keys for retry
+                if (!res || !res.ok) _r2QueueOp('deletes', keysFiltered);
+            }).catch(function() {
+                // F5: network failure — queue for retry
+                _r2QueueOp('deletes', keysFiltered);
+            });
         }
 
         // Generate a tiny JPEG thumbnail from a data URL (for localStorage/Gist — saves space)
@@ -55801,6 +55902,8 @@ ${_clip(contextSections, 2600)}`;
                 if (savedProfilePhoto) { db.profilePhoto = savedProfilePhoto; setProfilePhoto(savedProfilePhoto); }
                 // Phase 2: async swap thumbnails → full-res from IndexedDB + auto-migrate old data
                 _r2InitIdb().then(function() {
+                    // F5: flush any R2 ops that failed in a previous session (offline / 5xx)
+                    if (typeof _r2FlushPending === 'function') setTimeout(_r2FlushPending, 2000);
                     // Auto-migrate: if localStorage has old full-res (> 10KB), move to IDB + thumbnail
                     var _av = localStorage.getItem('ps_avatar');
                     if (_av && _av.length > 15000) {
@@ -56825,6 +56928,8 @@ ${_clip(contextSections, 2600)}`;
 
                 // 1. Gist flush (browsers throttle setTimeout in background tabs)
                 scheduleAutoSave(true);
+                // F5: flush any R2 ops queued from previous offline window
+                if (typeof _r2FlushPending === 'function') _r2FlushPending();
 
                 // 2. News poll
                 if (_isNewsTabVisible()) {
