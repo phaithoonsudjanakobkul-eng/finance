@@ -16,7 +16,7 @@
 
 import { bus } from '../../core/bus.js';
 import { lsGet, lsSave } from '../../core/storage.js';
-import { pullFromGist } from '../../core/gist.js';
+import { pullFromGist, pushToGist } from '../../core/gist.js';
 
 /** @typedef {{
  *   key: string,
@@ -69,7 +69,8 @@ function renderPanel(/** @type {HTMLElement} */ rootEl) {
                     <div class="dash-label sec-label" style="font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent, #089981);margin-bottom:4px;">Gist sync</div>
                     <div id="gist-pull-status" style="font-size:12px;color:var(--dim, #888);font-family:var(--mono, monospace);">Click Pull to hydrate this device from Gist</div>
                 </div>
-                <button id="gist-pull-btn" style="background:var(--accent, #089981);color:#000;border:0;padding:8px 18px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;">Pull from Gist</button>
+                <button id="gist-pull-btn" style="background:var(--card, #1a1a1a);border:1px solid var(--border, #2a2a2a);color:var(--fg, #f5f5f7);padding:8px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;">Pull from Gist</button>
+                <button id="gist-push-btn" style="background:var(--accent, #089981);color:#000;border:0;padding:8px 18px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;">Push to Gist</button>
             </div>
             ${_SECTIONS.map(renderSection).join('')}
         </div>
@@ -151,9 +152,8 @@ function wireEvents() {
             }
             return;
         }
-        if (t.id === 'gist-pull-btn') {
-            handleGistPull();
-        }
+        if (t.id === 'gist-pull-btn') { handleGistPull(); return; }
+        if (t.id === 'gist-push-btn') { handleGistPush(); return; }
     });
 }
 
@@ -167,6 +167,31 @@ function setGistStatus(text, tone) {
         : tone === 'ok'  ? 'var(--accent, #089981)'
         : tone === 'busy' ? 'var(--accent, #089981)'
         : 'var(--dim, #888)';
+}
+
+async function handleGistPush() {
+    if (!_panel) return;
+    const btn = /** @type {HTMLButtonElement | null} */ (_panel.querySelector('#gist-push-btn'));
+    const token = lsGet('ps_gist_token', '');
+    if (!token) {
+        setGistStatus('No Gist token set — fill the row above first', 'err');
+        return;
+    }
+    if (btn) { btn.setAttribute('disabled', 'true'); btn.textContent = 'Pushing…'; }
+    setGistStatus('Encrypting + pushing…', 'busy');
+    try {
+        const r = await pushToGist(/** @type {string} */ (token));
+        if (r.throttled) {
+            setGistStatus('Throttled (4s window) — try again shortly', 'err');
+        } else {
+            setGistStatus('Pushed · ' + new Date(r.lastModifiedTs).toLocaleString(), 'ok');
+        }
+    } catch (e) {
+        const err = /** @type {any} */ (e);
+        setGistStatus('Push failed: ' + (err && err.message || err), 'err');
+    } finally {
+        if (btn) { btn.removeAttribute('disabled'); btn.textContent = 'Push to Gist'; }
+    }
 }
 
 async function handleGistPull() {

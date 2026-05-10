@@ -1,11 +1,16 @@
-// PSLink Vite — Gist sync (READ-SIDE only, 2026-05-10).
+// PSLink Vite — Gist sync (read + push, 2026-05-10).
 //
-// Hydrates v2 from the monolith's encrypted GitHub Gist so a fresh device
-// (no localStorage, no monolith pre-load) can boot v2 directly with all
-// records / watchlist / API keys / preset choice in place. Push side
-// (`gistEncrypt` provided for parity but not yet wired) stays manual via
-// the monolith for now — the rate-limit + last-write-wins logic is large
-// and security-sensitive enough to deserve its own session.
+// READ side: hydrates v2 from the monolith's encrypted GitHub Gist so a
+// fresh device (no localStorage, no monolith pre-load) can boot v2
+// directly with all records / watchlist / API keys / preset choice in
+// place.
+//
+// PUSH side: rebuilds the monolith export shape from current
+// localStorage and PATCHes the Gist with an AES-GCM envelope. Rate
+// limited to GIST_MIN_INTERVAL_MS so a burst of edits doesn't burn
+// the GitHub API budget. v2-only push paths (records:saved,
+// watchlist:pinned, settings:changed) are wired by main.js — manual
+// "Push to Gist" lives in Settings.
 //
 // Encryption format MUST match the monolith verbatim (CLAUDE.md "Gist
 // Sync System"):
@@ -19,11 +24,12 @@
 //   base64( unescape( encodeURIComponent( utf8 ) ) )
 // — NOT plain btoa(), so non-ASCII tokens round-trip safely.
 
-import { lsSave, lsRemove } from './storage.js';
+import { lsSave, lsGet, lsGetJson, lsRemove } from './storage.js';
 import { bus } from './bus.js';
 
 export const GIST_ID       = '5f913baf7d6636bf42da5e5d07a1570c';
 export const GIST_FILENAME = 'PSLink Database.json';
+export const GIST_MIN_INTERVAL_MS = 4_000;
 
 // ── Helpers ────────────────────────────────────────────────────────────
 
@@ -269,9 +275,151 @@ export async function pullFromGist(token) {
     return Object.assign({ lastModifiedTs: ts }, result);
 }
 
+// ── Push: rebuild export shape + PATCH ─────────────────────────────────
+//
+// Inverse of applyToLocalStorage. Reads every localStorage key v2 owns
+// (or that monolith maintains in parallel) and produces an object whose
+// shape matches monolith _buildExportData close enough that:
+//   • monolith reading it → resumes happily
+//   • v2 reading it → applyToLocalStorage round-trips
+// Monolith-only fields (museData / profilePresets / fxSelfTrack /
+// profileCard.notesHtml etc.) are preserved verbatim from existing
+// localStorage values when present, so a v2-pushed payload doesn't
+// truncate state the monolith owns.
+
+const _API_KEY_LIST = [
+    'ps_finnhub_key','ps_fmp_key','ps_erapi_key','ps_twelvedata_key',
+    'ps_alpaca_key','ps_alpaca_secret','ps_openrouter_key',
+    'ps_r2_worker_url','ps_r2_auth_token',
+    'ps_psq_wopi_url','ps_psq_wopi_token','ps_psq_collabora_url',
+    'ps_pdf_worker_url','ps_pdf_auth_token','ps_psq_local_base',
+];
+
+/** @returns {any} */
+export function buildExportFromLocalStorage() {
+    /** @type {Record<string, string>} */
+    const apiKeys = {};
+    for (const k of _API_KEY_LIST) {
+        const v = lsGet(k, '');
+        if (v) apiKeys[k] = encKey(/** @type {string} */ (v));
+    }
+
+    /** @type {any} */
+    const wlCacheRaw = lsGetJson('ps_wl_cache', {});
+    /** @type {Record<string, any>} */
+    const wl = {};
+    /** @type {Record<string, any>} */
+    const profile = {};
+    if (wlCacheRaw && typeof wlCacheRaw === 'object') {
+        // Split merged cache back into wl + profile shape so monolith reads it the same
+        const PRICE_FIELDS = new Set(['c','d','dp','pc','o','h','l','v']);
+        for (const sym in wlCacheRaw) {
+            const e = wlCacheRaw[sym];
+            if (!e) continue;
+            /** @type {any} */
+            const w = {};
+            /** @type {any} */
+            const p = {};
+            for (const f in e) {
+                if (PRICE_FIELDS.has(f)) w[f] = e[f];
+                else p[f] = e[f];
+            }
+            if (Object.keys(w).length) wl[sym] = w;
+            if (Object.keys(p).length) profile[sym] = p;
+        }
+    }
+
+    return {
+        lastModifiedTs: Date.now(),
+        meta: {
+            avatar:        lsGet('ps_avatar', ''),
+            avatarTs:      parseInt(/** @type {string} */ (lsGet('ps_avatar_ts', '0')), 10) || 0,
+            profilePhoto:  lsGet('ps_profile_photo', ''),
+            profilePhotoTs:parseInt(/** @type {string} */ (lsGet('ps_profile_photo_ts', '0')), 10) || 0,
+            dark:          lsGet('ps_dark', '') === '1',
+            theme:         lsGet('ps_theme', '') || 'onyx',
+            privacy:       lsGet('ps_privacy', '') === '1',
+            preset: {
+                active:        lsGet('ps_preset', ''),
+                activeVariant: lsGet('ps_preset_variant', ''),
+                dark:          lsGet('ps_preset_dark', ''),
+                light:         lsGet('ps_preset_light', ''),
+                variantDark:   lsGet('ps_variant_dark', ''),
+                variantLight:  lsGet('ps_variant_light', ''),
+            },
+        },
+        chartPrefs: lsGetJson('ps_lwc_prefs', {}),
+        records:   lsGetJson('ps_records', []),
+        watchlist: lsGetJson('ps_watchlist', []),
+        wlCache:   { wl, profile, valuation: lsGetJson('ps_wl_valuation_cache', {}) },
+        profileCard: {
+            notesHtml:   lsGet('ps_profile_notes_html', ''),
+            notes:       lsGet('ps_profile_notes', ''),
+            freeImgs:    lsGet('ps_profile_free_imgs', '[]'),
+            pillsHidden: lsGet('ps_profile_pills_hidden', '[]'),
+            pinnedWl:    lsGet('ps_pinned_wl', '[]'),
+        },
+        apiKeys,
+        psqState:  lsGetJson('ps_psq_state',  null),
+        psecState: lsGetJson('ps_psec_state', null),
+        uiState: {
+            tab:                  lsGet('ps_tab', 'dashboard'),
+            dashSectionOrder:     lsGetJson('ps_dash_section_order', null),
+            dashSectionCollapsed: lsGetJson('ps_dash_collapsed',     null),
+        },
+    };
+}
+
+let _lastPushTs = 0;
+/** @type {Promise<any> | null} */
+let _pushInflight = null;
+
+/**
+ * Encrypt a payload + PATCH the Gist. Rate-limited via GIST_MIN_INTERVAL_MS;
+ * concurrent calls coalesce onto the in-flight promise. Bus event
+ * 'gist:pushed' fires on success.
+ *
+ * @param {string} token
+ * @param {any} [payload] - defaults to buildExportFromLocalStorage()
+ * @returns {Promise<{ ok: true, lastModifiedTs: number, throttled?: boolean }>}
+ */
+export async function pushToGist(token, payload) {
+    if (!token) throw new Error('No Gist token');
+    const now = Date.now();
+    if (now - _lastPushTs < GIST_MIN_INTERVAL_MS) {
+        return { ok: true, lastModifiedTs: _lastPushTs, throttled: true };
+    }
+    if (_pushInflight) return _pushInflight;
+
+    const data = payload || buildExportFromLocalStorage();
+    _pushInflight = (async () => {
+        const ct = await gistEncrypt(token, data);
+        const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+            method: 'PATCH',
+            headers: {
+                Authorization: 'token ' + token,
+                Accept: 'application/vnd.github+json',
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ files: { [GIST_FILENAME]: { content: ct } } }),
+        });
+        if (res.status === 401) throw new Error('Push 401 — token unauthorized');
+        if (res.status === 403) throw new Error('Push 403 — rate limited or forbidden');
+        if (!res.ok) throw new Error(`Push failed: HTTP ${res.status}`);
+        _lastPushTs = Date.now();
+        bus.emit('gist:pushed', { lastModifiedTs: data.lastModifiedTs });
+        return { ok: /** @type {true} */ (true), lastModifiedTs: data.lastModifiedTs };
+    })();
+
+    try { return await _pushInflight; }
+    finally { _pushInflight = null; }
+}
+
 // ── Orphan cleanup ─────────────────────────────────────────────────────
 // Exposed for tests that need to wipe state between cases.
 
 export function _resetGistEnvelopeForTests() {
     lsRemove('ps_gist_envelope_test_only');
+    _lastPushTs = 0;
+    _pushInflight = null;
 }

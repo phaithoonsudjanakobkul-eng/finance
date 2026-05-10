@@ -1,16 +1,20 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
     gistEncrypt,
     gistDecrypt,
     encKey,
     decKey,
     applyToLocalStorage,
+    buildExportFromLocalStorage,
+    pushToGist,
     GIST_ID,
     GIST_FILENAME,
+    _resetGistEnvelopeForTests,
 } from './gist.js';
 
 beforeEach(() => {
     localStorage.clear();
+    _resetGistEnvelopeForTests();
 });
 
 describe('GIST_ID / GIST_FILENAME constants', () => {
@@ -193,5 +197,86 @@ describe('applyToLocalStorage — empty / malformed input', () => {
     it('returns empty result for empty object (no fields applied)', () => {
         const r = applyToLocalStorage({});
         expect(r.applied).toEqual([]);
+    });
+});
+
+describe('buildExportFromLocalStorage', () => {
+    it('builds a payload with default empty shapes when localStorage is empty', () => {
+        const exp = buildExportFromLocalStorage();
+        expect(exp.records).toEqual([]);
+        expect(exp.watchlist).toEqual([]);
+        expect(exp.apiKeys).toEqual({});
+        expect(typeof exp.lastModifiedTs).toBe('number');
+        expect(exp.meta.preset).toBeDefined();
+    });
+
+    it('round-trips through applyToLocalStorage (records + watchlist)', () => {
+        localStorage.setItem('ps_records',   JSON.stringify([{ id: '2026-05', payday: 100, fixed: [], dynamic: [] }]));
+        localStorage.setItem('ps_watchlist', JSON.stringify(['AAPL', 'NVDA']));
+        const exp = buildExportFromLocalStorage();
+        localStorage.clear();
+        applyToLocalStorage(exp);
+        expect(JSON.parse(localStorage.getItem('ps_records') || '[]')).toEqual([{ id: '2026-05', payday: 100, fixed: [], dynamic: [] }]);
+        expect(JSON.parse(localStorage.getItem('ps_watchlist') || '[]')).toEqual(['AAPL', 'NVDA']);
+    });
+
+    it('encodes API keys via encKey (not plaintext) so a leaked Gist URL is still obfuscated', () => {
+        localStorage.setItem('ps_finnhub_key', 'fin_secret_xyz');
+        const exp = buildExportFromLocalStorage();
+        expect(exp.apiKeys.ps_finnhub_key).not.toBe('fin_secret_xyz');
+        expect(decKey(exp.apiKeys.ps_finnhub_key)).toBe('fin_secret_xyz');
+    });
+
+    it('splits ps_wl_cache into wl + profile by field type for monolith compat', () => {
+        localStorage.setItem('ps_wl_cache', JSON.stringify({
+            AAPL: { c: 200, dp: 1.2, name: 'Apple', logo: 'http://x' },
+        }));
+        const exp = buildExportFromLocalStorage();
+        expect(exp.wlCache.wl.AAPL).toEqual({ c: 200, dp: 1.2 });
+        expect(exp.wlCache.profile.AAPL).toEqual({ name: 'Apple', logo: 'http://x' });
+    });
+});
+
+describe('pushToGist — mocked fetch', () => {
+    it('PATCHes the gist with an AES-encrypted envelope', async () => {
+        const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(/** @type {any} */ ({
+            ok: true, status: 200, json: () => Promise.resolve({}),
+        }));
+        const r = await pushToGist('test-token', { records: [], watchlist: [], lastModifiedTs: 1 });
+        expect(r.ok).toBe(true);
+        expect(fetchSpy).toHaveBeenCalledTimes(1);
+        const [url, init] = fetchSpy.mock.calls[0];
+        expect(String(url)).toContain(GIST_ID);
+        expect(/** @type {any} */ (init).method).toBe('PATCH');
+        const body = JSON.parse(/** @type {any} */ (init).body);
+        const fileContent = body.files[GIST_FILENAME].content;
+        // Encrypted envelope wraps as { enc:1, iv:..., d:... }
+        const env = JSON.parse(fileContent);
+        expect(env.enc).toBe(1);
+        expect(typeof env.iv).toBe('string');
+        expect(typeof env.d).toBe('string');
+        fetchSpy.mockRestore();
+    });
+
+    it('throttles back-to-back calls within GIST_MIN_INTERVAL_MS', async () => {
+        const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(/** @type {any} */ ({
+            ok: true, status: 200, json: () => Promise.resolve({}),
+        }));
+        const a = await pushToGist('t', { lastModifiedTs: 1 });
+        const b = await pushToGist('t', { lastModifiedTs: 2 });
+        expect(a.ok).toBe(true);
+        expect(b.throttled).toBe(true);
+        // Only the first call hit the network
+        expect(fetchSpy).toHaveBeenCalledTimes(1);
+        fetchSpy.mockRestore();
+    });
+
+    it('rejects 401 with explicit message', async () => {
+        vi.spyOn(globalThis, 'fetch').mockResolvedValue(/** @type {any} */ ({ ok: false, status: 401 }));
+        await expect(pushToGist('t', { lastModifiedTs: 1 })).rejects.toThrow(/401/);
+    });
+
+    it('throws when token missing', async () => {
+        await expect(pushToGist('', { lastModifiedTs: 1 })).rejects.toThrow(/No Gist token/);
     });
 });
