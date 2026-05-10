@@ -20,6 +20,18 @@ on:
     branches:
       - main
       - vite-migration
+    # Skip workflow on commits that only touch the monolith / non-Vite assets.
+    # dev-server.js auto-deploy commits index.html on every save — those would
+    # waste CI minutes building a Vite shell that didn't change. The workflow
+    # still re-runs whenever src/ / vite.config.js / package.json / tsconfig.json
+    # / the workflow file itself changes.
+    paths:
+      - 'src/**'
+      - 'vite.config.js'
+      - 'tsconfig.json'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/deploy.yml'
   workflow_dispatch:
 
 permissions:
