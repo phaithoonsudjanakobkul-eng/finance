@@ -1,28 +1,24 @@
-// PS Micro Imaging — lazy module (Session 3i UI port — 3 stages + canvas + display adj, 2026-05-09)
+// PS Micro Imaging — lazy module (Session 3r histogram Web Worker port, 2026-05-10)
 //
-// Status: PARTIAL PORT (3 collapsible stages, calibration profile picker,
-// file load + canvas preview, display adjustment sliders, scale bar settings,
-// Save PNG). Real OpenCV.js operations, histogram Web Worker engine,
-// annotation tools (line/angle/area/freehand), loupe magnifier, spline LUT,
-// per-channel histogram editing all stay in monolith index.html until
-// Session 3j+ port. PSI's heaviest dep: OpenCV.js (~10 MB WASM, lazy).
+// Status: HISTOGRAM ENGINE LIVE — Web Worker computes per-channel R/G/B
+// histograms off main thread (CLAUDE.md Rule 12 "reference pattern"). 2MP+
+// images auto-downsampled before worker call. Worker source = inline blob,
+// no transferable contention. Histogram canvas renders ZEN-style under the
+// display adjustment sliders.
 //
-// Ported in 3i:
-//   - psImagingState container (kept from skeleton)
-//   - Calibration storage (loadCalibration / saveCalibration / profiles)
-//   - OpenCV readiness check (kept)
-//   - Stage UI: 3 collapsible sections (Calibrate / Load / Adjust)
-//   - File loader + canvas preview (fit-to-box, no full-res viewer yet)
-//   - Display adjustment sliders (black/white/gamma + channel select)
-//   - Scale bar settings (visible toggle + color + position fraction)
-//   - Save PNG (exports canvas as data URL download)
+// DEFERRED to Session 3s+:
+//   · OpenCV.js lazy loader (~10 MB WASM) — needed only when measurements port
+//   · Annotation tools (line/angle/area/freehand) — uses overlayCanvas + cv.Mat
+//   · Loupe magnifier — needs bgBitmap GPU read
+//   · Spline LUT (Catmull-Rom) — replaces simple black/white/gamma
+//   · Real LUT apply via cached _bgPixels + reusable _applyDst (avoid GC)
 //
 // CRITICAL invariants (DO NOT regress):
-//   - Histogram engine MUST be a Web Worker (Coding Rule 12) — Session 3j wires this
+//   - Histogram engine MUST be a Web Worker (Coding Rule 12) — DONE
 //   - canvasId never redrawn after initial — bgCanvas holds clean image
-//   - overlayCanvas is the ONLY surface for annotations
-//   - LUT apply uses cached _bgPixels + reusable _applyDst (avoid GC churn)
-//   - bgBitmap = GPU-resident ImageBitmap for fast loupe reads (don't drop)
+//   - overlayCanvas is the ONLY surface for annotations (Session 3s)
+//   - LUT apply uses cached _bgPixels + reusable _applyDst (Session 3s)
+//   - bgBitmap = GPU-resident ImageBitmap for fast loupe reads (Session 3s)
 
 import { lsSave, lsGet, lsGetJson } from '../../core/storage.js';
 import { bus } from '../../core/bus.js';
@@ -53,6 +49,169 @@ let _psiPanel = null;
 
 /** @type {{ [stage: string]: boolean }} */
 const _psiStageOpen = { '1': true, '2': true, '3': false };
+
+// ── Histogram Web Worker (CLAUDE.md Rule 12 reference pattern) ─────────
+// Inline blob worker — counts R/G/B occurrences in pixel data buffer.
+// Returns three Uint32Array(256) channel histograms transferred back so the
+// main thread doesn't re-copy. Worker construction + termination happens per
+// compute call (cheap, no shared state to manage).
+
+/** @type {{ url: string | null, R: Uint32Array | null, G: Uint32Array | null, B: Uint32Array | null, bgCanvas: HTMLCanvasElement | null }} */
+const _psiHist = { url: null, R: null, G: null, B: null, bgCanvas: null };
+
+(function _initHistWorker() {
+    const code = [
+        'self.onmessage=function(e){',
+        '  var d=e.data,hR=new Uint32Array(256),hG=new Uint32Array(256),hB=new Uint32Array(256);',
+        '  for(var i=0;i<d.length;i+=4){hR[d[i]]++;hG[d[i+1]]++;hB[d[i+2]]++;}',
+        '  self.postMessage({hR:hR,hG:hG,hB:hB},[hR.buffer,hG.buffer,hB.buffer]);',
+        '};',
+    ].join('');
+    try {
+        _psiHist.url = URL.createObjectURL(new Blob([code], { type: 'application/javascript' }));
+    } catch (_e) { _psiHist.url = null; }
+})();
+
+/**
+ * Compute R/G/B histograms via Web Worker. Down-samples > 2MP images to
+ * ~500k samples before posting so worker doesn't burn cycles on huge frames.
+ * On completion, stores results in `_psiHist.R/G/B` and re-renders the
+ * histogram canvas.
+ */
+function _psiHistCompute() {
+    const bg = _psiHist.bgCanvas;
+    if (!bg) return;
+    let raw;
+    try {
+        const ctx = bg.getContext('2d');
+        if (!ctx) return;
+        raw = ctx.getImageData(0, 0, bg.width, bg.height).data;
+    } catch (_e) { return; }
+    const pixels = raw.length / 4;
+    const step = (pixels > 2e6) ? Math.ceil(raw.length / (4 * 500000)) * 4 : 4;
+    /** @type {Uint8Array} */
+    let sampled;
+    if (step > 4) {
+        sampled = new Uint8Array(Math.ceil(raw.length / step) * 4);
+        let si = 0;
+        for (let i = 0; i < raw.length; i += step) {
+            sampled[si++] = raw[i];
+            sampled[si++] = raw[i + 1];
+            sampled[si++] = raw[i + 2];
+            sampled[si++] = raw[i + 3];
+        }
+    } else {
+        sampled = new Uint8Array(raw.buffer.slice(0));
+    }
+    if (_psiHist.url) {
+        const w = new Worker(_psiHist.url);
+        w.onmessage = (ev) => {
+            _psiHist.R = ev.data.hR;
+            _psiHist.G = ev.data.hG;
+            _psiHist.B = ev.data.hB;
+            w.terminate();
+            _psiHistDraw();
+            bus.emit('psi:hist-computed', { samples: sampled.length / 4 });
+        };
+        w.postMessage(sampled, [sampled.buffer]);
+    } else {
+        // Fallback: sync compute on main thread
+        const hR = new Uint32Array(256), hG = new Uint32Array(256), hB = new Uint32Array(256);
+        for (let i = 0; i < sampled.length; i += 4) {
+            hR[sampled[i]]++; hG[sampled[i + 1]]++; hB[sampled[i + 2]]++;
+        }
+        _psiHist.R = hR; _psiHist.G = hG; _psiHist.B = hB;
+        _psiHistDraw();
+    }
+}
+
+/**
+ * Render the histogram on the Stage-3 canvas (ZEN-style: light gray bg,
+ * gridlines at 50/100/150/200, per-channel bars in additive blend mode).
+ */
+function _psiHistDraw() {
+    if (!_psiPanel) return;
+    const canvas = /** @type {HTMLCanvasElement | null} */ (_psiPanel.querySelector('#psi-hist-canvas'));
+    const wrap   = /** @type {HTMLElement | null} */     (_psiPanel.querySelector('#psi-hist-wrap'));
+    if (!canvas || !wrap) return;
+    const W = wrap.clientWidth, H = wrap.clientHeight;
+    if (W < 4 || H < 4) return;
+    canvas.width = W; canvas.height = H;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, W, H);
+
+    const LABEL_H = 10;
+    const barH = H - LABEL_H;
+
+    // Background — ZEN light gray
+    ctx.fillStyle = '#e4e5e1';
+    ctx.fillRect(0, 0, W, H);
+
+    // Grid: horizontal at 25/50/75% + vertical at 50/100/150/200
+    const gridVals = [50, 100, 150, 200];
+    ctx.strokeStyle = 'rgba(0,0,0,0.10)'; ctx.lineWidth = 1;
+    [0.25, 0.5, 0.75].forEach((f) => {
+        const gy = Math.round(barH * (1 - f) * 0.96 + LABEL_H) + 0.5;
+        ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(W, gy); ctx.stroke();
+    });
+    ctx.strokeStyle = 'rgba(0,0,0,0.18)';
+    gridVals.forEach((v) => {
+        const gx = Math.round(v * W / 255) + 0.5;
+        ctx.beginPath(); ctx.moveTo(gx, LABEL_H); ctx.lineTo(gx, barH); ctx.stroke();
+    });
+    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    ctx.font = 'bold 7.5px monospace';
+    ctx.textAlign = 'center';
+    gridVals.forEach((v) => ctx.fillText(String(v), Math.round(v * W / 255), LABEL_H - 1));
+
+    const adj = psImagingState.displayAdj || { black: 0, white: 255, gamma: 1.0, channel: 'all' };
+    const ch = adj.channel || 'all';
+    const hR = _psiHist.R, hG = _psiHist.G, hB = _psiHist.B;
+    if (!hR || !hG || !hB) {
+        ctx.fillStyle = 'rgba(0,0,0,0.28)'; ctx.textAlign = 'center';
+        ctx.font = '10px sans-serif';
+        ctx.fillText('Open an image to see histogram', W / 2, barH / 2 + 4);
+        return;
+    }
+
+    // Effective peak from mid-bins (1-254) only, ignore saturation 0/255
+    /** @type {Uint32Array[]} */
+    const chs = ch === 'r' ? [hR] : ch === 'g' ? [hG] : ch === 'b' ? [hB] : [hR, hG, hB];
+    let effPeak = 0;
+    for (const arr of chs) {
+        for (let v = 1; v <= 254; v++) if (arr[v] > effPeak) effPeak = arr[v];
+    }
+    if (effPeak < 1) effPeak = 1;
+
+    // Per-channel bars — additive blend so overlap shows white-ish (RGB sum)
+    /** @type {Array<[Uint32Array, string]>} */
+    const colored = ch === 'r' ? [[hR, 'rgba(220,40,40,0.85)']]
+                  : ch === 'g' ? [[hG, 'rgba(40,180,40,0.85)']]
+                  : ch === 'b' ? [[hB, 'rgba(40,80,220,0.85)']]
+                  : [[hR, 'rgba(220,40,40,0.6)'], [hG, 'rgba(40,180,40,0.6)'], [hB, 'rgba(40,80,220,0.6)']];
+    const prevComp = ctx.globalCompositeOperation;
+    ctx.globalCompositeOperation = ch === 'all' ? 'multiply' : 'source-over';
+    for (const [arr, color] of colored) {
+        ctx.fillStyle = color;
+        for (let v = 0; v < 256; v++) {
+            const x = Math.round(v * W / 255);
+            const xNext = Math.round((v + 1) * W / 255);
+            const bw = Math.max(1, xNext - x);
+            const h = Math.min(barH, (arr[v] / effPeak) * barH * 0.96);
+            ctx.fillRect(x, LABEL_H + (barH - h), bw, h);
+        }
+    }
+    ctx.globalCompositeOperation = prevComp;
+
+    // Black/white-point markers — vertical lines at adj.black + adj.white
+    ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.setLineDash([2, 3]);
+    const xb = Math.round(adj.black * W / 255) + 0.5;
+    const xw = Math.round(adj.white * W / 255) + 0.5;
+    ctx.beginPath(); ctx.moveTo(xb, LABEL_H); ctx.lineTo(xb, barH); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(xw, LABEL_H); ctx.lineTo(xw, barH); ctx.stroke();
+    ctx.setLineDash([]);
+}
 
 // ── Persistence ────────────────────────────────────────────────────────
 export function loadCalibration() {
@@ -127,6 +286,10 @@ function drawCanvas(src) {
         if (psImagingState.scaleBar.visible) drawScaleBar();
         if (placeholder) placeholder.style.display = 'none';
         canvas.style.display = '';
+        // Hook histogram compute — bgCanvas is the rendered preview canvas itself
+        // (full-res cache deferred to Session 3s when we wire bgBitmap).
+        _psiHist.bgCanvas = canvas;
+        _psiHistCompute();
     };
     img.onerror = () => setStatus('โหลดรูปไม่ได้', 'err');
     img.src = src;
@@ -303,6 +466,11 @@ function renderPanel(rootEl) {
                     <span class="arrow">›</span>
                 </div>
                 <div class="stage-body">
+                    <label>Histogram (R / G / B · ZEN-style · Web Worker)</label>
+                    <div id="psi-hist-wrap" style="position:relative;width:100%;height:96px;background:#e4e5e1;border:1px solid var(--border, #2a2a2a);border-radius:6px;overflow:hidden;margin-bottom:10px;">
+                        <canvas id="psi-hist-canvas" style="display:block;width:100%;height:100%;"></canvas>
+                    </div>
+
                     <label><input type="checkbox" id="psi-adj-enabled" ${psImagingState.displayAdj.enabled ? 'checked' : ''} style="vertical-align:middle;"> Enable display adjustment (LUT preview)</label>
 
                     <label>Channel</label>
@@ -342,7 +510,7 @@ function renderPanel(rootEl) {
             </div>
 
             <div class="stub-note">
-                <strong>Session 3i port</strong> — 3 stages (Calibration / Load / Display Adj) + canvas viewer + LUT preview (basic) + scale bar overlay live; Real OpenCV.js operations + Web Worker histogram engine + annotation tools (line/angle/area/freehand) + loupe magnifier + spline LUT editing ship in Session 3j+.
+                <strong>Session 3r port</strong> — Histogram Web Worker engine live (CLAUDE.md Rule 12 reference): R/G/B per-channel + ZEN-style render + 2MP+ downsample. OpenCV.js measurements + annotation tools + loupe + spline LUT ship in Session 3s+.
             </div>
         </div>
     `;
@@ -418,6 +586,7 @@ function wireEvents() {
                 psImagingState.displayAdj.channel = ch;
                 renderChannelBar();
                 drawCanvas(psImagingState.currentImageUrl);
+                _psiHistDraw();
             }
             return;
         }
@@ -456,6 +625,7 @@ function wireEvents() {
             /** @type {any} */ (psImagingState.displayAdj)[key] = v;
             valLabel.textContent = String(v);
             drawCanvas(psImagingState.currentImageUrl);
+            _psiHistDraw();
         });
     };
     wireSlider('black', 'psi-adj-black-val');
@@ -505,7 +675,7 @@ export function init(rootEl, _ctx) {
     bus.emit('psi:init', { rootEl, cvReady: isOpenCvReady() });
     return {
         id:             'psi',
-        version:        '0.2-session3i-ui-port',
+        version:        '0.3-session3r-hist-worker',
         ready:          true,
         opencvReady:    isOpenCvReady(),
         opencvNote:     'OpenCV.js will lazy-load on first use (~10MB CDN) — port deferred to Session 3j+',

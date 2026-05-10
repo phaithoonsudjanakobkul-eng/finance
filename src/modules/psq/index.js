@@ -1,37 +1,33 @@
-// PS Quotation — lazy module (Session 3h UI port — file slots + counter + stages, 2026-05-09)
+// PS Quotation — lazy module (Session 3q core heavy-logic port, 2026-05-10)
 //
-// Status: PARTIAL PORT (file slot pickers, counter display, stage buttons,
-// output mode toggle, period status). Real xlsx patching pipeline, Stage 1-3
-// flows (Apply numbering / Generate .eml / Prepare PDF), Collabora Path E
-// live editor, encrypted template IDB + Gist sync, _psqScanFor keyword cell
-// scan, BAHTTEXT JS port all stay in monolith index.html until Session 3i+
-// port. PSQ depends on SheetJS (CDN) for xlsx I/O.
+// Status: CORE HEAVY DONE — xlsx CDN loader + _psqScanFor keyword cell scanner +
+// cell helpers + Stage 1 real parse (extract main quotation # + date from main
+// xlsx → display Comp1/Comp2 next numbers w/ period reset) + Stage 3 real PDF
+// worker call (cloud Fly.io w/ 60s timeout, auth, F7 ceiling).
 //
-// Ported in 3h:
-//   - Storage keys (12 PSQ_* constants — kept from skeleton)
-//   - Counter helpers (peek + next quotation number, period reset rule — kept)
-//   - State container (main/comp1/comp2 slots + outputMode — kept)
-//   - File slot picker (FSA-style file input per slot)
-//   - Counter display (Comp1 BE+1 / Comp2 calendar period preview)
-//   - Stage buttons stubs (Apply / Distribute / Prepare PDF)
-//   - Output mode toggle (xlsx / pdf)
-//   - Workers config display (Collabora / WOPI / PDF cloud-vs-hybrid)
+// DEFERRED to Session 3r+ (PSQ Distribute + Editor Pro):
+//   · Stage 2 full .eml builder + Outlook download + Gmail authuser deep-link
+//   · Comp1/Comp2 template encrypted Gist+IDB storage (~200 line storage layer)
+//   · Real Comp1/Comp2 quotation file generation (template patching pipeline)
+//   · Path E Collabora live xlsx editor modal (~600 lines: WOPI bootstrap,
+//     postMessage protocol, async save polling, asset library, text discovery)
+//   · Customer DB + email templates + per-template upload/encrypt/Gist
+//   · Hybrid local PDF probe (Tailscale Funnel 1.5s timeout)
 //
 // CRITICAL invariants from project_ps_quotation_spec memory + CLAUDE.md:
 //   - Comp1: BT{BE+1}{MM}-{counter}, counter starts at 350
 //   - Comp2: QMVV{MM}{YY}-{counter}, counter starts at 700
 //   - Counter resets on (year, month) period change
 //   - BE year = calendar BE+1 always
-//   - Anti-bid-rigging: date + validity vary per file (deferred — in builder pipeline)
+//   - Anti-bid-rigging: date + validity vary per file (in template builder, 3r)
 //   - Cell mapping uses _psqScanFor keyword-scan, NOT hardcoded addresses
-//   - Templates Comp1/Comp2 stored encrypted in Gist + IDB (slot-based names)
+//   - Templates Comp1/Comp2 stored encrypted in Gist + IDB (3r)
 //
 // Workers (per CLAUDE.md):
 //   - Collabora: pslink-collabora.fly.dev — ALWAYS cloud (Tailscale clipboard bug)
 //   - WOPI: pslink-wopi.fly.dev — ALWAYS cloud
-//   - PDF: cloud OR Tailscale-local (Hybrid mode probe 1.5s timeout)
-// F4/F6/F7 hardening (Collabora origin guard, WOPI 401 re-auth, PDF 60s timeout)
-// applies via monolith bridge until full Path E port lands.
+//   - PDF: cloud Fly.io (Hybrid local probe deferred to 3r)
+// F7 (60s PDF timeout) preserved verbatim from monolith.
 
 import { lsSave, lsGet, lsGetJson } from '../../core/storage.js';
 import { bus } from '../../core/bus.js';
@@ -161,40 +157,285 @@ function clearSlot(slot) {
     renderSlots();
 }
 
-// ── Stage stubs ────────────────────────────────────────────────────────
-function stage1Apply() {
+// ══════════════════════════════════════════════════════════════════════
+//  xlsx (SheetJS) — lazy CDN ESM loader
+// ══════════════════════════════════════════════════════════════════════
+
+/** @type {any} — XLSX module, populated after first lazy load */
+let _xlsx = null;
+let _xlsxLoading = false;
+
+/**
+ * Lazy-load SheetJS via CDN ESM. Function-cloaked import bypasses both Vite's
+ * resolver (no runtime URL resolution) and TypeScript's module declarations.
+ * Cached after first load.
+ */
+async function loadXlsx() {
+    if (_xlsx) return _xlsx;
+    if (_xlsxLoading) {
+        while (_xlsxLoading) await new Promise((r) => setTimeout(r, 50));
+        return _xlsx;
+    }
+    _xlsxLoading = true;
+    try {
+        /** @param {string} url */
+        const cdnImport = (url) => /** @type {any} */ (
+            // eslint-disable-next-line no-new-func
+            new Function('u', 'return import(/* @vite-ignore */ u)')(url)
+        );
+        _xlsx = await cdnImport('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/+esm');
+        return _xlsx;
+    } finally { _xlsxLoading = false; }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  Cell scanner + extractors (verbatim from monolith)
+// ══════════════════════════════════════════════════════════════════════
+
+/** @param {any} ws @param {number} r @param {number} c */
+function _psqGetCellRaw(ws, r, c) {
+    const addr = _xlsx.utils.encode_cell({ r, c });
+    const cell = ws[addr];
+    if (!cell) return '';
+    if (cell.t === 's' || cell.t === 'str' || typeof cell.v === 'string') {
+        return cell.v != null ? cell.v : (cell.w || '');
+    }
+    return cell.w || (cell.v != null ? String(cell.v) : '');
+}
+
+/**
+ * Scan worksheet for the first cell matching ANY of the keywords. Returns
+ * `{ r, c, text }` of first hit, or null. Cell mapping uses keyword-scan
+ * NOT hardcoded addresses so templates can be re-formatted freely.
+ * @param {any} ws @param {string[]} keywords @param {number} [rowFrom] @param {number} [rowTo]
+ */
+function _psqScanFor(ws, keywords, rowFrom, rowTo) {
+    for (let r = (rowFrom || 0); r <= (rowTo || 50); r++) {
+        for (let c = 0; c <= 7; c++) {
+            const txt = String(_psqGetCellRaw(ws, r, c) || '').trim();
+            if (!txt) continue;
+            for (let k = 0; k < keywords.length; k++) {
+                if (txt.indexOf(keywords[k]) !== -1) return { r, c, text: txt };
+            }
+        }
+    }
+    return null;
+}
+
+/** @param {string} str */
+function _psqExtractLastNumber(str) {
+    const s = String(str);
+    const nums = s.match(/\d[\d,]*/g);
+    if (!nums) return null;
+    return parseInt(nums[nums.length - 1].replace(/,/g, ''), 10);
+}
+
+/**
+ * Parse a Thai date string ("26 มีนาคม 2569" or "26/03/2026") → Date object.
+ * Handles BE (พ.ศ. + bare BE year > 2400) and CE years. Returns null if no match.
+ * @param {string} s
+ */
+function _psqParseDateString(s) {
+    s = String(s || '').trim();
+    if (!s) return null;
+    /** @type {Record<string, number>} */
+    const MON = {
+        'มกราคม':0,'กุมภาพันธ์':1,'มีนาคม':2,'เมษายน':3,'พฤษภาคม':4,'มิถุนายน':5,
+        'กรกฎาคม':6,'สิงหาคม':7,'กันยายน':8,'ตุลาคม':9,'พฤศจิกายน':10,'ธันวาคม':11,
+        'ม.ค.':0,'ก.พ.':1,'มี.ค.':2,'เม.ย.':3,'พ.ค.':4,'มิ.ย.':5,
+        'ก.ค.':6,'ส.ค.':7,'ก.ย.':8,'ต.ค.':9,'พ.ย.':10,'ธ.ค.':11
+    };
+    let m = s.match(/(\d{1,2})\s*(มกราคม|กุมภาพันธ์|มีนาคม|เมษายน|พฤษภาคม|มิถุนายน|กรกฎาคม|สิงหาคม|กันยายน|ตุลาคม|พฤศจิกายน|ธันวาคม|ม\.ค\.|ก\.พ\.|มี\.ค\.|เม\.ย\.|พ\.ค\.|มิ\.ย\.|ก\.ค\.|ส\.ค\.|ก\.ย\.|ต\.ค\.|พ\.ย\.|ธ\.ค\.)\s*(?:พ\.ศ\.\s*)?(\d{4})/);
+    if (m) {
+        const day = parseInt(m[1], 10);
+        const mon = MON[m[2]];
+        let yr = parseInt(m[3], 10);
+        if (yr > 2400) yr -= 543; // BE → CE
+        return new Date(yr, mon, day);
+    }
+    m = s.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+    if (m) {
+        const day = parseInt(m[1], 10);
+        const mon = parseInt(m[2], 10) - 1;
+        let yr = parseInt(m[3], 10);
+        if (yr < 100) yr += 2500;
+        if (yr > 2400) yr -= 543;
+        return new Date(yr, mon, day);
+    }
+    return null;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  Stage 1 — parse main xlsx + display Comp1/Comp2 next numbers
+// ══════════════════════════════════════════════════════════════════════
+
+/**
+ * Lightweight parse of main quotation xlsx — extracts main quotation # +
+ * date. Used by Stage 1 to confirm we read the right file before running
+ * full template generation in Stage 3.
+ * @param {any} wb
+ */
+function _psqParseMain(wb) {
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    if (!ws) return null;
+
+    // Date: try G7 first (canonical PS layout), fall back to "วันที่" scan
+    let mainDate = null;
+    const g7 = ws[_xlsx.utils.encode_cell({ r: 6, c: 6 })];
+    if (g7 && g7.t === 'd' && g7.v instanceof Date) {
+        mainDate = g7.v;
+    } else if (g7 && typeof g7.v === 'number' && g7.v > 1) {
+        const pd = _xlsx.SSF.parse_date_code(g7.v);
+        mainDate = new Date(pd.y, pd.m - 1, pd.d);
+    } else {
+        const dateCell = _psqScanFor(ws, ['วันที่'], 0, 12);
+        if (dateCell) {
+            const adjAddr = _xlsx.utils.encode_cell({ r: dateCell.r, c: dateCell.c + 1 });
+            const adj = ws[adjAddr];
+            const raw = adj ? (adj.w || adj.v) : dateCell.text;
+            mainDate = _psqParseDateString(String(raw || ''));
+        }
+    }
+
+    // Quotation #: scan for "เลขที่" / "เลขที่ใบเสนอราคา" — value in next col
+    let mainQuotNo = '';
+    const noCell = _psqScanFor(ws, ['เลขที่ใบเสนอราคา', 'เลขที่']);
+    if (noCell) {
+        const adjAddr = _xlsx.utils.encode_cell({ r: noCell.r, c: noCell.c + 1 });
+        const adj = ws[adjAddr];
+        if (adj) mainQuotNo = String(adj.w || adj.v || '').trim();
+    }
+
+    return { mainDate, mainQuotNo };
+}
+
+async function stage1Apply() {
     if (!_psqState.main) {
         setStatus('Stage 1: ยังไม่มี main file', 'err');
         return;
     }
-    const c1Num = peekQuotationNumber('comp1');
-    const c2Num = peekQuotationNumber('comp2');
-    setStatus(`Stage 1 (stub): would patch numbering Comp1=${c1Num}, Comp2=${c2Num} — real xlsx patcher in Session 3i+`, '');
+    setStatus('Loading SheetJS…', '');
+    try {
+        await loadXlsx();
+        const buf = _psqState.main.buffer;
+        if (!buf) { setStatus('main file buffer missing', 'err'); return; }
+        const wb = _xlsx.read(new Uint8Array(buf), { type: 'array', cellText: false, cellDates: true });
+        _psqState.main.wb = wb;
+        const parsed = _psqParseMain(wb);
+        const mainDate = parsed && parsed.mainDate
+            ? parsed.mainDate.toLocaleDateString('th-TH-u-ca-buddhist')
+            : '—';
+        const mainNo = (parsed && parsed.mainQuotNo) || '—';
+
+        // Reserve next numbers + persist the counter advance
+        const c1Num = nextQuotationNumber('comp1');
+        const c2Num = nextQuotationNumber('comp2');
+        savePsqLog();
+        renderCounter();
+
+        setStatus(`Stage 1 done · main #${mainNo} · ${mainDate} · → Comp1=${c1Num}, Comp2=${c2Num}`, 'ok');
+        bus.emit('psq:stage1', { mainNo, mainDate, c1Num, c2Num });
+    } catch (err) {
+        const e = /** @type {any} */ (err);
+        setStatus('Stage 1 error: ' + ((e && e.message) || e), 'err');
+        if (typeof console !== 'undefined') console.warn('[PSQ S1]', e);
+    }
 }
 
 function stage2Distribute() {
-    if (!_psqState.main) {
-        setStatus('Stage 2: ยังไม่มี main file', 'err');
-        return;
-    }
-    setStatus('Stage 2 (stub): would generate .eml + Gmail authuser deep-link — real flow in Session 3i+', '');
+    setStatus('Stage 2 .eml + Outlook + Gmail authuser deep-link — port Session 3r', '');
 }
 
-function stage3PrepareAll() {
+// ══════════════════════════════════════════════════════════════════════
+//  Stage 3 — Real PDF worker call (cloud Fly.io w/ 60s timeout)
+// ══════════════════════════════════════════════════════════════════════
+
+const _PSQ_PDF_TIMEOUT_MS = 60000;
+
+/** @returns {{ url: string, token: string }} */
+function _psqGetPdfWorkerConfig() {
+    // Hybrid local probe deferred — for now always cloud
+    const url = (lsGet(PSQ_PDF_WORKER_URL_KEY, '') || '').replace(/\/+$/, '');
+    const token = lsGet(PSQ_PDF_AUTH_TOKEN_KEY, '') || '';
+    return { url, token };
+}
+
+/**
+ * Call the PSLink PDF worker (cloud Fly.io) with raw xlsx bytes → PDF blob.
+ * F7: 60s hard timeout via AbortController. F6 WOPI 401 re-auth path
+ * deferred to 3r when WOPI flow ports.
+ * @param {Uint8Array} xlsxBytes
+ * @returns {Promise<Blob>}
+ */
+async function _psqXlsxToPdf(xlsxBytes) {
+    const cfg = _psqGetPdfWorkerConfig();
+    if (!cfg.url)   throw new Error('PDF worker URL not configured (Settings → Storage)');
+    if (!cfg.token) throw new Error('PDF worker auth token not configured');
+    const endpoint = cfg.url + '/xlsx-to-pdf';
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), _PSQ_PDF_TIMEOUT_MS);
+    try {
+        const resp = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+                'Content-Type':  'application/octet-stream',
+                'Authorization': 'Bearer ' + cfg.token,
+            },
+            body: /** @type {any} */ (xlsxBytes),
+            signal: ctrl.signal,
+        });
+        if (!resp.ok) {
+            let errText = '';
+            try { errText = await resp.text(); } catch (_e) {}
+            throw new Error('PDF render failed: HTTP ' + resp.status + (errText ? ' — ' + errText.slice(0, 200) : ''));
+        }
+        return await resp.blob();
+    } catch (err) {
+        const e = /** @type {any} */ (err);
+        if (e && (e.name === 'AbortError' || /aborted/i.test(e.message || ''))) {
+            throw new Error('PDF render timed out after ' + (_PSQ_PDF_TIMEOUT_MS / 1000) + 's (F7 ceiling)');
+        }
+        throw err;
+    } finally { clearTimeout(timer); }
+}
+
+async function stage3PrepareAll() {
     if (!_psqState.main) {
         setStatus('Stage 3: ยังไม่มี main file', 'err');
         return;
     }
     const mode = _psqState.outputMode;
-    setStatus(`Stage 3 (stub): would prepare ${mode === 'pdf' ? 'PDF (Fly.io worker)' : 'xlsx'} — real flow in Session 3i+`, '');
+    if (mode !== 'pdf') {
+        setStatus('Stage 3: switch output mode to PDF first (xlsx mode is identity copy)', 'err');
+        return;
+    }
+    const buf = _psqState.main.buffer;
+    if (!buf) { setStatus('main file buffer missing', 'err'); return; }
+    setStatus('Rendering PDF via Fly.io worker… (≤60s)', '');
+    try {
+        const pdfBlob = await _psqXlsxToPdf(new Uint8Array(buf));
+        const url = URL.createObjectURL(pdfBlob);
+        const a = document.createElement('a');
+        const baseName = _psqState.main.name
+            ? _psqState.main.name.replace(/\.xlsx?$/i, '')
+            : 'main';
+        a.href = url;
+        a.download = baseName + '.pdf';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 4000);
+        setStatus(`Stage 3 done · ${baseName}.pdf · ${(pdfBlob.size / 1024).toFixed(1)} KB`, 'ok');
+        bus.emit('psq:stage3', { size: pdfBlob.size });
+    } catch (err) {
+        const e = /** @type {any} */ (err);
+        setStatus('Stage 3 error: ' + ((e && e.message) || e), 'err');
+        if (typeof console !== 'undefined') console.warn('[PSQ S3]', e);
+    }
 }
 
 function stage4OpenEditor() {
-    if (!_psqState.main) {
-        setStatus('Path E: ยังไม่มี main file', 'err');
-        return;
-    }
-    setStatus('Path E (stub): would open Collabora iframe live editor — real flow in Session 3i+', '');
+    setStatus('Path E Collabora live xlsx editor — port Session 3r (full WOPI flow)', '');
 }
 
 // ── UI render ──────────────────────────────────────────────────────────
@@ -316,7 +557,7 @@ function renderPanel(rootEl) {
             <div id="psq-status"></div>
 
             <div class="stub-note">
-                <strong>Session 3h port</strong> — file slots + counter (Comp1 BE+1 / Comp2 calendar period) + stage buttons + output mode toggle + workers config display live; Stage 1-4 actions are stubs (status messages only, no xlsx patching). Real xlsx pipeline + .eml builder + PDF worker call + Collabora iframe ship in Session 3i+.
+                <strong>Session 3q port</strong> — Stage 1 (parse main + display Comp1/Comp2 numbers w/ period reset + counter persist) + Stage 3 (real PDF render via Fly.io worker w/ 60s timeout) live. Stage 2 .eml + Path E Collabora editor + template encrypted Gist storage ship in Session 3r.
             </div>
         </div>
     `;
@@ -444,7 +685,7 @@ export function init(rootEl, _ctx) {
     bus.emit('psq:init', { rootEl, log: _psqLog });
     return {
         id:           'psq',
-        version:      '0.2-session3h-ui-port',
+        version:      '0.3-session3q-core-heavy',
         ready:        true,
         comp1Counter: _psqLog.comp1.counter,
         comp1Period:  _psqLog.comp1.period,

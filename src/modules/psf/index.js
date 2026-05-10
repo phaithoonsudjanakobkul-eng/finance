@@ -1,26 +1,27 @@
-// PS SpecFlow — lazy module (Session 3j UI port — toolbar + rows editor + history + export stub, 2026-05-09)
+// PS SpecFlow — lazy module (Session 3s real DOCX export, 2026-05-10)
 //
-// Status: PARTIAL PORT (toolbar, hierarchical rows editor, history undo/redo
-// with snapshot debounce, basic paste handler, DOCX export stub). Real
-// docx.js DOCX construction, Word/Docs-style rich text formatting (bold/italic/
-// underline), full clipboard HTML normalization, sticky-header scrollable
-// workstation pattern (CLAUDE.md Coding Rule 13) all stay in monolith
-// index.html until Session 3k+ port. PSF is the LARGEST module (~6k lines)
-// so its full port spans multiple sub-sessions; this lands the editor shell.
+// Status: REAL DOCX EXPORT LIVE — JSZip + raw OOXML XML construction
+// (NOT docx.js — monolith uses raw OOXML for full control over multi-list
+// independent counters via separate <w:abstractNum> per logical list).
+// Builds a 7-part xlsx package: [Content_Types].xml, _rels/.rels,
+// word/document.xml, word/numbering.xml, word/styles.xml, word/settings.xml,
+// word/_rels/document.xml.rels. Tab-aware <w:t>/<w:tab/> run content.
+// TH Sarabun New 16pt (sz 32 = half-points). 1.5cm page margins.
 //
-// Ported in 3j:
-//   - Constants (max level, spacing, font, history limit — kept from skeleton)
-//   - Rows array management (CRUD: add/remove/move/level adjust)
-//   - History (snapshots + undo/redo + debounced auto-snapshot + suppress flag)
-//   - Toolbar (Add / Indent +/- / Undo / Redo / Clear / Export DOCX)
-//   - Rows editor (level indentation, text edit-in-place, focus tracking)
-//   - Paste handler (basic — captures clipboard text into new row)
-//   - DOCX export stub (downloads .json sketch — real docx.js in Session 3k+)
+// DEFERRED to Session 3t+:
+//   · Rich text formatting (bold/italic/underline runs) — currently all plain
+//   · Header rows + page breaks + center alignment (rows model needs r.type
+//     + r.bold + r.center fields; current Vite shell uses simple {idx,level,text})
+//   · Full HTML paste normalization (strikes through Word/Docs rich-text →
+//     plain rows w/ format map) — current handler is text-only line split
+//   · Word Worker for history if perf becomes an issue
 //
 // CRITICAL invariants (from CLAUDE.md Coding Rule 13 — workstation pattern):
 //   - Single-column scrollable: sticky header `flex-shrink:0` + body `flex:1; min-height:0; overflow-y:auto`
 //   - Real PSF UI uses this pattern; v2 mount inherits parent layout for now
 //   - Web Worker for history if performance becomes an issue (deferred)
+//   - Each logical list gets its own <w:num> instance — sharing one
+//     <w:abstractNum> across multiple <w:num> chains numbering wrongly
 
 import { lsSave, lsGetJson } from '../../core/storage.js';
 import { bus } from '../../core/bus.js';
@@ -226,28 +227,247 @@ function handlePaste(e) {
     }
 }
 
-// ── DOCX export stub ───────────────────────────────────────────────────
-function exportDocx() {
+// ══════════════════════════════════════════════════════════════════════
+//  Real DOCX export — JSZip + raw OOXML XML construction
+// ══════════════════════════════════════════════════════════════════════
+
+/** @type {any} — JSZip module after lazy load */
+let _jszip = null;
+let _jszipLoading = false;
+
+/** Lazy-load JSZip via CDN ESM. Function-cloaked import bypasses Vite + TS. */
+async function loadJSZip() {
+    if (_jszip) return _jszip;
+    if (_jszipLoading) {
+        while (_jszipLoading) await new Promise((r) => setTimeout(r, 50));
+        return _jszip;
+    }
+    _jszipLoading = true;
+    try {
+        /** @param {string} url */
+        const cdnImport = (url) => /** @type {any} */ (
+            // eslint-disable-next-line no-new-func
+            new Function('u', 'return import(/* @vite-ignore */ u)')(url)
+        );
+        const mod = await cdnImport('https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm');
+        _jszip = mod && (mod.default || mod);
+        return _jszip;
+    } finally { _jszipLoading = false; }
+}
+
+// XML escape (different from html escape — preserves angle brackets in CDATA)
+/** @param {string} s */
+function _psfXe(s) {
+    return String(s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+/**
+ * Emit run content with proper <w:tab/> elements between text parts.
+ * Preserves tab characters so Word re-renders tab stops on output.
+ * @param {string} text
+ */
+function _psfRunContent(text) {
+    if (!text) return '';
+    if (text.indexOf('\t') === -1) {
+        return '<w:t xml:space="preserve">' + _psfXe(text) + '</w:t>';
+    }
+    return text.split('\t').map((p, i) => {
+        const tab = i > 0 ? '<w:tab/>' : '';
+        const t = p ? '<w:t xml:space="preserve">' + _psfXe(p) + '</w:t>' : '';
+        return tab + t;
+    }).join('');
+}
+
+/**
+ * Compute per-row listId (one per logical list = group of consecutive items
+ * sharing the same numId; restart on group change). Stashes r._listId so
+ * the doc builder can emit a fresh <w:num> instance per list.
+ *
+ * Vite shell rows are simple {idx, level, text} — for now treat ALL rows as
+ * items in one logical list (listId=1). Header/pgbrk + multi-list support
+ * lands when row schema expands in Session 3t.
+ */
+function _psfComputeNums() {
+    /** @type {{ rows: PsfRow[] }} */
+    const state = /** @type {any} */ (_psfState);
+    state.rows.forEach((r) => {
+        // Vite shell row level is 0-indexed, but DOCX expects 1-indexed (level 1 = top)
+        /** @type {any} */ (r)._listId = 1;
+    });
+}
+
+function _psfNumXml() {
+    const lvls = Array.from({ length: _PSF_MAX_LEVEL }, (_, i) => {
+        const leadingSpaces = ' '.repeat(i * _PSF_SP);
+        const numPart = Array.from({ length: i + 1 }, (_, j) => '%' + (j + 1)).join('.') + '.';
+        const lvlText = leadingSpaces + numPart;
+        return `<w:lvl w:ilvl="${i}">
+      <w:start w:val="1"/>
+      <w:numFmt w:val="decimal"/>
+      <w:suff w:val="space"/>
+      <w:lvlText w:val="${_psfXe(lvlText)}"/>
+      <w:lvlJc w:val="left"/>
+      <w:pPr>
+        <w:ind w:left="0" w:firstLine="0"/>
+      </w:pPr>
+      <w:rPr>
+        <w:rFonts w:ascii="${_PSF_FONT}" w:hAnsi="${_PSF_FONT}" w:eastAsia="${_PSF_FONT}" w:cs="${_PSF_FONT}"/>
+        <w:sz w:val="32"/><w:szCs w:val="32"/>
+      </w:rPr>
+    </w:lvl>`;
+    }).join('\n');
+    let maxListId = 1;
+    _psfState.rows.forEach((r) => {
+        const lid = /** @type {any} */ (r)._listId;
+        if (lid && lid > maxListId) maxListId = lid;
+    });
+    const abstractNums = Array.from({ length: maxListId }, (_, i) => {
+        return `<w:abstractNum w:abstractNumId="${i + 1}">
+    <w:multiLevelType w:val="multilevel"/>
+    ${lvls}
+  </w:abstractNum>`;
+    }).join('\n  ');
+    const numInstances = Array.from({ length: maxListId }, (_, i) => {
+        return `<w:num w:numId="${i + 1}"><w:abstractNumId w:val="${i + 1}"/></w:num>`;
+    }).join('\n  ');
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:numbering xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  ${abstractNums}
+  ${numInstances}
+</w:numbering>`;
+}
+
+/** @param {PsfRow[]} rows */
+function _psfDocXml(rows) {
+    _psfComputeNums();
+    /** @type {string[]} */
+    const out = [];
+    rows.forEach((r) => {
+        // Vite shell: all rows are items at given level. Header/pgbrk in 3t.
+        // Level normalization: shell is 0-indexed, OOXML ilvl is 0-indexed too,
+        // but the user's mental model is 1-indexed (L1 = top). Level 0 = L1.
+        const ilvl = Math.max(0, Math.min(_PSF_MAX_LEVEL - 1, r.level));
+        const numIdVal = /** @type {any} */ (r)._listId || 1;
+        out.push(`<w:p>
+  <w:pPr>
+    <w:numPr>
+      <w:ilvl w:val="${ilvl}"/>
+      <w:numId w:val="${numIdVal}"/>
+    </w:numPr>
+    <w:ind w:left="0" w:firstLine="0"/>
+    <w:spacing w:after="0"/>
+    <w:jc w:val="left"/>
+  </w:pPr>
+  <w:r>
+    <w:rPr>
+      <w:rFonts w:ascii="${_PSF_FONT}" w:hAnsi="${_PSF_FONT}" w:eastAsia="${_PSF_FONT}" w:cs="${_PSF_FONT}"/>
+      <w:sz w:val="32"/><w:szCs w:val="32"/>
+    </w:rPr>
+    ${_psfRunContent(r.text || '')}
+  </w:r>
+</w:p>`);
+    });
+    const paras = out.join('\n');
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+            xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+<w:body>
+${paras}
+<w:sectPr>
+  <w:pgSz w:orient="portrait" w:w="11906" w:h="16838"/>
+  <w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"
+           w:header="720" w:footer="720" w:gutter="0"/>
+  <w:cols w:num="1" w:space="720"/>
+</w:sectPr>
+</w:body>
+</w:document>`;
+}
+
+function _psfStyXml() {
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:styles xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+          xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:docDefaults>
+    <w:rPrDefault><w:rPr>
+      <w:rFonts w:ascii="${_PSF_FONT}" w:hAnsi="${_PSF_FONT}" w:eastAsia="Arial" w:cs="${_PSF_FONT}"/>
+      <w:color w:val="000000"/>
+      <w:sz w:val="32"/><w:szCs w:val="32"/>
+      <w:lang w:val="en-US"/>
+    </w:rPr></w:rPrDefault>
+  </w:docDefaults>
+  <w:style w:type="paragraph" w:default="1" w:styleId="Normal">
+    <w:name w:val="Normal"/>
+    <w:pPr><w:jc w:val="left"/><w:spacing w:after="0"/></w:pPr>
+  </w:style>
+</w:styles>`;
+}
+
+function _psfSetXml() {
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:settings xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:defaultTabStop w:val="720"/></w:settings>`;
+}
+
+function _psfCtXml() {
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+  <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
+  <Override PartName="/word/numbering.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"/>
+  <Override PartName="/word/settings.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml"/>
+</Types>`;
+}
+
+function _psfRootRels() {
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`;
+}
+
+function _psfDocRelsXml() {
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings" Target="settings.xml"/>
+  <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering" Target="numbering.xml"/>
+</Relationships>`;
+}
+
+async function exportDocx() {
     if (_psfState.rows.length === 0) {
         setStatus('No rows to export', 'err');
         return;
     }
-    // Stub: download JSON sketch — real docx.js construction in Session 3k+
-    const payload = {
-        meta:    { font: _PSF_FONT, sp: _PSF_SP, maxLevel: _PSF_MAX_LEVEL, generated: new Date().toISOString() },
-        rows:    _psfState.rows,
-        note:    'Session 3j stub — real DOCX (docx.js) construction ships in Session 3k+',
-    };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `specflow-${Date.now()}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    setStatus(`Exported ${_psfState.rows.length} rows (JSON stub) — real DOCX in Session 3k+`, 'ok');
+    setStatus('Loading JSZip…', '');
+    try {
+        const JSZip = await loadJSZip();
+        const zip = new JSZip();
+        zip.file('[Content_Types].xml', _psfCtXml());
+        zip.file('_rels/.rels', _psfRootRels());
+        zip.file('word/document.xml', _psfDocXml(_psfState.rows));
+        zip.file('word/numbering.xml', _psfNumXml());
+        zip.file('word/styles.xml', _psfStyXml());
+        zip.file('word/settings.xml', _psfSetXml());
+        zip.file('word/_rels/document.xml.rels', _psfDocRelsXml());
+        const blob = await zip.generateAsync({
+            type: 'blob',
+            mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `spec_numbered_${Date.now()}.docx`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 4000);
+        setStatus(`Exported ${_psfState.rows.length} rows · ${(blob.size / 1024).toFixed(1)} KB DOCX`, 'ok');
+        bus.emit('psf:exported', { rows: _psfState.rows.length, size: blob.size });
+    } catch (err) {
+        const e = /** @type {any} */ (err);
+        setStatus('Export error: ' + ((e && e.message) || e), 'err');
+        if (typeof console !== 'undefined') console.warn('[PSF export]', e);
+    }
 }
 
 /** @param {string} s */
@@ -306,7 +526,7 @@ function renderPanel(rootEl) {
             <div id="psf-status"></div>
 
             <div class="stub-note">
-                <strong>Session 3j port (final)</strong> — toolbar + rows editor + history (undo/redo) + paste-to-rows + DOCX export stub live; Real docx.js DOCX construction + rich text formatting (bold/italic/underline) + full HTML paste normalization ship in Session 3k+. <strong>All 7 utility modules now have real UI.</strong>
+                <strong>Session 3s port</strong> — Real DOCX export live (JSZip + raw OOXML XML construction · 7-part xlsx package · TH Sarabun New 16pt · multi-level numbering · tab-aware runs). Header/pgbrk + bold/italic/underline + full HTML paste normalization ship in Session 3t+.
             </div>
         </div>
     `;
@@ -473,7 +693,7 @@ export function init(rootEl, _ctx) {
     bus.emit('psf:init', { rootEl, rowCount: _psfState.rows.length });
     return {
         id:          'psf',
-        version:     '0.2-session3j-ui-port',
+        version:     '0.3-session3s-real-docx',
         ready:       true,
         rowCount:    _psfState.rows.length,
         maxLevel:    _PSF_MAX_LEVEL,
