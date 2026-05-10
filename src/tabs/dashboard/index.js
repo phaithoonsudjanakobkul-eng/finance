@@ -18,8 +18,11 @@ import { lsGetJson } from '../../core/storage.js';
 
 /** @typedef {{name: string, val: number, amount: number, isPaid: boolean}} Item */
 /** @typedef {{id: string, payday: number, fixed: Item[], dynamic: Item[]}} MonthRecord */
+/** @typedef {{ c?: number, dp?: number, name?: string }} WlEntry */
 
 const _MONEY_FMT = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 });
+const _PRICE_FMT = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const _DELTA_FMT = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2, signDisplay: 'always' });
 
 /** @type {HTMLElement | null} */
 let _panel = null;
@@ -124,14 +127,13 @@ function renderPanel(/** @type {HTMLElement} */ rootEl) {
                 <svg id="dash-trend" viewBox="0 0 600 200" preserveAspectRatio="none" style="width:100%;height:200px;background:var(--bg, #0d0d0d);border-radius:8px;border:1px solid var(--border, #2a2a2a);"></svg>
             </div>
 
-            <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:12px;">
-                <div class="dash-card" style="background:var(--card, #1a1a1a);border:1px solid var(--border, #2a2a2a);border-radius:10px;padding:14px;opacity:0.7;">
-                    <div class="dash-label" style="font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent, #089981);margin-bottom:4px;">LOW Alerts</div>
-                    <div class="dash-sub" style="font-size:12px;color:var(--dim, #888);">Pending watchlist port</div>
-                </div>
-                <div class="dash-card" style="background:var(--card, #1a1a1a);border:1px solid var(--border, #2a2a2a);border-radius:10px;padding:14px;opacity:0.7;">
-                    <div class="dash-label sec-label" style="font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent, #089981);margin-bottom:4px;">Pinned</div>
-                    <div class="dash-sub" style="font-size:12px;color:var(--dim, #888);">Pending watchlist port</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div id="dash-pinned" class="dash-card" style="background:var(--card, #1a1a1a);border:1px solid var(--border, #2a2a2a);border-radius:10px;padding:14px;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                        <div class="dash-label sec-label" style="font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent, #089981);">Pinned</div>
+                        <a href="#tab=watchlist" style="font-size:11px;color:var(--dim, #888);text-decoration:none;font-family:var(--mono, monospace);">edit ↗</a>
+                    </div>
+                    <div id="dash-pinned-rows" style="display:flex;flex-direction:column;gap:6px;font-family:var(--mono, monospace);font-size:13px;font-variant-numeric:tabular-nums;"></div>
                 </div>
                 <div class="dash-card" style="background:var(--card, #1a1a1a);border:1px solid var(--border, #2a2a2a);border-radius:10px;padding:14px;opacity:0.7;">
                     <div class="dash-label" style="font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent, #089981);margin-bottom:4px;">Muse</div>
@@ -222,10 +224,37 @@ function setText(/** @type {string} */ sel, /** @type {string} */ s) {
     if (el) el.textContent = s;
 }
 
+function renderPinned() {
+    if (!_panel) return;
+    const host = /** @type {HTMLElement | null} */ (_panel.querySelector('#dash-pinned-rows'));
+    if (!host) return;
+    /** @type {string[]} */
+    const pinned = /** @type {any} */ (lsGetJson('ps_pinned_wl', [])) || [];
+    if (!Array.isArray(pinned) || !pinned.length) {
+        host.innerHTML = `<div style="color:var(--dim, #888);font-size:12px;font-family:var(--sans, system-ui);">No symbols pinned. Open Watchlist and tap ☆ on a row.</div>`;
+        return;
+    }
+    /** @type {Record<string, WlEntry>} */
+    const cache = /** @type {any} */ (lsGetJson('ps_wl_cache', {})) || {};
+    host.innerHTML = pinned.slice(0, 8).map((sym) => {
+        const c = cache[sym] || {};
+        const last = (typeof c.c === 'number') ? _PRICE_FMT.format(c.c) : '—';
+        const dp = (typeof c.dp === 'number') ? _DELTA_FMT.format(c.dp) + '%' : '—';
+        const dpColor = (typeof c.dp === 'number') ? (c.dp >= 0 ? 'var(--wl-up, #10b981)' : 'var(--wl-dn, #ef4444)') : 'var(--dim, #888)';
+        return `<div style="display:grid;grid-template-columns:60px 1fr 90px 70px;gap:6px;align-items:center;">
+            <span style="font-weight:700;letter-spacing:0.02em;">${sym}</span>
+            <span style="color:var(--dim, #888);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.name || ''}</span>
+            <span style="text-align:right;">${last}</span>
+            <span style="text-align:right;color:${dpColor};">${dp}</span>
+        </div>`;
+    }).join('');
+}
+
 function refreshAll() {
     renderProfile();
     renderMonthCards();
     renderTrend();
+    renderPinned();
 }
 
 // ── Lifecycle ──────────────────────────────────────────────────────────
@@ -236,7 +265,14 @@ export function init(/** @type {HTMLElement} */ rootEl) {
     refreshAll();
     const offSaved  = bus.on('records:saved',  () => refreshAll());
     const offLoaded = bus.on('records:loaded', () => refreshAll());
-    _busOff = () => { offSaved && offSaved(); offLoaded && offLoaded(); };
+    const offPinned = bus.on('watchlist:pinned',   () => renderPinned());
+    const offWlRef  = bus.on('watchlist:refreshed', () => renderPinned());
+    _busOff = () => {
+        offSaved && offSaved();
+        offLoaded && offLoaded();
+        offPinned && offPinned();
+        offWlRef && offWlRef();
+    };
     bus.emit('tab:dashboard:init', { rootEl });
     return { id: 'dashboard', version: '0.2-step6-dashboard', ready: true, kind: 'tab' };
 }
