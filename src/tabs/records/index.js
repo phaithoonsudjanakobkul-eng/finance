@@ -98,7 +98,9 @@ function renderPanel(/** @type {HTMLElement} */ rootEl) {
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
                 <span style="font-size:18px;font-weight:700;letter-spacing:-0.02em;">Records</span>
                 <span style="font-size:11px;color:var(--dim, #888);font-family:var(--mono, monospace);">tab/records</span>
-                <div style="margin-left:auto;display:flex;align-items:center;gap:6px;">
+                <div style="margin-left:auto;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                    <button id="rec-clone" title="Copy fixed/dynamic items from last non-empty month" style="background:var(--card, #1a1a1a);border:1px solid var(--border, #2a2a2a);color:var(--fg, #f5f5f7);padding:6px 10px;border-radius:6px;cursor:pointer;font-size:12px;">Clone last</button>
+                    <button id="rec-clear" title="Delete all entries for this month" style="background:var(--card, #1a1a1a);border:1px solid var(--border, #2a2a2a);color:var(--fg, #f5f5f7);padding:6px 10px;border-radius:6px;cursor:pointer;font-size:12px;">Clear month</button>
                     <button id="rec-prev" style="background:var(--card, #1a1a1a);border:1px solid var(--border, #2a2a2a);color:var(--fg, #f5f5f7);padding:6px 10px;border-radius:6px;cursor:pointer;">‹</button>
                     <input id="rec-month" type="month" style="background:var(--card, #1a1a1a);border:1px solid var(--border, #2a2a2a);color:var(--fg, #f5f5f7);padding:6px 10px;border-radius:6px;font-family:var(--mono, monospace);">
                     <button id="rec-next" style="background:var(--card, #1a1a1a);border:1px solid var(--border, #2a2a2a);color:var(--fg, #f5f5f7);padding:6px 10px;border-radius:6px;cursor:pointer;">›</button>
@@ -275,6 +277,49 @@ function scheduleSave() {
     });
 }
 
+// ── Clone / Clear ──────────────────────────────────────────────────────
+
+/**
+ * Find the most recent month with non-empty fixed or dynamic data.
+ * Searches the records[] array, returns null if nothing found.
+ * @returns {MonthRecord | null}
+ */
+function findLastNonEmptyMonth() {
+    const candidates = _records
+        .filter((r) => r && r.id && r.id !== _curMonth && (r.payday || (r.fixed && r.fixed.length) || (r.dynamic && r.dynamic.length)))
+        .sort((a, b) => (a.id < b.id ? 1 : -1));
+    return candidates[0] || null;
+}
+
+function cloneLastMonth() {
+    const src = findLastNonEmptyMonth();
+    if (!src) {
+        setText('#rec-status', 'No previous month with data to clone from');
+        return;
+    }
+    const cur = ensureMonth(_curMonth);
+    const hasData = (cur.fixed && cur.fixed.length) || (cur.dynamic && cur.dynamic.length) || cur.payday;
+    if (hasData && !confirm(`This will overwrite the current ${_curMonth} entries with a copy from ${src.id}. Continue?`)) {
+        return;
+    }
+    cur.payday = src.payday || 0;
+    // Reset isPaid on cloned items so the user starts each month at zero-paid
+    cur.fixed = (src.fixed || []).map((it) => ({ name: it.name, val: it.val, amount: it.amount, isPaid: false }));
+    cur.dynamic = (src.dynamic || []).map((it) => ({ name: it.name, val: it.val, amount: it.amount, isPaid: false }));
+    persistRecords();
+    loadMonth(_curMonth);
+    setText('#rec-status', `Cloned from ${src.id} · ${cur.fixed.length + cur.dynamic.length} item(s) · paid flags reset`);
+}
+
+function clearMonth() {
+    if (!confirm(`Delete all entries for ${_curMonth}? This cannot be undone.`)) return;
+    const idx = _records.findIndex((r) => r && r.id === _curMonth);
+    if (idx >= 0) _records.splice(idx, 1);
+    persistRecords();
+    loadMonth(_curMonth);
+    setText('#rec-status', `Cleared ${_curMonth}`);
+}
+
 // ── Wire events ────────────────────────────────────────────────────────
 
 function wireEvents() {
@@ -299,14 +344,10 @@ function wireEvents() {
             scheduleSave();
             return;
         }
-        if (t.id === 'rec-prev') {
-            loadMonth(shiftMonth(_curMonth, -1));
-            return;
-        }
-        if (t.id === 'rec-next') {
-            loadMonth(shiftMonth(_curMonth, +1));
-            return;
-        }
+        if (t.id === 'rec-prev')  { loadMonth(shiftMonth(_curMonth, -1)); return; }
+        if (t.id === 'rec-next')  { loadMonth(shiftMonth(_curMonth, +1)); return; }
+        if (t.id === 'rec-clone') { cloneLastMonth(); return; }
+        if (t.id === 'rec-clear') { clearMonth(); return; }
     });
     _panel.addEventListener('input', (/** @type {Event} */ e) => {
         const t = /** @type {HTMLInputElement} */ (e.target);
