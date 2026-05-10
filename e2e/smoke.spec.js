@@ -120,4 +120,38 @@ test.describe('v2 shell smoke', () => {
         // Sensitive keys mount as password type so the value isn't readable
         await expect(finnhubInput).toHaveAttribute('type', 'password');
     });
+
+    test('Watchlist clicking column header changes sort + persists to localStorage', async ({ page }) => {
+        await page.locator('button[data-tab="watchlist"]').click();
+        // Click "Last" header — should switch sort to c:desc (numeric default)
+        await page.locator('th[data-sort="c"]').click();
+        await expect.poll(async () => page.evaluate(() => localStorage.getItem('ps_v2_wl_sort')))
+            .toBe('c:desc');
+        // Click again — flips to asc
+        await page.locator('th[data-sort="c"]').click();
+        await expect.poll(async () => page.evaluate(() => localStorage.getItem('ps_v2_wl_sort')))
+            .toBe('c:asc');
+    });
+
+    test('Watchlist rejects invalid symbol on Add (regex guard)', async ({ page }) => {
+        await page.locator('button[data-tab="watchlist"]').click();
+        // Lower-case + special chars → rejected by /^[A-Z0-9.\-=^]{1,12}$/
+        await page.locator('#wl-add').fill('not_valid!');
+        await page.locator('#wl-add').press('Enter');
+        // Watchlist localStorage should remain empty (no symbol added)
+        const ls = await page.evaluate(() => localStorage.getItem('ps_watchlist'));
+        // Either null (never set) or empty array — both mean "rejected"
+        if (ls !== null) {
+            expect(JSON.parse(ls)).toEqual([]);
+        }
+        // Empty-state message should still be visible
+        await expect(page.locator('tbody#wl-tbody')).toContainText('No symbols');
+    });
+
+    test('Watchlist empty state shows the v2-Add hint (not the stale monolith message)', async ({ page }) => {
+        await page.locator('button[data-tab="watchlist"]').click();
+        await expect(page.locator('tbody#wl-tbody')).toContainText('add one via the input above');
+        // The monolith-era hint must not survive
+        await expect(page.locator('tbody#wl-tbody')).not.toContainText('Add via the monolith');
+    });
 });

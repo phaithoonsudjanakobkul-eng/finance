@@ -308,7 +308,7 @@ function repaint() {
     const symbols = loadSymbols();
     const cache = loadCache();
     if (!symbols.length) {
-        tbody.innerHTML = `<tr><td colspan="7" style="padding:18px;text-align:center;color:var(--dim, #888);">No symbols in <code>ps_watchlist</code>. Add via the monolith Watchlist tab to populate.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" style="padding:18px;text-align:center;color:var(--dim, #888);">No symbols yet — add one via the input above.</td></tr>`;
         if (status) status.textContent = '0 symbols · empty watchlist';
         return;
     }
