@@ -22,7 +22,7 @@
 import { bus } from './core/bus.js';
 import { lsSave, lsGet } from './core/storage.js';
 import { applyPreset, applyVariant, presets, restoreActive } from './core/presets/index.js';
-import { pullFromGist } from './core/gist.js';
+import { pullFromGist, pushToGist } from './core/gist.js';
 import { mount as mountPrivacy } from './widgets/privacy/index.js';
 import './styles/privacy.css';
 import './styles/watchlist.css';
@@ -337,11 +337,43 @@ window.addEventListener('DOMContentLoaded', () => {
         if (id && id !== _activeTabId) activate(id);
     });
 
+    // ── Auto-push to Gist (debounced 5s) ────────────────────────────
+    //
+    // Edit-driven bus events schedule a push so v2-only edits flow back
+    // to Gist without needing the user to click "Push" in Settings.
+    // Guards keep this safe:
+    //   • 5s debounce coalesces a flurry of edits into one push
+    //   • 10s post-pull window blocks the push that would otherwise
+    //     fire when gist:pulled triggers a tab re-init that emits
+    //     records:loaded → settings:changed (avoids ping-pong loop)
+    //   • pushToGist's own 4s rate-limit prevents back-to-back PATCHes
+    //   • 'loaded' bus events deliberately NOT subscribed — only edits
+    let _lastPullTs = 0;
+    let _autoPushTimer = /** @type {any} */ (0);
+    function scheduleAutoPush() {
+        const token = lsGet('ps_gist_token', '');
+        if (!token) return;
+        if (Date.now() - _lastPullTs < 10_000) return;
+        if (_autoPushTimer) clearTimeout(_autoPushTimer);
+        _autoPushTimer = setTimeout(() => {
+            _autoPushTimer = 0;
+            pushToGist(/** @type {string} */ (token)).catch((e) => {
+                console.warn('[PSLink/v2] auto-push:', (e && /** @type {any} */ (e).message) || e);
+            });
+        }, 5_000);
+    }
+    bus.on('records:saved',     scheduleAutoPush);
+    bus.on('watchlist:added',   scheduleAutoPush);
+    bus.on('watchlist:removed', scheduleAutoPush);
+    bus.on('watchlist:pinned',  scheduleAutoPush);
+    bus.on('settings:changed',  scheduleAutoPush);
+
     // After a Gist pull, refresh chrome (preset / dark / privacy) + the
     // active tab so the user sees the new state immediately. Tab modules
     // cache localStorage on init(), so without a destroy + re-init they
     // keep showing stale data until the next manual tab switch.
     bus.on('gist:pulled', () => {
+        _lastPullTs = Date.now();
         // Theme: dark/light flag may have changed
         const wantDark = lsGet('ps_dark', '') === '1';
         document.documentElement.classList.toggle('dark', wantDark);

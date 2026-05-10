@@ -1,12 +1,24 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { loadOpenCV, isReady, onStatus, _resetForTests } from './opencv-loader.js';
 
+// happy-dom rejects external script src with a NotSupportedError DOMException
+// during synthetic appendChild — tests dispatch their own load/error events
+// to drive the loader, so the underlying fetch attempt is unwanted noise.
+// Silence it; production browsers don't take this path.
+/** @type {any} */
+let _stderrSpy = null;
 beforeEach(() => {
     _resetForTests();
+    _stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation((/** @type {any} */ chunk) => {
+        const s = typeof chunk === 'string' ? chunk : chunk.toString();
+        if (s.includes('JavaScript file loading is disabled') || s.includes('NotSupportedError')) return true;
+        return process.stderr.write.wrappedMethod ? process.stderr.write.wrappedMethod(chunk) : true;
+    });
 });
 
 afterEach(() => {
     _resetForTests();
+    if (_stderrSpy) _stderrSpy.mockRestore();
 });
 
 describe('isReady', () => {
