@@ -12,9 +12,11 @@
     "preview:vite": "vite preview",
     "type-check": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "e2e": "playwright test"
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
     "happy-dom": "^20.9.0",
     "live-server": "^1.2.2",
     "local-ssl-proxy": "^2.0.5",

@@ -51,6 +51,12 @@ node_modules/
 dist/
 .vite/
 *.tsbuildinfo
+
+# ─── Playwright artifacts (e2e smoke — 2026-05-10) ───────────
+test-results/
+playwright-report/
+.playwright/
+playwright/.cache/
 # .claude — ignore everything except memory-sync hook files
 # (whitelisted entries below are tracked for seamless restore on new machine)
 .claude/*
