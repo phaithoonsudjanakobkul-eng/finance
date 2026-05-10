@@ -15,9 +15,10 @@
 
 import { bus } from '../../core/bus.js';
 import { lsGetJson } from '../../core/storage.js';
+import { todayMonth, shiftMonth, readMonth } from '../records/helpers.js';
 
-/** @typedef {{name: string, val: number, amount: number, isPaid: boolean}} Item */
-/** @typedef {{id: string, payday: number, fixed: Item[], dynamic: Item[]}} MonthRecord */
+/** @typedef {import('../records/helpers.js').Item} Item */
+/** @typedef {import('../records/helpers.js').MonthRecord} MonthRecord */
 /** @typedef {{ c?: number, dp?: number, name?: string }} WlEntry */
 
 const _MONEY_FMT = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 });
@@ -42,43 +43,8 @@ function loadRecords() {
     return Array.isArray(r) ? r : [];
 }
 
-function todayMonth() {
-    const d = new Date();
-    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
-}
-
-/**
- * @param {string} m e.g. "2026-05"
- * @param {number} delta integer offset in months
- */
-function shiftMonth(m, delta) {
-    const [y, mo] = m.split('-').map(Number);
-    const d = new Date(y, mo - 1 + delta, 1);
-    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
-}
-
-/** @param {Item[]} arr */
-function sumArr(arr) {
-    let s = 0;
-    for (const it of arr || []) {
-        const v = (typeof it.val === 'number' && !isNaN(it.val)) ? it.val : (Number(it.amount) || 0);
-        s += v;
-    }
-    return s;
-}
-
-/**
- * @param {string} m
- * @param {MonthRecord[]} records
- */
-function readMonth(m, records) {
-    const rec = records.find((x) => x && x.id === m);
-    if (!rec) return { id: m, payday: 0, expenses: 0, balance: 0, rate: 0 };
-    const expenses = sumArr(rec.fixed) + sumArr(rec.dynamic);
-    const balance = (rec.payday || 0) - expenses;
-    const rate = rec.payday > 0 ? Math.round((balance / rec.payday) * 100) : 0;
-    return { id: m, payday: rec.payday || 0, expenses, balance, rate };
-}
+// Month-math + sum helpers DRY-imported from ../records/helpers.js — see
+// the records helper tests for coverage of year-rollover + NaN tolerance.
 
 // ── Render ─────────────────────────────────────────────────────────────
 
