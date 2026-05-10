@@ -22,6 +22,8 @@
 import { bus } from './core/bus.js';
 import { lsSave, lsGet } from './core/storage.js';
 import { applyPreset, applyVariant, presets, restoreActive } from './core/presets/index.js';
+import { mount as mountPrivacy } from './widgets/privacy/index.js';
+import './styles/privacy.css';
 
 console.log('[PSLink/v2] main.js boot — bus, storage ready');
 
@@ -331,6 +333,10 @@ window.addEventListener('DOMContentLoaded', () => {
         const id = readHashTab();
         if (id && id !== _activeTabId) activate(id);
     });
+
+    // Mount global widgets (privacy toggle) into the tab nav row
+    const widgetHost = document.getElementById('widget-host');
+    if (widgetHost) mountPrivacy(widgetHost);
 
     // Boot order: hash > last-used localStorage > dashboard default
     const last = lsGet('ps_v2_active_tab', '');

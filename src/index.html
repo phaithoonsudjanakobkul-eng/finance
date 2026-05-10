@@ -5,6 +5,15 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>PSLink v2 — Vite Scaffold (Session 3a)</title>
     <link rel="icon" href="data:," />
+    <script>
+        // Pre-paint privacy mode so numbers don't flash before main.js boots.
+        // Mirror of widget logic; same ps_privacy localStorage key.
+        try {
+            if (localStorage.getItem('ps_privacy') === '1') {
+                document.documentElement.classList.add('privacy-on');
+            }
+        } catch (e) { /* swallow — Safari private mode etc. */ }
+    </script>
     <style>
         :root {
             color-scheme: dark;
@@ -41,12 +50,13 @@
     <h2>Tab router (Step 6)</h2>
     <div class="card">
         <p>Each tab is its own dynamic-import chunk. Switching tabs destroys the previous tab before booting the next one. <code>ps_v2_active_tab</code> in localStorage restores last tab on refresh.</p>
-        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;align-items:center;">
             <button data-tab="dashboard">Dashboard</button>
             <button data-tab="records">Records</button>
             <button data-tab="watchlist">Watchlist</button>
             <button data-tab="news">News</button>
             <button data-tab="utilities">Utilities</button>
+            <span id="widget-host" style="margin-left:auto;display:inline-flex;gap:6px;"></span>
         </div>
         <div id="tab-mount" style="min-height:200px;background:var(--bg);border:1px solid var(--border);border-radius:10px;overflow:auto;">
             <div style="padding:18px;color:var(--dim);font-size:13px;">Loading active tab…</div>
