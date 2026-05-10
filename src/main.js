@@ -278,25 +278,62 @@ window.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    /**
+     * Read tab id from URL hash (#tab=records) — used on boot + on hashchange
+     * for browser back/forward / direct-URL share. Falls back to localStorage
+     * `ps_v2_active_tab`, then dashboard.
+     * @returns {string}
+     */
+    function readHashTab() {
+        const h = (typeof location !== 'undefined' && location.hash) || '';
+        const m = h.match(/(?:^|[#&])tab=([a-z]+)/);
+        if (m && _tabLoaders[m[1]]) return m[1];
+        return '';
+    }
+
+    /** @param {string} id */
+    function writeHashTab(id) {
+        if (typeof location === 'undefined') return;
+        const next = '#tab=' + id;
+        if (location.hash === next) return;
+        // history.replaceState doesn't fire hashchange — keeps the back button clean
+        try {
+            history.replaceState(null, '', location.pathname + location.search + next);
+        } catch (e) {
+            location.hash = next;
+        }
+    }
+
+    const mount = /** @type {HTMLElement} */ (tabMount);
+
+    /** @param {string} id */
+    async function activate(id) {
+        if (!_tabLoaders[id]) return;
+        setActiveBtn(id);
+        writeHashTab(id);
+        try {
+            await showTab(id, mount);
+        } catch (e) {
+            const err = /** @type {any} */ (e);
+            mount.textContent = `Error loading tab "${id}": ${err.message || err}`;
+        }
+    }
+
     tabBtns.forEach((btn) => {
-        btn.addEventListener('click', async () => {
+        btn.addEventListener('click', () => {
             const id = btn.dataset.tab;
-            if (!id) return;
-            setActiveBtn(id);
-            try {
-                await showTab(id, tabMount);
-            } catch (e) {
-                const err = /** @type {any} */ (e);
-                tabMount.textContent = `Error loading tab "${id}": ${err.message || err}`;
-            }
+            if (id) activate(id);
         });
     });
 
-    // Boot last tab (default dashboard)
-    const last = lsGet('ps_v2_active_tab', '') || 'dashboard';
-    const initialId = _tabLoaders[last] ? last : 'dashboard';
-    setActiveBtn(initialId);
-    showTab(initialId, tabMount).catch((e) => {
-        tabMount.textContent = `Error: ${(e && e.message) || e}`;
+    // Browser back/forward — re-activate the tab named in the hash
+    window.addEventListener('hashchange', () => {
+        const id = readHashTab();
+        if (id && id !== _activeTabId) activate(id);
     });
+
+    // Boot order: hash > last-used localStorage > dashboard default
+    const last = lsGet('ps_v2_active_tab', '');
+    const initialId = readHashTab() || (_tabLoaders[last] ? last : 'dashboard');
+    activate(initialId);
 });
