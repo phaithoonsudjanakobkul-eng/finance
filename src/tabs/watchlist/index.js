@@ -59,6 +59,43 @@ function loadCache() {
     return (raw && typeof raw === 'object') ? raw : {};
 }
 
+/**
+ * Load ps_wl_spark_cache_v5 — { ts, data: { SYM: { prices: number[], ... } } }.
+ * Returns the inner `data` map. Empty object if cache absent.
+ * @returns {Record<string, { prices?: number[] }>}
+ */
+function loadSparkCache() {
+    const raw = /** @type {any} */ (lsGetJson('ps_wl_spark_cache_v5', null));
+    if (!raw || typeof raw !== 'object') return {};
+    const d = /** @type {any} */ (raw.data);
+    return (d && typeof d === 'object') ? d : {};
+}
+
+/**
+ * Build an SVG polyline path from a price array. Returns the path 'd'
+ * attribute + last-vs-first sign for color decision. Empty path if too few
+ * bars.
+ * @param {number[]} prices
+ * @param {number} W width
+ * @param {number} H height
+ * @returns {{ d: string, sign: number }}
+ */
+function buildSparkPath(prices, W, H) {
+    if (!Array.isArray(prices) || prices.length < 2) return { d: '', sign: 0 };
+    let mn = Infinity, mx = -Infinity;
+    for (const p of prices) { if (p < mn) mn = p; if (p > mx) mx = p; }
+    const range = mx - mn || 1;
+    const step = (W - 2) / (prices.length - 1);
+    let d = '';
+    for (let i = 0; i < prices.length; i++) {
+        const x = 1 + i * step;
+        const y = (H - 2) - ((prices[i] - mn) / range) * (H - 2);
+        d += (i === 0 ? 'M' : 'L') + x.toFixed(1) + ',' + y.toFixed(1);
+    }
+    const sign = Math.sign(prices[prices.length - 1] - prices[0]);
+    return { d, sign };
+}
+
 /** @param {Record<string, WlCacheEntry>} cache */
 function persistCache(cache) {
     try { lsSave('ps_wl_cache', JSON.stringify(cache)); }
@@ -114,6 +151,7 @@ function renderPanel(/** @type {HTMLElement} */ rootEl) {
                                 <th style="text-align:right;padding:10px 12px;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent, #089981);font-weight:700;">Last</th>
                                 <th style="text-align:right;padding:10px 12px;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent, #089981);font-weight:700;">Δ $</th>
                                 <th style="text-align:right;padding:10px 12px;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent, #089981);font-weight:700;">Δ %</th>
+                                <th style="text-align:center;padding:10px 12px;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent, #089981);font-weight:700;">Trend</th>
                                 <th style="text-align:right;padding:10px 12px;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent, #089981);font-weight:700;">Vol</th>
                             </tr>
                         </thead>
@@ -134,10 +172,11 @@ function repaint() {
     const symbols = loadSymbols();
     const cache = loadCache();
     if (!symbols.length) {
-        tbody.innerHTML = `<tr><td colspan="6" style="padding:18px;text-align:center;color:var(--dim, #888);">No symbols in <code>ps_watchlist</code>. Add via the monolith Watchlist tab to populate.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" style="padding:18px;text-align:center;color:var(--dim, #888);">No symbols in <code>ps_watchlist</code>. Add via the monolith Watchlist tab to populate.</td></tr>`;
         if (status) status.textContent = '0 symbols · empty watchlist';
         return;
     }
+    const sparkData = loadSparkCache();
     const rows = symbols.map((sym) => {
         const c = cache[sym] || {};
         const last = (typeof c.c === 'number') ? _PRICE_FMT.format(c.c) : '—';
@@ -148,12 +187,20 @@ function repaint() {
         const dColor = dRaw !== null ? (dRaw >= 0 ? 'var(--wl-up, #10b981)' : 'var(--wl-dn, #ef4444)') : 'var(--dim, #888)';
         const vol = (typeof c.v === 'number') ? _VOL_FMT.format(c.v) : '—';
         const name = c.name ? escapeHtml(String(c.name)) : '';
+        const sparkEntry = sparkData[sym];
+        const prices = (sparkEntry && Array.isArray(sparkEntry.prices)) ? sparkEntry.prices : [];
+        const { d: sparkD, sign: sparkSign } = buildSparkPath(prices, 80, 26);
+        const sparkColor = sparkSign > 0 ? 'var(--wl-up, #10b981)' : sparkSign < 0 ? 'var(--wl-dn, #ef4444)' : 'var(--dim, #888)';
+        const sparkSvg = sparkD
+            ? `<svg viewBox="0 0 80 26" preserveAspectRatio="none" width="80" height="26" style="display:block;"><path d="${sparkD}" stroke="${sparkColor}" stroke-width="1.4" fill="none" vector-effect="non-scaling-stroke"/></svg>`
+            : `<span style="color:var(--dim, #888);font-family:var(--mono, monospace);font-size:11px;">—</span>`;
         return `<tr class="wl-row" data-sym="${escapeAttr(sym)}" style="border-top:1px solid var(--border, #2a2a2a);">
             <td style="padding:10px 12px;font-family:var(--mono, monospace);font-weight:700;letter-spacing:0.02em;">${escapeHtml(sym)}</td>
             <td style="padding:10px 12px;color:var(--dim, #888);max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${name || '—'}</td>
             <td style="padding:10px 12px;text-align:right;font-family:var(--mono, monospace);">${last}</td>
             <td style="padding:10px 12px;text-align:right;font-family:var(--mono, monospace);color:${dColor};">${d}</td>
             <td style="padding:10px 12px;text-align:right;font-family:var(--mono, monospace);color:${dColor};">${dp}</td>
+            <td style="padding:6px 12px;text-align:center;width:96px;">${sparkSvg}</td>
             <td style="padding:10px 12px;text-align:right;font-family:var(--mono, monospace);color:var(--dim, #888);">${vol}</td>
         </tr>`;
     }).join('');
