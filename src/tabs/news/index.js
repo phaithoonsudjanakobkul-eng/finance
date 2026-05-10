@@ -24,6 +24,8 @@ const TOP_N = 10;
 const LOOKBACK_DAYS = 7;
 const AUTO_INTERVAL_MS = 90_000;
 const AUTO_LS_KEY = 'ps_v2_news_auto';
+const CACHE_LS_KEY = 'ps_v2_news_cache';
+const CACHE_TTL_MS = 5 * 60_000; // 5 min — news doesn't churn per second
 
 /** @typedef {{ id?: number, headline?: string, summary?: string, source?: string, url?: string, datetime?: number, image?: string, related?: string, _sym?: string }} NewsItem */
 
@@ -247,6 +249,28 @@ function openModal(it) {
     };
 }
 
+// ── Cache ──────────────────────────────────────────────────────────────
+//
+// localStorage cache keeps the last successful fetch around so a
+// re-entry to the News tab paints instantly + saves Finnhub rate budget.
+// 5-minute TTL — older cache renders immediately AND triggers a
+// background refresh (best-of-both: no blank page, fresh data on the way).
+
+/** @returns {{ ts: number, items: NewsItem[] } | null} */
+function loadCache() {
+    try {
+        const raw = /** @type {any} */ (lsGetJson(CACHE_LS_KEY, null));
+        if (!raw || typeof raw !== 'object' || !Array.isArray(raw.items) || typeof raw.ts !== 'number') return null;
+        return raw;
+    } catch (e) { return null; }
+}
+
+/** @param {NewsItem[]} items */
+function saveCache(items) {
+    try { lsSave(CACHE_LS_KEY, JSON.stringify({ ts: Date.now(), items })); }
+    catch (e) { /* quota — swallow */ }
+}
+
 // ── Pipeline ───────────────────────────────────────────────────────────
 
 async function refresh() {
@@ -285,8 +309,10 @@ async function refresh() {
         }
     }
     const merged = Array.from(byUrl.values()).sort((a, b) => (Number(b.datetime) || 0) - (Number(a.datetime) || 0));
+    const sliced = merged.slice(0, 60);
     setStatus(`${merged.length} unique article(s) across ${symbols.length} symbol(s) · top ${TOP_N} watchlist`);
-    renderItems(merged.slice(0, 60));
+    renderItems(sliced);
+    saveCache(sliced);
     bus.emit('news:refreshed', { count: merged.length });
 }
 
@@ -366,7 +392,19 @@ export function init(/** @type {HTMLElement} */ rootEl) {
     };
     document.addEventListener('visibilitychange', onVis);
     _visOff = () => document.removeEventListener('visibilitychange', onVis);
-    refresh();
+
+    // Cache-first paint — render any cached results immediately so the
+    // user sees content within a frame, then decide whether to refetch.
+    const cached = loadCache();
+    if (cached && cached.items.length) {
+        renderItems(cached.items);
+        const age = Date.now() - cached.ts;
+        const ageMin = Math.floor(age / 60_000);
+        setStatus(`Cached · ${cached.items.length} article(s) · ${ageMin}m ago`);
+        if (age > CACHE_TTL_MS) refresh(); // stale → fetch in background
+    } else {
+        refresh();
+    }
     if (isAutoOn()) startAuto();
     bus.emit('tab:news:init', { rootEl });
     return { id: 'news', version: '0.3-step6-news-auto', ready: true, kind: 'tab' };
