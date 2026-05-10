@@ -1,8 +1,7 @@
 # PSLink — Vite Migration Plan
 
 **Decision committed**: 2026-05-08
-**Target completion**: before 2026-05-25 (before file hits 70k lines)
-**Effort budget**: ~7-13 sessions total (~20-35 ชม. รวม) for AI-assisted single-dev work — NOT human-team weeks
+**Status (2026-05-10)**: Phase A/B/C complete — Phase D (visual parity) starting. **For ongoing work, read [MIGRATION-VISUAL-PHASE.md](MIGRATION-VISUAL-PHASE.md) first.** This file remains the historical record + module inventory.
 **Owner**: Phaithoon (พี่เก่ง) + Claude (จูน)
 
 This document is the single source of truth for migrating PSLink from a single 57.8k-line `index.html` to a modern Vite + dynamic-import architecture. It is OneDrive-synced so it stays in sync between work laptop and personal laptop.
