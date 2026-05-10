@@ -18,10 +18,12 @@
 // - Sentiment badge (Finnhub /news-sentiment endpoint)
 
 import { bus } from '../../core/bus.js';
-import { lsGet, lsGetJson } from '../../core/storage.js';
+import { lsGet, lsSave, lsGetJson } from '../../core/storage.js';
 
 const TOP_N = 10;
 const LOOKBACK_DAYS = 7;
+const AUTO_INTERVAL_MS = 90_000;
+const AUTO_LS_KEY = 'ps_v2_news_auto';
 
 /** @typedef {{ id?: number, headline?: string, summary?: string, source?: string, url?: string, datetime?: number, image?: string, related?: string, _sym?: string }} NewsItem */
 
@@ -35,6 +37,10 @@ let _items = [];
 let _symFilter = '';
 /** @type {(() => void) | null} */
 let _modalOff = null;
+/** @type {number} */
+let _autoTimer = 0;
+/** @type {(() => void) | null} */
+let _visOff = null;
 
 // ── Helpers ────────────────────────────────────────────────────────────
 
@@ -106,7 +112,11 @@ function renderPanel(/** @type {HTMLElement} */ rootEl) {
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
                 <span style="font-size:18px;font-weight:700;letter-spacing:-0.02em;">News</span>
                 <span style="font-size:11px;color:var(--dim, #888);font-family:var(--mono, monospace);">tab/news · Finnhub</span>
-                <button id="news-refresh" style="margin-left:auto;background:var(--accent, #089981);color:#000;border:0;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;">Refresh</button>
+                <label style="margin-left:auto;display:flex;align-items:center;gap:6px;font-size:11px;color:var(--dim, #888);font-family:var(--mono, monospace);cursor:pointer;user-select:none;">
+                    <input id="news-auto" type="checkbox" style="cursor:pointer;accent-color:var(--accent, #089981);">
+                    auto 90s
+                </label>
+                <button id="news-refresh" style="background:var(--accent, #089981);color:#000;border:0;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;">Refresh</button>
             </div>
             <div id="news-status" style="font-size:11px;color:var(--dim, #888);font-family:var(--mono, monospace);">Idle</div>
             <div id="news-symfilter" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
@@ -280,11 +290,48 @@ async function refresh() {
     bus.emit('news:refreshed', { count: merged.length });
 }
 
+// ── Auto polling ───────────────────────────────────────────────────────
+
+function isAutoOn() {
+    return /** @type {string} */ (lsGet(AUTO_LS_KEY, '')) === '1';
+}
+
+function startAuto() {
+    stopAuto();
+    if (typeof document !== 'undefined' && document.hidden) return;
+    _autoTimer = /** @type {any} */ (setInterval(() => {
+        if (typeof document !== 'undefined' && document.hidden) return;
+        refresh();
+    }, AUTO_INTERVAL_MS));
+}
+
+function stopAuto() {
+    if (_autoTimer) clearInterval(_autoTimer);
+    _autoTimer = 0;
+}
+
+/** @param {boolean} on */
+function setAuto(on) {
+    lsSave(AUTO_LS_KEY, on ? '1' : '0');
+    if (on) {
+        refresh();
+        startAuto();
+    } else {
+        stopAuto();
+    }
+}
+
 // ── Lifecycle ──────────────────────────────────────────────────────────
 
 export function init(/** @type {HTMLElement} */ rootEl) {
     _panel = rootEl;
     renderPanel(rootEl);
+    const autoBox = /** @type {HTMLInputElement | null} */ (rootEl.querySelector('#news-auto'));
+    if (autoBox) autoBox.checked = isAutoOn();
+    rootEl.addEventListener('change', (/** @type {Event} */ e) => {
+        const t = /** @type {HTMLInputElement} */ (e.target);
+        if (t && t.id === 'news-auto') setAuto(t.checked);
+    });
     rootEl.addEventListener('click', (/** @type {Event} */ e) => {
         const t = /** @type {HTMLElement} */ (e.target);
         if (!t) return;
@@ -312,14 +359,25 @@ export function init(/** @type {HTMLElement} */ rootEl) {
             if (it) openModal(it);
         }
     });
+    const onVis = () => {
+        if (!isAutoOn()) return;
+        if (document.hidden) stopAuto();
+        else startAuto();
+    };
+    document.addEventListener('visibilitychange', onVis);
+    _visOff = () => document.removeEventListener('visibilitychange', onVis);
     refresh();
+    if (isAutoOn()) startAuto();
     bus.emit('tab:news:init', { rootEl });
-    return { id: 'news', version: '0.2-step6-news', ready: true, kind: 'tab' };
+    return { id: 'news', version: '0.3-step6-news-auto', ready: true, kind: 'tab' };
 }
 
 export function destroy() {
     if (_ctrl) { try { _ctrl.abort(); } catch (e) { /* swallow */ } }
     _ctrl = null;
+    stopAuto();
+    if (_visOff) { try { _visOff(); } catch (e) { /* swallow */ } }
+    _visOff = null;
     closeModal();
     _items = [];
     _panel = null;
