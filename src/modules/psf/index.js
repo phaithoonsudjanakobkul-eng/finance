@@ -32,7 +32,7 @@ export const _PSF_FONT       = 'TH Sarabun New';
 export const _PSF_HIST_LIMIT = 200;
 const _PSF_LS_ROWS = 'ps_psf_rows';
 
-/** @typedef {{ idx: number, level: number, text: string }} PsfRow */
+/** @typedef {{ idx: number, level: number, text: string, bold?: boolean, italic?: boolean, underline?: boolean }} PsfRow */
 
 /** @type {{
  *   rows: PsfRow[],
@@ -165,6 +165,17 @@ function removeRow(idx) {
     snapshotDebounced();
     renderRows();
 }
+/** Toggle a per-row boolean flag (bold / italic / underline) and re-render. */
+function toggleRowFlag(/** @type {number} */ idx, /** @type {'bold' | 'italic' | 'underline'} */ flag) {
+    const r = _psfState.rows.find((x) => x.idx === idx);
+    if (!r) return;
+    r[flag] = !r[flag];
+    saveRows();
+    snapshotDebounced();
+    renderRows();
+    setTimeout(() => focusRow(idx), 10);
+}
+
 /** @param {number} idx @param {1 | -1} delta */
 function adjustLevel(idx, delta) {
     const r = _psfState.rows.find((x) => x.idx === idx);
@@ -364,6 +375,9 @@ function _psfDocXml(rows) {
     <w:rPr>
       <w:rFonts w:ascii="${_PSF_FONT}" w:hAnsi="${_PSF_FONT}" w:eastAsia="${_PSF_FONT}" w:cs="${_PSF_FONT}"/>
       <w:sz w:val="32"/><w:szCs w:val="32"/>
+      ${r.bold      ? '<w:b/><w:bCs/>' : ''}
+      ${r.italic    ? '<w:i/><w:iCs/>' : ''}
+      ${r.underline ? '<w:u w:val="single"/>' : ''}
     </w:rPr>
     ${_psfRunContent(r.text || '')}
   </w:r>
@@ -549,10 +563,14 @@ function renderRows() {
     editor.innerHTML = _psfState.rows.map((r) => {
         const indent = r.level * 18;
         const focused = (_psfState.focusedIdx === r.idx) ? ' focused' : '';
+        const inputStyle = (r.bold ? 'font-weight:700;' : '') + (r.italic ? 'font-style:italic;' : '') + (r.underline ? 'text-decoration:underline;' : '');
         return `<div class="row${focused}" data-idx="${r.idx}" style="margin-left:${indent}px;">
             <span class="lvl">L${r.level}</span>
-            <input class="text" type="text" value="${he(r.text)}" data-row-text="${r.idx}" placeholder="—" />
+            <input class="text" type="text" value="${he(r.text)}" data-row-text="${r.idx}" placeholder="—" style="${inputStyle}" />
             <span class="ctl">
+                <button data-act="bold"      data-idx="${r.idx}" class="${r.bold ? 'on' : ''}"      title="Bold (Ctrl+B)"      style="font-weight:700;${r.bold ? 'color:var(--psf-accent, var(--accent, #089981));' : ''}">B</button>
+                <button data-act="italic"    data-idx="${r.idx}" class="${r.italic ? 'on' : ''}"    title="Italic (Ctrl+I)"    style="font-style:italic;${r.italic ? 'color:var(--psf-accent, var(--accent, #089981));' : ''}">I</button>
+                <button data-act="underline" data-idx="${r.idx}" class="${r.underline ? 'on' : ''}" title="Underline (Ctrl+U)" style="text-decoration:underline;${r.underline ? 'color:var(--psf-accent, var(--accent, #089981));' : ''}">U</button>
                 <button data-act="indent-out" data-idx="${r.idx}" title="Outdent">←</button>
                 <button data-act="indent-in"  data-idx="${r.idx}" title="Indent">→</button>
                 <button data-act="up"   data-idx="${r.idx}" title="Move up">↑</button>
@@ -618,6 +636,9 @@ function wireEvents() {
         const act = /** @type {HTMLElement} */ (btn).dataset.act;
         const idx = parseInt(/** @type {HTMLElement} */ (btn).dataset.idx || '-1', 10);
         if (idx < 0) return;
+        if (act === 'bold')       toggleRowFlag(idx, 'bold');
+        if (act === 'italic')     toggleRowFlag(idx, 'italic');
+        if (act === 'underline')  toggleRowFlag(idx, 'underline');
         if (act === 'indent-in')  adjustLevel(idx,  1);
         if (act === 'indent-out') adjustLevel(idx, -1);
         if (act === 'up')         moveRow(idx, -1);
@@ -652,6 +673,22 @@ function wireEvents() {
         const ke = /** @type {KeyboardEvent} */ (e);
         if ((ke.ctrlKey || ke.metaKey) && ke.key.toLowerCase() === 'z' && !ke.shiftKey) { ke.preventDefault(); undo(); return; }
         if ((ke.ctrlKey || ke.metaKey) && (ke.key.toLowerCase() === 'y' || (ke.key.toLowerCase() === 'z' && ke.shiftKey))) { ke.preventDefault(); redo(); return; }
+        // Ctrl+B / Ctrl+I / Ctrl+U toggle on the focused row
+        if ((ke.ctrlKey || ke.metaKey) && !ke.shiftKey && (ke.key === 'b' || ke.key === 'B')) {
+            const t = /** @type {HTMLInputElement} */ (ke.target);
+            const rowIdx = t.dataset && t.dataset.rowText;
+            if (rowIdx != null) { ke.preventDefault(); toggleRowFlag(parseInt(rowIdx, 10), 'bold'); return; }
+        }
+        if ((ke.ctrlKey || ke.metaKey) && !ke.shiftKey && (ke.key === 'i' || ke.key === 'I')) {
+            const t = /** @type {HTMLInputElement} */ (ke.target);
+            const rowIdx = t.dataset && t.dataset.rowText;
+            if (rowIdx != null) { ke.preventDefault(); toggleRowFlag(parseInt(rowIdx, 10), 'italic'); return; }
+        }
+        if ((ke.ctrlKey || ke.metaKey) && !ke.shiftKey && (ke.key === 'u' || ke.key === 'U')) {
+            const t = /** @type {HTMLInputElement} */ (ke.target);
+            const rowIdx = t.dataset && t.dataset.rowText;
+            if (rowIdx != null) { ke.preventDefault(); toggleRowFlag(parseInt(rowIdx, 10), 'underline'); return; }
+        }
         // Tab inside row input → indent
         if (ke.key === 'Tab') {
             const t = /** @type {HTMLInputElement} */ (ke.target);
