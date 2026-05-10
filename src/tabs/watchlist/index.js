@@ -34,7 +34,9 @@ const _VOL_FMT   = new Intl.NumberFormat('en-US', { notation: 'compact', maximum
 
 const AUTO_INTERVAL_MS = 30_000;
 const AUTO_LS_KEY = 'ps_v2_wl_auto';
+const WS_LS_KEY = 'ps_v2_wl_ws';
 const SORT_LS_KEY = 'ps_v2_wl_sort';
+const WS_PERSIST_INTERVAL_MS = 5_000;
 
 /** @typedef {'sym' | 'name' | 'c' | 'd' | 'dp' | 'v'} SortField */
 
@@ -54,6 +56,23 @@ let _autoTimer = 0;
 /** @type {(() => void) | null} */
 let _visOff = null;
 
+/** @type {Record<string, WlCacheEntry> | null} */
+let _liveCache = null;
+/** @type {WebSocket | null} */
+let _ws = null;
+/** @type {string[]} */
+let _wsSubscribed = [];
+/** @type {Map<string, number>} */
+const _pendingTicks = new Map();
+/** @type {number} */
+let _wsRaf = 0;
+/** @type {number} */
+let _wsPersistTimer = 0;
+/** @type {number} */
+let _wsTickCount = 0;
+/** @type {number} */
+let _wsReconnectTimer = 0;
+
 // ── Reads ──────────────────────────────────────────────────────────────
 
 /** @returns {string[]} */
@@ -65,8 +84,19 @@ function loadSymbols() {
 
 /** @returns {Record<string, WlCacheEntry>} */
 function loadCache() {
+    if (_liveCache) return _liveCache;
     const raw = /** @type {any} */ (lsGetJson('ps_wl_cache', {}));
     return (raw && typeof raw === 'object') ? raw : {};
+}
+
+/** @returns {Record<string, WlCacheEntry>} */
+function ensureLiveCache() {
+    if (_liveCache) return _liveCache;
+    const raw = /** @type {any} */ (lsGetJson('ps_wl_cache', {}));
+    /** @type {Record<string, WlCacheEntry>} */
+    const fresh = (raw && typeof raw === 'object') ? raw : {};
+    _liveCache = fresh;
+    return fresh;
 }
 
 /**
@@ -145,6 +175,14 @@ function renderPanel(/** @type {HTMLElement} */ rootEl) {
                 <span style="font-size:18px;font-weight:700;letter-spacing:-0.02em;">Watchlist</span>
                 <span style="font-size:11px;color:var(--dim, #888);font-family:var(--mono, monospace);">tab/watchlist · read-only</span>
                 <input id="wl-filter" type="search" placeholder="Filter symbol or name…" autocomplete="off" style="margin-left:auto;background:var(--card, #1a1a1a);border:1px solid var(--border, #2a2a2a);color:var(--fg, #f5f5f7);padding:6px 10px;border-radius:6px;font-family:var(--mono, monospace);font-size:12px;min-width:200px;outline:none;">
+                <span id="wl-ws-indicator" style="display:none;align-items:center;gap:4px;font-size:10px;color:var(--dim, #888);font-family:var(--mono, monospace);">
+                    <span id="wl-ws-dot" style="width:6px;height:6px;border-radius:50%;background:var(--dim, #888);"></span>
+                    <span id="wl-ws-tickcount">0</span>
+                </span>
+                <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--dim, #888);font-family:var(--mono, monospace);cursor:pointer;user-select:none;">
+                    <input id="wl-ws" type="checkbox" style="cursor:pointer;accent-color:var(--accent, #089981);">
+                    live ws
+                </label>
                 <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--dim, #888);font-family:var(--mono, monospace);cursor:pointer;user-select:none;">
                     <input id="wl-auto" type="checkbox" style="cursor:pointer;accent-color:var(--accent, #089981);">
                     auto 30s
@@ -453,6 +491,178 @@ function setAuto(/** @type {boolean} */ on) {
     }
 }
 
+// ── WebSocket pipeline ─────────────────────────────────────────────────
+
+function isWsOn() {
+    return lsGet(WS_LS_KEY, '') === '1';
+}
+
+/** @param {boolean} on */
+function setWs(on) {
+    lsSave(WS_LS_KEY, on ? '1' : '0');
+    if (on) startWs();
+    else stopWs();
+}
+
+function paintWsIndicator(/** @type {'on' | 'off' | 'connecting' | 'error'} */ state) {
+    if (!_panel) return;
+    const ind = /** @type {HTMLElement | null} */ (_panel.querySelector('#wl-ws-indicator'));
+    const dot = /** @type {HTMLElement | null} */ (_panel.querySelector('#wl-ws-dot'));
+    const cnt = /** @type {HTMLElement | null} */ (_panel.querySelector('#wl-ws-tickcount'));
+    if (ind) ind.style.display = state === 'off' ? 'none' : 'inline-flex';
+    if (dot) {
+        const colors = { on: 'var(--accent, #089981)', connecting: '#f59e0b', error: 'var(--wl-dn, #ef4444)', off: 'var(--dim, #888)' };
+        dot.style.background = colors[state];
+        dot.style.boxShadow = state === 'on' ? '0 0 6px var(--accent, #089981)' : 'none';
+    }
+    if (cnt) cnt.textContent = String(_wsTickCount);
+}
+
+function startWs() {
+    if (_ws) return;
+    if (typeof document !== 'undefined' && document.hidden) return; // resume on visibility
+    const key = lsGet('ps_finnhub_key', '');
+    if (!key) {
+        setStatus('WS skipped — Finnhub key missing (set in Settings)');
+        paintWsIndicator('error');
+        return;
+    }
+    paintWsIndicator('connecting');
+    setStatus('WS · connecting to Finnhub…');
+    let ws;
+    try { ws = new WebSocket(`wss://ws.finnhub.io?token=${encodeURIComponent(key)}`); }
+    catch (e) {
+        setStatus(`WS failed: ${(e && /** @type {any} */ (e).message) || e}`);
+        paintWsIndicator('error');
+        return;
+    }
+    _ws = ws;
+    _wsTickCount = 0;
+    ws.onopen = () => {
+        if (_ws !== ws) return;
+        const symbols = loadSymbols();
+        for (const sym of symbols) {
+            try { ws.send(JSON.stringify({ type: 'subscribe', symbol: sym })); } catch (e) { /* swallow */ }
+        }
+        _wsSubscribed = symbols.slice();
+        paintWsIndicator('on');
+        setStatus(`WS · subscribed to ${symbols.length} symbol(s)`);
+        startWsPersist();
+    };
+    ws.onmessage = (ev) => {
+        if (_ws !== ws) return;
+        let msg;
+        try { msg = JSON.parse(ev.data); } catch (e) { return; }
+        if (!msg || msg.type !== 'trade' || !Array.isArray(msg.data)) return;
+        for (const trade of msg.data) {
+            if (!trade || !trade.s || typeof trade.p !== 'number') continue;
+            // Last-write-wins per symbol per frame
+            _pendingTicks.set(trade.s, trade.p);
+        }
+        if (!_wsRaf) _wsRaf = requestAnimationFrame(flushTicks);
+    };
+    ws.onerror = () => {
+        if (_ws !== ws) return;
+        paintWsIndicator('error');
+    };
+    ws.onclose = () => {
+        if (_ws !== ws) return;
+        _ws = null;
+        _wsSubscribed = [];
+        stopWsPersist();
+        paintWsIndicator('off');
+        // Auto-reconnect if user still has WS toggle on AND tab is visible
+        if (isWsOn() && (typeof document === 'undefined' || !document.hidden)) {
+            if (_wsReconnectTimer) clearTimeout(_wsReconnectTimer);
+            _wsReconnectTimer = /** @type {any} */ (setTimeout(() => { _wsReconnectTimer = 0; startWs(); }, 4000));
+        }
+    };
+}
+
+function stopWs() {
+    if (_wsReconnectTimer) { clearTimeout(_wsReconnectTimer); _wsReconnectTimer = 0; }
+    stopWsPersist();
+    if (_wsRaf) { cancelAnimationFrame(_wsRaf); _wsRaf = 0; }
+    _pendingTicks.clear();
+    if (_liveCache) {
+        // Final flush to localStorage before dropping the live ref
+        persistCache(_liveCache);
+        _liveCache = null;
+    }
+    if (_ws) {
+        const ws = _ws;
+        _ws = null;
+        try {
+            for (const sym of _wsSubscribed) {
+                try { ws.send(JSON.stringify({ type: 'unsubscribe', symbol: sym })); } catch (e) { /* swallow */ }
+            }
+            ws.close();
+        } catch (e) { /* swallow */ }
+        _wsSubscribed = [];
+    }
+    paintWsIndicator('off');
+}
+
+function flushTicks() {
+    _wsRaf = 0;
+    if (!_panel || !_pendingTicks.size) return;
+    const cache = ensureLiveCache();
+    let touched = 0;
+    for (const [sym, price] of _pendingTicks) {
+        const c = cache[sym] || (cache[sym] = {});
+        const prev = (typeof c.pc === 'number') ? c.pc : ((typeof c.c === 'number') ? c.c : null);
+        c.c = price;
+        if (typeof c.pc === 'number') {
+            c.d = price - c.pc;
+            c.dp = c.pc !== 0 ? ((price - c.pc) / c.pc) * 100 : 0;
+        }
+        if (typeof c.h !== 'number' || price > c.h) c.h = price;
+        if (typeof c.l !== 'number' || price < c.l) c.l = price;
+        // Hot-path partial DOM update — surgical update without rebuilding rows.
+        // Skips if row is off-DOM (filter active or wasn't rendered).
+        const row = /** @type {HTMLElement | null} */ (_panel.querySelector(`tr[data-sym="${cssEscapeAttr(sym)}"]`));
+        if (row) {
+            const cells = row.children;
+            // Cell index: 0 sym | 1 name | 2 last | 3 d | 4 dp | 5 trend | 6 vol
+            if (cells[2]) cells[2].textContent = _PRICE_FMT.format(price);
+            if (typeof c.d === 'number') {
+                const sign = c.d >= 0;
+                const color = sign ? 'var(--wl-up, #10b981)' : 'var(--wl-dn, #ef4444)';
+                if (cells[3]) {
+                    cells[3].textContent = _DELTA_FMT.format(c.d);
+                    /** @type {HTMLElement} */ (cells[3]).style.color = color;
+                }
+                if (cells[4] && typeof c.dp === 'number') {
+                    cells[4].textContent = _DELTA_FMT.format(c.dp) + '%';
+                    /** @type {HTMLElement} */ (cells[4]).style.color = color;
+                }
+            }
+        }
+        touched++;
+        // If focus card is showing this symbol, refresh it too (cheap re-render)
+        if (sym === _focusSym) renderFocusCard();
+    }
+    _pendingTicks.clear();
+    _wsTickCount += touched;
+    paintWsIndicator('on');
+    // NOTE: cache write happens on a slow timer (startWsPersist), not every frame
+}
+
+function startWsPersist() {
+    if (_wsPersistTimer) return;
+    _wsPersistTimer = /** @type {any} */ (setInterval(() => {
+        if (_liveCache) persistCache(_liveCache);
+    }, WS_PERSIST_INTERVAL_MS));
+}
+
+function stopWsPersist() {
+    if (_wsPersistTimer) { clearInterval(_wsPersistTimer); _wsPersistTimer = 0; }
+}
+
+function cssEscapeAttr(/** @type {string} */ s) {
+    return String(s).replace(/(["\\])/g, '\\$1');
+}
+
 // ── Lifecycle ──────────────────────────────────────────────────────────
 
 export function init(/** @type {HTMLElement} */ rootEl) {
@@ -462,6 +672,8 @@ export function init(/** @type {HTMLElement} */ rootEl) {
     repaint();
     const autoBox = /** @type {HTMLInputElement | null} */ (rootEl.querySelector('#wl-auto'));
     if (autoBox) autoBox.checked = isAutoOn();
+    const wsBox = /** @type {HTMLInputElement | null} */ (rootEl.querySelector('#wl-ws'));
+    if (wsBox) wsBox.checked = isWsOn();
     rootEl.addEventListener('click', (/** @type {Event} */ e) => {
         const t = /** @type {HTMLElement} */ (e.target);
         if (!t) return;
@@ -491,6 +703,7 @@ export function init(/** @type {HTMLElement} */ rootEl) {
     rootEl.addEventListener('change', (/** @type {Event} */ e) => {
         const t = /** @type {HTMLInputElement} */ (e.target);
         if (t && t.id === 'wl-auto') setAuto(t.checked);
+        if (t && t.id === 'wl-ws')   setWs(t.checked);
     });
     rootEl.addEventListener('input', (/** @type {Event} */ e) => {
         const t = /** @type {HTMLInputElement} */ (e.target);
@@ -501,9 +714,14 @@ export function init(/** @type {HTMLElement} */ rootEl) {
     });
     // Resume / pause on tab visibility — keeps API rate sane when hidden
     const onVis = () => {
-        if (!isAutoOn()) return;
-        if (document.hidden) stopAuto();
-        else startAuto();
+        if (isAutoOn()) {
+            if (document.hidden) stopAuto();
+            else startAuto();
+        }
+        if (isWsOn()) {
+            if (document.hidden) stopWs();
+            else startWs();
+        }
     };
     document.addEventListener('visibilitychange', onVis);
     const onKey = (/** @type {KeyboardEvent} */ e) => {
@@ -519,6 +737,7 @@ export function init(/** @type {HTMLElement} */ rootEl) {
         document.removeEventListener('keydown', onKey);
     };
     if (isAutoOn()) startAuto();
+    if (isWsOn()) startWs();
     bus.emit('tab:watchlist:init', { rootEl });
     return { id: 'watchlist', version: '0.3-step6-watchlist-2a-auto', ready: true, kind: 'tab' };
 }
@@ -527,6 +746,7 @@ export function destroy() {
     if (_ctrl) { try { _ctrl.abort(); } catch (e) { /* swallow */ } }
     _ctrl = null;
     stopAuto();
+    stopWs();
     if (_visOff) { try { _visOff(); } catch (e) { /* swallow */ } }
     _visOff = null;
     _focusSym = '';
