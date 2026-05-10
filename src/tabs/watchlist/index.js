@@ -21,6 +21,7 @@
 
 import { bus } from '../../core/bus.js';
 import { lsGet, lsSave, lsGetJson } from '../../core/storage.js';
+import { buildSparkPath } from './spark-path.js';
 
 /** @typedef {{
  *   c?: number, pc?: number, d?: number, dp?: number,
@@ -141,30 +142,8 @@ function loadSparkCache() {
     return (d && typeof d === 'object') ? d : {};
 }
 
-/**
- * Build an SVG polyline path from a price array. Returns the path 'd'
- * attribute + last-vs-first sign for color decision. Empty path if too few
- * bars.
- * @param {number[]} prices
- * @param {number} W width
- * @param {number} H height
- * @returns {{ d: string, sign: number }}
- */
-function buildSparkPath(prices, W, H) {
-    if (!Array.isArray(prices) || prices.length < 2) return { d: '', sign: 0 };
-    let mn = Infinity, mx = -Infinity;
-    for (const p of prices) { if (p < mn) mn = p; if (p > mx) mx = p; }
-    const range = mx - mn || 1;
-    const step = (W - 2) / (prices.length - 1);
-    let d = '';
-    for (let i = 0; i < prices.length; i++) {
-        const x = 1 + i * step;
-        const y = (H - 2) - ((prices[i] - mn) / range) * (H - 2);
-        d += (i === 0 ? 'M' : 'L') + x.toFixed(1) + ',' + y.toFixed(1);
-    }
-    const sign = Math.sign(prices[prices.length - 1] - prices[0]);
-    return { d, sign };
-}
+// buildSparkPath lives in ./spark-path.js so its geometry can be unit-tested
+// without dragging in the whole watchlist module.
 
 /** @param {Record<string, WlCacheEntry>} cache */
 function persistCache(cache) {
