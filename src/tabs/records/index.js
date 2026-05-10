@@ -15,6 +15,7 @@
 import { bus } from '../../core/bus.js';
 import { lsSave, lsGetJson } from '../../core/storage.js';
 import { todayMonth, shiftMonth, sumArr } from './helpers.js';
+import { escapeAttr } from '../../core/escape.js';
 
 /** @typedef {{name: string, val: number, amount: number, isPaid: boolean}} Item */
 /** @typedef {{id: string, payday: number, fixed: Item[], dynamic: Item[]}} MonthRecord */
@@ -144,10 +145,6 @@ function buildRow(type, it) {
         <button data-act="del" title="Remove" style="background:transparent;border:0;color:var(--dim, #888);cursor:pointer;font-size:16px;line-height:1;padding:0 4px;">×</button>
     `;
     return row;
-}
-
-function escapeAttr(/** @type {string} */ s) {
-    return String(s).replace(/[&"<>]/g, (c) => /** @type {Record<string,string>} */ ({ '&': '&amp;', '"': '&quot;', '<': '&lt;', '>': '&gt;' })[c]);
 }
 
 // ── Read DOM → arrays ──────────────────────────────────────────────────

@@ -17,6 +17,7 @@
 import { bus } from '../../core/bus.js';
 import { lsGet, lsSave } from '../../core/storage.js';
 import { pullFromGist, pushToGist } from '../../core/gist.js';
+import { escapeHtml, escapeAttr } from '../../core/escape.js';
 
 /** @typedef {{
  *   key: string,
@@ -104,13 +105,6 @@ function renderRow(row) {
             <span data-chip="${escapeAttr(row.key)}">${chip}</span>
         </div>
     </div>`;
-}
-
-function escapeHtml(/** @type {string} */ s) {
-    return String(s == null ? '' : s).replace(/[&<>]/g, (c) => /** @type {Record<string, string>} */ ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]);
-}
-function escapeAttr(/** @type {string} */ s) {
-    return String(s == null ? '' : s).replace(/[&"<>]/g, (c) => /** @type {Record<string, string>} */ ({ '&': '&amp;', '"': '&quot;', '<': '&lt;', '>': '&gt;' })[c]);
 }
 
 /** @param {string} key */

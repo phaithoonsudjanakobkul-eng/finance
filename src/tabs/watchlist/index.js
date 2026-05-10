@@ -25,6 +25,7 @@ import { buildSparkPath } from './spark-path.js';
 import { fetchScreener, loadCache as loadScannerCache, updateCache as updateScannerCache, isStale as isScannerStale, renderRowsHtml as renderScannerRowsHtml } from './scanner.js';
 import { sortSymbols as sortSyms, nextSort, parseSortPref, formatSortPref } from './sort.js';
 import { reorderList, dropPositionFromY } from './reorder.js';
+import { escapeHtml, escapeAttr } from '../../core/escape.js';
 
 /** @typedef {{
  *   c?: number, pc?: number, d?: number, dp?: number,
@@ -478,13 +479,6 @@ function paintSortIndicators() {
         th.textContent = base + arrow;
         /** @type {HTMLElement} */ (th).style.color = isActive ? 'var(--fg, #f5f5f7)' : 'var(--accent, #089981)';
     });
-}
-
-function escapeHtml(/** @type {string} */ s) {
-    return String(s).replace(/[&<>]/g, (c) => /** @type {Record<string,string>} */ ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]);
-}
-function escapeAttr(/** @type {string} */ s) {
-    return String(s).replace(/[&"<>]/g, (c) => /** @type {Record<string,string>} */ ({ '&': '&amp;', '"': '&quot;', '<': '&lt;', '>': '&gt;' })[c]);
 }
 
 // ── Phase 2a: HTTP refresh ─────────────────────────────────────────────

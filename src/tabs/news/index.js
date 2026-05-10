@@ -20,6 +20,7 @@
 import { bus } from '../../core/bus.js';
 import { lsGet, lsSave, lsGetJson } from '../../core/storage.js';
 import { loadCache, saveCache, isStale, dedupeArticles, NEWS_CACHE_TTL_MS } from './cache.js';
+import { escapeHtml, escapeAttr } from '../../core/escape.js';
 
 const TOP_N = 10;
 const LOOKBACK_DAYS = 7;
@@ -72,13 +73,6 @@ function fmtTime(/** @type {number} */ ts) {
     if (sec < 86400)     return Math.floor(sec / 3600) + 'h ago';
     if (sec < 86400 * 7) return Math.floor(sec / 86400) + 'd ago';
     return d.toLocaleDateString();
-}
-
-function escapeHtml(/** @type {string} */ s) {
-    return String(s == null ? '' : s).replace(/[&<>]/g, (c) => /** @type {Record<string, string>} */ ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]);
-}
-function escapeAttr(/** @type {string} */ s) {
-    return String(s == null ? '' : s).replace(/[&"<>]/g, (c) => /** @type {Record<string, string>} */ ({ '&': '&amp;', '"': '&quot;', '<': '&lt;', '>': '&gt;' })[c]);
 }
 
 // ── Fetch ──────────────────────────────────────────────────────────────
