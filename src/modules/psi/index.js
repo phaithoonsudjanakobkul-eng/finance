@@ -270,11 +270,7 @@ export function isOpenCvReady() {
 }
 
 /** @param {string} s */
-function he(s) {
-    return String(s == null ? '' : s)
-        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-}
+import { escapeHtml as he } from '../../core/escape.js';
 
 // ── File handling ──────────────────────────────────────────────────────
 /** @param {File} file */

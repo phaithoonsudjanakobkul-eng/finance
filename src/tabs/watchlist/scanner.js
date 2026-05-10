@@ -133,12 +133,7 @@ const _PRICE_FMT = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, ma
 const _PCT_FMT   = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2, signDisplay: 'always' });
 const _VOL_FMT   = new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 });
 
-function he(/** @type {string} */ s) {
-    return String(s == null ? '' : s).replace(/[&<>]/g, (c) => /** @type {Record<string,string>} */ ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]);
-}
-function ha(/** @type {string} */ s) {
-    return String(s == null ? '' : s).replace(/[&"<>]/g, (c) => /** @type {Record<string,string>} */ ({ '&': '&amp;', '"': '&quot;', '<': '&lt;', '>': '&gt;' })[c]);
-}
+import { escapeHtml as he, escapeAttr as ha } from '../../core/escape.js';
 
 /** @param {ScanRow[]} rows @returns {string} */
 export function renderRowsHtml(rows) {

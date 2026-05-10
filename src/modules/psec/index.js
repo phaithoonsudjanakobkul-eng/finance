@@ -181,12 +181,7 @@ export function wrapHtmlDoc(bodyHtml) {
     return head + bodyHtml + _LT + '/body>' + _LT + '/html>';
 }
 
-/** @param {string} s — html-escape user-typed text */
-function he(s) {
-    return String(s == null ? '' : s)
-        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-}
+import { escapeHtml as he } from '../../core/escape.js';
 
 // ── Notes + remark text helpers ────────────────────────────────────────
 

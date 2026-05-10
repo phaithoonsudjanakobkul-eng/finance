@@ -114,12 +114,7 @@ export function setTier(tier) {
 export function getTier() { return _psbgrState.tier; }
 export function _state() { return { ..._psbgrState }; }
 
-/** @param {string} s */
-function he(s) {
-    return String(s == null ? '' : s)
-        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-}
+import { escapeHtml as he } from '../../core/escape.js';
 
 // ══════════════════════════════════════════════════════════════════════
 //  Image loading helper

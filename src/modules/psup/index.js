@@ -547,12 +547,7 @@ export function memTier(mb) {
     return { tier: 'ok', color: '#10b981', label: 'light' };
 }
 
-/** @param {string} s */
-function he(s) {
-    return String(s == null ? '' : s)
-        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-}
+import { escapeHtml as he } from '../../core/escape.js';
 
 function uid() {
     return 'psup-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);

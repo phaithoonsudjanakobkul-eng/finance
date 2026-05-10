@@ -130,12 +130,7 @@ export function nextQuotationNumber(which) {
     return _formatQuotationNumber(which, period, counter);
 }
 
-/** @param {string} s */
-function he(s) {
-    return String(s == null ? '' : s)
-        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-}
+import { escapeHtml as he } from '../../core/escape.js';
 
 // ── File slot handling ─────────────────────────────────────────────────
 /** @param {'main' | 'comp1' | 'comp2'} slot @param {File} file */
