@@ -22,6 +22,7 @@
 
 import { lsSave, lsGet, lsGetJson } from '../../core/storage.js';
 import { bus } from '../../core/bus.js';
+import { distancePx, computePpm, canvasPointFromClick } from './calibrate.js';
 
 const _PSI_LS_CALIB        = 'pslink_micro_calibration';
 const _PSI_LS_LAST_PROFILE = 'pslink_calib_last_profile';
@@ -46,6 +47,12 @@ export const psImagingState = {
 
 /** @type {HTMLElement | null} */
 let _psiPanel = null;
+
+/** Calibration line-tool state — see attachCalibrateHandlers below */
+/** @type {boolean} */
+let _psiCalibMode = false;
+/** @type {{x: number, y: number}[]} */
+const _psiCalibPts = [];
 
 /** @type {{ [stage: string]: boolean }} */
 const _psiStageOpen = { '1': true, '2': true, '3': false };
@@ -438,8 +445,12 @@ function renderPanel(rootEl) {
                         <button class="act ghost" id="psi-calib-add">+ Add profile</button>
                         <button class="act ghost" id="psi-calib-clear" style="color:#f43f5e;">Clear current</button>
                     </div>
+                    <div class="actions" style="margin-top:10px;">
+                        <button class="act" id="psi-calib-line">Draw calibration line</button>
+                        <span id="psi-calib-hint" style="font-size:11px;color:var(--dim, #888);"></span>
+                    </div>
                     <div style="font-size:11px;color:var(--dim, #888);margin-top:8px;line-height:1.5;">
-                        Real calibration draws a known-length line on a stage micrometer image. Manual entry below for now (Session 3j+ ports the line tool).
+                        Click two points on a stage micrometer image, then enter the known distance in microns. Pixels per micron is computed automatically.
                     </div>
                     <label style="margin-top:10px;">Pixels per micron (manual)</label>
                     <input id="psi-ppm" type="number" step="0.01" min="0" placeholder="e.g. 2.5" value="${psImagingState.pixelPerMicron || ''}" style="width:160px;" />
@@ -657,6 +668,113 @@ function wireEvents() {
     // Save / Redraw
     panel.querySelector('#psi-save-btn')?.addEventListener('click', () => savePng());
     panel.querySelector('#psi-redraw-btn')?.addEventListener('click', () => drawCanvas(psImagingState.currentImageUrl));
+
+    // Calibration line tool
+    panel.querySelector('#psi-calib-line')?.addEventListener('click', () => startCalibLine());
+    const canvas = /** @type {HTMLCanvasElement | null} */ (panel.querySelector('#psi-canvas'));
+    if (canvas) canvas.addEventListener('click', onCalibCanvasClick);
+}
+
+// ── Calibration line tool ──────────────────────────────────────────────
+
+function paintCalibHint(/** @type {string} */ text) {
+    if (!_psiPanel) return;
+    const el = _psiPanel.querySelector('#psi-calib-hint');
+    if (el) el.textContent = text;
+}
+
+function startCalibLine() {
+    if (!_psiPanel) return;
+    const canvas = /** @type {HTMLCanvasElement | null} */ (_psiPanel.querySelector('#psi-canvas'));
+    if (!canvas || canvas.style.display === 'none') {
+        setStatus('Load an image first', 'err');
+        return;
+    }
+    _psiCalibMode = true;
+    _psiCalibPts.length = 0;
+    canvas.style.cursor = 'crosshair';
+    paintCalibHint('Click point 1 of the known distance');
+}
+
+function exitCalibLine() {
+    if (!_psiPanel) return;
+    _psiCalibMode = false;
+    _psiCalibPts.length = 0;
+    const canvas = /** @type {HTMLCanvasElement | null} */ (_psiPanel.querySelector('#psi-canvas'));
+    if (canvas) canvas.style.cursor = '';
+    paintCalibHint('');
+    drawCanvas(psImagingState.currentImageUrl); // redraw clean (clears markers)
+}
+
+/** @param {MouseEvent} ev */
+function onCalibCanvasClick(ev) {
+    if (!_psiCalibMode || !_psiPanel) return;
+    const canvas = /** @type {HTMLCanvasElement | null} */ (_psiPanel.querySelector('#psi-canvas'));
+    if (!canvas) return;
+    const pt = canvasPointFromClick(canvas, ev);
+    _psiCalibPts.push(pt);
+    drawCalibMarker(canvas, pt, _psiCalibPts.length);
+    if (_psiCalibPts.length === 1) {
+        paintCalibHint('Click point 2');
+        return;
+    }
+    // Two points collected — draw the line + prompt for distance
+    drawCalibLine(canvas, _psiCalibPts[0], _psiCalibPts[1]);
+    const px = distancePx(_psiCalibPts[0], _psiCalibPts[1]);
+    paintCalibHint(`Line: ${px.toFixed(1)}px`);
+    const input = window.prompt(`Line is ${px.toFixed(1)}px. Enter the known distance in microns:`, '100');
+    if (input === null) { exitCalibLine(); return; }
+    const um = parseFloat(input);
+    const ppm = computePpm(_psiCalibPts[0], _psiCalibPts[1], um);
+    if (ppm === null) {
+        setStatus('Invalid distance — calibration cancelled', 'err');
+        exitCalibLine();
+        return;
+    }
+    psImagingState.pixelPerMicron = ppm;
+    psImagingState.calibration = { pixelPerMicron: ppm, lastUpdated: Date.now(), method: 'line-tool', linePx: px, knownMicrons: um };
+    const ppmInput = /** @type {HTMLInputElement | null} */ (_psiPanel.querySelector('#psi-ppm'));
+    if (ppmInput) ppmInput.value = ppm.toFixed(3);
+    saveCalibration();
+    renderInfoBar();
+    setStatus(`Calibration: ${ppm.toFixed(3)} px/µm (${px.toFixed(1)}px = ${um}µm)`, 'ok');
+    exitCalibLine();
+}
+
+function drawCalibMarker(/** @type {HTMLCanvasElement} */ canvas, /** @type {{x:number,y:number}} */ pt, /** @type {number} */ idx) {
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.save();
+    ctx.strokeStyle = '#089981';
+    ctx.fillStyle = '#089981';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(pt.x, pt.y, 6, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.font = 'bold 11px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#000';
+    ctx.beginPath();
+    ctx.arc(pt.x, pt.y, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#089981';
+    ctx.fillText(String(idx), pt.x, pt.y);
+    ctx.restore();
+}
+
+function drawCalibLine(/** @type {HTMLCanvasElement} */ canvas, /** @type {{x:number,y:number}} */ a, /** @type {{x:number,y:number}} */ b) {
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.save();
+    ctx.strokeStyle = '#089981';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+    ctx.stroke();
+    ctx.restore();
 }
 
 // ── Module lifecycle ───────────────────────────────────────────────────
