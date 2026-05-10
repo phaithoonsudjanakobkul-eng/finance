@@ -16,6 +16,7 @@
 
 import { bus } from '../../core/bus.js';
 import { lsGet, lsSave } from '../../core/storage.js';
+import { pullFromGist } from '../../core/gist.js';
 
 /** @typedef {{
  *   key: string,
@@ -61,7 +62,14 @@ function renderPanel(/** @type {HTMLElement} */ rootEl) {
                 <span style="font-size:11px;color:var(--dim, #888);font-family:var(--mono, monospace);">tab/settings · localStorage editor</span>
             </div>
             <div style="font-size:12px;color:var(--dim, #888);background:var(--card, #1a1a1a);border:1px solid var(--border, #2a2a2a);border-radius:10px;padding:12px;">
-                Edits write to localStorage on blur. Cross-device sync via Gist still happens through the monolith — switch back to <code>/pslink/</code> once to push changes.
+                Edits write to localStorage on blur. Pull from Gist hydrates this device with the latest cross-device snapshot (decrypts AES-GCM via the Gist token below). Push back to Gist still happens through the monolith.
+            </div>
+            <div style="background:var(--card, #1a1a1a);border:1px solid var(--border, #2a2a2a);border-radius:10px;padding:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                <div style="flex:1;min-width:200px;">
+                    <div class="dash-label sec-label" style="font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent, #089981);margin-bottom:4px;">Gist sync</div>
+                    <div id="gist-pull-status" style="font-size:12px;color:var(--dim, #888);font-family:var(--mono, monospace);">Click Pull to hydrate this device from Gist</div>
+                </div>
+                <button id="gist-pull-btn" style="background:var(--accent, #089981);color:#000;border:0;padding:8px 18px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;">Pull from Gist</button>
             </div>
             ${_SECTIONS.map(renderSection).join('')}
         </div>
@@ -141,8 +149,56 @@ function wireEvents() {
                 inp.type = isPwd ? 'text' : 'password';
                 /** @type {HTMLElement} */ (t).textContent = isPwd ? 'Hide' : 'Reveal';
             }
+            return;
+        }
+        if (t.id === 'gist-pull-btn') {
+            handleGistPull();
         }
     });
+}
+
+/** @param {string} text @param {'idle' | 'busy' | 'ok' | 'err'} [tone] */
+function setGistStatus(text, tone) {
+    if (!_panel) return;
+    const el = _panel.querySelector('#gist-pull-status');
+    if (!el) return;
+    el.textContent = text;
+    /** @type {HTMLElement} */ (el).style.color = tone === 'err' ? 'var(--wl-dn, #ef4444)'
+        : tone === 'ok'  ? 'var(--accent, #089981)'
+        : tone === 'busy' ? 'var(--accent, #089981)'
+        : 'var(--dim, #888)';
+}
+
+async function handleGistPull() {
+    if (!_panel) return;
+    const btn = /** @type {HTMLButtonElement | null} */ (_panel.querySelector('#gist-pull-btn'));
+    const token = lsGet('ps_gist_token', '');
+    if (!token) {
+        setGistStatus('No Gist token set — fill the row above first', 'err');
+        return;
+    }
+    if (btn) { btn.setAttribute('disabled', 'true'); btn.textContent = 'Pulling…'; }
+    setGistStatus('Decrypting…', 'busy');
+    try {
+        const r = await pullFromGist(/** @type {string} */ (token));
+        const ts = r.lastModifiedTs ? new Date(r.lastModifiedTs).toLocaleString() : '—';
+        setGistStatus(`Hydrated ${r.applied.length} key(s) · last modified ${ts}`, 'ok');
+        // Refresh chip states across all rows since localStorage just changed
+        for (const sec of _SECTIONS) for (const row of sec.rows) refreshChip(row.key);
+        // Reflect new values in the input boxes too
+        for (const sec of _SECTIONS) {
+            for (const row of sec.rows) {
+                const inp = /** @type {HTMLInputElement | null} */ (_panel && _panel.querySelector(`[data-input="${cssEscape(row.key)}"]`));
+                if (inp) inp.value = lsGet(row.key, '');
+            }
+        }
+        bus.emit('gist:hydrated', { applied: r.applied });
+    } catch (e) {
+        const err = /** @type {any} */ (e);
+        setGistStatus('Pull failed: ' + (err && err.message || err), 'err');
+    } finally {
+        if (btn) { btn.removeAttribute('disabled'); btn.textContent = 'Pull from Gist'; }
+    }
 }
 
 export function init(/** @type {HTMLElement} */ rootEl) {

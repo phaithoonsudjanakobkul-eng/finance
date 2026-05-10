@@ -22,6 +22,7 @@
 import { bus } from './core/bus.js';
 import { lsSave, lsGet } from './core/storage.js';
 import { applyPreset, applyVariant, presets, restoreActive } from './core/presets/index.js';
+import { pullFromGist } from './core/gist.js';
 import { mount as mountPrivacy } from './widgets/privacy/index.js';
 import './styles/privacy.css';
 import './styles/watchlist.css';
@@ -340,10 +341,48 @@ window.addEventListener('DOMContentLoaded', () => {
     const widgetHost = document.getElementById('widget-host');
     if (widgetHost) mountPrivacy(widgetHost);
 
+    // Fresh-device Gist auto-hydrate. localStorage empty + token set →
+    // pull encrypted Gist → decrypt → seed records/watchlist/cache/keys
+    // before any tab boots so the user never sees an empty Records/
+    // Watchlist render. On any other device (existing localStorage) we
+    // leave it alone — last-write-wins via monolith Gist push owns sync.
+    /** @returns {boolean} */
+    function isFreshDevice() {
+        try {
+            return !localStorage.getItem('ps_records') && !localStorage.getItem('ps_watchlist');
+        } catch (e) { return false; }
+    }
+
+    /** @param {string} text */
+    function setSplashStatus(text) {
+        const el = document.getElementById('v2-splash-status');
+        if (el) el.textContent = text;
+    }
+
+    /** @returns {Promise<void>} */
+    async function bootHydrate() {
+        const token = lsGet('ps_gist_token', '');
+        if (!token || !isFreshDevice()) return;
+        setSplashStatus('Syncing from Gist…');
+        try {
+            const r = await pullFromGist(/** @type {string} */ (token));
+            console.log('[PSLink/v2] gist hydrate ok —', r.applied.length, 'keys');
+            // Re-apply preset since meta.preset.* may have changed during pull
+            try { restoreActive(document.documentElement.classList.contains('dark')); }
+            catch (e) { /* swallow */ }
+            setSplashStatus('Loaded ' + r.applied.length + ' fields');
+        } catch (e) {
+            const err = /** @type {any} */ (e);
+            console.warn('[PSLink/v2] gist hydrate failed:', err && err.message);
+            setSplashStatus('Sync skipped: ' + (err.message || 'error'));
+            // Don't block boot on Gist failure — fall through to empty-state tabs
+        }
+    }
+
     // Boot order: hash > last-used localStorage > dashboard default
     const last = lsGet('ps_v2_active_tab', '');
     const initialId = readHashTab() || (_tabLoaders[last] ? last : 'dashboard');
-    activate(initialId).then(() => {
+    bootHydrate().then(() => activate(initialId)).then(() => {
         // Fade splash out once first tab init returns. Removing the node a
         // beat after fade keeps it out of the layout tree.
         const splash = document.getElementById('v2-splash');
