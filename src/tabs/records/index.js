@@ -14,6 +14,7 @@
 
 import { bus } from '../../core/bus.js';
 import { lsSave, lsGetJson } from '../../core/storage.js';
+import { todayMonth, shiftMonth, sumArr } from './helpers.js';
 
 /** @typedef {{name: string, val: number, amount: number, isPaid: boolean}} Item */
 /** @typedef {{id: string, payday: number, fixed: Item[], dynamic: Item[]}} MonthRecord */
@@ -59,36 +60,7 @@ function ensureMonth(m) {
     return r;
 }
 
-// ── Month helpers ──────────────────────────────────────────────────────
-
-function todayMonth() {
-    const d = new Date();
-    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
-}
-
-/**
- * @param {string} m e.g. "2026-05"
- * @param {number} delta integer offset in months
- */
-function shiftMonth(m, delta) {
-    const [y, mo] = m.split('-').map(Number);
-    const d = new Date(y, mo - 1 + delta, 1);
-    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
-}
-
-// ── Sums ──────────────────────────────────────────────────────────────
-
-/**
- * @param {Item[]} arr
- */
-function sumArr(arr) {
-    let s = 0;
-    for (const it of arr) {
-        const v = (typeof it.val === 'number' && !isNaN(it.val)) ? it.val : (Number(it.amount) || 0);
-        s += v;
-    }
-    return s;
-}
+// Month math + sumArr live in ./helpers.js — pure, unit-tested.
 
 // ── DOM ────────────────────────────────────────────────────────────────
 
