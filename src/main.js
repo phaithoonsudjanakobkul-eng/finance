@@ -96,7 +96,8 @@ export function prewarmModules() {
 //   - Modules with a real UI (currently only `psai`) render into #module-mount
 //   - Other (skeleton-only) modules pass their JSON return to #demo-output
 // As more module UIs port over, add their id to MODULES_WITH_UI below.
-const MODULES_WITH_UI = new Set(['psai', 'psec', 'psbgr', 'psup']);
+// Session 3j: ALL 7 modules now have real UI ports.
+const MODULES_WITH_UI = new Set(['psai', 'psbgr', 'psec', 'psf', 'psi', 'psq', 'psup']);
 
 window.addEventListener('DOMContentLoaded', () => {
     const out   = document.getElementById('demo-output');
