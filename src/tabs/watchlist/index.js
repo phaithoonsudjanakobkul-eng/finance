@@ -42,6 +42,8 @@ const SORT_LS_KEY = 'ps_v2_wl_sort';
 let _sort = { field: 'sym', dir: 'asc' };
 /** @type {string} */
 let _filter = '';
+/** @type {string} */
+let _focusSym = '';
 
 /** @type {HTMLElement | null} */
 let _panel = null;
@@ -150,6 +152,7 @@ function renderPanel(/** @type {HTMLElement} */ rootEl) {
                 <button id="wl-reload" style="background:var(--card, #1a1a1a);border:1px solid var(--border, #2a2a2a);color:var(--fg, #f5f5f7);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;">Reload cache</button>
                 <button id="wl-refresh-live" style="background:var(--accent, #089981);color:#000;border:0;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;">Refresh live</button>
             </div>
+            <div id="wl-focus-card"></div>
             <div style="background:var(--card, #1a1a1a);border:1px solid var(--border, #2a2a2a);border-radius:10px;overflow:hidden;">
                 <div id="wl-table-wrap" style="overflow:auto;max-height:60vh;">
                     <table id="watchlist-table" style="width:100%;border-collapse:collapse;font-family:'Inter','IBM Plex Sans Thai',system-ui,sans-serif;font-size:13px;font-variant-numeric:tabular-nums;">
@@ -228,10 +231,77 @@ function repaint() {
     }).join('');
     tbody.innerHTML = rows;
     paintSortIndicators();
+    paintFocusActive();
+    renderFocusCard();
     const cached = symbols.filter((s) => cache[s] && typeof cache[s].c === 'number').length;
     const shown = filtered.length;
     const filterPart = q ? ` · filter "${q}" (${shown}/${symbols.length})` : '';
     if (status) status.textContent = `${shown} symbol(s) shown · ${cached} cached · sort ${_sort.field} ${_sort.dir}${filterPart}`;
+}
+
+// ── Focus card ─────────────────────────────────────────────────────────
+
+function paintFocusActive() {
+    if (!_panel) return;
+    _panel.querySelectorAll('.wl-row').forEach((r) => {
+        const isActive = r.getAttribute('data-sym') === _focusSym;
+        /** @type {HTMLElement} */ (r).style.background = isActive ? 'color-mix(in srgb, var(--accent, #089981) 12%, transparent)' : '';
+    });
+}
+
+function renderFocusCard() {
+    if (!_panel) return;
+    const host = /** @type {HTMLElement | null} */ (_panel.querySelector('#wl-focus-card'));
+    if (!host) return;
+    if (!_focusSym) { host.innerHTML = ''; return; }
+    const cache = loadCache();
+    const c = cache[_focusSym] || {};
+    const sparkData = loadSparkCache();
+    const sparkEntry = sparkData[_focusSym];
+    /** @type {number[]} */
+    const prices = (sparkEntry && Array.isArray(sparkEntry.prices)) ? sparkEntry.prices : [];
+    const last = (typeof c.c === 'number') ? _PRICE_FMT.format(c.c) : '—';
+    const dRaw = (typeof c.d === 'number') ? c.d : null;
+    const dpRaw = (typeof c.dp === 'number') ? c.dp : null;
+    const d = (dRaw !== null) ? _DELTA_FMT.format(dRaw) : '—';
+    const dp = (dpRaw !== null) ? _DELTA_FMT.format(dpRaw) + '%' : '—';
+    const dColor = dRaw !== null ? (dRaw >= 0 ? 'var(--wl-up, #10b981)' : 'var(--wl-dn, #ef4444)') : 'var(--dim, #888)';
+    const range = (typeof c.h === 'number' && typeof c.l === 'number')
+        ? `${_PRICE_FMT.format(c.l)} – ${_PRICE_FMT.format(c.h)}` : '—';
+    const open = (typeof c.o === 'number') ? _PRICE_FMT.format(c.o) : '—';
+    const prevClose = (typeof c.pc === 'number') ? _PRICE_FMT.format(c.pc) : '—';
+    const W = 360, H = 120;
+    const { d: sparkD, sign } = buildSparkPath(prices, W, H);
+    const sparkColor = sign > 0 ? 'var(--wl-up, #10b981)' : sign < 0 ? 'var(--wl-dn, #ef4444)' : 'var(--dim, #888)';
+    const sparkSvg = sparkD
+        ? `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="width:100%;height:120px;display:block;"><path d="${sparkD}" stroke="${sparkColor}" stroke-width="1.6" fill="none" vector-effect="non-scaling-stroke"/></svg>`
+        : `<div style="height:120px;display:flex;align-items:center;justify-content:center;color:var(--dim, #888);font-family:var(--mono, monospace);font-size:12px;">No sparkline data cached</div>`;
+    const name = c.name ? escapeHtml(String(c.name)) : '';
+    host.innerHTML = `
+        <div style="background:var(--card, #1a1a1a);border:1px solid var(--border, #2a2a2a);border-radius:10px;padding:14px;display:grid;grid-template-columns:minmax(200px, 1fr) 2fr;gap:14px;align-items:start;">
+            <div>
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                    <span style="font-family:var(--mono, monospace);font-size:18px;font-weight:700;letter-spacing:0.02em;">${escapeHtml(_focusSym)}</span>
+                    <button id="wl-focus-close" title="Clear (Esc)" style="margin-left:auto;background:transparent;border:0;color:var(--dim, #888);cursor:pointer;font-size:18px;line-height:1;padding:0 4px;">×</button>
+                </div>
+                ${name ? `<div style="font-size:12px;color:var(--dim, #888);margin-bottom:10px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${name}</div>` : ''}
+                <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:6px;">
+                    <span style="font-family:var(--font-data, var(--mono, monospace));font-size:24px;font-weight:700;letter-spacing:-0.01em;font-variant-numeric:tabular-nums;">${last}</span>
+                    <span style="font-family:var(--mono, monospace);color:${dColor};font-size:13px;font-variant-numeric:tabular-nums;">${d}</span>
+                    <span style="font-family:var(--mono, monospace);color:${dColor};font-size:13px;font-variant-numeric:tabular-nums;">${dp}</span>
+                </div>
+                <div style="display:grid;grid-template-columns:auto 1fr;gap:4px 10px;font-size:11px;color:var(--dim, #888);font-family:var(--mono, monospace);">
+                    <span>Range</span><span style="color:var(--fg, #f5f5f7);font-variant-numeric:tabular-nums;">${range}</span>
+                    <span>Open</span><span style="color:var(--fg, #f5f5f7);font-variant-numeric:tabular-nums;">${open}</span>
+                    <span>Prev</span><span style="color:var(--fg, #f5f5f7);font-variant-numeric:tabular-nums;">${prevClose}</span>
+                    <span>Bars</span><span style="color:var(--fg, #f5f5f7);font-variant-numeric:tabular-nums;">${prices.length}</span>
+                </div>
+            </div>
+            <div style="background:var(--bg, #0d0d0d);border:1px solid var(--border, #2a2a2a);border-radius:8px;padding:8px;">
+                ${sparkSvg}
+            </div>
+        </div>
+    `;
 }
 
 // ── Sort ───────────────────────────────────────────────────────────────
@@ -403,6 +473,20 @@ export function init(/** @type {HTMLElement} */ rootEl) {
             if (f) applySort(/** @type {SortField} */ (f));
             return;
         }
+        if (t.id === 'wl-focus-close') {
+            _focusSym = '';
+            renderFocusCard();
+            paintFocusActive();
+            return;
+        }
+        const row = t.closest && t.closest('.wl-row');
+        if (row) {
+            const sym = row.getAttribute('data-sym') || '';
+            _focusSym = (_focusSym === sym) ? '' : sym;
+            renderFocusCard();
+            paintFocusActive();
+            return;
+        }
     });
     rootEl.addEventListener('change', (/** @type {Event} */ e) => {
         const t = /** @type {HTMLInputElement} */ (e.target);
@@ -422,7 +506,18 @@ export function init(/** @type {HTMLElement} */ rootEl) {
         else startAuto();
     };
     document.addEventListener('visibilitychange', onVis);
-    _visOff = () => document.removeEventListener('visibilitychange', onVis);
+    const onKey = (/** @type {KeyboardEvent} */ e) => {
+        if (e.key === 'Escape' && _focusSym) {
+            _focusSym = '';
+            renderFocusCard();
+            paintFocusActive();
+        }
+    };
+    document.addEventListener('keydown', onKey);
+    _visOff = () => {
+        document.removeEventListener('visibilitychange', onVis);
+        document.removeEventListener('keydown', onKey);
+    };
     if (isAutoOn()) startAuto();
     bus.emit('tab:watchlist:init', { rootEl });
     return { id: 'watchlist', version: '0.3-step6-watchlist-2a-auto', ready: true, kind: 'tab' };
@@ -434,6 +529,8 @@ export function destroy() {
     stopAuto();
     if (_visOff) { try { _visOff(); } catch (e) { /* swallow */ } }
     _visOff = null;
+    _focusSym = '';
+    _filter = '';
     _panel = null;
     bus.emit('tab:watchlist:destroy');
 }
