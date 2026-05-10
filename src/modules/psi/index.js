@@ -24,10 +24,9 @@ import { lsSave, lsGet, lsGetJson } from '../../core/storage.js';
 import { bus } from '../../core/bus.js';
 import { distancePx, computePpm, canvasPointFromClick } from './calibrate.js';
 import { angleDeg, polygonAreaPx, polygonCentroid } from './measure.js';
+import { loadProfiles, addProfile, deleteProfile, findProfile, PSI_LAST_PROFILE_KEY } from './profiles.js';
 
 const _PSI_LS_CALIB        = 'pslink_micro_calibration';
-const _PSI_LS_LAST_PROFILE = 'pslink_calib_last_profile';
-const _PSI_CP_KEY          = 'pslink_micro_calib_profiles';
 
 /** @type {{
  *   pixelPerMicron: number | null,
@@ -258,9 +257,7 @@ export function saveCalibration() {
     lsSave(_PSI_LS_CALIB, JSON.stringify(psImagingState.calibration));
     bus.emit('psi:calib-saved', { calib: psImagingState.calibration });
 }
-export function loadCalibProfiles() { return lsGetJson(_PSI_CP_KEY, /** @type {Array<any>} */ ([])); }
-/** @param {Array<any>} profiles */
-export function saveCalibProfiles(profiles) { lsSave(_PSI_CP_KEY, JSON.stringify(profiles)); }
+export { loadProfiles as loadCalibProfiles } from './profiles.js';
 
 /**
  * OpenCV.js readiness — real loader stays in monolith. This just reflects
@@ -595,10 +592,28 @@ function renderCalibSelect() {
     if (!_psiPanel) return;
     const sel = /** @type {HTMLSelectElement | null} */ (_psiPanel.querySelector('#psi-calib-select'));
     if (!sel) return;
-    const profiles = loadCalibProfiles();
-    const last = lsGet(_PSI_LS_LAST_PROFILE, '');
+    const profiles = loadProfiles();
+    const last = lsGet(PSI_LAST_PROFILE_KEY, '');
     sel.innerHTML = '<option value="">— no profile —</option>' +
-        profiles.map((p) => `<option value="${he(p.id || p.name)}" ${(p.id || p.name) === last ? 'selected' : ''}>${he(p.name)} · ${he(String(p.pixelPerMicron))} px/µm</option>`).join('');
+        profiles.map((p) => `<option value="${he(p.id)}" ${p.id === last ? 'selected' : ''}>${he(p.name)} · ${p.ratio.toFixed(2)} px/µm</option>`).join('');
+}
+
+/** Apply the chosen profile's ratio as the active calibration. */
+function applyProfileById(/** @type {string} */ id) {
+    if (!id) return;
+    const p = findProfile(id);
+    if (!p) return;
+    psImagingState.pixelPerMicron = p.ratio;
+    psImagingState.calibration = { pixelPerMicron: p.ratio, lastUpdated: Date.now(), method: 'profile', profileId: p.id, profileName: p.name };
+    saveCalibration();
+    lsSave(PSI_LAST_PROFILE_KEY, p.id);
+    if (_psiPanel) {
+        const ppmInput = /** @type {HTMLInputElement | null} */ (_psiPanel.querySelector('#psi-ppm'));
+        if (ppmInput) ppmInput.value = p.ratio.toFixed(3);
+    }
+    renderInfoBar();
+    setStatus(`Profile applied: ${p.name} (${p.ratio.toFixed(3)} px/µm)`, 'ok');
+    bus.emit('psi:profile-applied', { id: p.id, name: p.name, ratio: p.ratio });
 }
 
 function renderChannelBar() {
@@ -705,8 +720,8 @@ function wireEvents() {
         drawCanvas(psImagingState.currentImageUrl);
     });
 
-    // Calibration profiles (stub — full add modal in monolith)
-    panel.querySelector('#psi-calib-add')?.addEventListener('click', () => setStatus('Add profile (stub) — full modal ships in Session 3j+', ''));
+    // Calibration profiles
+    panel.querySelector('#psi-calib-add')?.addEventListener('click', () => openProfileModal());
     panel.querySelector('#psi-calib-clear')?.addEventListener('click', () => {
         psImagingState.calibration = null;
         psImagingState.pixelPerMicron = null;
@@ -714,6 +729,8 @@ function wireEvents() {
         renderInfoBar();
         setStatus('Cleared calibration', 'ok');
     });
+    const calibSelect = /** @type {HTMLSelectElement | null} */ (panel.querySelector('#psi-calib-select'));
+    if (calibSelect) calibSelect.addEventListener('change', () => applyProfileById(calibSelect.value));
 
     // Save / Redraw
     panel.querySelector('#psi-save-btn')?.addEventListener('click', () => savePng());
@@ -807,9 +824,13 @@ function onCalibCanvasClick(ev) {
     }
     psImagingState.pixelPerMicron = ppm;
     psImagingState.calibration = { pixelPerMicron: ppm, lastUpdated: Date.now(), method: 'line-tool', linePx: px, knownMicrons: um };
+    // Line-tool calibration replaces any active profile selection — clear the
+    // dropdown highlight so the user isn't confused which calibration is live.
+    try { localStorage.removeItem(PSI_LAST_PROFILE_KEY); } catch (_e) { /* private mode */ }
     const ppmInput = /** @type {HTMLInputElement | null} */ (_psiPanel.querySelector('#psi-ppm'));
     if (ppmInput) ppmInput.value = ppm.toFixed(3);
     saveCalibration();
+    renderCalibSelect();
     renderInfoBar();
     setStatus(`Calibration: ${ppm.toFixed(3)} px/µm (${px.toFixed(1)}px = ${um}µm)`, 'ok');
     exitCalibLine();
@@ -1319,6 +1340,135 @@ function onAngleCanvasClick(ev) {
     exitAngleMode();
 }
 
+// ── Calibration profile modal ──────────────────────────────────────────
+
+/** @type {HTMLElement | null} */
+let _psiProfileModal = null;
+
+function closeProfileModal() {
+    if (!_psiProfileModal) return;
+    const m = _psiProfileModal;
+    _psiProfileModal = null;
+    m.classList.remove('show');
+    setTimeout(() => { try { m.remove(); } catch (_e) { /* already gone */ } }, 160);
+}
+
+function renderProfileModalBody() {
+    if (!_psiProfileModal) return;
+    const list = _psiProfileModal.querySelector('#psi-prof-list');
+    if (!list) return;
+    const profiles = loadProfiles();
+    if (profiles.length === 0) {
+        list.innerHTML = '<div style="padding:16px 0;text-align:center;color:var(--dim, #888);font-size:11px;">No profiles saved yet</div>';
+    } else {
+        list.innerHTML = profiles.map((p) => `
+            <div class="psi-prof-row" data-pid="${he(p.id)}" style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border:1px solid var(--border, #2a2a2a);border-radius:6px;margin-bottom:6px;">
+                <div style="display:flex;flex-direction:column;gap:2px;min-width:0;">
+                    <span style="font-size:12px;font-weight:600;color:var(--fg, #f5f5f7);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${he(p.name)}</span>
+                    <span style="font-family:var(--mono, monospace);font-size:10px;color:var(--accent, #089981);">${p.ratio.toFixed(3)} px/µm</span>
+                </div>
+                <button data-act="del" data-pid="${he(p.id)}" title="Delete profile" style="background:transparent;border:1px solid var(--border, #2a2a2a);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:11px;color:#f43f5e;">&times;</button>
+            </div>
+        `).join('');
+    }
+    // Update Save button state based on current ppm
+    const saveBtn = /** @type {HTMLButtonElement | null} */ (_psiProfileModal.querySelector('#psi-prof-save'));
+    const nameInput = /** @type {HTMLInputElement | null} */ (_psiProfileModal.querySelector('#psi-prof-name'));
+    const status = /** @type {HTMLElement | null} */ (_psiProfileModal.querySelector('#psi-prof-status'));
+    const ppm = psImagingState.pixelPerMicron;
+    const havePpm = typeof ppm === 'number' && ppm > 0;
+    if (status) {
+        status.textContent = havePpm
+            ? `Current calibration: ${ppm.toFixed(3)} px/µm`
+            : 'Calibrate first (Stage 1) to enable saving';
+        status.style.color = havePpm ? 'var(--accent, #089981)' : 'var(--dim, #888)';
+    }
+    if (saveBtn) saveBtn.disabled = !havePpm;
+    if (nameInput) nameInput.disabled = !havePpm;
+}
+
+function openProfileModal() {
+    if (_psiProfileModal) return; // already open
+    const m = document.createElement('div');
+    m.className = 'psi-prof-modal';
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9000;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .16s ease;';
+    m.innerHTML = `
+        <div role="dialog" aria-modal="true" style="background:var(--bg, #0d0d0d);color:var(--fg, #f5f5f7);border:1px solid var(--border, #2a2a2a);border-radius:10px;padding:18px;width:min(420px, 92vw);max-height:80vh;overflow-y:auto;box-shadow:0 10px 40px rgba(0,0,0,0.6);font-family:var(--sans, system-ui, sans-serif);">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                <strong style="font-size:14px;">Calibration profiles</strong>
+                <button id="psi-prof-close" style="background:transparent;border:0;color:var(--dim, #888);font-size:18px;cursor:pointer;">&times;</button>
+            </div>
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--dim, #888);font-weight:700;margin-bottom:6px;">Save current calibration</div>
+            <div id="psi-prof-status" style="font-size:11px;margin-bottom:8px;"></div>
+            <div style="display:flex;gap:6px;margin-bottom:14px;">
+                <input id="psi-prof-name" type="text" placeholder="e.g. 10× Olympus BX53" maxlength="60" style="flex:1;background:var(--bg, #0d0d0d);color:var(--fg, #f5f5f7);border:1px solid var(--border, #2a2a2a);border-radius:6px;padding:6px 10px;font-size:12px;outline:none;font-family:inherit;" />
+                <button id="psi-prof-save" style="background:var(--accent, #089981);color:#000;border:0;padding:6px 14px;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer;">Save</button>
+            </div>
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--dim, #888);font-weight:700;margin-bottom:6px;">Saved profiles</div>
+            <div id="psi-prof-list"></div>
+        </div>
+    `;
+    document.body.appendChild(m);
+    _psiProfileModal = m;
+    requestAnimationFrame(() => { m.style.opacity = '1'; m.classList.add('show'); });
+    renderProfileModalBody();
+
+    // Wire interactions
+    m.querySelector('#psi-prof-close')?.addEventListener('click', closeProfileModal);
+    m.addEventListener('mousedown', (e) => { if (e.target === m) closeProfileModal(); });
+    document.addEventListener('keydown', _psiProfileModalEscHandler);
+
+    const nameInput = /** @type {HTMLInputElement | null} */ (m.querySelector('#psi-prof-name'));
+    const saveBtn = m.querySelector('#psi-prof-save');
+    const doSave = () => {
+        if (!nameInput) return;
+        const ppm = psImagingState.pixelPerMicron;
+        if (typeof ppm !== 'number' || ppm <= 0) return;
+        const result = addProfile(nameInput.value, ppm);
+        if (!result) {
+            setStatus('Profile name required', 'err');
+            return;
+        }
+        nameInput.value = '';
+        renderProfileModalBody();
+        renderCalibSelect();
+        setStatus(`Profile saved: ${result.added.name}`, 'ok');
+    };
+    saveBtn?.addEventListener('click', doSave);
+    nameInput?.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Enter') { ev.preventDefault(); doSave(); }
+    });
+    setTimeout(() => nameInput?.focus(), 50);
+
+    // Delete button delegate
+    m.addEventListener('click', (e) => {
+        const t = /** @type {HTMLElement} */ (e.target);
+        const btn = t.closest('[data-act="del"]');
+        if (!btn) return;
+        const pid = /** @type {HTMLElement} */ (btn).dataset.pid;
+        if (!pid) return;
+        const target = findProfile(pid);
+        if (!target) return;
+        if (!confirm(`Delete profile "${target.name}"?`)) return;
+        deleteProfile(pid);
+        // If the deleted profile was the active one, clear last-profile pointer
+        if (lsGet(PSI_LAST_PROFILE_KEY, '') === pid) {
+            try { localStorage.removeItem(PSI_LAST_PROFILE_KEY); } catch (_e) { /* private mode */ }
+        }
+        renderProfileModalBody();
+        renderCalibSelect();
+        setStatus(`Deleted: ${target.name}`, 'ok');
+    });
+}
+
+/** @param {KeyboardEvent} ev */
+function _psiProfileModalEscHandler(ev) {
+    if (ev.key === 'Escape' && _psiProfileModal) {
+        closeProfileModal();
+        document.removeEventListener('keydown', _psiProfileModalEscHandler);
+    }
+}
+
 // ── Module lifecycle ───────────────────────────────────────────────────
 /**
  * @param {HTMLElement} rootEl
@@ -1349,6 +1499,8 @@ export function destroy() {
     if (psImagingState.currentImageUrl) URL.revokeObjectURL(psImagingState.currentImageUrl);
     psImagingState.currentImageUrl = null;
     psImagingState.currentFile     = null;
+    closeProfileModal();
+    document.removeEventListener('keydown', _psiProfileModalEscHandler);
     _psiPanel = null;
     bus.emit('psi:destroy');
 }
