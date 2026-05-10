@@ -22,6 +22,7 @@
 import { bus } from '../../core/bus.js';
 import { lsGet, lsSave, lsGetJson } from '../../core/storage.js';
 import { buildSparkPath } from './spark-path.js';
+import { fetchScreener, loadCache as loadScannerCache, updateCache as updateScannerCache, isStale as isScannerStale, renderRowsHtml as renderScannerRowsHtml } from './scanner.js';
 
 /** @typedef {{
  *   c?: number, pc?: number, d?: number, dp?: number,
@@ -49,6 +50,12 @@ let _filter = '';
 let _focusSym = '';
 /** @type {Set<string>} */
 let _pinned = new Set();
+/** @type {'day_gainers' | 'day_losers' | 'most_actives'} */
+let _scannerType = 'day_gainers';
+/** @type {AbortController | null} */
+let _scannerCtrl = null;
+/** @type {boolean} */
+let _scannerOpen = false;
 
 /** @type {HTMLElement | null} */
 let _panel = null;
@@ -252,6 +259,19 @@ function renderPanel(/** @type {HTMLElement} */ rootEl) {
                 <button id="wl-refresh-live" style="background:var(--accent, #089981);color:#000;border:0;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;">Refresh live</button>
             </div>
             <div id="wl-focus-card"></div>
+            <div id="wl-scanner" style="background:var(--card, #1a1a1a);border:1px solid var(--border, #2a2a2a);border-radius:10px;overflow:hidden;">
+                <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg, #0d0d0d);border-bottom:1px solid var(--border, #2a2a2a);">
+                    <button id="wl-scanner-toggle" style="background:transparent;border:0;color:var(--accent, #089981);cursor:pointer;font-size:11px;font-family:var(--mono, monospace);font-weight:700;text-transform:uppercase;letter-spacing:0.08em;padding:0;">▸ Scanner</button>
+                    <div id="wl-scanner-tabs" style="display:none;flex:1;align-items:center;gap:4px;">
+                        <button data-scan="day_gainers" class="wl-scan-tab" style="background:var(--accent, #089981);color:#000;border:0;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:10px;font-family:var(--mono, monospace);font-weight:700;">Gainers</button>
+                        <button data-scan="day_losers"  class="wl-scan-tab" style="background:var(--card, #1a1a1a);border:1px solid var(--border, #2a2a2a);color:var(--fg, #f5f5f7);padding:4px 10px;border-radius:6px;cursor:pointer;font-size:10px;font-family:var(--mono, monospace);font-weight:700;">Losers</button>
+                        <button data-scan="most_actives" class="wl-scan-tab" style="background:var(--card, #1a1a1a);border:1px solid var(--border, #2a2a2a);color:var(--fg, #f5f5f7);padding:4px 10px;border-radius:6px;cursor:pointer;font-size:10px;font-family:var(--mono, monospace);font-weight:700;">Active</button>
+                        <span id="wl-scanner-meta" style="margin-left:auto;font-size:10px;color:var(--dim, #888);font-family:var(--mono, monospace);"></span>
+                        <button id="wl-scanner-refresh" style="background:var(--card, #1a1a1a);border:1px solid var(--border, #2a2a2a);color:var(--fg, #f5f5f7);padding:4px 10px;border-radius:6px;cursor:pointer;font-size:10px;font-family:var(--mono, monospace);font-weight:700;">Refresh</button>
+                    </div>
+                </div>
+                <div id="wl-scanner-body" style="display:none;max-height:280px;overflow:auto;"></div>
+            </div>
             <div style="background:var(--card, #1a1a1a);border:1px solid var(--border, #2a2a2a);border-radius:10px;overflow:hidden;">
                 <div id="wl-table-wrap" style="overflow:auto;max-height:60vh;">
                     <table id="watchlist-table" style="width:100%;border-collapse:collapse;font-family:'Inter','IBM Plex Sans Thai',system-ui,sans-serif;font-size:13px;font-variant-numeric:tabular-nums;">
@@ -844,6 +864,78 @@ function cssEscapeAttr(/** @type {string} */ s) {
     return String(s).replace(/(["\\])/g, '\\$1');
 }
 
+// ── Scanner ────────────────────────────────────────────────────────────
+
+function paintScannerTabs() {
+    if (!_panel) return;
+    const tabs = _panel.querySelectorAll('.wl-scan-tab');
+    tabs.forEach((b) => {
+        const isActive = b.getAttribute('data-scan') === _scannerType;
+        /** @type {HTMLElement} */ (b).style.background = isActive ? 'var(--accent, #089981)' : 'var(--card, #1a1a1a)';
+        /** @type {HTMLElement} */ (b).style.color      = isActive ? '#000' : 'var(--fg, #f5f5f7)';
+        /** @type {HTMLElement} */ (b).style.border     = isActive ? '0' : '1px solid var(--border, #2a2a2a)';
+        // Compensate for missing border in active state (preserve box size)
+        /** @type {HTMLElement} */ (b).style.padding    = isActive ? '5px 11px' : '4px 10px';
+    });
+}
+
+function paintScannerMeta(/** @type {string} */ text) {
+    if (!_panel) return;
+    const el = _panel.querySelector('#wl-scanner-meta');
+    if (el) el.textContent = text;
+}
+
+function renderScanner() {
+    if (!_panel) return;
+    const body = /** @type {HTMLElement | null} */ (_panel.querySelector('#wl-scanner-body'));
+    if (!body) return;
+    const cache = loadScannerCache();
+    const rows = cache.buckets[_scannerType] || [];
+    body.innerHTML = renderScannerRowsHtml(rows);
+    paintScannerTabs();
+    if (cache.ts && rows.length) {
+        const ageMin = Math.floor((Date.now() - cache.ts) / 60_000);
+        paintScannerMeta(`${rows.length} · ${ageMin}m ago`);
+    } else if (!rows.length) {
+        paintScannerMeta('no cache');
+    }
+}
+
+async function refreshScanner(/** @type {boolean} */ force) {
+    if (!_panel) return;
+    const cache = loadScannerCache();
+    if (!force && !isScannerStale(cache, _scannerType) && cache.buckets[_scannerType]) {
+        renderScanner();
+        return;
+    }
+    if (_scannerCtrl) _scannerCtrl.abort();
+    _scannerCtrl = new AbortController();
+    paintScannerMeta('loading…');
+    try {
+        const rows = await fetchScreener(_scannerType, { count: 25, signal: _scannerCtrl.signal });
+        updateScannerCache(loadScannerCache(), _scannerType, rows);
+        renderScanner();
+    } catch (e) {
+        const err = /** @type {any} */ (e);
+        if (err && err.name === 'AbortError') return;
+        const body = /** @type {HTMLElement | null} */ (_panel.querySelector('#wl-scanner-body'));
+        if (body) body.innerHTML = `<div style="padding:14px;text-align:center;color:var(--wl-dn, #ef4444);font-size:11px;font-family:var(--mono, monospace);">${(err && err.message) || err}</div>`;
+        paintScannerMeta('error');
+    }
+}
+
+function toggleScanner() {
+    if (!_panel) return;
+    _scannerOpen = !_scannerOpen;
+    const tabs = /** @type {HTMLElement | null} */ (_panel.querySelector('#wl-scanner-tabs'));
+    const body = /** @type {HTMLElement | null} */ (_panel.querySelector('#wl-scanner-body'));
+    const tog  = /** @type {HTMLElement | null} */ (_panel.querySelector('#wl-scanner-toggle'));
+    if (tabs) tabs.style.display = _scannerOpen ? 'flex' : 'none';
+    if (body) body.style.display = _scannerOpen ? '' : 'none';
+    if (tog) tog.textContent = _scannerOpen ? '▾ Scanner' : '▸ Scanner';
+    if (_scannerOpen) refreshScanner(false);
+}
+
 // ── Viewport culling ───────────────────────────────────────────────────
 //
 // IntersectionObserver tracks which .wl-row elements are currently visible
@@ -939,6 +1031,27 @@ export function init(/** @type {HTMLElement} */ rootEl) {
         if (rmBtn) {
             const sym = rmBtn.getAttribute('data-rm');
             if (sym) removeSymbol(sym);
+            return;
+        }
+        if (t.id === 'wl-scanner-toggle') { toggleScanner(); return; }
+        if (t.id === 'wl-scanner-refresh') { refreshScanner(true); return; }
+        const scanTab = t.closest('button[data-scan]');
+        if (scanTab) {
+            const next = scanTab.getAttribute('data-scan');
+            if (next === 'day_gainers' || next === 'day_losers' || next === 'most_actives') {
+                _scannerType = next;
+                refreshScanner(false);
+            }
+            return;
+        }
+        const scanAdd = t.closest('button[data-scanner-add]');
+        if (scanAdd) {
+            const sym = scanAdd.getAttribute('data-scanner-add');
+            if (sym) {
+                addSymbol(sym);
+                /** @type {HTMLElement} */ (scanAdd).textContent = '✓';
+                /** @type {HTMLElement} */ (scanAdd).style.color = 'var(--wl-up, #10b981)';
+            }
             return;
         }
         const sortHeader = t.closest('th[data-sort]');

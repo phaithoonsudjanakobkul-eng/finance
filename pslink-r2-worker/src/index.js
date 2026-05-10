@@ -2,11 +2,12 @@
  * PSLink R2 Proxy Worker
  *
  * Endpoints:
- *   GET  /health           — connection test
- *   PUT  /upload           — receive encrypted blob → write to R2
- *   POST /download         — return encrypted blob from R2
- *   POST /delete           — delete objects from R2
- *   GET  /yahoo?symbol=…   — CORS proxy for Yahoo Finance chart API (replaces dead allorigins.win)
+ *   GET  /health             — connection test
+ *   PUT  /upload             — receive encrypted blob → write to R2
+ *   POST /download           — return encrypted blob from R2
+ *   POST /delete             — delete objects from R2
+ *   GET  /yahoo?symbol=…     — CORS proxy for Yahoo Finance chart API (replaces dead allorigins.win)
+ *   GET  /yahoo-screener?…   — CORS proxy for Yahoo predefined screener (gainers/losers/actives)
  *
  * Auth: Authorization: Bearer <R2_AUTH_TOKEN> on every request
  * R2 binding: MEDIA_BUCKET (set in wrangler.toml)
@@ -137,6 +138,36 @@ export default {
 				});
 			} catch (e) {
 				return errorResponse(`Yahoo proxy failed: ${e.message}`, 502);
+			}
+		}
+
+		// GET /yahoo-screener?type=day_gainers&count=25 — Yahoo predefined screener
+		// Whitelist of accepted scrIds covers the three movers PSLink uses.
+		// Edge-cached 60s server-side via cf.cacheTtl so multi-device boots share the burst.
+		if (path === '/yahoo-screener' && request.method === 'GET') {
+			const type = url.searchParams.get('type') || 'day_gainers';
+			const allowed = new Set(['day_gainers', 'day_losers', 'most_actives', 'small_cap_gainers', 'undervalued_growth_stocks']);
+			if (!allowed.has(type)) return errorResponse('Unsupported screener type');
+			let count = parseInt(url.searchParams.get('count') || '25', 10);
+			if (!Number.isFinite(count) || count < 1) count = 25;
+			if (count > 100) count = 100;
+			const upstream = `https://query2.finance.yahoo.com/v1/finance/screener/predefined/saved?formatted=true&lang=en-US&region=US&scrIds=${encodeURIComponent(type)}&count=${count}&corsDomain=finance.yahoo.com`;
+			try {
+				const res = await fetch(upstream, {
+					headers: {
+						'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+						'Accept': 'application/json',
+					},
+					cf: { cacheTtl: 60, cacheEverything: true },
+				});
+				if (!res.ok) return errorResponse(`Yahoo screener upstream ${res.status}`, 502);
+				const data = await res.text();
+				return corsResponse(data, {
+					status: 200,
+					headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=60' },
+				});
+			} catch (e) {
+				return errorResponse(`Yahoo screener proxy failed: ${e.message}`, 502);
 			}
 		}
 
