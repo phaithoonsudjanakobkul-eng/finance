@@ -31,7 +31,9 @@ export default defineConfig({
     webServer: {
         // Use dev server (base=/) so /src/ resolves directly. Preview build
         // bakes base=/pslink/ into asset URLs and would 404 in tests.
-        command: 'npm run dev:vite -- --port ' + PORT + ' --strictPort',
+        // Use the :headless variant so vite doesn't try to open a browser
+        // in CI (the main `dev:vite` script auto-opens /src/ for humans).
+        command: 'npm run dev:vite:headless -- --port ' + PORT + ' --strictPort',
         url: `http://localhost:${PORT}/src/`,
         reuseExistingServer: true,
         timeout: 90_000,
