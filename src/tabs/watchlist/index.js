@@ -23,6 +23,7 @@ import { bus } from '../../core/bus.js';
 import { lsGet, lsSave, lsGetJson } from '../../core/storage.js';
 import { buildSparkPath } from './spark-path.js';
 import { fetchScreener, loadCache as loadScannerCache, updateCache as updateScannerCache, isStale as isScannerStale, renderRowsHtml as renderScannerRowsHtml } from './scanner.js';
+import { sortSymbols as sortSyms, nextSort, parseSortPref, formatSortPref } from './sort.js';
 
 /** @typedef {{
  *   c?: number, pc?: number, d?: number, dp?: number,
@@ -40,9 +41,10 @@ const WS_LS_KEY = 'ps_v2_wl_ws';
 const SORT_LS_KEY = 'ps_v2_wl_sort';
 const WS_PERSIST_INTERVAL_MS = 5_000;
 
-/** @typedef {'sym' | 'name' | 'c' | 'd' | 'dp' | 'v'} SortField */
+/** @typedef {import('./sort.js').SortField}  SortField */
+/** @typedef {import('./sort.js').SortPref}   SortPref  */
 
-/** @type {{ field: SortField, dir: 'asc' | 'desc' }} */
+/** @type {SortPref} */
 let _sort = { field: 'sym', dir: 'asc' };
 /** @type {string} */
 let _filter = '';
@@ -431,14 +433,12 @@ function renderFocusCard() {
 // ── Sort ───────────────────────────────────────────────────────────────
 
 function loadSortPref() {
-    const raw = lsGet(SORT_LS_KEY, '');
-    if (!raw) return;
-    const m = raw.match(/^(sym|name|c|d|dp|v):(asc|desc)$/);
-    if (m) _sort = { field: /** @type {SortField} */ (m[1]), dir: /** @type {'asc' | 'desc'} */ (m[2]) };
+    const parsed = parseSortPref(lsGet(SORT_LS_KEY, ''));
+    if (parsed) _sort = parsed;
 }
 
 function persistSortPref() {
-    lsSave(SORT_LS_KEY, `${_sort.field}:${_sort.dir}`);
+    lsSave(SORT_LS_KEY, formatSortPref(_sort));
 }
 
 /**
@@ -446,34 +446,12 @@ function persistSortPref() {
  * @param {Record<string, WlCacheEntry>} cache
  */
 function sortSymbols(syms, cache) {
-    const f = _sort.field;
-    const sign = _sort.dir === 'asc' ? 1 : -1;
-    const arr = syms.slice();
-    arr.sort((a, b) => {
-        // Pinned always sort first regardless of column choice
-        const pa = _pinned.has(a), pb = _pinned.has(b);
-        if (pa !== pb) return pa ? -1 : 1;
-        const ca = cache[a] || {};
-        const cb = cache[b] || {};
-        if (f === 'sym')  return a.localeCompare(b) * sign;
-        if (f === 'name') return String(ca.name || a).localeCompare(String(cb.name || b)) * sign;
-        const va = (typeof /** @type {any} */ (ca)[f] === 'number') ? /** @type {any} */ (ca)[f] : -Infinity;
-        const vb = (typeof /** @type {any} */ (cb)[f] === 'number') ? /** @type {any} */ (cb)[f] : -Infinity;
-        if (va === vb) return a.localeCompare(b);
-        return (va - vb) * sign;
-    });
-    return arr;
+    return sortSyms(syms, cache, _sort, _pinned);
 }
 
 /** @param {SortField} field */
 function applySort(field) {
-    if (_sort.field === field) {
-        _sort.dir = _sort.dir === 'asc' ? 'desc' : 'asc';
-    } else {
-        _sort.field = field;
-        // Symbol/name default asc; numeric defaults desc (biggest first)
-        _sort.dir = (field === 'sym' || field === 'name') ? 'asc' : 'desc';
-    }
+    _sort = nextSort(_sort, field);
     persistSortPref();
     repaint();
 }
