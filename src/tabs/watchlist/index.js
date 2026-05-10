@@ -32,10 +32,17 @@ const _PRICE_FMT = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, ma
 const _DELTA_FMT = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2, signDisplay: 'always' });
 const _VOL_FMT   = new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 });
 
+const AUTO_INTERVAL_MS = 30_000;
+const AUTO_LS_KEY = 'ps_v2_wl_auto';
+
 /** @type {HTMLElement | null} */
 let _panel = null;
 /** @type {AbortController | null} */
 let _ctrl = null;
+/** @type {number} */
+let _autoTimer = 0;
+/** @type {(() => void) | null} */
+let _visOff = null;
 
 // ── Reads ──────────────────────────────────────────────────────────────
 
@@ -90,7 +97,11 @@ function renderPanel(/** @type {HTMLElement} */ rootEl) {
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
                 <span style="font-size:18px;font-weight:700;letter-spacing:-0.02em;">Watchlist</span>
                 <span style="font-size:11px;color:var(--dim, #888);font-family:var(--mono, monospace);">tab/watchlist · read-only</span>
-                <button id="wl-reload" style="margin-left:auto;background:var(--card, #1a1a1a);border:1px solid var(--border, #2a2a2a);color:var(--fg, #f5f5f7);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;">Reload cache</button>
+                <label style="margin-left:auto;display:flex;align-items:center;gap:6px;font-size:11px;color:var(--dim, #888);font-family:var(--mono, monospace);cursor:pointer;user-select:none;">
+                    <input id="wl-auto" type="checkbox" style="cursor:pointer;accent-color:var(--accent, #089981);">
+                    auto 30s
+                </label>
+                <button id="wl-reload" style="background:var(--card, #1a1a1a);border:1px solid var(--border, #2a2a2a);color:var(--fg, #f5f5f7);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;">Reload cache</button>
                 <button id="wl-refresh-live" style="background:var(--accent, #089981);color:#000;border:0;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;">Refresh live</button>
             </div>
             <div style="background:var(--card, #1a1a1a);border:1px solid var(--border, #2a2a2a);border-radius:10px;overflow:hidden;">
@@ -204,25 +215,78 @@ function setStatus(/** @type {string} */ s) {
     if (el) el.textContent = s;
 }
 
+// ── Auto-refresh ───────────────────────────────────────────────────────
+
+function startAuto() {
+    stopAuto();
+    if (typeof document !== 'undefined' && document.hidden) {
+        // Don't burn API calls while tab is hidden; resume on visibility change
+        return;
+    }
+    _autoTimer = /** @type {any} */ (setInterval(() => {
+        // If user navigates away from the tab, pause until they come back
+        if (typeof document !== 'undefined' && document.hidden) return;
+        refreshLive();
+    }, AUTO_INTERVAL_MS));
+}
+
+function stopAuto() {
+    if (_autoTimer) clearInterval(_autoTimer);
+    _autoTimer = 0;
+}
+
+function isAutoOn() {
+    return lsGet(AUTO_LS_KEY, '') === '1';
+}
+
+function setAuto(/** @type {boolean} */ on) {
+    lsSave(AUTO_LS_KEY, on ? '1' : '0');
+    if (on) {
+        // First refresh fires immediately so user sees data without waiting 30s
+        refreshLive();
+        startAuto();
+    } else {
+        stopAuto();
+    }
+}
+
 // ── Lifecycle ──────────────────────────────────────────────────────────
 
 export function init(/** @type {HTMLElement} */ rootEl) {
     _panel = rootEl;
     renderPanel(rootEl);
     repaint();
+    const autoBox = /** @type {HTMLInputElement | null} */ (rootEl.querySelector('#wl-auto'));
+    if (autoBox) autoBox.checked = isAutoOn();
     rootEl.addEventListener('click', (/** @type {Event} */ e) => {
         const t = /** @type {HTMLElement} */ (e.target);
         if (!t) return;
         if (t.id === 'wl-reload')       { repaint(); return; }
         if (t.id === 'wl-refresh-live') { refreshLive(); return; }
     });
+    rootEl.addEventListener('change', (/** @type {Event} */ e) => {
+        const t = /** @type {HTMLInputElement} */ (e.target);
+        if (t && t.id === 'wl-auto') setAuto(t.checked);
+    });
+    // Resume / pause on tab visibility — keeps API rate sane when hidden
+    const onVis = () => {
+        if (!isAutoOn()) return;
+        if (document.hidden) stopAuto();
+        else startAuto();
+    };
+    document.addEventListener('visibilitychange', onVis);
+    _visOff = () => document.removeEventListener('visibilitychange', onVis);
+    if (isAutoOn()) startAuto();
     bus.emit('tab:watchlist:init', { rootEl });
-    return { id: 'watchlist', version: '0.2-step6-watchlist-readonly', ready: true, kind: 'tab' };
+    return { id: 'watchlist', version: '0.3-step6-watchlist-2a-auto', ready: true, kind: 'tab' };
 }
 
 export function destroy() {
     if (_ctrl) { try { _ctrl.abort(); } catch (e) { /* swallow */ } }
     _ctrl = null;
+    stopAuto();
+    if (_visOff) { try { _visOff(); } catch (e) { /* swallow */ } }
+    _visOff = null;
     _panel = null;
     bus.emit('tab:watchlist:destroy');
 }
