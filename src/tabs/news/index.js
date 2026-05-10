@@ -29,6 +29,10 @@ const LOOKBACK_DAYS = 7;
 let _panel = null;
 /** @type {AbortController | null} */
 let _ctrl = null;
+/** @type {NewsItem[]} */
+let _items = [];
+/** @type {(() => void) | null} */
+let _modalOff = null;
 
 // ── Helpers ────────────────────────────────────────────────────────────
 
@@ -117,21 +121,21 @@ function setStatus(/** @type {string} */ s) {
 /** @param {NewsItem[]} items */
 function renderItems(items) {
     if (!_panel) return;
+    _items = items;
     const list = /** @type {HTMLElement | null} */ (_panel.querySelector('#news-list'));
     if (!list) return;
     if (!items.length) {
         list.innerHTML = `<div style="padding:18px;text-align:center;color:var(--dim, #888);background:var(--card, #1a1a1a);border:1px solid var(--border, #2a2a2a);border-radius:10px;">No news returned. Try Refresh, or add symbols to your watchlist.</div>`;
         return;
     }
-    list.innerHTML = items.map((it) => {
+    list.innerHTML = items.map((it, idx) => {
         const time = fmtTime(Number(it.datetime) || 0);
         const sym = escapeHtml(it._sym || '');
         const headline = escapeHtml(it.headline || '(no headline)');
         const source = escapeHtml(it.source || '');
         const summary = escapeHtml(it.summary || '');
-        const url = escapeAttr(it.url || '#');
         const img = it.image ? `<img src="${escapeAttr(it.image)}" alt="" style="width:96px;height:64px;object-fit:cover;border-radius:6px;background:var(--bg, #0d0d0d);flex-shrink:0;" loading="lazy">` : '';
-        return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="news-row" style="display:flex;gap:12px;background:var(--card, #1a1a1a);border:1px solid var(--border, #2a2a2a);border-radius:10px;padding:12px;text-decoration:none;color:inherit;transition:border-color .15s;">
+        return `<div class="news-row" data-idx="${idx}" role="button" tabindex="0" style="display:flex;gap:12px;background:var(--card, #1a1a1a);border:1px solid var(--border, #2a2a2a);border-radius:10px;padding:12px;cursor:pointer;transition:border-color .15s;">
             ${img}
             <div style="flex:1;min-width:0;">
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;font-family:var(--mono, monospace);font-size:11px;color:var(--dim, #888);">
@@ -143,8 +147,69 @@ function renderItems(items) {
                 <div style="font-size:14px;font-weight:600;line-height:1.35;letter-spacing:-0.01em;margin-bottom:4px;">${headline}</div>
                 ${summary ? `<div style="font-size:12px;color:var(--dim, #888);line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">${summary}</div>` : ''}
             </div>
-        </a>`;
+        </div>`;
     }).join('');
+}
+
+// ── Modal reader ───────────────────────────────────────────────────────
+
+function closeModal() {
+    if (!_modalOff) return;
+    try { _modalOff(); } catch (e) { /* swallow */ }
+    _modalOff = null;
+}
+
+/** @param {NewsItem} it */
+function openModal(it) {
+    closeModal();
+    if (!_panel || typeof document === 'undefined') return;
+    const backdrop = document.createElement('div');
+    backdrop.className = 'news-modal-backdrop';
+    backdrop.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9000;display:flex;align-items:center;justify-content:center;padding:20px;';
+    const modal = document.createElement('div');
+    modal.style.cssText = 'background:var(--card, #1a1a1a);border:1px solid var(--border, #2a2a2a);border-radius:12px;max-width:680px;width:100%;max-height:85vh;overflow:auto;padding:0;color:var(--fg, #f5f5f7);';
+    const time = fmtTime(Number(it.datetime) || 0);
+    const sym = escapeHtml(it._sym || '');
+    const headline = escapeHtml(it.headline || '(no headline)');
+    const source = escapeHtml(it.source || '');
+    const summary = escapeHtml(it.summary || '');
+    const url = escapeAttr(it.url || '#');
+    const img = it.image ? `<img src="${escapeAttr(it.image)}" alt="" style="width:100%;max-height:280px;object-fit:cover;display:block;border-radius:12px 12px 0 0;background:var(--bg, #0d0d0d);" loading="lazy">` : '';
+    modal.innerHTML = `
+        ${img}
+        <div style="padding:18px 22px 22px;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;font-family:var(--mono, monospace);font-size:11px;color:var(--dim, #888);">
+                <span style="color:var(--accent, #089981);font-weight:700;letter-spacing:0.05em;">${sym}</span>
+                <span>·</span>
+                <span>${time}</span>
+                ${source ? `<span>·</span><span>${source}</span>` : ''}
+            </div>
+            <h2 style="font-size:20px;font-weight:700;line-height:1.3;letter-spacing:-0.01em;margin:0 0 12px 0;">${headline}</h2>
+            ${summary ? `<p style="font-size:14px;color:var(--fg, #f5f5f7);line-height:1.55;margin:0 0 18px 0;">${summary}</p>` : '<p style="font-size:13px;color:var(--dim, #888);">No summary available — open the article for the full body.</p>'}
+            <div style="display:flex;gap:8px;align-items:center;justify-content:flex-end;">
+                <button class="news-modal-close" style="background:var(--card, #1a1a1a);border:1px solid var(--border, #2a2a2a);color:var(--fg, #f5f5f7);padding:8px 14px;border-radius:6px;cursor:pointer;font-size:13px;">Close</button>
+                <a href="${url}" target="_blank" rel="noopener noreferrer" style="background:var(--accent, #089981);color:#000;border:0;padding:8px 16px;border-radius:6px;font-size:13px;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;gap:6px;">Open article ↗</a>
+            </div>
+        </div>
+    `;
+    backdrop.appendChild(modal);
+    document.body.appendChild(backdrop);
+    const onClick = (/** @type {Event} */ e) => {
+        const t = /** @type {HTMLElement} */ (e.target);
+        if (t === backdrop || (t && t.classList && t.classList.contains('news-modal-close'))) {
+            closeModal();
+        }
+    };
+    const onKey = (/** @type {KeyboardEvent} */ e) => {
+        if (e.key === 'Escape') closeModal();
+    };
+    backdrop.addEventListener('click', onClick);
+    document.addEventListener('keydown', onKey);
+    _modalOff = () => {
+        backdrop.removeEventListener('click', onClick);
+        document.removeEventListener('keydown', onKey);
+        if (backdrop.parentNode) backdrop.parentNode.removeChild(backdrop);
+    };
 }
 
 // ── Pipeline ───────────────────────────────────────────────────────────
@@ -197,9 +262,23 @@ export function init(/** @type {HTMLElement} */ rootEl) {
     renderPanel(rootEl);
     rootEl.addEventListener('click', (/** @type {Event} */ e) => {
         const t = /** @type {HTMLElement} */ (e.target);
-        if (t && t.id === 'news-refresh') {
+        if (!t) return;
+        if (t.id === 'news-refresh') { e.preventDefault(); refresh(); return; }
+        const row = t.closest && t.closest('.news-row');
+        if (row) {
+            const idx = Number(row.getAttribute('data-idx')) || 0;
+            const it = _items[idx];
+            if (it) openModal(it);
+        }
+    });
+    rootEl.addEventListener('keydown', (/** @type {KeyboardEvent} */ e) => {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        const t = /** @type {HTMLElement} */ (e.target);
+        if (t && t.classList && t.classList.contains('news-row')) {
             e.preventDefault();
-            refresh();
+            const idx = Number(t.getAttribute('data-idx')) || 0;
+            const it = _items[idx];
+            if (it) openModal(it);
         }
     });
     refresh();
@@ -210,6 +289,8 @@ export function init(/** @type {HTMLElement} */ rootEl) {
 export function destroy() {
     if (_ctrl) { try { _ctrl.abort(); } catch (e) { /* swallow */ } }
     _ctrl = null;
+    closeModal();
+    _items = [];
     _panel = null;
     bus.emit('tab:news:destroy');
 }
