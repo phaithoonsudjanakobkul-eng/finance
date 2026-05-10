@@ -129,3 +129,80 @@ html[data-preset="phosphor"] .dash-sub {
     text-transform: uppercase;
     letter-spacing: 0.06em;
 }
+
+/* ─────────────────────────────────────────────────────────────
+   Records tab polish (v2 shell IDs — match src/tabs/records/index.js)
+   ───────────────────────────────────────────────────────────── */
+
+/* Glow on the financial amounts so they read like terminal data, not Excel */
+html[data-preset="phosphor"].dark #rec-payday,
+html[data-preset="phosphor"].dark #sum-total-exp,
+html[data-preset="phosphor"].dark #sum-fixed,
+html[data-preset="phosphor"].dark #sum-dynamic,
+html[data-preset="phosphor"].dark #record-balance-val,
+html[data-preset="phosphor"].dark #current-saving-rate {
+    text-shadow: var(--phosphor-glow);
+}
+
+/* Phosphor caret + glow on the month input */
+html[data-preset="phosphor"].dark #rec-month {
+    caret-color: var(--accent);
+    text-shadow: var(--phosphor-glow);
+}
+html[data-preset="phosphor"].dark #rec-month::-webkit-calendar-picker-indicator {
+    filter: invert(1) hue-rotate(90deg);
+    opacity: 0.55;
+    cursor: pointer;
+}
+
+/* Scan sweep on section headers — subtle CRT refresh sweep, staggered */
+html[data-preset="phosphor"].dark #rec-header-fixed,
+html[data-preset="phosphor"].dark #rec-header-dynamic {
+    position: relative;
+    overflow: hidden;
+}
+html[data-preset="phosphor"].dark #rec-header-fixed::after,
+html[data-preset="phosphor"].dark #rec-header-dynamic::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        color-mix(in srgb, var(--accent) 10%, transparent) 50%,
+        transparent 100%
+    );
+    animation: rec-scan-sweep 8s ease-in-out infinite;
+    pointer-events: none;
+}
+html[data-preset="phosphor"].dark #rec-header-dynamic::after {
+    animation-delay: -4s;
+}
+@keyframes rec-scan-sweep {
+    0%   { transform: translateX(-100%); opacity: 0; }
+    12%  { opacity: 1; }
+    88%  { opacity: 1; }
+    100% { transform: translateX(100%); opacity: 0; }
+}
+
+/* ASCII section separator between financial bar and expense lists */
+html[data-preset="phosphor"].dark #rec-lists-grid {
+    position: relative;
+}
+html[data-preset="phosphor"].dark #rec-lists-grid::before {
+    content: "─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: -10px;
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: 8px;
+    font-weight: 700;
+    color: color-mix(in srgb, var(--accent) 50%, transparent);
+    letter-spacing: 0.1em;
+    white-space: nowrap;
+    overflow: hidden;
+    pointer-events: none;
+    opacity: 0.6;
+}
