@@ -37,6 +37,21 @@ The frontend is hosted on GitHub Pages ([production URL](https://phaithoonsudjan
 
 The app language is primarily **Thai** for UI labels and messages, with English for code/symbols/APIs.
 
+## Vite migration status (active — pre-cutover)
+
+A parallel Vite + dynamic-import architecture lives under `src/` and is being grown into a feature-complete replacement. **Production root `index.html` still ships the monolith** via dev-server.js auto-deploy commits — Vite work is parallel, root unchanged. Until cutover, both Rule 1 (single-file constraint) and Rule 2 (no build step) remain in force for code that ships to production.
+
+Current state (2026-05-10):
+- `src/core/` — bus + storage + presets registry (origin/phosphor/studio/cinematic w/ darkOnly + variantColors)
+- `src/styles/presets/` — phosphor/studio/cinematic CSS overrides (body-level + universal hooks; module/tab-specific CSS ports alongside owning tab in Step 6 sub-sessions)
+- `src/modules/` — all 7 utility modules (PSAI/PSBGR/PSEC/PSF/PSI/PSQ/PSUP) ported with real UI + heavy logic
+- `src/tabs/` — 5 tab skeletons (dashboard/records/watchlist/news/utilities) + lazy router in main.js with destroy-on-swap
+- `src/index.html` — v2 shell proof page
+- `.github/workflows/deploy.yml` — CI workflow (inert until repo Pages source switched to Actions)
+- `vite-migration` branch exists locally at parity with main; cutover (Step 11) requires user push + repo Pages-source switch
+
+Primary memory: `project_vite_migration_progress.md` (full state + remaining sub-sessions). Full plan: `MIGRATION-PLAN.md`. After cutover, Rules 1-2 retire; Rules 13-26 line refs need re-anchoring (Step 12 cutover phase).
+
 ## Architecture
 
 ### Single-File Structure
