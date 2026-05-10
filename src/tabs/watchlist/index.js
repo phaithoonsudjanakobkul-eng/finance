@@ -723,7 +723,7 @@ function flushTicks() {
     let touched = 0;
     for (const [sym, price] of _pendingTicks) {
         const c = cache[sym] || (cache[sym] = {});
-        const prev = (typeof c.pc === 'number') ? c.pc : ((typeof c.c === 'number') ? c.c : null);
+        const prevC = (typeof c.c === 'number') ? c.c : null;
         c.c = price;
         if (typeof c.pc === 'number') {
             c.d = price - c.pc;
@@ -736,8 +736,8 @@ function flushTicks() {
         const row = /** @type {HTMLElement | null} */ (_panel.querySelector(`tr[data-sym="${cssEscapeAttr(sym)}"]`));
         if (row) {
             const cells = row.children;
-            // Cell index: 0 sym | 1 name | 2 last | 3 d | 4 dp | 5 trend | 6 vol
-            if (cells[2]) cells[2].textContent = _PRICE_FMT.format(price);
+            const lastCell = /** @type {HTMLElement | null} */ (cells[2] || null);
+            if (lastCell) lastCell.textContent = _PRICE_FMT.format(price);
             if (typeof c.d === 'number') {
                 const sign = c.d >= 0;
                 const color = sign ? 'var(--wl-up, #10b981)' : 'var(--wl-dn, #ef4444)';
@@ -750,6 +750,11 @@ function flushTicks() {
                     /** @type {HTMLElement} */ (cells[4]).style.color = color;
                 }
             }
+            // Flash the last cell green/red to acknowledge the tick (only when
+            // we have a previous price to compare against — first tick is no-op)
+            if (lastCell && prevC !== null && price !== prevC) {
+                flashCell(lastCell, price > prevC);
+            }
         }
         touched++;
         // If focus card is showing this symbol, refresh it too (cheap re-render)
@@ -759,6 +764,21 @@ function flushTicks() {
     _wsTickCount += touched;
     paintWsIndicator('on');
     // NOTE: cache write happens on a slow timer (startWsPersist), not every frame
+}
+
+/** Flip the cell into a flash class. Alternating class names so a rapid
+ *  consecutive tick still restarts the animation without forcing a reflow. */
+function flashCell(/** @type {HTMLElement} */ el, /** @type {boolean} */ up) {
+    const base = up ? 'wl-flash-up' : 'wl-flash-dn';
+    const a = base + '-a', b = base + '-b';
+    // Toggle between -a and -b so removeClass-then-addClass isn't needed
+    if (el.classList.contains(a)) {
+        el.classList.remove(a);
+        el.classList.add(b);
+    } else {
+        el.classList.remove(b);
+        el.classList.add(a);
+    }
 }
 
 function startWsPersist() {

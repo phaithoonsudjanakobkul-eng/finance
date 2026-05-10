@@ -1,0 +1,34 @@
+/* Watchlist tick flash animations.
+ *
+ * Alternating -a/-b class pair so rapid consecutive ticks restart the
+ * keyframe without removing-and-readding the same class (which doesn't
+ * always restart the animation in Chromium without a reflow trick).
+ *
+ * Animation flashes the cell background once, then fades back to
+ * transparent over 600ms. Color uses --wl-up / --wl-dn vars so theme
+ * preset colors apply (Phosphor variants override these to e.g.
+ * matrix green / amber red).
+ */
+
+@keyframes wl-flash-up-keyframes {
+    0%   { background-color: color-mix(in srgb, var(--wl-up, #10b981) 35%, transparent); }
+    100% { background-color: transparent; }
+}
+@keyframes wl-flash-dn-keyframes {
+    0%   { background-color: color-mix(in srgb, var(--wl-dn, #ef4444) 35%, transparent); }
+    100% { background-color: transparent; }
+}
+
+.wl-flash-up-a, .wl-flash-up-b {
+    animation: wl-flash-up-keyframes 600ms ease-out;
+}
+.wl-flash-dn-a, .wl-flash-dn-b {
+    animation: wl-flash-dn-keyframes 600ms ease-out;
+}
+
+/* Make sure the cell paint stays GPU-composited so the flash doesn't
+ * trigger layout on neighbor rows. */
+.wl-row td {
+    will-change: background-color;
+    contain: layout style;
+}

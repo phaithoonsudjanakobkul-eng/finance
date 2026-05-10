@@ -24,6 +24,7 @@ import { lsSave, lsGet } from './core/storage.js';
 import { applyPreset, applyVariant, presets, restoreActive } from './core/presets/index.js';
 import { mount as mountPrivacy } from './widgets/privacy/index.js';
 import './styles/privacy.css';
+import './styles/watchlist.css';
 
 console.log('[PSLink/v2] main.js boot — bus, storage ready');
 
