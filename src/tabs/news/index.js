@@ -31,6 +31,8 @@ let _panel = null;
 let _ctrl = null;
 /** @type {NewsItem[]} */
 let _items = [];
+/** @type {string} */
+let _symFilter = '';
 /** @type {(() => void) | null} */
 let _modalOff = null;
 
@@ -107,6 +109,7 @@ function renderPanel(/** @type {HTMLElement} */ rootEl) {
                 <button id="news-refresh" style="margin-left:auto;background:var(--accent, #089981);color:#000;border:0;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;">Refresh</button>
             </div>
             <div id="news-status" style="font-size:11px;color:var(--dim, #888);font-family:var(--mono, monospace);">Idle</div>
+            <div id="news-symfilter" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
             <div id="news-list" style="display:flex;flex-direction:column;gap:8px;"></div>
         </div>
     `;
@@ -118,24 +121,46 @@ function setStatus(/** @type {string} */ s) {
     if (el) el.textContent = s;
 }
 
+function renderSymChips() {
+    if (!_panel) return;
+    const bar = /** @type {HTMLElement | null} */ (_panel.querySelector('#news-symfilter'));
+    if (!bar) return;
+    const syms = /** @type {string[]} */ (Array.from(new Set(_items.map((it) => it._sym || '').filter(Boolean)))).sort();
+    if (!syms.length) { bar.innerHTML = ''; return; }
+    /** @param {string} key @param {string} label */
+    const chip = (key, label) => {
+        const isActive = key === _symFilter;
+        const style = isActive
+            ? 'background:var(--accent, #089981);color:#000;'
+            : 'background:var(--card, #1a1a1a);color:var(--fg, #f5f5f7);border:1px solid var(--border, #2a2a2a);';
+        return `<button data-symfilter="${escapeAttr(key)}" style="${style}font-size:11px;padding:3px 9px;border-radius:6px;font-weight:600;cursor:pointer;font-family:var(--mono, monospace);">${escapeHtml(label)}</button>`;
+    };
+    bar.innerHTML = chip('', 'All') + ' ' + syms.map((s) => chip(s, s)).join(' ');
+}
+
 /** @param {NewsItem[]} items */
 function renderItems(items) {
     if (!_panel) return;
     _items = items;
+    renderSymChips();
     const list = /** @type {HTMLElement | null} */ (_panel.querySelector('#news-list'));
     if (!list) return;
-    if (!items.length) {
-        list.innerHTML = `<div style="padding:18px;text-align:center;color:var(--dim, #888);background:var(--card, #1a1a1a);border:1px solid var(--border, #2a2a2a);border-radius:10px;">No news returned. Try Refresh, or add symbols to your watchlist.</div>`;
+    const visible = _symFilter ? items.filter((it) => it._sym === _symFilter) : items;
+    if (!visible.length) {
+        const msg = _symFilter
+            ? `No articles for ${escapeHtml(_symFilter)}. Try a different symbol or All.`
+            : 'No news returned. Try Refresh, or add symbols to your watchlist.';
+        list.innerHTML = `<div style="padding:18px;text-align:center;color:var(--dim, #888);background:var(--card, #1a1a1a);border:1px solid var(--border, #2a2a2a);border-radius:10px;">${msg}</div>`;
         return;
     }
-    list.innerHTML = items.map((it, idx) => {
+    list.innerHTML = visible.map((it) => {
         const time = fmtTime(Number(it.datetime) || 0);
         const sym = escapeHtml(it._sym || '');
         const headline = escapeHtml(it.headline || '(no headline)');
         const source = escapeHtml(it.source || '');
         const summary = escapeHtml(it.summary || '');
         const img = it.image ? `<img src="${escapeAttr(it.image)}" alt="" style="width:96px;height:64px;object-fit:cover;border-radius:6px;background:var(--bg, #0d0d0d);flex-shrink:0;" loading="lazy">` : '';
-        return `<div class="news-row" data-idx="${idx}" role="button" tabindex="0" style="display:flex;gap:12px;background:var(--card, #1a1a1a);border:1px solid var(--border, #2a2a2a);border-radius:10px;padding:12px;cursor:pointer;transition:border-color .15s;">
+        return `<div class="news-row" data-url="${escapeAttr(it.url || '')}" role="button" tabindex="0" style="display:flex;gap:12px;background:var(--card, #1a1a1a);border:1px solid var(--border, #2a2a2a);border-radius:10px;padding:12px;cursor:pointer;transition:border-color .15s;">
             ${img}
             <div style="flex:1;min-width:0;">
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;font-family:var(--mono, monospace);font-size:11px;color:var(--dim, #888);">
@@ -264,10 +289,16 @@ export function init(/** @type {HTMLElement} */ rootEl) {
         const t = /** @type {HTMLElement} */ (e.target);
         if (!t) return;
         if (t.id === 'news-refresh') { e.preventDefault(); refresh(); return; }
+        const chipEl = t.closest && t.closest('button[data-symfilter]');
+        if (chipEl) {
+            _symFilter = chipEl.getAttribute('data-symfilter') || '';
+            renderItems(_items);
+            return;
+        }
         const row = t.closest && t.closest('.news-row');
         if (row) {
-            const idx = Number(row.getAttribute('data-idx')) || 0;
-            const it = _items[idx];
+            const url = row.getAttribute('data-url') || '';
+            const it = _items.find((x) => x.url === url);
             if (it) openModal(it);
         }
     });
@@ -276,8 +307,8 @@ export function init(/** @type {HTMLElement} */ rootEl) {
         const t = /** @type {HTMLElement} */ (e.target);
         if (t && t.classList && t.classList.contains('news-row')) {
             e.preventDefault();
-            const idx = Number(t.getAttribute('data-idx')) || 0;
-            const it = _items[idx];
+            const url = t.getAttribute('data-url') || '';
+            const it = _items.find((x) => x.url === url);
             if (it) openModal(it);
         }
     });
