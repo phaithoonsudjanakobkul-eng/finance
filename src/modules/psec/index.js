@@ -182,49 +182,7 @@ export function wrapHtmlDoc(bodyHtml) {
 }
 
 import { escapeHtml as he } from '../../core/escape.js';
-
-// ── Notes + remark text helpers ────────────────────────────────────────
-
-/**
- * Format a remark — preserves line breaks + smart-link URLs.
- * Bare URL → "คลิกที่นี่"; [custom](url) or [custom]url → custom label.
- * @param {string} s
- */
-function fmtRemark(s) {
-    if (!s) return '';
-    const linkStyle = 'color:#0066cc;word-break:break-all;overflow-wrap:break-word;';
-    const DEFAULT_LINK_LABEL = 'คลิกที่นี่';
-    let html = he(s);
-    /** @type {string[]} */
-    const slots = [];
-    html = html.replace(/\[([^\]\n]+)\]\s*\(?\s*(https?:\/\/[^\s)<]+)\s*\)?/g, function(_m, text, url) {
-        const i = slots.length;
-        slots.push('<a href="' + url + '" style="' + linkStyle + '">' + text + '</a>');
-        return 'PSEC' + i + 'LINK';
-    });
-    html = html.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" style="' + linkStyle + '">' + DEFAULT_LINK_LABEL + '</a>');
-    html = html.replace(/PSEC(\d+)LINK/g, function(_m, i) { return slots[parseInt(i, 10)]; });
-    return html.replace(/\n/g, '<br>');
-}
-
-/** @param {string} raw */
-function notesToHtml(raw) {
-    const trimmed = (raw || '').trim();
-    if (!trimmed) return '-';
-    const lines = trimmed.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-    if (lines.length === 0) return '-';
-    if (lines.length === 1) return he(lines[0]);
-    return '<br>' + lines.map((l, i) => (i + 1) + '. ' + he(l)).join('<br>');
-}
-
-/** @param {string} raw */
-function notesToText(raw) {
-    const trimmed = (raw || '').trim();
-    if (!trimmed) return '-';
-    const lines = trimmed.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-    if (lines.length <= 1) return lines[0] || '-';
-    return '\n' + lines.map((l, i) => (i + 1) + '. ' + l).join('\n');
-}
+import { fmtRemark, notesToHtml, notesToText } from './text-helpers.js';
 
 // ── Word HTML primitive helpers ────────────────────────────────────────
 
