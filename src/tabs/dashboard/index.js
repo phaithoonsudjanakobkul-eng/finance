@@ -16,14 +16,11 @@
 import { bus } from '../../core/bus.js';
 import { lsGetJson } from '../../core/storage.js';
 import { todayMonth, shiftMonth, readMonth } from '../records/helpers.js';
+import { MONEY_FMT as _MONEY_FMT, PRICE_FMT as _PRICE_FMT, DELTA_FMT as _DELTA_FMT } from '../../core/formatters.js';
 
 /** @typedef {import('../records/helpers.js').Item} Item */
 /** @typedef {import('../records/helpers.js').MonthRecord} MonthRecord */
 /** @typedef {{ c?: number, dp?: number, name?: string }} WlEntry */
-
-const _MONEY_FMT = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 });
-const _PRICE_FMT = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const _DELTA_FMT = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2, signDisplay: 'always' });
 
 /** @type {HTMLElement | null} */
 let _panel = null;

@@ -16,11 +16,10 @@ import { bus } from '../../core/bus.js';
 import { lsSave, lsGetJson } from '../../core/storage.js';
 import { todayMonth, shiftMonth, sumArr } from './helpers.js';
 import { escapeAttr } from '../../core/escape.js';
+import { MONEY_FMT as _MONEY_FMT } from '../../core/formatters.js';
 
 /** @typedef {{name: string, val: number, amount: number, isPaid: boolean}} Item */
 /** @typedef {{id: string, payday: number, fixed: Item[], dynamic: Item[]}} MonthRecord */
-
-const _MONEY_FMT = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 });
 
 /** @type {HTMLElement | null} */
 let _panel = null;

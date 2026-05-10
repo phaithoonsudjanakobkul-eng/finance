@@ -10,6 +10,8 @@
 // so multi-device boots share the burst.
 
 import { lsGet, lsGetJson, lsSave } from '../../core/storage.js';
+import { escapeHtml as he, escapeAttr as ha } from '../../core/escape.js';
+import { PRICE_FMT as _PRICE_FMT, DELTA_FMT as _PCT_FMT, VOL_FMT as _VOL_FMT } from '../../core/formatters.js';
 
 /** @typedef {{ symbol: string, name: string, price: number | null, change: number | null, changePct: number | null, vol: number | null }} ScanRow */
 /** @typedef {'day_gainers' | 'day_losers' | 'most_actives'} ScannerType */
@@ -128,12 +130,6 @@ export function isStale(cache, type) {
 }
 
 // ── Render ─────────────────────────────────────────────────────────────
-
-const _PRICE_FMT = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const _PCT_FMT   = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2, signDisplay: 'always' });
-const _VOL_FMT   = new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 });
-
-import { escapeHtml as he, escapeAttr as ha } from '../../core/escape.js';
 
 /** @param {ScanRow[]} rows @returns {string} */
 export function renderRowsHtml(rows) {

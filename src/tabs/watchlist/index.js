@@ -26,6 +26,7 @@ import { fetchScreener, loadCache as loadScannerCache, updateCache as updateScan
 import { sortSymbols as sortSyms, nextSort, parseSortPref, formatSortPref } from './sort.js';
 import { reorderList, dropPositionFromY } from './reorder.js';
 import { escapeHtml, escapeAttr } from '../../core/escape.js';
+import { PRICE_FMT as _PRICE_FMT, DELTA_FMT as _DELTA_FMT, VOL_FMT as _VOL_FMT } from '../../core/formatters.js';
 
 /** @typedef {{
  *   c?: number, pc?: number, d?: number, dp?: number,
@@ -33,9 +34,6 @@ import { escapeHtml, escapeAttr } from '../../core/escape.js';
  *   name?: string, logo?: string, type?: string,
  * }} WlCacheEntry */
 
-const _PRICE_FMT = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const _DELTA_FMT = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2, signDisplay: 'always' });
-const _VOL_FMT   = new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 });
 
 const AUTO_INTERVAL_MS = 30_000;
 const AUTO_LS_KEY = 'ps_v2_wl_auto';
