@@ -341,5 +341,12 @@ window.addEventListener('DOMContentLoaded', () => {
     // Boot order: hash > last-used localStorage > dashboard default
     const last = lsGet('ps_v2_active_tab', '');
     const initialId = readHashTab() || (_tabLoaders[last] ? last : 'dashboard');
-    activate(initialId);
+    activate(initialId).then(() => {
+        // Fade splash out once first tab init returns. Removing the node a
+        // beat after fade keeps it out of the layout tree.
+        const splash = document.getElementById('v2-splash');
+        if (!splash) return;
+        splash.classList.add('v2-splash-fade');
+        setTimeout(() => { if (splash.parentNode) splash.parentNode.removeChild(splash); }, 400);
+    });
 });

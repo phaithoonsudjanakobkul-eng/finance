@@ -44,6 +44,22 @@
     </style>
 </head>
 <body>
+    <div id="v2-splash" style="position:fixed;inset:0;z-index:99999;background:var(--bg, #0d0d0d);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;transition:opacity .35s ease;will-change:opacity;">
+        <div style="font-family:var(--mono, monospace);font-size:24px;font-weight:700;letter-spacing:-0.02em;color:var(--accent, #089981);">PSLink</div>
+        <div style="display:flex;gap:6px;">
+            <span class="v2-splash-dot" style="width:8px;height:8px;border-radius:50%;background:var(--accent, #089981);animation:v2-pulse 1.2s ease-in-out infinite;"></span>
+            <span class="v2-splash-dot" style="width:8px;height:8px;border-radius:50%;background:var(--accent, #089981);animation:v2-pulse 1.2s ease-in-out infinite;animation-delay:.15s;"></span>
+            <span class="v2-splash-dot" style="width:8px;height:8px;border-radius:50%;background:var(--accent, #089981);animation:v2-pulse 1.2s ease-in-out infinite;animation-delay:.3s;"></span>
+        </div>
+        <div style="font-family:var(--mono, monospace);font-size:11px;color:var(--dim, #888);text-transform:uppercase;letter-spacing:0.1em;">vite shell · loading</div>
+    </div>
+    <style>
+        @keyframes v2-pulse {
+            0%, 80%, 100% { opacity: 0.25; transform: scale(0.8); }
+            40%           { opacity: 1;    transform: scale(1.1); }
+        }
+        #v2-splash.v2-splash-fade { opacity: 0; pointer-events: none; }
+    </style>
     <h1>PSLink v2 <span class="pill">Vite scaffold</span></h1>
     <p>Session 3a proof-of-concept page. Production app still ships from root <code>index.html</code>. This page tests the Vite + lazy-import infrastructure that future Session 3 sub-sessions will grow into the full shell.</p>
 
