@@ -337,6 +337,29 @@ window.addEventListener('DOMContentLoaded', () => {
         if (id && id !== _activeTabId) activate(id);
     });
 
+    // After a Gist pull, refresh chrome (preset / dark / privacy) + the
+    // active tab so the user sees the new state immediately. Tab modules
+    // cache localStorage on init(), so without a destroy + re-init they
+    // keep showing stale data until the next manual tab switch.
+    bus.on('gist:pulled', () => {
+        // Theme: dark/light flag may have changed
+        const wantDark = lsGet('ps_dark', '') === '1';
+        document.documentElement.classList.toggle('dark', wantDark);
+        // Privacy: html.privacy-on toggle so masked numbers reflect new state
+        document.documentElement.classList.toggle('privacy-on', lsGet('ps_privacy', '') === '1');
+        // Preset / variant: pull may carry a different preset for this mode
+        try { restoreActive(wantDark); } catch (e) { /* swallow */ }
+        // Active tab re-init
+        if (!_activeTabId || !_tabLoaders[_activeTabId]) return;
+        const cur = _loadedTabs.get(_activeTabId);
+        if (cur && typeof cur.destroy === 'function') {
+            try { cur.destroy(); } catch (e) { /* swallow */ }
+        }
+        const id = _activeTabId;
+        _activeTabId = '';
+        showTab(id, mount).catch((e) => console.warn('[PSLink/v2] tab re-init after pull failed:', e));
+    });
+
     // Mount global widgets (privacy toggle) into the tab nav row
     const widgetHost = document.getElementById('widget-host');
     if (widgetHost) mountPrivacy(widgetHost);
