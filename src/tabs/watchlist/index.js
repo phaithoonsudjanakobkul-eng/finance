@@ -24,6 +24,7 @@ import { lsGet, lsSave, lsGetJson } from '../../core/storage.js';
 import { buildSparkPath } from './spark-path.js';
 import { fetchScreener, loadCache as loadScannerCache, updateCache as updateScannerCache, isStale as isScannerStale, renderRowsHtml as renderScannerRowsHtml } from './scanner.js';
 import { sortSymbols as sortSyms, nextSort, parseSortPref, formatSortPref } from './sort.js';
+import { reorderList, dropPositionFromY } from './reorder.js';
 
 /** @typedef {{
  *   c?: number, pc?: number, d?: number, dp?: number,
@@ -52,6 +53,9 @@ let _filter = '';
 let _focusSym = '';
 /** @type {Set<string>} */
 let _pinned = new Set();
+/** Symbol currently being drag-reordered (null when no drag in flight). */
+/** @type {string | null} */
+let _dragSym = null;
 /** @type {'day_gainers' | 'day_losers' | 'most_actives'} */
 let _scannerType = 'day_gainers';
 /** @type {AbortController | null} */
@@ -343,8 +347,14 @@ function repaint() {
         const isPinned = _pinned.has(sym);
         const pinBtn = `<button data-pin="${escapeAttr(sym)}" title="${isPinned ? 'Unpin' : 'Pin to top'}" style="background:transparent;border:0;color:${isPinned ? 'var(--accent, #089981)' : 'var(--dim, #888)'};cursor:pointer;font-size:12px;line-height:1;padding:0 4px 0 0;${isPinned ? 'text-shadow:0 0 4px var(--accent, #089981);' : ''}">${isPinned ? '★' : '☆'}</button>`;
         const rmBtn = `<button data-rm="${escapeAttr(sym)}" title="Remove ${sym}" style="background:transparent;border:0;color:var(--dim, #888);cursor:pointer;font-size:14px;line-height:1;padding:0 0 0 6px;opacity:0.4;transition:opacity 120ms, color 120ms;">×</button>`;
-        return `<tr class="wl-row" data-sym="${escapeAttr(sym)}" style="border-top:1px solid var(--border, #2a2a2a);">
-            <td style="padding:10px 12px;font-family:var(--mono, monospace);font-weight:700;letter-spacing:0.02em;white-space:nowrap;">${pinBtn}${escapeHtml(sym)}${rmBtn}</td>
+        // Drag-to-reorder is only meaningful when the underlying array order is
+        // visible — i.e. sort by Symbol. Other column sorts override the array
+        // order, so we drop draggable on those views to avoid confusion (drag
+        // would silently change the array but the row would jump back into the
+        // sorted position on next render).
+        const dragAttr = (_sort.field === 'sym') ? ' draggable="true"' : '';
+        return `<tr class="wl-row" data-sym="${escapeAttr(sym)}"${dragAttr} style="border-top:1px solid var(--border, #2a2a2a);">
+            <td style="padding:10px 12px;font-family:var(--mono, monospace);font-weight:700;letter-spacing:0.02em;white-space:nowrap;cursor:${_sort.field === 'sym' ? 'grab' : 'default'};">${pinBtn}${escapeHtml(sym)}${rmBtn}</td>
             <td style="padding:10px 12px;color:var(--dim, #888);max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${name || '—'}</td>
             <td style="padding:10px 12px;text-align:right;font-family:var(--mono, monospace);">${last}</td>
             <td style="padding:10px 12px;text-align:right;font-family:var(--mono, monospace);color:${dColor};">${d}</td>
@@ -1072,6 +1082,88 @@ export function init(/** @type {HTMLElement} */ rootEl) {
             const ok = addSymbol(t.value);
             if (ok) t.value = '';
         }
+    });
+    // Drag-to-reorder — only active when sort is by Symbol (see render path).
+    /** @type {HTMLElement | null} */
+    let _activeDropTarget = null;
+    /** @param {HTMLElement | null} el */
+    const clearDropIndicator = (el) => {
+        if (!el) return;
+        el.style.boxShadow = '';
+        el.style.backgroundColor = '';
+    };
+    rootEl.addEventListener('dragstart', (/** @type {DragEvent} */ e) => {
+        const t = /** @type {HTMLElement} */ (e.target);
+        const row = t && t.closest && /** @type {HTMLElement | null} */ (t.closest('.wl-row'));
+        if (!row) return;
+        const sym = row.getAttribute('data-sym');
+        if (!sym) return;
+        _dragSym = sym;
+        if (e.dataTransfer) {
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', sym);
+        }
+        row.style.opacity = '0.4';
+    });
+    rootEl.addEventListener('dragover', (/** @type {DragEvent} */ e) => {
+        if (!_dragSym) return;
+        const t = /** @type {HTMLElement} */ (e.target);
+        const row = t && t.closest && /** @type {HTMLElement | null} */ (t.closest('.wl-row'));
+        if (!row) return;
+        e.preventDefault(); // required for `drop` to fire
+        if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+        if (_activeDropTarget && _activeDropTarget !== row) clearDropIndicator(_activeDropTarget);
+        _activeDropTarget = row;
+        const rect = row.getBoundingClientRect();
+        const pos = dropPositionFromY(rect, e.clientY);
+        // Inset shadow on the appropriate edge — accent-colored line, no layout shift
+        row.style.boxShadow = pos === 'before'
+            ? 'inset 0 3px 0 var(--accent, #089981)'
+            : 'inset 0 -3px 0 var(--accent, #089981)';
+    });
+    rootEl.addEventListener('dragleave', (/** @type {DragEvent} */ e) => {
+        const t = /** @type {HTMLElement} */ (e.target);
+        const row = t && t.closest && /** @type {HTMLElement | null} */ (t.closest('.wl-row'));
+        if (!row) return;
+        // Only clear when leaving the active target — events bubble from children
+        if (_activeDropTarget === row && !row.contains(/** @type {Node | null} */ (e.relatedTarget))) {
+            clearDropIndicator(row);
+            _activeDropTarget = null;
+        }
+    });
+    rootEl.addEventListener('drop', (/** @type {DragEvent} */ e) => {
+        if (!_dragSym) return;
+        const t = /** @type {HTMLElement} */ (e.target);
+        const row = t && t.closest && /** @type {HTMLElement | null} */ (t.closest('.wl-row'));
+        if (!row) return;
+        e.preventDefault();
+        const targetSym = row.getAttribute('data-sym');
+        clearDropIndicator(row);
+        _activeDropTarget = null;
+        if (!targetSym) return;
+        if (_sort.field !== 'sym') {
+            // Defensive: rows shouldn't have draggable=true here, but in case
+            // a screen-reader or keyboard nav forced a drop, surface why nothing changed.
+            const status = /** @type {HTMLElement | null} */ (rootEl.querySelector('#wl-status'));
+            if (status) status.textContent = 'Switch to Symbol sort to reorder';
+            return;
+        }
+        const rect = row.getBoundingClientRect();
+        const pos = dropPositionFromY(rect, e.clientY);
+        const current = loadSymbols();
+        const next = reorderList(current, _dragSym, targetSym, pos);
+        if (next.length === current.length && next.every((s, i) => s === current[i])) return; // no-op
+        persistSymbols(next);
+        bus.emit('watchlist:reordered', { from: _dragSym, to: targetSym, pos });
+        repaint();
+    });
+    rootEl.addEventListener('dragend', (/** @type {DragEvent} */ e) => {
+        const t = /** @type {HTMLElement} */ (e.target);
+        const row = t && t.closest && /** @type {HTMLElement | null} */ (t.closest('.wl-row'));
+        if (row) row.style.opacity = '';
+        if (_activeDropTarget) clearDropIndicator(_activeDropTarget);
+        _activeDropTarget = null;
+        _dragSym = null;
     });
     // Resume / pause on tab visibility — keeps API rate sane when hidden
     const onVis = () => {
