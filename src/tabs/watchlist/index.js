@@ -209,6 +209,7 @@ function renderPanel(/** @type {HTMLElement} */ rootEl) {
                     auto 30s
                 </label>
                 <button id="wl-reload" style="background:var(--card, #1a1a1a);border:1px solid var(--border, #2a2a2a);color:var(--fg, #f5f5f7);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;">Reload cache</button>
+                <button id="wl-populate-spark" title="Fetch today's 1-min bars from Alpaca for every watched symbol" style="background:var(--card, #1a1a1a);border:1px solid var(--border, #2a2a2a);color:var(--fg, #f5f5f7);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;">Populate sparks</button>
                 <button id="wl-refresh-live" style="background:var(--accent, #089981);color:#000;border:0;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;">Refresh live</button>
             </div>
             <div id="wl-focus-card"></div>
@@ -482,6 +483,92 @@ function setStatus(/** @type {string} */ s) {
     if (el) el.textContent = s;
 }
 
+// ── Sparkline populate via Alpaca ──────────────────────────────────────
+//
+// Fills ps_wl_spark_cache_v5 with today's 1-min RTH bar closes for each
+// watched symbol. Cache shape mirrors monolith so a hop back to monolith
+// reads the same data (per project_sparkline_semantics 3-invariant rule —
+// session match + market-open guard + cache slice).
+
+const _ET_DATE_FMT = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' });
+
+function todayEt() {
+    return _ET_DATE_FMT.format(new Date());
+}
+
+/**
+ * @param {string} symbol
+ * @param {string} key
+ * @param {string} secret
+ * @param {AbortSignal} signal
+ */
+async function fetchAlpacaBars(symbol, key, secret, signal) {
+    const today = todayEt();
+    const url = `https://data.alpaca.markets/v2/stocks/${encodeURIComponent(symbol)}/bars?timeframe=1Min&limit=400&start=${today}T13:30:00Z&end=${today}T21:00:00Z&adjustment=raw&feed=iex`;
+    // 13:30Z = 09:30 ET (EDT). 21:00Z = 17:00 ET — overshoots close so a
+    // mid-session call still hits the right window. Late-DST window slips
+    // by an hour (08:30 ET) — acceptable for a sparkline cache.
+    const res = await fetch(url, {
+        signal,
+        headers: { 'APCA-API-KEY-ID': key, 'APCA-API-SECRET-KEY': secret },
+    });
+    if (!res.ok) throw new Error(`Alpaca ${res.status} for ${symbol}`);
+    const body = await res.json();
+    return Array.isArray(body && body.bars) ? body.bars : [];
+}
+
+async function populateSparklines() {
+    if (!_panel) return;
+    if (_ctrl) _ctrl.abort();
+    _ctrl = new AbortController();
+    const symbols = loadSymbols();
+    if (!symbols.length) { setStatus('No symbols to populate'); return; }
+    const key = lsGet('ps_alpaca_key', '');
+    const secret = lsGet('ps_alpaca_secret', '');
+    if (!key || !secret) {
+        setStatus('Alpaca key/secret missing — set in Settings');
+        return;
+    }
+    const btn = /** @type {HTMLButtonElement | null} */ (_panel.querySelector('#wl-populate-spark'));
+    if (btn) { btn.setAttribute('disabled', 'true'); btn.textContent = 'Populating…'; }
+    setStatus(`Populating sparklines for ${symbols.length} symbol(s)…`);
+    /** @type {any} */
+    const raw = lsGetJson('ps_wl_spark_cache_v5', null);
+    /** @type {{ ts: number, data: Record<string, any> }} */
+    const payload = (raw && typeof raw === 'object' && raw.data) ? raw : { ts: Date.now(), data: {} };
+    const today = todayEt();
+    const t0 = performance.now();
+    let ok = 0, fail = 0;
+    await Promise.all(symbols.map((sym) =>
+        fetchAlpacaBars(sym, key, secret, /** @type {AbortSignal} */ ((_ctrl && _ctrl.signal)))
+            .then((bars) => {
+                if (!Array.isArray(bars) || !bars.length) { fail++; return; }
+                const prices = bars.map((b) => Number(b.c)).filter((n) => isFinite(n)).slice(-400);
+                if (!prices.length) { fail++; return; }
+                payload.data[sym] = {
+                    prices,
+                    ts: Date.now(),
+                    fetchTs: Date.now(),
+                    src: 'alpaca',
+                    base: prices[0],
+                    open: prices[0],
+                    session: today,
+                };
+                ok++;
+            })
+            .catch((/** @type {any} */ e) => {
+                if (e && e.name !== 'AbortError') { fail++; console.warn('[wl/spark]', sym, e && e.message); }
+            })
+    ));
+    payload.ts = Date.now();
+    try { lsSave('ps_wl_spark_cache_v5', JSON.stringify(payload)); }
+    catch (e) { console.warn('[wl/spark] save failed:', e); }
+    if (btn) { btn.removeAttribute('disabled'); btn.textContent = 'Populate sparks'; }
+    const dt = ((performance.now() - t0) / 1000).toFixed(1);
+    repaint();
+    setStatus(`Sparklines ${ok}/${symbols.length} populated in ${dt}s${fail ? ` · ${fail} failed` : ''}`);
+}
+
 // ── Auto-refresh ───────────────────────────────────────────────────────
 
 function startAuto() {
@@ -704,8 +791,9 @@ export function init(/** @type {HTMLElement} */ rootEl) {
     rootEl.addEventListener('click', (/** @type {Event} */ e) => {
         const t = /** @type {HTMLElement} */ (e.target);
         if (!t) return;
-        if (t.id === 'wl-reload')       { repaint(); return; }
-        if (t.id === 'wl-refresh-live') { refreshLive(); return; }
+        if (t.id === 'wl-reload')         { repaint(); return; }
+        if (t.id === 'wl-refresh-live')   { refreshLive(); return; }
+        if (t.id === 'wl-populate-spark') { populateSparklines(); return; }
         const pinBtn = t.closest('button[data-pin]');
         if (pinBtn) {
             const sym = pinBtn.getAttribute('data-pin');
