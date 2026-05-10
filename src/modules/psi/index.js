@@ -23,7 +23,7 @@
 import { lsSave, lsGet, lsGetJson } from '../../core/storage.js';
 import { bus } from '../../core/bus.js';
 import { distancePx, computePpm, canvasPointFromClick } from './calibrate.js';
-import { angleDeg } from './measure.js';
+import { angleDeg, polygonAreaPx, polygonCentroid } from './measure.js';
 
 const _PSI_LS_CALIB        = 'pslink_micro_calibration';
 const _PSI_LS_LAST_PROFILE = 'pslink_calib_last_profile';
@@ -59,7 +59,8 @@ const _psiCalibPts = [];
  *  until "Clear all" so the user can compare multiple features. */
 /** @typedef {{ kind: 'line', a: {x:number,y:number}, b: {x:number,y:number}, microns: number | null }} _PsiLineMeasure */
 /** @typedef {{ kind: 'angle', a: {x:number,y:number}, b: {x:number,y:number}, c: {x:number,y:number}, deg: number | null }} _PsiAngleMeasure */
-/** @type {Array<_PsiLineMeasure | _PsiAngleMeasure>} */
+/** @typedef {{ kind: 'area', pts: Array<{x:number,y:number}>, areaMicrons2: number | null }} _PsiAreaMeasure */
+/** @type {Array<_PsiLineMeasure | _PsiAngleMeasure | _PsiAreaMeasure>} */
 const _psiMeasurements = [];
 /** @type {boolean} */
 let _psiMeasureMode = false;
@@ -69,6 +70,10 @@ const _psiMeasurePts = [];
 let _psiAngleMode = false;
 /** @type {{x: number, y: number}[]} */
 const _psiAnglePts = [];
+/** @type {boolean} */
+let _psiAreaMode = false;
+/** @type {{x: number, y: number}[]} */
+const _psiAreaPts = [];
 
 /** @type {{ [stage: string]: boolean }} */
 const _psiStageOpen = { '1': true, '2': true, '3': false, '4': false };
@@ -541,6 +546,7 @@ function renderPanel(rootEl) {
                     <div class="actions">
                         <button class="act" id="psi-measure-line">Measure line</button>
                         <button class="act" id="psi-measure-angle">Measure angle</button>
+                        <button class="act" id="psi-measure-area">Measure area</button>
                         <button class="act ghost" id="psi-measure-clear">Clear all</button>
                         <span id="psi-measure-hint" style="font-size:11px;color:var(--dim, #888);"></span>
                     </div>
@@ -710,6 +716,7 @@ function wireEvents() {
     panel.querySelector('#psi-calib-line')?.addEventListener('click', () => startCalibLine());
     panel.querySelector('#psi-measure-line')?.addEventListener('click', () => startMeasureLine());
     panel.querySelector('#psi-measure-angle')?.addEventListener('click', () => startMeasureAngle());
+    panel.querySelector('#psi-measure-area')?.addEventListener('click', () => toggleAreaMode());
     panel.querySelector('#psi-measure-clear')?.addEventListener('click', () => clearMeasurements());
     const canvas = /** @type {HTMLCanvasElement | null} */ (panel.querySelector('#psi-canvas'));
     if (canvas) {
@@ -717,6 +724,7 @@ function wireEvents() {
             if (_psiCalibMode) onCalibCanvasClick(ev);
             else if (_psiMeasureMode) onMeasureCanvasClick(ev);
             else if (_psiAngleMode) onAngleCanvasClick(ev);
+            else if (_psiAreaMode) onAreaCanvasClick(ev);
         });
     }
 }
@@ -864,6 +872,7 @@ function startMeasureAngle() {
     }
     if (_psiCalibMode) exitCalibLine();
     if (_psiMeasureMode) exitMeasureMode();
+    if (_psiAreaMode) exitAreaMode();
     _psiAngleMode = true;
     _psiAnglePts.length = 0;
     canvas.style.cursor = 'crosshair';
@@ -877,6 +886,69 @@ function exitAngleMode() {
     const canvas = /** @type {HTMLCanvasElement | null} */ (_psiPanel.querySelector('#psi-canvas'));
     if (canvas) canvas.style.cursor = '';
     paintMeasureHint('');
+}
+
+function paintAreaButton() {
+    if (!_psiPanel) return;
+    const btn = /** @type {HTMLButtonElement | null} */ (_psiPanel.querySelector('#psi-measure-area'));
+    if (!btn) return;
+    btn.textContent = _psiAreaMode ? 'Finish polygon' : 'Measure area';
+}
+
+function toggleAreaMode() {
+    if (!_psiAreaMode) startAreaMode();
+    else finishAreaPolygon();
+}
+
+function startAreaMode() {
+    if (!_psiPanel) return;
+    const canvas = /** @type {HTMLCanvasElement | null} */ (_psiPanel.querySelector('#psi-canvas'));
+    if (!canvas || canvas.style.display === 'none') {
+        setStatus('Load an image first', 'err');
+        return;
+    }
+    if (_psiCalibMode) exitCalibLine();
+    if (_psiMeasureMode) exitMeasureMode();
+    if (_psiAngleMode) exitAngleMode();
+    _psiAreaMode = true;
+    _psiAreaPts.length = 0;
+    canvas.style.cursor = 'crosshair';
+    paintMeasureHint('Click polygon vertices · finish to close');
+    paintAreaButton();
+}
+
+function exitAreaMode() {
+    if (!_psiPanel) return;
+    _psiAreaMode = false;
+    _psiAreaPts.length = 0;
+    const canvas = /** @type {HTMLCanvasElement | null} */ (_psiPanel.querySelector('#psi-canvas'));
+    if (canvas) canvas.style.cursor = '';
+    paintMeasureHint('');
+    paintAreaButton();
+}
+
+function finishAreaPolygon() {
+    if (!_psiAreaMode) return;
+    if (_psiAreaPts.length < 3) {
+        setStatus('Polygon needs at least 3 points', 'err');
+        exitAreaMode();
+        drawCanvas(psImagingState.currentImageUrl);
+        return;
+    }
+    const pts = _psiAreaPts.slice();
+    const areaPx2 = polygonAreaPx(pts);
+    const ppm = psImagingState.pixelPerMicron;
+    const areaMicrons2 = (typeof ppm === 'number' && ppm > 0) ? areaPx2 / (ppm * ppm) : null;
+    _psiMeasurements.push({ kind: 'area', pts, areaMicrons2 });
+    exitAreaMode();
+    drawCanvas(psImagingState.currentImageUrl);
+    renderMeasureList();
+    setStatus(
+        areaMicrons2 != null
+            ? `Area ${_psiMeasurements.length}: ${areaMicrons2.toFixed(2)} µm²`
+            : `Area ${_psiMeasurements.length}: ${areaPx2.toFixed(1)} px²`,
+        'ok',
+    );
 }
 
 function clearMeasurements() {
@@ -897,9 +969,14 @@ function renderMeasureList() {
             const txt = m.microns != null ? m.microns.toFixed(2) + ' µm' : `${px.toFixed(1)}px (no calib)`;
             return `<div style="padding:3px 0;">${i + 1}. line — ${txt}</div>`;
         }
-        // angle
-        const txt = m.deg != null ? m.deg.toFixed(2) + '°' : '—';
-        return `<div style="padding:3px 0;">${i + 1}. angle — ${txt}</div>`;
+        if (m.kind === 'angle') {
+            const txt = m.deg != null ? m.deg.toFixed(2) + '°' : '—';
+            return `<div style="padding:3px 0;">${i + 1}. angle — ${txt}</div>`;
+        }
+        // area
+        const px2 = polygonAreaPx(m.pts);
+        const txt = m.areaMicrons2 != null ? m.areaMicrons2.toFixed(2) + ' µm²' : `${px2.toFixed(1)}px² (no calib)`;
+        return `<div style="padding:3px 0;">${i + 1}. area — ${txt} · ${m.pts.length} vertices</div>`;
     }).join('');
 }
 
@@ -991,14 +1068,81 @@ function drawAngleMeasure(canvas, m) {
     ctx.restore();
 }
 
+/** @param {HTMLCanvasElement} canvas @param {_PsiAreaMeasure} m */
+function drawAreaMeasure(canvas, m) {
+    const ctx = canvas.getContext('2d');
+    if (!ctx || m.pts.length < 2) return;
+    ctx.save();
+    ctx.strokeStyle = '#fbbf24';
+    ctx.fillStyle = 'rgba(251, 191, 36, 0.18)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(m.pts[0].x, m.pts[0].y);
+    for (let i = 1; i < m.pts.length; i++) ctx.lineTo(m.pts[i].x, m.pts[i].y);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    // Label at centroid
+    const c = polygonCentroid(m.pts);
+    if (c) {
+        const px2 = polygonAreaPx(m.pts);
+        const label = m.areaMicrons2 != null
+            ? `${m.areaMicrons2.toFixed(2)} µm²`
+            : `${px2.toFixed(1)} px²`;
+        ctx.font = 'bold 11px monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const w = ctx.measureText(label).width;
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(c.x - w / 2 - 4, c.y - 8, w + 8, 16);
+        ctx.fillStyle = '#fbbf24';
+        ctx.fillText(label, c.x, c.y);
+    }
+    ctx.restore();
+}
+
 function redrawAllMeasurements() {
     if (!_psiPanel) return;
     const canvas = /** @type {HTMLCanvasElement | null} */ (_psiPanel.querySelector('#psi-canvas'));
     if (!canvas) return;
     for (const m of _psiMeasurements) {
         if (m.kind === 'line') drawLineMeasure(canvas, m);
-        else drawAngleMeasure(canvas, m);
+        else if (m.kind === 'angle') drawAngleMeasure(canvas, m);
+        else drawAreaMeasure(canvas, m);
     }
+}
+
+/** @param {MouseEvent} ev */
+function onAreaCanvasClick(ev) {
+    if (!_psiAreaMode || !_psiPanel) return;
+    const canvas = /** @type {HTMLCanvasElement | null} */ (_psiPanel.querySelector('#psi-canvas'));
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const pt = canvasPointFromClick(canvas, ev);
+    // Incremental paint: connect previous vertex to this one, then drop a marker.
+    // Avoids reloading the image (drawCanvas is async via img.onload) on every click.
+    const prevLen = _psiAreaPts.length;
+    ctx.save();
+    ctx.strokeStyle = '#fbbf24';
+    ctx.lineWidth = 2;
+    if (prevLen > 0) {
+        ctx.beginPath();
+        ctx.moveTo(_psiAreaPts[prevLen - 1].x, _psiAreaPts[prevLen - 1].y);
+        ctx.lineTo(pt.x, pt.y);
+        ctx.stroke();
+    }
+    ctx.fillStyle = '#fbbf24';
+    ctx.beginPath();
+    ctx.arc(pt.x, pt.y, 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    _psiAreaPts.push(pt);
+    paintMeasureHint(
+        _psiAreaPts.length < 3
+            ? `Vertex ${_psiAreaPts.length} — need ${3 - _psiAreaPts.length} more`
+            : `${_psiAreaPts.length} vertices — click "Finish polygon" to close`,
+    );
 }
 
 /** @param {MouseEvent} ev */
