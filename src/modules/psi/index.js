@@ -23,6 +23,7 @@
 import { lsSave, lsGet, lsGetJson } from '../../core/storage.js';
 import { bus } from '../../core/bus.js';
 import { distancePx, computePpm, canvasPointFromClick } from './calibrate.js';
+import { angleDeg } from './measure.js';
 
 const _PSI_LS_CALIB        = 'pslink_micro_calibration';
 const _PSI_LS_LAST_PROFILE = 'pslink_calib_last_profile';
@@ -54,14 +55,20 @@ let _psiCalibMode = false;
 /** @type {{x: number, y: number}[]} */
 const _psiCalibPts = [];
 
-/** Persistent line measurements drawn over the image. Each entry stays
- *  until "Clear measurements" so the user can compare multiple features. */
-/** @type {{a: {x:number,y:number}, b: {x:number,y:number}, microns: number | null}[]} */
+/** Persistent measurements drawn over the image. Each entry stays
+ *  until "Clear all" so the user can compare multiple features. */
+/** @typedef {{ kind: 'line', a: {x:number,y:number}, b: {x:number,y:number}, microns: number | null }} _PsiLineMeasure */
+/** @typedef {{ kind: 'angle', a: {x:number,y:number}, b: {x:number,y:number}, c: {x:number,y:number}, deg: number | null }} _PsiAngleMeasure */
+/** @type {Array<_PsiLineMeasure | _PsiAngleMeasure>} */
 const _psiMeasurements = [];
 /** @type {boolean} */
 let _psiMeasureMode = false;
 /** @type {{x: number, y: number}[]} */
 const _psiMeasurePts = [];
+/** @type {boolean} */
+let _psiAngleMode = false;
+/** @type {{x: number, y: number}[]} */
+const _psiAnglePts = [];
 
 /** @type {{ [stage: string]: boolean }} */
 const _psiStageOpen = { '1': true, '2': true, '3': false, '4': false };
@@ -533,6 +540,7 @@ function renderPanel(rootEl) {
                 <div class="stage-body">
                     <div class="actions">
                         <button class="act" id="psi-measure-line">Measure line</button>
+                        <button class="act" id="psi-measure-angle">Measure angle</button>
                         <button class="act ghost" id="psi-measure-clear">Clear all</button>
                         <span id="psi-measure-hint" style="font-size:11px;color:var(--dim, #888);"></span>
                     </div>
@@ -701,12 +709,14 @@ function wireEvents() {
     // Calibration line tool
     panel.querySelector('#psi-calib-line')?.addEventListener('click', () => startCalibLine());
     panel.querySelector('#psi-measure-line')?.addEventListener('click', () => startMeasureLine());
+    panel.querySelector('#psi-measure-angle')?.addEventListener('click', () => startMeasureAngle());
     panel.querySelector('#psi-measure-clear')?.addEventListener('click', () => clearMeasurements());
     const canvas = /** @type {HTMLCanvasElement | null} */ (panel.querySelector('#psi-canvas'));
     if (canvas) {
         canvas.addEventListener('click', (ev) => {
             if (_psiCalibMode) onCalibCanvasClick(ev);
             else if (_psiMeasureMode) onMeasureCanvasClick(ev);
+            else if (_psiAngleMode) onAngleCanvasClick(ev);
         });
     }
 }
@@ -829,6 +839,7 @@ function startMeasureLine() {
         return;
     }
     if (_psiCalibMode) exitCalibLine();
+    if (_psiAngleMode) exitAngleMode();
     _psiMeasureMode = true;
     _psiMeasurePts.length = 0;
     canvas.style.cursor = 'crosshair';
@@ -839,6 +850,30 @@ function exitMeasureMode() {
     if (!_psiPanel) return;
     _psiMeasureMode = false;
     _psiMeasurePts.length = 0;
+    const canvas = /** @type {HTMLCanvasElement | null} */ (_psiPanel.querySelector('#psi-canvas'));
+    if (canvas) canvas.style.cursor = '';
+    paintMeasureHint('');
+}
+
+function startMeasureAngle() {
+    if (!_psiPanel) return;
+    const canvas = /** @type {HTMLCanvasElement | null} */ (_psiPanel.querySelector('#psi-canvas'));
+    if (!canvas || canvas.style.display === 'none') {
+        setStatus('Load an image first', 'err');
+        return;
+    }
+    if (_psiCalibMode) exitCalibLine();
+    if (_psiMeasureMode) exitMeasureMode();
+    _psiAngleMode = true;
+    _psiAnglePts.length = 0;
+    canvas.style.cursor = 'crosshair';
+    paintMeasureHint('Click first ray endpoint');
+}
+
+function exitAngleMode() {
+    if (!_psiPanel) return;
+    _psiAngleMode = false;
+    _psiAnglePts.length = 0;
     const canvas = /** @type {HTMLCanvasElement | null} */ (_psiPanel.querySelector('#psi-canvas'));
     if (canvas) canvas.style.cursor = '';
     paintMeasureHint('');
@@ -857,13 +892,19 @@ function renderMeasureList() {
     if (!el) return;
     if (!_psiMeasurements.length) { el.textContent = ''; return; }
     el.innerHTML = _psiMeasurements.map((m, i) => {
-        const px = distancePx(m.a, m.b);
-        const um = m.microns != null ? m.microns.toFixed(2) + ' µm' : `${px.toFixed(1)}px (no calib)`;
-        return `<div style="padding:3px 0;">${i + 1}. ${um}</div>`;
+        if (m.kind === 'line') {
+            const px = distancePx(m.a, m.b);
+            const txt = m.microns != null ? m.microns.toFixed(2) + ' µm' : `${px.toFixed(1)}px (no calib)`;
+            return `<div style="padding:3px 0;">${i + 1}. line — ${txt}</div>`;
+        }
+        // angle
+        const txt = m.deg != null ? m.deg.toFixed(2) + '°' : '—';
+        return `<div style="padding:3px 0;">${i + 1}. angle — ${txt}</div>`;
     }).join('');
 }
 
-function drawMeasurement(/** @type {HTMLCanvasElement} */ canvas, /** @type {{a:{x:number,y:number}, b:{x:number,y:number}, microns: number | null}} */ m) {
+/** @param {HTMLCanvasElement} canvas @param {_PsiLineMeasure} m */
+function drawLineMeasure(canvas, m) {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     ctx.save();
@@ -898,11 +939,66 @@ function drawMeasurement(/** @type {HTMLCanvasElement} */ canvas, /** @type {{a:
     ctx.restore();
 }
 
+/** @param {HTMLCanvasElement} canvas @param {_PsiAngleMeasure} m */
+function drawAngleMeasure(canvas, m) {
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.save();
+    ctx.strokeStyle = '#fbbf24';
+    ctx.fillStyle = '#fbbf24';
+    ctx.lineWidth = 2;
+    // Two rays from vertex b
+    ctx.beginPath();
+    ctx.moveTo(m.a.x, m.a.y);
+    ctx.lineTo(m.b.x, m.b.y);
+    ctx.lineTo(m.c.x, m.c.y);
+    ctx.stroke();
+    // Arc at the vertex — 22px radius capped at 35% of shorter ray, so a tiny
+    // angle on a long pair of rays still gets a proportional arc.
+    const r1 = Math.sqrt((m.a.x - m.b.x) ** 2 + (m.a.y - m.b.y) ** 2);
+    const r2 = Math.sqrt((m.c.x - m.b.x) ** 2 + (m.c.y - m.b.y) ** 2);
+    const arcR = Math.min(22, Math.min(r1, r2) * 0.35);
+    if (arcR > 1) {
+        const a1 = Math.atan2(m.a.y - m.b.y, m.a.x - m.b.x);
+        const a2 = Math.atan2(m.c.y - m.b.y, m.c.x - m.b.x);
+        // Choose the SHORT arc direction so the visual matches angleDeg's [0,180] result
+        let delta = a2 - a1;
+        while (delta >  Math.PI) delta -= 2 * Math.PI;
+        while (delta < -Math.PI) delta += 2 * Math.PI;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(m.b.x, m.b.y, arcR, a1, a1 + delta, delta < 0);
+        ctx.stroke();
+    }
+    // Label outside the arc, along the angle bisector
+    const a1 = Math.atan2(m.a.y - m.b.y, m.a.x - m.b.x);
+    const a2 = Math.atan2(m.c.y - m.b.y, m.c.x - m.b.x);
+    let bisect = (a1 + a2) / 2;
+    // If rays span > 180°, bisector flips — push to the inside
+    if (Math.abs(a2 - a1) > Math.PI) bisect += Math.PI;
+    const labelR = arcR + 14;
+    const lx = m.b.x + Math.cos(bisect) * labelR;
+    const ly = m.b.y + Math.sin(bisect) * labelR;
+    const label = m.deg != null ? `${m.deg.toFixed(1)}°` : '—';
+    ctx.font = 'bold 11px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const w = ctx.measureText(label).width;
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+    ctx.fillRect(lx - w / 2 - 4, ly - 8, w + 8, 16);
+    ctx.fillStyle = '#fbbf24';
+    ctx.fillText(label, lx, ly);
+    ctx.restore();
+}
+
 function redrawAllMeasurements() {
     if (!_psiPanel) return;
     const canvas = /** @type {HTMLCanvasElement | null} */ (_psiPanel.querySelector('#psi-canvas'));
     if (!canvas) return;
-    for (const m of _psiMeasurements) drawMeasurement(canvas, m);
+    for (const m of _psiMeasurements) {
+        if (m.kind === 'line') drawLineMeasure(canvas, m);
+        else drawAngleMeasure(canvas, m);
+    }
 }
 
 /** @param {MouseEvent} ev */
@@ -922,11 +1018,42 @@ function onMeasureCanvasClick(ev) {
     if (px <= 0) { exitMeasureMode(); return; }
     const ppm = psImagingState.pixelPerMicron;
     const microns = (typeof ppm === 'number' && ppm > 0) ? px / ppm : null;
-    _psiMeasurements.push({ a, b, microns });
+    _psiMeasurements.push({ kind: 'line', a, b, microns });
     drawCanvas(psImagingState.currentImageUrl); // clean redraw — new measurement painted via redrawAllMeasurements after image loads
     renderMeasureList();
     setStatus(microns != null ? `Line ${_psiMeasurements.length}: ${microns.toFixed(2)} µm` : `Line ${_psiMeasurements.length}: ${px.toFixed(1)}px`, 'ok');
     exitMeasureMode();
+}
+
+/** @param {MouseEvent} ev */
+function onAngleCanvasClick(ev) {
+    if (!_psiAngleMode || !_psiPanel) return;
+    const canvas = /** @type {HTMLCanvasElement | null} */ (_psiPanel.querySelector('#psi-canvas'));
+    if (!canvas) return;
+    const pt = canvasPointFromClick(canvas, ev);
+    _psiAnglePts.push(pt);
+    drawCalibMarker(canvas, pt, _psiAnglePts.length);
+    if (_psiAnglePts.length === 1) {
+        paintMeasureHint('Click vertex');
+        return;
+    }
+    if (_psiAnglePts.length === 2) {
+        paintMeasureHint('Click second ray endpoint');
+        return;
+    }
+    const a = _psiAnglePts[0], b = _psiAnglePts[1], c = _psiAnglePts[2];
+    const deg = angleDeg(a, b, c);
+    if (deg === null) {
+        setStatus('Cannot measure — points overlap', 'err');
+        exitAngleMode();
+        drawCanvas(psImagingState.currentImageUrl);
+        return;
+    }
+    _psiMeasurements.push({ kind: 'angle', a, b, c, deg });
+    drawCanvas(psImagingState.currentImageUrl);
+    renderMeasureList();
+    setStatus(`Angle ${_psiMeasurements.length}: ${deg.toFixed(2)}°`, 'ok');
+    exitAngleMode();
 }
 
 // ── Module lifecycle ───────────────────────────────────────────────────
