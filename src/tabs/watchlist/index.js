@@ -46,6 +46,8 @@ let _sort = { field: 'sym', dir: 'asc' };
 let _filter = '';
 /** @type {string} */
 let _focusSym = '';
+/** @type {Set<string>} */
+let _pinned = new Set();
 
 /** @type {HTMLElement | null} */
 let _panel = null;
@@ -80,6 +82,25 @@ function loadSymbols() {
     const raw = /** @type {any} */ (lsGetJson('ps_watchlist', []));
     if (!Array.isArray(raw)) return [];
     return raw.filter((/** @type {any} */ s) => typeof s === 'string' && s.length);
+}
+
+function loadPinned() {
+    const raw = /** @type {any} */ (lsGetJson('ps_pinned_wl', []));
+    _pinned = new Set(Array.isArray(raw) ? raw.filter((/** @type {any} */ s) => typeof s === 'string') : []);
+}
+
+function persistPinned() {
+    try { lsSave('ps_pinned_wl', JSON.stringify(Array.from(_pinned))); }
+    catch (e) { /* swallow */ }
+}
+
+/** @param {string} sym */
+function togglePin(sym) {
+    if (_pinned.has(sym)) _pinned.delete(sym);
+    else _pinned.add(sym);
+    persistPinned();
+    repaint();
+    bus.emit('watchlist:pinned', { pinned: Array.from(_pinned) });
 }
 
 /** @returns {Record<string, WlCacheEntry>} */
@@ -257,8 +278,10 @@ function repaint() {
         const sparkSvg = sparkD
             ? `<svg viewBox="0 0 80 26" preserveAspectRatio="none" width="80" height="26" style="display:block;"><path d="${sparkD}" stroke="${sparkColor}" stroke-width="1.4" fill="none" vector-effect="non-scaling-stroke"/></svg>`
             : `<span style="color:var(--dim, #888);font-family:var(--mono, monospace);font-size:11px;">—</span>`;
+        const isPinned = _pinned.has(sym);
+        const pinBtn = `<button data-pin="${escapeAttr(sym)}" title="${isPinned ? 'Unpin' : 'Pin to top'}" style="background:transparent;border:0;color:${isPinned ? 'var(--accent, #089981)' : 'var(--dim, #888)'};cursor:pointer;font-size:12px;line-height:1;padding:0 4px 0 0;${isPinned ? 'text-shadow:0 0 4px var(--accent, #089981);' : ''}">${isPinned ? '★' : '☆'}</button>`;
         return `<tr class="wl-row" data-sym="${escapeAttr(sym)}" style="border-top:1px solid var(--border, #2a2a2a);">
-            <td style="padding:10px 12px;font-family:var(--mono, monospace);font-weight:700;letter-spacing:0.02em;">${escapeHtml(sym)}</td>
+            <td style="padding:10px 12px;font-family:var(--mono, monospace);font-weight:700;letter-spacing:0.02em;">${pinBtn}${escapeHtml(sym)}</td>
             <td style="padding:10px 12px;color:var(--dim, #888);max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${name || '—'}</td>
             <td style="padding:10px 12px;text-align:right;font-family:var(--mono, monospace);">${last}</td>
             <td style="padding:10px 12px;text-align:right;font-family:var(--mono, monospace);color:${dColor};">${d}</td>
@@ -364,6 +387,9 @@ function sortSymbols(syms, cache) {
     const sign = _sort.dir === 'asc' ? 1 : -1;
     const arr = syms.slice();
     arr.sort((a, b) => {
+        // Pinned always sort first regardless of column choice
+        const pa = _pinned.has(a), pb = _pinned.has(b);
+        if (pa !== pb) return pa ? -1 : 1;
         const ca = cache[a] || {};
         const cb = cache[b] || {};
         if (f === 'sym')  return a.localeCompare(b) * sign;
@@ -668,6 +694,7 @@ function cssEscapeAttr(/** @type {string} */ s) {
 export function init(/** @type {HTMLElement} */ rootEl) {
     _panel = rootEl;
     loadSortPref();
+    loadPinned();
     renderPanel(rootEl);
     repaint();
     const autoBox = /** @type {HTMLInputElement | null} */ (rootEl.querySelector('#wl-auto'));
@@ -679,6 +706,12 @@ export function init(/** @type {HTMLElement} */ rootEl) {
         if (!t) return;
         if (t.id === 'wl-reload')       { repaint(); return; }
         if (t.id === 'wl-refresh-live') { refreshLive(); return; }
+        const pinBtn = t.closest('button[data-pin]');
+        if (pinBtn) {
+            const sym = pinBtn.getAttribute('data-pin');
+            if (sym) togglePin(sym);
+            return;
+        }
         const sortHeader = t.closest('th[data-sort]');
         if (sortHeader) {
             const f = sortHeader.getAttribute('data-sort');
