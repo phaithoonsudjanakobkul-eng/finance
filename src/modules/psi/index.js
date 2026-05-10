@@ -25,6 +25,7 @@ import { bus } from '../../core/bus.js';
 import { distancePx, computePpm, canvasPointFromClick } from './calibrate.js';
 import { angleDeg, polygonAreaPx, polygonCentroid } from './measure.js';
 import { loadProfiles, addProfile, deleteProfile, findProfile, PSI_LAST_PROFILE_KEY } from './profiles.js';
+import { buildLut, channelMask } from './lut.js';
 
 const _PSI_LS_CALIB        = 'pslink_micro_calibration';
 
@@ -305,7 +306,7 @@ function drawCanvas(src) {
         return;
     }
     const img = new Image();
-    img.onload = () => {
+    img.onload = async () => {
         // Fit to 480×360 max preserving aspect ratio
         const maxW = 480, maxH = 360;
         const scale = Math.min(maxW / img.width, maxH / img.height, 1);
@@ -313,7 +314,10 @@ function drawCanvas(src) {
         canvas.height = Math.round(img.height * scale);
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        applyDisplayAdjPreview();
+        // Apply LUT first (off-main via Worker) BEFORE scale bar + measurements
+        // so those overlays sit on top of the adjusted pixels and don't get
+        // remapped themselves by the LUT.
+        await applyDisplayAdjPreview();
         if (psImagingState.scaleBar.visible) drawScaleBar();
         redrawAllMeasurements();
         if (placeholder) placeholder.style.display = 'none';
@@ -327,36 +331,85 @@ function drawCanvas(src) {
     img.src = src;
 }
 
-// ── Display adjustment preview (basic LUT — no Worker yet) ─────────────
+// ── Display adjustment LUT — Web Worker (CLAUDE.md Rule 12) ────────────
+// Inline blob worker: receives the canvas pixel buffer (transferable) +
+// the LUT + a channel bitmask, applies the lookup, and posts the buffer
+// back. Off-loads a 5–20M-iteration loop from the main thread on large
+// images. Generation counter invalidates stale callbacks when the user
+// drags a slider faster than the worker can keep up.
+
+/** @type {{ url: string | null }} */
+const _psiLut = { url: null };
+let _psiLutGen = 0;
+
+(function _initLutWorker() {
+    const code = [
+        'self.onmessage=function(e){',
+        '  var d=e.data,p=new Uint8ClampedArray(d.buf),lut=d.lut,m=d.mask;',
+        '  for(var i=0;i<p.length;i+=4){',
+        '    if(m&1)p[i]=lut[p[i]];',
+        '    if(m&2)p[i+1]=lut[p[i+1]];',
+        '    if(m&4)p[i+2]=lut[p[i+2]];',
+        '  }',
+        '  self.postMessage({buf:p.buffer},[p.buffer]);',
+        '};',
+    ].join('');
+    try {
+        _psiLut.url = URL.createObjectURL(new Blob([code], { type: 'application/javascript' }));
+    } catch (_e) { _psiLut.url = null; }
+})();
+
+/**
+ * Apply the current display-adjustment LUT to the preview canvas.
+ * Resolves once the canvas has been repainted (or immediately when the
+ * adjustment is disabled / pre-conditions fail). Falls back to a sync
+ * main-thread loop when the Worker URL couldn't be created.
+ *
+ * @returns {Promise<void>}
+ */
 function applyDisplayAdjPreview() {
-    if (!_psiPanel) return;
-    if (!psImagingState.displayAdj.enabled) return;
-    const canvas = /** @type {HTMLCanvasElement | null} */ (_psiPanel.querySelector('#psi-canvas'));
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    const adj = psImagingState.displayAdj;
-    const black = Math.max(0, Math.min(254, adj.black));
-    const white = Math.max(black + 1, Math.min(255, adj.white));
-    const gamma = Math.max(0.01, Math.min(9.99, adj.gamma));
-    // Build LUT once
-    const lut = new Uint8ClampedArray(256);
-    const range = white - black;
-    for (let i = 0; i < 256; i++) {
-        let v = (i - black) / range;
-        v = Math.max(0, Math.min(1, v));
-        v = Math.pow(v, 1 / gamma);
-        lut[i] = Math.round(v * 255);
-    }
-    const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const p = data.data;
-    const ch = adj.channel;
-    for (let i = 0; i < p.length; i += 4) {
-        if (ch === 'all' || ch === 'r') p[i]     = lut[p[i]];
-        if (ch === 'all' || ch === 'g') p[i + 1] = lut[p[i + 1]];
-        if (ch === 'all' || ch === 'b') p[i + 2] = lut[p[i + 2]];
-    }
-    ctx.putImageData(data, 0, 0);
+    return new Promise((resolve) => {
+        if (!_psiPanel || !psImagingState.displayAdj.enabled) return resolve();
+        const canvas = /** @type {HTMLCanvasElement | null} */ (_psiPanel.querySelector('#psi-canvas'));
+        if (!canvas) return resolve();
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return resolve();
+        const adj = psImagingState.displayAdj;
+        const lut = buildLut(adj.black, adj.white, adj.gamma);
+        const mask = channelMask(adj.channel);
+        const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const myGen = ++_psiLutGen;
+
+        if (!_psiLut.url) {
+            // Fallback — sync compute (kept for environments where Blob URLs are blocked)
+            const p = data.data;
+            for (let i = 0; i < p.length; i += 4) {
+                if (mask & 1) p[i]     = lut[p[i]];
+                if (mask & 2) p[i + 1] = lut[p[i + 1]];
+                if (mask & 4) p[i + 2] = lut[p[i + 2]];
+            }
+            ctx.putImageData(data, 0, 0);
+            return resolve();
+        }
+
+        // Transfer the underlying buffer to the worker so the loop runs off-main.
+        const buf = data.data.buffer;
+        const w = new Worker(_psiLut.url);
+        w.onmessage = (ev) => {
+            w.terminate();
+            // Stale-callback guard — a newer adjustment superseded this one.
+            // Bail without painting so the latest worker's result wins.
+            if (myGen !== _psiLutGen) return resolve();
+            const out = new Uint8ClampedArray(ev.data.buf);
+            try {
+                const newData = new ImageData(out, data.width, data.height);
+                ctx.putImageData(newData, 0, 0);
+            } catch (_e) { /* canvas detached — drop result */ }
+            resolve();
+        };
+        w.onerror = () => { try { w.terminate(); } catch (_e) {} resolve(); };
+        w.postMessage({ buf, lut, mask }, [buf]);
+    });
 }
 
 // ── Scale bar overlay (simple — full annotation system in monolith) ────
