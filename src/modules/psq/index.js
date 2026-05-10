@@ -342,8 +342,120 @@ async function stage1Apply() {
     }
 }
 
-function stage2Distribute() {
-    setStatus('Stage 2 .eml + Outlook + Gmail authuser deep-link — port Session 3r', '');
+// ══════════════════════════════════════════════════════════════════════
+//  Stage 2 — Build .eml file with comp1.xlsx + comp2.xlsx attachments
+//  RFC 2822 + MIME multipart/mixed. User drops the .eml into Outlook to
+//  get a draft with both attachments + subject + recipient line pre-filled.
+// ══════════════════════════════════════════════════════════════════════
+
+const _XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+/** @param {ArrayBuffer} buf @returns {string} */
+function _bufToBase64(buf) {
+    const bytes = new Uint8Array(buf);
+    let bin = '';
+    const CHUNK = 0x8000; // 32 KB chunks — avoids "argument list too long" at >100KB
+    for (let i = 0; i < bytes.length; i += CHUNK) {
+        bin += String.fromCharCode.apply(null, /** @type {any} */ (bytes.subarray(i, i + CHUNK)));
+    }
+    return btoa(bin);
+}
+
+/** @param {string} s64 @returns {string} */
+function _wrapBase64(s64) {
+    // RFC 2822 line length cap is 998 chars; 76 is the conventional MIME line
+    const out = [];
+    for (let i = 0; i < s64.length; i += 76) out.push(s64.slice(i, i + 76));
+    return out.join('\r\n');
+}
+
+/** @param {string} s @returns {string} */
+function _emlEncodeWord(s) {
+    // Encode non-ASCII subjects/filenames as RFC 2047 base64
+    if (!/[^\x20-\x7E]/.test(s)) return s;
+    return '=?utf-8?B?' + btoa(unescape(encodeURIComponent(s))) + '?=';
+}
+
+/** @param {string} hostname for Message-ID — best-effort, not strict */
+function _emlMessageId(hostname) {
+    const ts = Date.now().toString(36);
+    const rnd = Math.random().toString(36).slice(2, 10);
+    return `<${ts}.${rnd}@${hostname || 'pslink.local'}>`;
+}
+
+async function stage2Distribute() {
+    if (!_psqState.comp1 && !_psqState.comp2) {
+        setStatus('No comp1/comp2 attachments loaded — finish Stage 1 first', 'err');
+        return;
+    }
+    try {
+        setStatus('Building .eml…', '');
+        const boundary = '----PSLINK-' + Math.random().toString(36).slice(2, 10) + '-' + Date.now().toString(36);
+        const headers = [
+            'MIME-Version: 1.0',
+            'Date: ' + new Date().toUTCString(),
+            'Message-ID: ' + _emlMessageId(typeof location !== 'undefined' ? location.hostname : ''),
+            'Subject: ' + _emlEncodeWord('PSLink Quotation — Comp1 + Comp2'),
+            'From: ' + _emlEncodeWord('PSLink <noreply@pslink.local>'),
+            'To: ',
+            'X-Unsent: 1', // Outlook draft-mode hint — opens as draft, not sent message
+            `Content-Type: multipart/mixed; boundary="${boundary}"`,
+        ].join('\r\n');
+
+        const bodyPart = [
+            `--${boundary}`,
+            'Content-Type: text/plain; charset=utf-8',
+            'Content-Transfer-Encoding: 7bit',
+            '',
+            'เรียนผู้รับ,',
+            '',
+            'แนบใบเสนอราคา comp1.xlsx + comp2.xlsx มาด้วย',
+            '',
+            'ขอบคุณค่ะ',
+            'ส่งจาก PSLink (Vite shell)',
+            '',
+        ].join('\r\n');
+
+        /** @param {string} slotName @param {string} fname @param {ArrayBuffer} buf */
+        const buildAttachmentPart = (slotName, fname, buf) => [
+            `--${boundary}`,
+            `Content-Type: ${_XLSX_MIME}; name="${_emlEncodeWord(fname)}"`,
+            'Content-Transfer-Encoding: base64',
+            `Content-Disposition: attachment; filename="${_emlEncodeWord(fname)}"`,
+            '',
+            _wrapBase64(_bufToBase64(buf)),
+            '',
+        ].join('\r\n');
+
+        const parts = [headers, '', bodyPart];
+        if (_psqState.comp1 && _psqState.comp1.buffer) {
+            parts.push(buildAttachmentPart('comp1', _psqState.comp1.name || 'comp1.xlsx', _psqState.comp1.buffer));
+        }
+        if (_psqState.comp2 && _psqState.comp2.buffer) {
+            parts.push(buildAttachmentPart('comp2', _psqState.comp2.name || 'comp2.xlsx', _psqState.comp2.buffer));
+        }
+        parts.push(`--${boundary}--`, '');
+
+        const eml = parts.join('\r\n');
+        const blob = new Blob([eml], { type: 'message/rfc822' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 16);
+        a.download = `pslink-quotation-${stamp}.eml`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+        const sizes = [];
+        if (_psqState.comp1 && _psqState.comp1.buffer) sizes.push('comp1 ' + (_psqState.comp1.buffer.byteLength / 1024).toFixed(1) + 'KB');
+        if (_psqState.comp2 && _psqState.comp2.buffer) sizes.push('comp2 ' + (_psqState.comp2.buffer.byteLength / 1024).toFixed(1) + 'KB');
+        setStatus(`.eml downloaded · ${sizes.join(' · ')} · drop into Outlook`, 'ok');
+    } catch (e) {
+        const err = /** @type {any} */ (e);
+        setStatus('Stage 2 error: ' + ((err && err.message) || err), 'err');
+    }
 }
 
 // ══════════════════════════════════════════════════════════════════════
