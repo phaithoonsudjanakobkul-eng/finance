@@ -54,8 +54,17 @@ let _psiCalibMode = false;
 /** @type {{x: number, y: number}[]} */
 const _psiCalibPts = [];
 
+/** Persistent line measurements drawn over the image. Each entry stays
+ *  until "Clear measurements" so the user can compare multiple features. */
+/** @type {{a: {x:number,y:number}, b: {x:number,y:number}, microns: number | null}[]} */
+const _psiMeasurements = [];
+/** @type {boolean} */
+let _psiMeasureMode = false;
+/** @type {{x: number, y: number}[]} */
+const _psiMeasurePts = [];
+
 /** @type {{ [stage: string]: boolean }} */
-const _psiStageOpen = { '1': true, '2': true, '3': false };
+const _psiStageOpen = { '1': true, '2': true, '3': false, '4': false };
 
 // ── Histogram Web Worker (CLAUDE.md Rule 12 reference pattern) ─────────
 // Inline blob worker — counts R/G/B occurrences in pixel data buffer.
@@ -291,6 +300,7 @@ function drawCanvas(src) {
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
         applyDisplayAdjPreview();
         if (psImagingState.scaleBar.visible) drawScaleBar();
+        redrawAllMeasurements();
         if (placeholder) placeholder.style.display = 'none';
         canvas.style.display = '';
         // Hook histogram compute — bgCanvas is the rendered preview canvas itself
@@ -514,6 +524,25 @@ function renderPanel(rootEl) {
                 </div>
             </div>
 
+            <div class="stage" data-stage="4" data-open="${_psiStageOpen['4']}">
+                <div class="stage-hdr" data-toggle="4">
+                    <span class="num">Stage 4</span>
+                    <span class="title">Measurements</span>
+                    <span class="arrow">›</span>
+                </div>
+                <div class="stage-body">
+                    <div class="actions">
+                        <button class="act" id="psi-measure-line">Measure line</button>
+                        <button class="act ghost" id="psi-measure-clear">Clear all</button>
+                        <span id="psi-measure-hint" style="font-size:11px;color:var(--dim, #888);"></span>
+                    </div>
+                    <div id="psi-measure-list" style="margin-top:10px;font-family:var(--mono, monospace);font-size:11px;color:var(--dim, #888);"></div>
+                    <div style="font-size:11px;color:var(--dim, #888);margin-top:8px;line-height:1.5;">
+                        Calibrate first (Stage 1) for real micron readouts; uncalibrated lines show pixel length only.
+                    </div>
+                </div>
+            </div>
+
             <div class="actions">
                 <button class="act"       id="psi-save-btn">Save PNG</button>
                 <button class="act ghost" id="psi-redraw-btn">Redraw</button>
@@ -671,8 +700,15 @@ function wireEvents() {
 
     // Calibration line tool
     panel.querySelector('#psi-calib-line')?.addEventListener('click', () => startCalibLine());
+    panel.querySelector('#psi-measure-line')?.addEventListener('click', () => startMeasureLine());
+    panel.querySelector('#psi-measure-clear')?.addEventListener('click', () => clearMeasurements());
     const canvas = /** @type {HTMLCanvasElement | null} */ (panel.querySelector('#psi-canvas'));
-    if (canvas) canvas.addEventListener('click', onCalibCanvasClick);
+    if (canvas) {
+        canvas.addEventListener('click', (ev) => {
+            if (_psiCalibMode) onCalibCanvasClick(ev);
+            else if (_psiMeasureMode) onMeasureCanvasClick(ev);
+        });
+    }
 }
 
 // ── Calibration line tool ──────────────────────────────────────────────
@@ -775,6 +811,122 @@ function drawCalibLine(/** @type {HTMLCanvasElement} */ canvas, /** @type {{x:nu
     ctx.lineTo(b.x, b.y);
     ctx.stroke();
     ctx.restore();
+}
+
+// ── Measurement line tool ──────────────────────────────────────────────
+
+function paintMeasureHint(/** @type {string} */ text) {
+    if (!_psiPanel) return;
+    const el = _psiPanel.querySelector('#psi-measure-hint');
+    if (el) el.textContent = text;
+}
+
+function startMeasureLine() {
+    if (!_psiPanel) return;
+    const canvas = /** @type {HTMLCanvasElement | null} */ (_psiPanel.querySelector('#psi-canvas'));
+    if (!canvas || canvas.style.display === 'none') {
+        setStatus('Load an image first', 'err');
+        return;
+    }
+    if (_psiCalibMode) exitCalibLine();
+    _psiMeasureMode = true;
+    _psiMeasurePts.length = 0;
+    canvas.style.cursor = 'crosshair';
+    paintMeasureHint('Click point 1');
+}
+
+function exitMeasureMode() {
+    if (!_psiPanel) return;
+    _psiMeasureMode = false;
+    _psiMeasurePts.length = 0;
+    const canvas = /** @type {HTMLCanvasElement | null} */ (_psiPanel.querySelector('#psi-canvas'));
+    if (canvas) canvas.style.cursor = '';
+    paintMeasureHint('');
+}
+
+function clearMeasurements() {
+    _psiMeasurements.length = 0;
+    renderMeasureList();
+    drawCanvas(psImagingState.currentImageUrl);
+    setStatus('Cleared measurements', 'ok');
+}
+
+function renderMeasureList() {
+    if (!_psiPanel) return;
+    const el = _psiPanel.querySelector('#psi-measure-list');
+    if (!el) return;
+    if (!_psiMeasurements.length) { el.textContent = ''; return; }
+    el.innerHTML = _psiMeasurements.map((m, i) => {
+        const px = distancePx(m.a, m.b);
+        const um = m.microns != null ? m.microns.toFixed(2) + ' µm' : `${px.toFixed(1)}px (no calib)`;
+        return `<div style="padding:3px 0;">${i + 1}. ${um}</div>`;
+    }).join('');
+}
+
+function drawMeasurement(/** @type {HTMLCanvasElement} */ canvas, /** @type {{a:{x:number,y:number}, b:{x:number,y:number}, microns: number | null}} */ m) {
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.save();
+    ctx.strokeStyle = '#fbbf24';
+    ctx.fillStyle = '#fbbf24';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(m.a.x, m.a.y);
+    ctx.lineTo(m.b.x, m.b.y);
+    ctx.stroke();
+    // Tick marks at endpoints (perpendicular to line)
+    const dx = m.b.x - m.a.x, dy = m.b.y - m.a.y;
+    const len = Math.sqrt(dx * dx + dy * dy) || 1;
+    const nx = -dy / len * 5, ny = dx / len * 5;
+    [m.a, m.b].forEach((p) => {
+        ctx.beginPath();
+        ctx.moveTo(p.x - nx, p.y - ny);
+        ctx.lineTo(p.x + nx, p.y + ny);
+        ctx.stroke();
+    });
+    // Label at midpoint
+    const mx = (m.a.x + m.b.x) / 2, my = (m.a.y + m.b.y) / 2;
+    const label = m.microns != null ? `${m.microns.toFixed(2)} µm` : `${distancePx(m.a, m.b).toFixed(1)}px`;
+    ctx.font = 'bold 11px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const w = ctx.measureText(label).width;
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+    ctx.fillRect(mx - w / 2 - 4, my - 8, w + 8, 16);
+    ctx.fillStyle = '#fbbf24';
+    ctx.fillText(label, mx, my);
+    ctx.restore();
+}
+
+function redrawAllMeasurements() {
+    if (!_psiPanel) return;
+    const canvas = /** @type {HTMLCanvasElement | null} */ (_psiPanel.querySelector('#psi-canvas'));
+    if (!canvas) return;
+    for (const m of _psiMeasurements) drawMeasurement(canvas, m);
+}
+
+/** @param {MouseEvent} ev */
+function onMeasureCanvasClick(ev) {
+    if (!_psiMeasureMode || !_psiPanel) return;
+    const canvas = /** @type {HTMLCanvasElement | null} */ (_psiPanel.querySelector('#psi-canvas'));
+    if (!canvas) return;
+    const pt = canvasPointFromClick(canvas, ev);
+    _psiMeasurePts.push(pt);
+    drawCalibMarker(canvas, pt, _psiMeasurePts.length);
+    if (_psiMeasurePts.length === 1) {
+        paintMeasureHint('Click point 2');
+        return;
+    }
+    const a = _psiMeasurePts[0], b = _psiMeasurePts[1];
+    const px = distancePx(a, b);
+    if (px <= 0) { exitMeasureMode(); return; }
+    const ppm = psImagingState.pixelPerMicron;
+    const microns = (typeof ppm === 'number' && ppm > 0) ? px / ppm : null;
+    _psiMeasurements.push({ a, b, microns });
+    drawCanvas(psImagingState.currentImageUrl); // clean redraw — new measurement painted via redrawAllMeasurements after image loads
+    renderMeasureList();
+    setStatus(microns != null ? `Line ${_psiMeasurements.length}: ${microns.toFixed(2)} µm` : `Line ${_psiMeasurements.length}: ${px.toFixed(1)}px`, 'ok');
+    exitMeasureMode();
 }
 
 // ── Module lifecycle ───────────────────────────────────────────────────
