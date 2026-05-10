@@ -27,20 +27,90 @@
             --sans: 'Inter', system-ui, sans-serif;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: var(--sans); background: var(--bg); color: var(--fg); padding: 32px; line-height: 1.5; min-height: 100vh; }
+        body { font-family: var(--sans); background: var(--bg); color: var(--fg); line-height: 1.5; min-height: 100vh; }
         h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 8px; }
-        h2 { font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent); margin-top: 24px; margin-bottom: 12px; }
-        p  { color: var(--dim); font-size: 14px; margin-bottom: 16px; }
-        .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
-        button { font-family: var(--sans); font-size: 14px; font-weight: 600; background: var(--accent); color: #000; border: 0; padding: 10px 20px; border-radius: 8px; cursor: pointer; transition: opacity .15s; }
+        h2 { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent); margin-top: 24px; margin-bottom: 12px; }
+        p  { color: var(--dim); font-size: 13px; margin-bottom: 12px; }
+        .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 12px; }
+        button { font-family: var(--sans); font-size: 13px; font-weight: 600; background: var(--accent); color: #000; border: 0; padding: 8px 14px; border-radius: 6px; cursor: pointer; transition: opacity .15s; }
         button:hover  { opacity: .85; }
         button[disabled] { opacity: .5; cursor: not-allowed; }
-        pre { font-family: var(--mono); font-size: 12px; background: #000; color: var(--accent); padding: 16px; border-radius: 8px; overflow: auto; white-space: pre-wrap; word-break: break-word; min-height: 60px; }
-        code { font-family: var(--mono); font-size: 12px; background: #000; padding: 2px 6px; border-radius: 4px; color: var(--accent); }
-        ul { padding-left: 20px; color: var(--dim); font-size: 13px; }
+        pre { font-family: var(--mono); font-size: 11px; background: #000; color: var(--accent); padding: 12px; border-radius: 6px; overflow: auto; white-space: pre-wrap; word-break: break-word; min-height: 40px; }
+        code { font-family: var(--mono); font-size: 11px; background: #000; padding: 2px 6px; border-radius: 4px; color: var(--accent); }
+        ul { padding-left: 20px; color: var(--dim); font-size: 12px; }
         li { margin-bottom: 4px; }
-        .pill { display: inline-block; font-family: var(--mono); font-size: 11px; padding: 2px 8px; border-radius: 999px; background: var(--accent); color: #000; font-weight: 700; vertical-align: middle; margin-left: 8px; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+        .pill { display: inline-block; font-family: var(--mono); font-size: 10px; padding: 2px 8px; border-radius: 999px; background: var(--accent); color: #000; font-weight: 700; vertical-align: middle; margin-left: 8px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
+
+        /* ── Top nav (shell chrome) ──────────────────────────────────── */
+        .ps-nav {
+            position: sticky; top: 0; z-index: 100;
+            display: flex; align-items: center; gap: 14px;
+            padding: 10px 20px;
+            background: color-mix(in srgb, var(--bg) 85%, transparent);
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border);
+        }
+        .ps-nav-brand { display: flex; align-items: baseline; gap: 6px; user-select: none; }
+        .ps-brand-name {
+            font-family: var(--sans); font-size: 18px; font-weight: 800;
+            letter-spacing: -0.02em; color: var(--fg);
+        }
+        .ps-brand-sub {
+            font-family: var(--mono); font-size: 10px; font-weight: 700;
+            color: var(--accent); text-transform: uppercase; letter-spacing: 0.08em;
+        }
+        .ps-nav-tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+        .ps-tab-pill {
+            background: transparent; color: var(--dim);
+            border: 1px solid transparent; padding: 6px 12px; border-radius: 999px;
+            font-size: 12px; font-weight: 600; letter-spacing: 0.02em;
+            text-transform: uppercase;
+        }
+        .ps-tab-pill:hover { background: var(--card); color: var(--fg); opacity: 1; }
+        .ps-tab-pill.is-active {
+            background: var(--accent); color: #000;
+        }
+        .ps-tab-pill.is-active:hover { opacity: 0.9; }
+        .ps-nav-widgets {
+            margin-left: auto; display: flex; align-items: center; gap: 8px;
+        }
+        .ps-clock {
+            font-family: var(--mono); font-size: 12px; color: var(--dim);
+            padding: 4px 10px; border: 1px solid var(--border); border-radius: 6px;
+            background: var(--card); user-select: none;
+            font-variant-numeric: tabular-nums;
+        }
+        .ps-icon-btn {
+            background: var(--card); color: var(--fg); border: 1px solid var(--border);
+            padding: 6px 10px; border-radius: 6px; font-size: 13px; line-height: 1;
+            display: inline-flex; align-items: center; gap: 4px;
+        }
+        .ps-icon-btn:hover { background: var(--border); }
+
+        /* ── Main tab area ──────────────────────────────────────────── */
+        .ps-main { padding: 18px 20px 32px; max-width: 1400px; margin: 0 auto; }
+        #tab-mount {
+            min-height: 400px; background: var(--bg);
+            border: 1px solid var(--border); border-radius: 10px;
+            overflow: hidden;
+        }
+
+        /* ── Dev panel (collapsed by default) ───────────────────────── */
+        .ps-dev-panel {
+            margin: 24px 20px 32px; max-width: 1400px;
+            border: 1px dashed var(--border); border-radius: 8px;
+            padding: 12px 16px; background: rgba(0, 0, 0, 0.3);
+        }
+        .ps-dev-panel summary {
+            cursor: pointer; user-select: none;
+            font-family: var(--mono); font-size: 11px; font-weight: 700;
+            color: var(--dim); text-transform: uppercase; letter-spacing: 0.08em;
+            padding: 4px 0;
+        }
+        .ps-dev-panel summary:hover { color: var(--fg); }
+        .ps-dev-panel[open] summary { color: var(--accent); margin-bottom: 12px; }
+        .ps-dev-panel h2:first-of-type { margin-top: 12px; }
     </style>
 </head>
 <body>
@@ -61,103 +131,88 @@
         }
         #v2-splash.v2-splash-fade { opacity: 0; pointer-events: none; }
     </style>
-    <h1>PSLink v2 <span class="pill">Vite scaffold</span></h1>
-    <p>Session 3a proof-of-concept page. Production app still ships from root <code>index.html</code>. This page tests the Vite + lazy-import infrastructure that future Session 3 sub-sessions will grow into the full shell.</p>
+    <!-- ── Top nav (shell chrome) ──────────────────────────────────── -->
+    <nav class="ps-nav">
+        <div class="ps-nav-brand">
+            <span class="ps-brand-name">PSLink</span>
+            <span class="ps-brand-sub">v2</span>
+        </div>
+        <div class="ps-nav-tabs">
+            <button class="ps-tab-pill" data-tab="dashboard">Dashboard</button>
+            <button class="ps-tab-pill" data-tab="records">Records</button>
+            <button class="ps-tab-pill" data-tab="watchlist">Watchlist</button>
+            <button class="ps-tab-pill" data-tab="news">News</button>
+            <button class="ps-tab-pill" data-tab="utilities">Utilities</button>
+            <button class="ps-tab-pill" data-tab="settings">Settings</button>
+        </div>
+        <div class="ps-nav-widgets">
+            <span id="ps-clock" class="ps-clock">--:--</span>
+            <span id="widget-host" style="display:inline-flex;gap:6px;align-items:center;"></span>
+        </div>
+    </nav>
 
-    <h2>Tab router (Step 6)</h2>
-    <div class="card">
-        <p>Each tab is its own dynamic-import chunk. Switching tabs destroys the previous tab before booting the next one. <code>ps_v2_active_tab</code> in localStorage restores last tab on refresh.</p>
-        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;align-items:center;">
-            <button data-tab="dashboard">Dashboard</button>
-            <button data-tab="records">Records</button>
-            <button data-tab="watchlist">Watchlist</button>
-            <button data-tab="news">News</button>
-            <button data-tab="utilities">Utilities</button>
-            <button data-tab="settings">Settings</button>
-            <span id="widget-host" style="margin-left:auto;display:inline-flex;gap:6px;"></span>
+    <!-- ── Main tab area ──────────────────────────────────────────── -->
+    <main class="ps-main">
+        <div id="tab-mount">
+            <div style="padding:24px;color:var(--dim);font-size:13px;">Loading active tab…</div>
         </div>
-        <div id="tab-mount" style="min-height:200px;background:var(--bg);border:1px solid var(--border);border-radius:10px;overflow:auto;">
-            <div style="padding:18px;color:var(--dim);font-size:13px;">Loading active tab…</div>
-        </div>
-    </div>
+    </main>
 
-    <h2>Lazy module loader</h2>
-    <div class="card">
-        <p>Click any module below to load it via dynamic <code>import()</code>. Each module ships as its own chunk under <code>dist/assets/</code>; first click downloads + initializes, subsequent clicks hit cache. Idle pre-warm fires after 2s to fetch all chunks in the background.</p>
-        <p style="font-size:12px;color:#888;">PSAI now renders its full settings panel (Session 3d UI port). Other modules return JSON describing their state until their UI port lands.</p>
-        <div style="display:flex;flex-wrap:wrap;gap:8px;">
-            <button data-module="psai">Load PSAI <span style="font-size:10px;opacity:.7;">(real UI)</span></button>
-            <button data-module="psbgr">Load PSBGR <span style="font-size:10px;opacity:.7;">(real UI)</span></button>
-            <button data-module="psec">Load PSEC <span style="font-size:10px;opacity:.7;">(real UI)</span></button>
-            <button data-module="psf">Load PSF <span style="font-size:10px;opacity:.7;">(real UI)</span></button>
-            <button data-module="psi">Load PSI <span style="font-size:10px;opacity:.7;">(real UI)</span></button>
-            <button data-module="psq">Load PSQ <span style="font-size:10px;opacity:.7;">(real UI)</span></button>
-            <button data-module="psup">Load PSUP <span style="font-size:10px;opacity:.7;">(real UI)</span></button>
-        </div>
-    </div>
+    <!-- ── Dev panel (collapsed by default) ───────────────────────── -->
+    <details class="ps-dev-panel">
+        <summary>Developer tools · preset switcher · module loader · status</summary>
 
-    <h2>Module mount point</h2>
-    <div id="module-mount" class="card" style="min-height:120px;background:var(--bg);">
-        <p style="color:var(--dim);">Modules with a real UI (currently PSAI) render here. Other modules report status to <code>#demo-output</code>.</p>
-    </div>
+        <h2>Preset switcher</h2>
+        <div class="card">
+            <p>Origin / Phosphor / Studio / Cinematic — writes 5-axis CSS vars + variant colors to <code>:root</code>. Toggle dark mode to see darkOnly presets auto-flip.</p>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
+                <button data-preset="origin">Origin</button>
+                <button data-preset="phosphor">Phosphor</button>
+                <button data-preset="studio">Studio Warm</button>
+                <button data-preset="cinematic">Cinematic</button>
+                <button id="toggle-dark" style="background:var(--card);color:var(--fg);border:1px solid var(--border);">Toggle dark</button>
+            </div>
+            <div id="variant-bar" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;font-size:12px;color:var(--dim);"></div>
+            <pre id="preset-output" style="margin-top:8px;min-height:24px;">Click a preset to apply</pre>
+        </div>
 
-    <pre id="demo-output">Click any module button above...</pre>
+        <h2>Lazy module loader</h2>
+        <div class="card">
+            <p>Click any module to load it via dynamic <code>import()</code>. First click downloads, subsequent hit cache. Idle pre-warm at 2s.</p>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
+                <button data-module="psai">PSAI</button>
+                <button data-module="psbgr">PSBGR</button>
+                <button data-module="psec">PSEC</button>
+                <button data-module="psf">PSF</button>
+                <button data-module="psi">PSI</button>
+                <button data-module="psq">PSQ</button>
+                <button data-module="psup">PSUP</button>
+            </div>
+            <div id="module-mount" style="min-height:80px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px;"></div>
+            <pre id="demo-output" style="min-height:32px;">Click a module above...</pre>
+        </div>
 
-    <h2>Preset switcher (Session 3t — Step 5)</h2>
-    <div class="card">
-        <p>Origin / Phosphor / Studio / Cinematic — switching writes 5-axis CSS vars + variant colors to <code>:root</code>. Toggle dark mode to see darkOnly presets auto-flip + light slot heal.</p>
-        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
-            <button data-preset="origin">Origin</button>
-            <button data-preset="phosphor">Phosphor <span style="font-size:10px;opacity:.7;">(dark-only · 4 variants)</span></button>
-            <button data-preset="studio">Studio Warm <span style="font-size:10px;opacity:.7;">(1 variant)</span></button>
-            <button data-preset="cinematic">Cinematic <span style="font-size:10px;opacity:.7;">(dark-only · 2 variants)</span></button>
-            <button id="toggle-dark" style="background:var(--card);color:var(--fg);border:1px solid var(--border);">Toggle dark</button>
-        </div>
-        <div id="variant-bar" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;font-size:12px;color:var(--dim);"></div>
-        <pre id="preset-output" style="margin-top:8px;min-height:32px;">Click a preset to apply</pre>
-    </div>
-
-    <h2>What's wired (Session 3 complete)</h2>
-    <div class="grid">
-        <div class="card">
-            <strong>core/bus.js</strong> — pub/sub event bus (Architecture conv. Hard Rule §4)
-        </div>
-        <div class="card">
-            <strong>core/storage.js</strong> — lsSave wrapper (F1-compatible, quota-safe)
-        </div>
-        <div class="card">
-            <strong>main.js</strong> — entry + lazy loader + idle pre-warm
-        </div>
-        <div class="card">
-            <strong>modules/psai/</strong> — Flux Kontext settings + env guards
-        </div>
-        <div class="card">
-            <strong>modules/psbgr/</strong> — tier registry + state container
-        </div>
-        <div class="card">
-            <strong>modules/psec/</strong> — template registry + state I/O
-        </div>
-        <div class="card">
-            <strong>modules/psf/</strong> — rows + history scaffolding (largest module)
-        </div>
-        <div class="card">
-            <strong>modules/psi/</strong> — imaging state + calibration + OpenCV loader contract
-        </div>
-        <div class="card">
-            <strong>modules/psq/</strong> — counter helpers + period logic + storage keys + workers
-        </div>
-        <div class="card">
-            <strong>modules/psup/</strong> — 3-model registry + queue + memory monitor
-        </div>
-    </div>
-
-    <h2>Status</h2>
-    <ul>
-        <li>Production root <code>index.html</code> = unchanged (still ships via dev-server.js auto-deploy)</li>
-        <li>This page (<code>src/index.html</code>) = Vite-native shell, builds to <code>dist/src/index.html</code></li>
-        <li>Cutover: Phase B end (Session 3 final) — root will be replaced with full Vite output</li>
-    </ul>
+        <h2>Status</h2>
+        <ul>
+            <li>Production root <code>index.html</code> = unchanged (auto-deploy via dev-server.js)</li>
+            <li>This page (<code>src/index.html</code>) = Vite shell, builds to <code>dist/src/index.html</code></li>
+            <li>Cutover: when v2 reaches feature + visual parity with monolith</li>
+        </ul>
+    </details>
 
     <script type="module" src="/src/main.js"></script>
+    <script>
+        // Clock — minimal HH:MM display in nav. 30s tick (matches clock-card precision).
+        (function _psClock() {
+            const el = document.getElementById('ps-clock');
+            if (!el) return;
+            function paint() {
+                const d = new Date();
+                el.textContent = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+            }
+            paint();
+            setInterval(paint, 30_000);
+        })();
+    </script>
 </body>
 </html>

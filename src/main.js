@@ -277,9 +277,11 @@ window.addEventListener('DOMContentLoaded', () => {
 
     function setActiveBtn(/** @type {string} */ id) {
         tabBtns.forEach((b) => {
+            // Class-driven so the .ps-tab-pill.is-active CSS in src/index.html
+            // can paint pill style (transparent → accent fill on active) without
+            // fighting inline styles. Class fallback when nav uses plain <button>.
             const isActive = b.getAttribute('data-tab') === id;
-            b.style.background = isActive ? 'var(--accent, #089981)' : 'var(--card, #1a1a1a)';
-            b.style.color = isActive ? '#000' : 'var(--fg, #f5f5f7)';
+            b.classList.toggle('is-active', isActive);
         });
     }
 
