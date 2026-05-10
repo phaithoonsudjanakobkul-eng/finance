@@ -32,3 +32,15 @@
     will-change: background-color;
     contain: layout style;
 }
+
+/* Viewport culling perf hints — content-visibility lets Chromium skip
+ * layout/paint for rows outside the viewport. contain-intrinsic-size
+ * provides a stable placeholder height so the scrollbar doesn't jump.
+ * Pairs with the IntersectionObserver in tabs/watchlist/index.js: the
+ * observer guards JS hot-path DOM writes, content-visibility guards the
+ * browser's own layout pass for rows the observer hasn't yet reached. */
+.wl-row {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 40px;
+    contain: layout style paint;
+}

@@ -75,6 +75,15 @@ let _wsTickCount = 0;
 /** @type {number} */
 let _wsReconnectTimer = 0;
 
+/** Symbols whose <tr> is currently scrolled out of view. flushTicks skips
+ *  DOM writes for these so off-screen ticks don't burn paint cycles. The
+ *  underlying _liveCache still updates so when the row re-enters the
+ *  viewport, repaintRowFromCache catches it up. */
+/** @type {Set<string>} */
+const _wlHiddenRows = new Set();
+/** @type {IntersectionObserver | null} */
+let _wlObserver = null;
+
 // ── Reads ──────────────────────────────────────────────────────────────
 
 /** @returns {string[]} */
@@ -292,6 +301,8 @@ function repaint() {
         </tr>`;
     }).join('');
     tbody.innerHTML = rows;
+    // Re-observe rows after innerHTML rebuild — old <tr> refs are dead
+    setupViewportObserver();
     paintSortIndicators();
     paintFocusActive();
     renderFocusCard();
@@ -731,6 +742,14 @@ function flushTicks() {
         }
         if (typeof c.h !== 'number' || price > c.h) c.h = price;
         if (typeof c.l !== 'number' || price < c.l) c.l = price;
+        // Focus card always refreshes — sits above the table and may show a
+        // symbol whose row is currently scrolled off
+        if (sym === _focusSym) renderFocusCard();
+        // Viewport culling: rows scrolled off-screen still update _liveCache
+        // (so re-entry catches up via repaintRowFromCache) but skip DOM
+        // writes entirely. Burst ticks on a 100-symbol watchlist with most
+        // rows off-screen no longer cost layout/paint on hidden rows.
+        if (_wlHiddenRows.has(sym)) { touched++; continue; }
         // Hot-path partial DOM update — surgical update without rebuilding rows.
         // Skips if row is off-DOM (filter active or wasn't rendered).
         const row = /** @type {HTMLElement | null} */ (_panel.querySelector(`tr[data-sym="${cssEscapeAttr(sym)}"]`));
@@ -757,8 +776,6 @@ function flushTicks() {
             }
         }
         touched++;
-        // If focus card is showing this symbol, refresh it too (cheap re-render)
-        if (sym === _focusSym) renderFocusCard();
     }
     _pendingTicks.clear();
     _wsTickCount += touched;
@@ -794,6 +811,73 @@ function stopWsPersist() {
 
 function cssEscapeAttr(/** @type {string} */ s) {
     return String(s).replace(/(["\\])/g, '\\$1');
+}
+
+// ── Viewport culling ───────────────────────────────────────────────────
+//
+// IntersectionObserver tracks which .wl-row elements are currently visible
+// inside #wl-table-wrap. Off-viewport rows go into _wlHiddenRows and skip
+// DOM writes in flushTicks (cache still updates). On re-entry,
+// repaintRowFromCache catches the row up so the user never sees stale data.
+
+function setupViewportObserver() {
+    if (typeof IntersectionObserver === 'undefined' || !_panel) return;
+    if (_wlObserver) { _wlObserver.disconnect(); _wlObserver = null; }
+    _wlHiddenRows.clear();
+    const root = /** @type {HTMLElement | null} */ (_panel.querySelector('#wl-table-wrap'));
+    _wlObserver = new IntersectionObserver((entries) => {
+        for (const entry of entries) {
+            const sym = /** @type {HTMLElement} */ (entry.target).getAttribute('data-sym');
+            if (!sym) continue;
+            if (entry.isIntersecting) {
+                if (_wlHiddenRows.has(sym)) {
+                    _wlHiddenRows.delete(sym);
+                    repaintRowFromCache(sym);
+                }
+            } else {
+                _wlHiddenRows.add(sym);
+            }
+        }
+    }, {
+        root: root || null,
+        // 120px margin so a fast scroll doesn't catch a row mid-update;
+        // rows just outside the viewport pre-paint before they slide in
+        rootMargin: '120px 0px',
+        threshold: 0,
+    });
+    if (_panel) {
+        _panel.querySelectorAll('.wl-row').forEach((r) => {
+            if (_wlObserver) _wlObserver.observe(r);
+        });
+    }
+}
+
+/** Catch a row up from _liveCache when it slides back into view. Mirrors the
+ *  hot-path DOM update inside flushTicks so a row that was hidden during a
+ *  WS burst shows the latest price the moment it re-enters the viewport. */
+function repaintRowFromCache(/** @type {string} */ sym) {
+    if (!_panel) return;
+    const cache = _liveCache || loadCache();
+    const c = cache[sym];
+    if (!c) return;
+    const row = /** @type {HTMLElement | null} */ (_panel.querySelector(`tr[data-sym="${cssEscapeAttr(sym)}"]`));
+    if (!row) return;
+    const cells = row.children;
+    if (cells[2] && typeof c.c === 'number') {
+        cells[2].textContent = _PRICE_FMT.format(c.c);
+    }
+    if (typeof c.d === 'number') {
+        const sign = c.d >= 0;
+        const color = sign ? 'var(--wl-up, #10b981)' : 'var(--wl-dn, #ef4444)';
+        if (cells[3]) {
+            cells[3].textContent = _DELTA_FMT.format(c.d);
+            /** @type {HTMLElement} */ (cells[3]).style.color = color;
+        }
+        if (cells[4] && typeof c.dp === 'number') {
+            cells[4].textContent = _DELTA_FMT.format(c.dp) + '%';
+            /** @type {HTMLElement} */ (cells[4]).style.color = color;
+        }
+    }
 }
 
 // ── Lifecycle ──────────────────────────────────────────────────────────
@@ -888,6 +972,8 @@ export function destroy() {
     _ctrl = null;
     stopAuto();
     stopWs();
+    if (_wlObserver) { try { _wlObserver.disconnect(); } catch (e) { /* swallow */ } _wlObserver = null; }
+    _wlHiddenRows.clear();
     if (_visOff) { try { _visOff(); } catch (e) { /* swallow */ } }
     _visOff = null;
     _focusSym = '';
