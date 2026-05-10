@@ -44,3 +44,13 @@
     contain-intrinsic-size: auto 40px;
     contain: layout style paint;
 }
+
+/* Per-row Remove button: subtle by default, hot on row hover so the
+ * user sees an affordance without the column looking cluttered. */
+.wl-row button[data-rm]:hover {
+    opacity: 1 !important;
+    color: var(--wl-dn, #ef4444) !important;
+}
+.wl-row:hover button[data-rm] {
+    opacity: 0.75;
+}

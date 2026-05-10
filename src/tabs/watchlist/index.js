@@ -94,6 +94,56 @@ function loadSymbols() {
     return raw.filter((/** @type {any} */ s) => typeof s === 'string' && s.length);
 }
 
+/** @param {string[]} syms */
+function persistSymbols(syms) {
+    try { lsSave('ps_watchlist', JSON.stringify(syms)); }
+    catch (e) { /* swallow */ }
+}
+
+/** Symbol validation matches Finnhub's accepted character set —
+ *  A-Z 0-9 . - = ^ (covers stocks, ETFs, indices, futures). 1-12 chars. */
+const _SYM_RE = /^[A-Z0-9.\-=^]{1,12}$/;
+
+/** @param {string} input @returns {string | null} */
+function normalizeSymbol(input) {
+    const sym = String(input || '').trim().toUpperCase();
+    if (!_SYM_RE.test(sym)) return null;
+    return sym;
+}
+
+/** @param {string} input */
+function addSymbol(input) {
+    const sym = normalizeSymbol(input);
+    if (!sym) {
+        setStatus(`Invalid symbol "${input}" — letters, digits, . - = ^ only`);
+        return false;
+    }
+    const syms = loadSymbols();
+    if (syms.includes(sym)) {
+        setStatus(`${sym} already in watchlist`);
+        return false;
+    }
+    syms.push(sym);
+    persistSymbols(syms);
+    repaint();
+    setStatus(`Added ${sym} · ${syms.length} symbol(s) total`);
+    bus.emit('watchlist:added', { sym });
+    // Trigger an immediate quote fetch so the new row doesn't render with em-dashes
+    refreshLive();
+    return true;
+}
+
+/** @param {string} sym */
+function removeSymbol(sym) {
+    const syms = loadSymbols().filter((s) => s !== sym);
+    persistSymbols(syms);
+    if (_pinned.has(sym)) { _pinned.delete(sym); persistPinned(); }
+    if (_focusSym === sym) _focusSym = '';
+    repaint();
+    setStatus(`Removed ${sym} · ${syms.length} symbol(s) left`);
+    bus.emit('watchlist:removed', { sym });
+}
+
 function loadPinned() {
     const raw = /** @type {any} */ (lsGetJson('ps_pinned_wl', []));
     _pinned = new Set(Array.isArray(raw) ? raw.filter((/** @type {any} */ s) => typeof s === 'string') : []);
@@ -183,7 +233,8 @@ function renderPanel(/** @type {HTMLElement} */ rootEl) {
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
                 <span style="font-size:18px;font-weight:700;letter-spacing:-0.02em;">Watchlist</span>
                 <span style="font-size:11px;color:var(--dim, #888);font-family:var(--mono, monospace);">tab/watchlist · read-only</span>
-                <input id="wl-filter" type="search" placeholder="Filter symbol or name…" autocomplete="off" style="margin-left:auto;background:var(--card, #1a1a1a);border:1px solid var(--border, #2a2a2a);color:var(--fg, #f5f5f7);padding:6px 10px;border-radius:6px;font-family:var(--mono, monospace);font-size:12px;min-width:200px;outline:none;">
+                <input id="wl-add" type="text" placeholder="Add symbol (e.g. AAPL)" autocomplete="off" spellcheck="false" maxlength="12" style="margin-left:auto;background:var(--bg, #0d0d0d);border:1px solid var(--border, #2a2a2a);color:var(--fg, #f5f5f7);padding:6px 10px;border-radius:6px;font-family:var(--mono, monospace);font-size:12px;text-transform:uppercase;width:170px;outline:none;">
+                <input id="wl-filter" type="search" placeholder="Filter symbol or name…" autocomplete="off" style="background:var(--card, #1a1a1a);border:1px solid var(--border, #2a2a2a);color:var(--fg, #f5f5f7);padding:6px 10px;border-radius:6px;font-family:var(--mono, monospace);font-size:12px;min-width:200px;outline:none;">
                 <span id="wl-ws-indicator" style="display:none;align-items:center;gap:4px;font-size:10px;color:var(--dim, #888);font-family:var(--mono, monospace);">
                     <span id="wl-ws-dot" style="width:6px;height:6px;border-radius:50%;background:var(--dim, #888);"></span>
                     <span id="wl-ws-tickcount">0</span>
@@ -269,8 +320,9 @@ function repaint() {
             : `<span style="color:var(--dim, #888);font-family:var(--mono, monospace);font-size:11px;">—</span>`;
         const isPinned = _pinned.has(sym);
         const pinBtn = `<button data-pin="${escapeAttr(sym)}" title="${isPinned ? 'Unpin' : 'Pin to top'}" style="background:transparent;border:0;color:${isPinned ? 'var(--accent, #089981)' : 'var(--dim, #888)'};cursor:pointer;font-size:12px;line-height:1;padding:0 4px 0 0;${isPinned ? 'text-shadow:0 0 4px var(--accent, #089981);' : ''}">${isPinned ? '★' : '☆'}</button>`;
+        const rmBtn = `<button data-rm="${escapeAttr(sym)}" title="Remove ${sym}" style="background:transparent;border:0;color:var(--dim, #888);cursor:pointer;font-size:14px;line-height:1;padding:0 0 0 6px;opacity:0.4;transition:opacity 120ms, color 120ms;">×</button>`;
         return `<tr class="wl-row" data-sym="${escapeAttr(sym)}" style="border-top:1px solid var(--border, #2a2a2a);">
-            <td style="padding:10px 12px;font-family:var(--mono, monospace);font-weight:700;letter-spacing:0.02em;">${pinBtn}${escapeHtml(sym)}</td>
+            <td style="padding:10px 12px;font-family:var(--mono, monospace);font-weight:700;letter-spacing:0.02em;white-space:nowrap;">${pinBtn}${escapeHtml(sym)}${rmBtn}</td>
             <td style="padding:10px 12px;color:var(--dim, #888);max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${name || '—'}</td>
             <td style="padding:10px 12px;text-align:right;font-family:var(--mono, monospace);">${last}</td>
             <td style="padding:10px 12px;text-align:right;font-family:var(--mono, monospace);color:${dColor};">${d}</td>
@@ -883,6 +935,12 @@ export function init(/** @type {HTMLElement} */ rootEl) {
             if (sym) togglePin(sym);
             return;
         }
+        const rmBtn = t.closest('button[data-rm]');
+        if (rmBtn) {
+            const sym = rmBtn.getAttribute('data-rm');
+            if (sym) removeSymbol(sym);
+            return;
+        }
         const sortHeader = t.closest('th[data-sort]');
         if (sortHeader) {
             const f = sortHeader.getAttribute('data-sort');
@@ -914,6 +972,14 @@ export function init(/** @type {HTMLElement} */ rootEl) {
         if (t && t.id === 'wl-filter') {
             _filter = t.value;
             repaint();
+        }
+    });
+    rootEl.addEventListener('keydown', (/** @type {KeyboardEvent} */ e) => {
+        const t = /** @type {HTMLInputElement} */ (e.target);
+        if (t && t.id === 'wl-add' && e.key === 'Enter') {
+            e.preventDefault();
+            const ok = addSymbol(t.value);
+            if (ok) t.value = '';
         }
     });
     // Resume / pause on tab visibility — keeps API rate sane when hidden
