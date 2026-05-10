@@ -34,6 +34,12 @@ const _VOL_FMT   = new Intl.NumberFormat('en-US', { notation: 'compact', maximum
 
 const AUTO_INTERVAL_MS = 30_000;
 const AUTO_LS_KEY = 'ps_v2_wl_auto';
+const SORT_LS_KEY = 'ps_v2_wl_sort';
+
+/** @typedef {'sym' | 'name' | 'c' | 'd' | 'dp' | 'v'} SortField */
+
+/** @type {{ field: SortField, dir: 'asc' | 'desc' }} */
+let _sort = { field: 'sym', dir: 'asc' };
 
 /** @type {HTMLElement | null} */
 let _panel = null;
@@ -146,13 +152,13 @@ function renderPanel(/** @type {HTMLElement} */ rootEl) {
                     <table id="watchlist-table" style="width:100%;border-collapse:collapse;font-family:'Inter','IBM Plex Sans Thai',system-ui,sans-serif;font-size:13px;font-variant-numeric:tabular-nums;">
                         <thead>
                             <tr style="background:var(--bg, #0d0d0d);position:sticky;top:0;">
-                                <th style="text-align:left;padding:10px 12px;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent, #089981);font-weight:700;">Symbol</th>
-                                <th style="text-align:left;padding:10px 12px;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent, #089981);font-weight:700;">Name</th>
-                                <th style="text-align:right;padding:10px 12px;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent, #089981);font-weight:700;">Last</th>
-                                <th style="text-align:right;padding:10px 12px;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent, #089981);font-weight:700;">Δ $</th>
-                                <th style="text-align:right;padding:10px 12px;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent, #089981);font-weight:700;">Δ %</th>
+                                <th data-sort="sym"  style="text-align:left;padding:10px 12px;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent, #089981);font-weight:700;cursor:pointer;user-select:none;">Symbol</th>
+                                <th data-sort="name" style="text-align:left;padding:10px 12px;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent, #089981);font-weight:700;cursor:pointer;user-select:none;">Name</th>
+                                <th data-sort="c"    style="text-align:right;padding:10px 12px;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent, #089981);font-weight:700;cursor:pointer;user-select:none;">Last</th>
+                                <th data-sort="d"    style="text-align:right;padding:10px 12px;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent, #089981);font-weight:700;cursor:pointer;user-select:none;">Δ $</th>
+                                <th data-sort="dp"   style="text-align:right;padding:10px 12px;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent, #089981);font-weight:700;cursor:pointer;user-select:none;">Δ %</th>
                                 <th style="text-align:center;padding:10px 12px;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent, #089981);font-weight:700;">Trend</th>
-                                <th style="text-align:right;padding:10px 12px;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent, #089981);font-weight:700;">Vol</th>
+                                <th data-sort="v"    style="text-align:right;padding:10px 12px;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent, #089981);font-weight:700;cursor:pointer;user-select:none;">Vol</th>
                             </tr>
                         </thead>
                         <tbody id="wl-tbody"></tbody>
@@ -177,7 +183,8 @@ function repaint() {
         return;
     }
     const sparkData = loadSparkCache();
-    const rows = symbols.map((sym) => {
+    const sorted = sortSymbols(symbols, cache);
+    const rows = sorted.map((sym) => {
         const c = cache[sym] || {};
         const last = (typeof c.c === 'number') ? _PRICE_FMT.format(c.c) : '—';
         const dRaw = (typeof c.d === 'number') ? c.d : null;
@@ -205,8 +212,70 @@ function repaint() {
         </tr>`;
     }).join('');
     tbody.innerHTML = rows;
+    paintSortIndicators();
     const cached = symbols.filter((s) => cache[s] && typeof cache[s].c === 'number').length;
-    if (status) status.textContent = `${symbols.length} symbol(s) · ${cached} with cached price · NO real-time updates (read-only port)`;
+    if (status) status.textContent = `${symbols.length} symbol(s) · ${cached} with cached price · sort ${_sort.field} ${_sort.dir} · NO real-time WS (HTTP refresh + 30s auto only)`;
+}
+
+// ── Sort ───────────────────────────────────────────────────────────────
+
+function loadSortPref() {
+    const raw = lsGet(SORT_LS_KEY, '');
+    if (!raw) return;
+    const m = raw.match(/^(sym|name|c|d|dp|v):(asc|desc)$/);
+    if (m) _sort = { field: /** @type {SortField} */ (m[1]), dir: /** @type {'asc' | 'desc'} */ (m[2]) };
+}
+
+function persistSortPref() {
+    lsSave(SORT_LS_KEY, `${_sort.field}:${_sort.dir}`);
+}
+
+/**
+ * @param {string[]} syms
+ * @param {Record<string, WlCacheEntry>} cache
+ */
+function sortSymbols(syms, cache) {
+    const f = _sort.field;
+    const sign = _sort.dir === 'asc' ? 1 : -1;
+    const arr = syms.slice();
+    arr.sort((a, b) => {
+        const ca = cache[a] || {};
+        const cb = cache[b] || {};
+        if (f === 'sym')  return a.localeCompare(b) * sign;
+        if (f === 'name') return String(ca.name || a).localeCompare(String(cb.name || b)) * sign;
+        const va = (typeof /** @type {any} */ (ca)[f] === 'number') ? /** @type {any} */ (ca)[f] : -Infinity;
+        const vb = (typeof /** @type {any} */ (cb)[f] === 'number') ? /** @type {any} */ (cb)[f] : -Infinity;
+        if (va === vb) return a.localeCompare(b);
+        return (va - vb) * sign;
+    });
+    return arr;
+}
+
+/** @param {SortField} field */
+function applySort(field) {
+    if (_sort.field === field) {
+        _sort.dir = _sort.dir === 'asc' ? 'desc' : 'asc';
+    } else {
+        _sort.field = field;
+        // Symbol/name default asc; numeric defaults desc (biggest first)
+        _sort.dir = (field === 'sym' || field === 'name') ? 'asc' : 'desc';
+    }
+    persistSortPref();
+    repaint();
+}
+
+function paintSortIndicators() {
+    if (!_panel) return;
+    const ths = _panel.querySelectorAll('th[data-sort]');
+    ths.forEach((th) => {
+        const f = th.getAttribute('data-sort');
+        const isActive = f === _sort.field;
+        const arrow = isActive ? (_sort.dir === 'asc' ? ' ▲' : ' ▼') : '';
+        const base = String(th.getAttribute('data-label') || th.textContent || '').replace(/\s*[▲▼]$/, '');
+        th.setAttribute('data-label', base);
+        th.textContent = base + arrow;
+        /** @type {HTMLElement} */ (th).style.color = isActive ? 'var(--fg, #f5f5f7)' : 'var(--accent, #089981)';
+    });
 }
 
 function escapeHtml(/** @type {string} */ s) {
@@ -301,6 +370,7 @@ function setAuto(/** @type {boolean} */ on) {
 
 export function init(/** @type {HTMLElement} */ rootEl) {
     _panel = rootEl;
+    loadSortPref();
     renderPanel(rootEl);
     repaint();
     const autoBox = /** @type {HTMLInputElement | null} */ (rootEl.querySelector('#wl-auto'));
@@ -310,6 +380,12 @@ export function init(/** @type {HTMLElement} */ rootEl) {
         if (!t) return;
         if (t.id === 'wl-reload')       { repaint(); return; }
         if (t.id === 'wl-refresh-live') { refreshLive(); return; }
+        const sortHeader = t.closest('th[data-sort]');
+        if (sortHeader) {
+            const f = sortHeader.getAttribute('data-sort');
+            if (f) applySort(/** @type {SortField} */ (f));
+            return;
+        }
     });
     rootEl.addEventListener('change', (/** @type {Event} */ e) => {
         const t = /** @type {HTMLInputElement} */ (e.target);
