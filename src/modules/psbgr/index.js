@@ -1,17 +1,16 @@
-// PS Background Remover — lazy module (Session 3l heavy-logic port, 2026-05-10)
+// PS Background Remover — lazy module (Session 3n Pro UX port, 2026-05-10)
 //
-// Status: HEAVY DONE — RMBG-1.4 (HF transformers.js) + imgly Fast/Pro tiers,
-// color-key fast path with sRGB→Lab perceptual distance, smart auto-dispatch,
-// Tier 2 mask refinement (sigmoid → morph open → island filter → feather +
-// expand/shrink), letterbox preprocessing for HF tier, real composite + PNG
-// blob output. Replaces the magenta-tint stub.
+// Status: FULL HEAVY PORT — RMBG-1.4 (HF transformers.js) + imgly Fast/Pro
+// tiers, color-key fast path with sRGB→Lab perceptual distance, smart auto-
+// dispatch, Tier 2 mask refinement (sigmoid → morph open → island filter →
+// feather + expand/shrink), letterbox preprocessing for HF tier, SAM 2
+// click-to-segment Web Worker, Pro zoom/pan/fit viewer with screenToImage,
+// Restore/Erase brush with size + hardness, Pick BG eyedropper.
 //
-// DEFERRED to Session 3m+:
-//   · SAM 2 click-to-segment (Web Worker — separate big feature)
-//   · Pro zoom/pan/fit viewer + Restore/Erase brush
-//   · Pick BG eyedropper (depends on Pro viewer)
-//   · 5-phase roadmap polish (Phase 3 ViTMatte / Phase 4 color decontam /
-//     Phase 5 BG replacement)
+// DEFERRED to Session 3o+:
+//   · 5-phase roadmap Phase 3 (ViTMatte alpha matting refinement)
+//   · 5-phase roadmap Phase 4 (color decontamination)
+//   · 5-phase roadmap Phase 5 (BG replacement composite)
 //
 // Roadmap (5 phases approved 2026-04-24, see project_psbgr_bleeding_edge_roadmap):
 //   1. Foundation upgrade — RMBG-1.4 → BiRefNet-lite (RMBG-2.0 reverted)
@@ -78,6 +77,31 @@ const _psbgrState = {
 
 /** @type {HTMLElement | null} */
 let _psbgrPanel = null;
+
+// Pro viewer module-scoped refs — populated on first render after file load
+/** @type {ReturnType<typeof makeViewer> | null} */
+let _origViewer = null;
+/** @type {ReturnType<typeof makeViewer> | null} */
+let _resultViewer = null;
+
+// SAM click-mode UI state — toggled by the SAM Click button
+let _samMode = false;
+let _samDecoding = false;
+let _samPendingDecode = false;
+
+// Brush state — Restore/Erase with size + hardness sliders
+/** @type {'off' | 'restore' | 'erase'} */
+let _brushMode = 'off';
+let _brushSize = 30;
+let _brushHardness = 0.7;
+let _brushStroking = false;
+/** @type {{ x: number, y: number } | null} */
+let _brushLastImgPos = null;
+/** @type {{ x: number, y: number } | null} */
+let _brushCursorImgPos = null;
+
+// Eyedropper state — single-pick mode for Pick BG color reference
+let _eyedropperActive = false;
 
 /** @param {'fast' | 'pro' | 'ultra'} tier */
 export function setTier(tier) {
@@ -383,12 +407,27 @@ function expandMask(mask, w, h, radius) {
 }
 
 /**
- * Live-adjustable refinement — color-key already crisp → only feather + expand.
- * Neural needs the full stack (sigmoid → open → islands → expand → feather).
+ * Live-adjustable refinement — different post-process per source:
+ *   sam:        morph close (fill 1-px holes) + tighter island filter + auto 1-px feather
+ *   color-key:  already crisp → expand + feather only
+ *   neural:     full stack (sigmoid → open → islands → expand → feather)
  * @param {Uint8Array} mask @param {number} w @param {number} h
  */
 function applyRefinement(mask, w, h) {
     const s = _psbgrState.refineSettings;
+    if (_psbgrState.rawSource === 'sam') {
+        // SAM gives a crisp binary mask but often has small holes inside the
+        // subject + speckle islands in the BG. Auto-close + filter so the
+        // user doesn't have to hunt for sliders.
+        const dilated = morph3x3(mask, w, h, 'dilate');
+        const closed  = morph3x3(dilated, w, h, 'erode');
+        mask.set(closed);
+        removeSmallIslands(mask, w, h, Math.max(32, (w * h * 0.0003) | 0));
+        if (s.expand)  expandMask(mask, w, h, s.expand);
+        // Always feather SAM at least 1 px so edges aren't staircase-jagged
+        featherBoundary(mask, w, h, Math.max(1, s.feather | 0));
+        return;
+    }
     if (_psbgrState.rawSource === 'color-key') {
         if (s.expand)  expandMask(mask, w, h, s.expand);
         if (s.feather > 0) featherBoundary(mask, w, h, s.feather);
@@ -513,6 +552,228 @@ async function loadLib(tier, progressCb) {
 }
 
 // ══════════════════════════════════════════════════════════════════════
+//  Phase 2 — SAM (Segment Anything) click-to-segment
+// ══════════════════════════════════════════════════════════════════════
+//  SAM solves the white-on-white case: user clicks on the subject → model
+//  produces a perfect mask from the spatial prompt, bypassing the color-
+//  similarity failure mode of salient-object detectors.
+//
+//  All SAM work runs in a Web Worker (inline blob + module worker) so the
+//  main thread stays responsive during the 1-2 s encode — no "Page
+//  Unresponsive" dialog. Mirrors Xenova/segment-anything-web demo.
+//
+//  Worker message protocol:
+//    · init           → { status, progress }* → done
+//    · encode {blob}  → done { originalSizes, reshapedInputSizes }
+//    · decode {points}→ done { maskData(Uint8Array), width, height, iouScore }
+
+const _PSBGR_SAM_WORKER_SRC = `
+let tf, model, processor, imageInputs, embeddings;
+async function handle(e) {
+    const { id, type, data } = e.data;
+    try {
+        if (type === 'init') {
+            if (!tf) tf = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.2/+esm');
+            if (!model) {
+                model = await tf.SamModel.from_pretrained('Xenova/sam-vit-base', {
+                    progress_callback: (ev) => self.postMessage({ id, type: 'progress', data: ev })
+                });
+            }
+            if (!processor) processor = await tf.AutoProcessor.from_pretrained('Xenova/sam-vit-base');
+            self.postMessage({ id, type: 'done', data: null });
+        } else if (type === 'encode') {
+            const url = URL.createObjectURL(data.blob);
+            try {
+                const image = await tf.RawImage.fromURL(url);
+                imageInputs = await processor(image);
+                embeddings = await model.get_image_embeddings(imageInputs);
+            } finally {
+                URL.revokeObjectURL(url);
+            }
+            self.postMessage({ id, type: 'done', data: {
+                originalSizes: imageInputs.original_sizes,
+                reshapedInputSizes: imageInputs.reshaped_input_sizes,
+            }});
+        } else if (type === 'decode') {
+            const { points } = data;
+            if (!imageInputs || !embeddings) throw new Error('SAM not encoded yet');
+            const reshaped = imageInputs.reshaped_input_sizes[0];
+            const origSize = imageInputs.original_sizes[0];
+            const origH = origSize[0], origW = origSize[1];
+            const pts = points.map(p => [(p.x / origW) * reshaped[1], (p.y / origH) * reshaped[0]]);
+            const labels = points.map(p => BigInt(p.label));
+            const input_points = new tf.Tensor('float32', Float32Array.from(pts.flat()), [1, 1, points.length, 2]);
+            const input_labels = new tf.Tensor('int64',   BigInt64Array.from(labels),    [1, 1, points.length]);
+            const outputs = await model({ ...embeddings, input_points, input_labels });
+            const masks = await processor.post_process_masks(
+                outputs.pred_masks,
+                imageInputs.original_sizes,
+                imageInputs.reshaped_input_sizes,
+            );
+            const iou = Array.from(outputs.iou_scores.data);
+            const numMasks = iou.length;
+            let bestIdx = 0;
+            for (let i = 1; i < numMasks; i++) if (iou[i] > iou[bestIdx]) bestIdx = i;
+            const mask = masks[0];
+            const dims = mask.dims, flat = mask.data;
+            let H, W, interleaved;
+            if (dims.length === 4) {
+                if (dims[1] === numMasks) { H = dims[2]; W = dims[3]; interleaved = false; }
+                else                      { H = dims[1]; W = dims[2]; interleaved = true;  }
+            } else if (dims.length === 3) {
+                if (dims[0] === numMasks) { H = dims[1]; W = dims[2]; interleaved = false; }
+                else                      { H = dims[0]; W = dims[1]; interleaved = true;  }
+            } else throw new Error('Unexpected SAM mask dims: ' + JSON.stringify(dims));
+            const out = new Uint8Array(H * W);
+            if (interleaved) {
+                for (let i = 0; i < H * W; i++) out[i] = flat[i * numMasks + bestIdx] ? 255 : 0;
+            } else {
+                const base = bestIdx * H * W;
+                for (let i = 0; i < H * W; i++) out[i] = flat[base + i] ? 255 : 0;
+            }
+            self.postMessage({ id, type: 'done', data: {
+                maskData: out, width: W, height: H, iouScore: iou[bestIdx],
+            }}, [out.buffer]);
+        }
+    } catch (err) {
+        self.postMessage({ id, type: 'error', data: (err && err.message) || String(err) });
+    }
+}
+self.addEventListener('message', handle);
+`;
+
+// SAM module-scoped state — accumulated across clicks until file changes
+/** @type {Worker | null} */
+let _psbgrSamWorker = null;
+let _psbgrSamReqId = 0;
+/** @type {Map<number, { resolve: (v: any) => void, reject: (e: any) => void, onProgress?: (ev: any) => void }>} */
+const _psbgrSamPending = new Map();
+let _psbgrSamWorkerReady = false;
+/** @type {File | null} which file the worker has encoded */
+let _psbgrSamEmbeddingsFile = null;
+let _psbgrSamLoading = false;
+/** @type {Array<{ x: number, y: number, label: 0 | 1 }>} */
+const _psbgrSamPoints = [];
+
+function samInitWorker() {
+    if (_psbgrSamWorker) return;
+    const blob = new Blob([_PSBGR_SAM_WORKER_SRC], { type: 'application/javascript' });
+    const url = URL.createObjectURL(blob);
+    _psbgrSamWorker = new Worker(url, { type: 'module' });
+    _psbgrSamWorker.addEventListener('message', (e) => {
+        const { id, type, data } = e.data;
+        const p = _psbgrSamPending.get(id);
+        if (!p) return;
+        if (type === 'progress') { if (p.onProgress) p.onProgress(data); return; }
+        _psbgrSamPending.delete(id);
+        if (type === 'error') p.reject(new Error(data));
+        else p.resolve(data);
+    });
+    _psbgrSamWorker.addEventListener('error', (e) => {
+        if (typeof console !== 'undefined') console.warn('[psbgr sam worker]', e.message || e);
+    });
+}
+
+/** @param {string} type @param {any} data @param {(ev: any) => void} [onProgress] */
+function samSend(type, data, onProgress) {
+    samInitWorker();
+    return new Promise((resolve, reject) => {
+        const id = ++_psbgrSamReqId;
+        _psbgrSamPending.set(id, { resolve, reject, onProgress });
+        if (!_psbgrSamWorker) { reject(new Error('SAM worker init failed')); return; }
+        _psbgrSamWorker.postMessage({ id, type, data });
+    });
+}
+
+/** @param {(label: string, pct: number) => void} [progressCb] */
+async function loadSAM(progressCb) {
+    if (_psbgrSamWorkerReady) return;
+    if (_psbgrSamLoading) {
+        while (_psbgrSamLoading) await new Promise((r) => setTimeout(r, 80));
+        return;
+    }
+    _psbgrSamLoading = true;
+    try {
+        if (progressCb) progressCb('Downloading SAM model…', 0);
+        await samSend('init', null, (ev) => {
+            if (!progressCb) return;
+            if (ev.status === 'progress') {
+                progressCb('Downloading ' + (ev.file || 'SAM') + '…', (ev.progress || 0) / 100);
+            } else if (ev.status === 'done') {
+                progressCb('SAM ready', 1);
+            }
+        });
+        _psbgrSamWorkerReady = true;
+    } finally {
+        _psbgrSamLoading = false;
+    }
+}
+
+/** @param {File} file @param {(label: string, pct: number) => void} [progressCb] */
+async function samEncode(file, progressCb) {
+    if (_psbgrSamEmbeddingsFile === file) return;
+    await loadSAM(progressCb);
+    if (progressCb) progressCb('Encoding image for SAM…', 0.3);
+    await samSend('encode', { blob: file });
+    _psbgrSamEmbeddingsFile = file;
+}
+
+/** @param {Array<{ x: number, y: number, label: 0 | 1 }>} points */
+async function samDecode(points) {
+    if (!_psbgrSamEmbeddingsFile || !points || points.length === 0) return null;
+    return await samSend('decode', { points });
+}
+
+// Clear SAM cache — called on file change / Start over.
+// Worker-side state (imageInputs / embeddings) is overwritten on next encode.
+function samReset() {
+    _psbgrSamEmbeddingsFile = null;
+    _psbgrSamPoints.length = 0;
+}
+
+/**
+ * Run a SAM decode + apply result to the editing pipeline.
+ * Additive on positive clicks (union with prior SAM mask), replaces on negative.
+ * @param {(label: string, pct: number) => void} [progressCb]
+ */
+async function samDecodeAndApply(progressCb) {
+    if (!_psbgrState.currentFile || !_psbgrState.origImgData) return;
+    if (_psbgrSamPoints.length === 0) return;
+    const needsEncode = _psbgrSamEmbeddingsFile !== _psbgrState.currentFile;
+    if (needsEncode) {
+        await samEncode(_psbgrState.currentFile, progressCb);
+    }
+    if (_psbgrSamPoints.length === 0) return;
+    const result = await samDecode(_psbgrSamPoints);
+    if (!result) return;
+    const W = _psbgrState.origImgData.width, H = _psbgrState.origImgData.height;
+    /** @type {Uint8Array} */
+    let rawMask;
+    if (result.width === W && result.height === H) {
+        rawMask = result.maskData;
+    } else {
+        rawMask = upscaleMask(result.maskData, result.width, result.height, W, H);
+    }
+    // Additive: positive clicks expand selection; negative shrinks.
+    // Union with existing SAM mask only when last point is positive.
+    const lastPt = _psbgrSamPoints[_psbgrSamPoints.length - 1];
+    if (_psbgrState.rawMask && _psbgrState.rawSource === 'sam'
+        && lastPt && lastPt.label === 1
+        && _psbgrState.rawMask.length === rawMask.length) {
+        for (let i = 0; i < rawMask.length; i++) {
+            if (_psbgrState.rawMask[i] > rawMask[i]) rawMask[i] = _psbgrState.rawMask[i];
+        }
+    }
+    _psbgrState.rawMask    = rawMask;
+    _psbgrState.rawSource  = 'sam';
+    _psbgrState.lastMode   = /** @type {any} */ ('sam');
+    _psbgrState.editedMask = new Uint8Array(rawMask);
+    applyRefinement(_psbgrState.editedMask, W, H);
+    renderComposite();
+    return { iouScore: result.iouScore, points: _psbgrSamPoints.length };
+}
+
+// ══════════════════════════════════════════════════════════════════════
 //  Composite + canvas-to-blob
 // ══════════════════════════════════════════════════════════════════════
 
@@ -547,6 +808,7 @@ function canvasToBlob(canvas) {
 }
 
 // Re-refine from cached rawMask with current settings (used by sliders).
+// Preserves zoom/pan via viewer.updateImage (no fit reset).
 function reRefine() {
     if (!_psbgrState.rawMask || !_psbgrState.origImgData) return;
     const { width: w, height: h } = _psbgrState.origImgData;
@@ -666,7 +928,273 @@ async function runPipeline(file, tier, progressCb) {
 }
 
 // ══════════════════════════════════════════════════════════════════════
-//  UI plumbing — matches existing 3f panel layout
+//  Pro viewer — zoom / pan / fit canvas viewer + screenToImage
+// ══════════════════════════════════════════════════════════════════════
+//  Returns an object with image + transform + viewport APIs.
+//  Two viewers run side-by-side (Original + Result) — `onTransform`
+//  callback can mirror their transforms.
+//
+//  opts:
+//    checkered    — paint checkerboard behind image (Result pane)
+//    onTransform  — callback({scale, tx, ty}) on any zoom/pan change
+//    brushActive  — () => bool; true → suppress pan, swap cursor
+//    onBrushStart / onBrushMove / onBrushEnd — pointer handlers in image coords
+
+/**
+ * @param {HTMLElement} host
+ * @param {HTMLCanvasElement} canvas
+ * @param {{
+ *   checkered?: boolean,
+ *   onTransform?: (t: { scale: number, tx: number, ty: number }) => void,
+ *   brushActive?: () => boolean,
+ *   onBrushStart?: (p: { x: number, y: number }) => void,
+ *   onBrushMove?:  (p: { x: number, y: number }) => void,
+ *   onBrushEnd?:   () => void,
+ * }} [opts]
+ */
+function makeViewer(host, canvas, opts) {
+    opts = opts || {};
+    const dpr = Math.max(1, window.devicePixelRatio || 1);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('no 2d context');
+    /** @type {HTMLCanvasElement | HTMLImageElement | null} */
+    let img = null;
+    let scale = 1, tx = 0, ty = 0;
+    const MIN = 0.05, MAX = 32;
+    let dragging = false;
+    /** @type {{ sx: number, sy: number, tx: number, ty: number } | null} */
+    let dragStart = null;
+    let brushing = false;
+    let rafPending = false;
+
+    const cssSize = () => {
+        const r = host.getBoundingClientRect();
+        return { w: Math.max(1, r.width), h: Math.max(1, r.height) };
+    };
+
+    const syncCanvasSize = () => {
+        const { w, h } = cssSize();
+        const cw = Math.round(w * dpr), ch = Math.round(h * dpr);
+        if (canvas.width !== cw || canvas.height !== ch) {
+            canvas.width = cw; canvas.height = ch;
+        }
+        canvas.style.width = w + 'px';
+        canvas.style.height = h + 'px';
+    };
+
+    /** @param {number} w @param {number} h */
+    const drawCheckerboard = (w, h) => {
+        const s = 10;
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, w, h);
+        ctx.fillStyle = '#cccccc';
+        const rows = Math.ceil(h / s), cols = Math.ceil(w / s);
+        for (let r = 0; r < rows; r++) {
+            for (let c = (r & 1); c < cols; c += 2) {
+                ctx.fillRect(c * s, r * s, s, s);
+            }
+        }
+    };
+
+    const render = () => {
+        syncCanvasSize();
+        const { w, h } = cssSize();
+        ctx.save();
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, w, h);
+        if (opts && opts.checkered) drawCheckerboard(w, h);
+        if (img) {
+            ctx.translate(tx, ty);
+            ctx.scale(scale, scale);
+            ctx.imageSmoothingEnabled = scale < 1 || scale > 3;
+            ctx.imageSmoothingQuality = 'medium';
+            ctx.drawImage(img, 0, 0);
+        }
+        ctx.restore();
+    };
+
+    const scheduleRender = () => {
+        if (rafPending) return;
+        rafPending = true;
+        requestAnimationFrame(() => { rafPending = false; render(); });
+    };
+
+    const emitTransform = () => {
+        if (opts && opts.onTransform) opts.onTransform({ scale, tx, ty });
+    };
+
+    const fit = () => {
+        if (!img) { scheduleRender(); return; }
+        const { w, h } = cssSize();
+        const iw = img.width, ih = img.height;
+        if (!iw || !ih) { scheduleRender(); return; }
+        const s = Math.min(w / iw, h / ih) * 0.95;
+        scale = s;
+        tx = (w - iw * s) / 2;
+        ty = (h - ih * s) / 2;
+        scheduleRender();
+        emitTransform();
+    };
+
+    const setActual = () => {
+        if (!img) return;
+        const { w, h } = cssSize();
+        scale = 1;
+        tx = (w - img.width) / 2;
+        ty = (h - img.height) / 2;
+        scheduleRender();
+        emitTransform();
+    };
+
+    /** @param {number} factor @param {number} [cx] @param {number} [cy] */
+    const zoomAt = (factor, cx, cy) => {
+        if (!img) return;
+        const next = Math.max(MIN, Math.min(MAX, scale * factor));
+        if (Math.abs(next - scale) < 1e-6) return;
+        if (cx === undefined || cy === undefined) {
+            const { w, h } = cssSize();
+            cx = w / 2; cy = h / 2;
+        }
+        tx = cx - (cx - tx) * (next / scale);
+        ty = cy - (cy - ty) * (next / scale);
+        scale = next;
+        scheduleRender();
+        emitTransform();
+    };
+
+    /** @param {number} clientX @param {number} clientY */
+    const screenToImage = (clientX, clientY) => {
+        const r = canvas.getBoundingClientRect();
+        return { x: (clientX - r.left - tx) / scale, y: (clientY - r.top - ty) / scale };
+    };
+
+    canvas.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const r = canvas.getBoundingClientRect();
+        const factor = Math.pow(1.15, -Math.sign(e.deltaY));
+        zoomAt(factor, e.clientX - r.left, e.clientY - r.top);
+    }, { passive: false });
+
+    canvas.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return;
+        const brushOn = !!(opts && opts.brushActive && opts.brushActive());
+        if (brushOn) {
+            brushing = true;
+            const p = screenToImage(e.clientX, e.clientY);
+            if (opts && opts.onBrushStart) opts.onBrushStart(p);
+            e.preventDefault();
+            return;
+        }
+        dragging = true;
+        dragStart = { sx: e.clientX, sy: e.clientY, tx, ty };
+        canvas.style.cursor = 'grabbing';
+        e.preventDefault();
+    });
+
+    /** @param {MouseEvent} e */
+    const onMove = (e) => {
+        if (brushing && opts && opts.onBrushMove) {
+            opts.onBrushMove(screenToImage(e.clientX, e.clientY));
+            return;
+        }
+        if (!dragging || !dragStart) return;
+        tx = dragStart.tx + (e.clientX - dragStart.sx);
+        ty = dragStart.ty + (e.clientY - dragStart.sy);
+        scheduleRender();
+        emitTransform();
+    };
+    const onUp = () => {
+        if (brushing) {
+            brushing = false;
+            if (opts && opts.onBrushEnd) opts.onBrushEnd();
+        }
+        if (dragging) {
+            dragging = false;
+            canvas.style.cursor = (opts && opts.brushActive && opts.brushActive()) ? 'none' : 'grab';
+        }
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+
+    const ro = new ResizeObserver(() => scheduleRender());
+    ro.observe(host);
+
+    canvas.style.cursor = 'grab';
+
+    return {
+        /** @param {HTMLCanvasElement | HTMLImageElement | null} newImg */
+        setImage(newImg) { img = newImg; if (newImg) fit(); else scheduleRender(); },
+        /** Replace image without resetting zoom/pan — for live brush + slider re-refine.
+         *  @param {HTMLCanvasElement | HTMLImageElement | null} newImg */
+        updateImage(newImg) { img = newImg; scheduleRender(); },
+        getImage() { return img; },
+        fit, setActual, zoomAt,
+        zoomIn()  { zoomAt(1.25); },
+        zoomOut() { zoomAt(1 / 1.25); },
+        getTransform() { return { scale, tx, ty }; },
+        /** @param {{ scale: number, tx: number, ty: number }} t */
+        setTransform(t) { scale = t.scale; tx = t.tx; ty = t.ty; scheduleRender(); },
+        screenToImage,
+        render: scheduleRender,
+        /** @param {string} c */
+        setCursor(c) { canvas.style.cursor = c; },
+        destroy() {
+            ro.disconnect();
+            window.removeEventListener('mousemove', onMove);
+            window.removeEventListener('mouseup', onUp);
+        },
+    };
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  Brush — modifies editedMask in-place at image coords
+// ══════════════════════════════════════════════════════════════════════
+//  mode: 'restore' (increase alpha) | 'erase' (decrease alpha)
+//  size: brush diameter in image px, hardness: 0..1 (soft → hard edge)
+
+/** @param {number} imgX @param {number} imgY @param {'restore' | 'erase'} mode @param {number} size @param {number} hardness */
+function applyBrush(imgX, imgY, mode, size, hardness) {
+    if (!_psbgrState.editedMask || !_psbgrState.origImgData) return;
+    const W = _psbgrState.origImgData.width, H = _psbgrState.origImgData.height;
+    const r = size / 2;
+    const r2 = r * r;
+    const x0 = Math.max(0, Math.floor(imgX - r));
+    const x1 = Math.min(W - 1, Math.ceil(imgX + r));
+    const y0 = Math.max(0, Math.floor(imgY - r));
+    const y1 = Math.min(H - 1, Math.ceil(imgY + r));
+    const isRestore = mode === 'restore';
+    const h = Math.max(0.01, Math.min(0.99, hardness));
+    for (let y = y0; y <= y1; y++) {
+        const dy = y - imgY;
+        for (let x = x0; x <= x1; x++) {
+            const dx = x - imgX;
+            const d2 = dx * dx + dy * dy;
+            if (d2 > r2) continue;
+            const d = Math.sqrt(d2) / r;
+            const strength = d <= h ? 1 : (1 - d) / (1 - h);
+            const idx = y * W + x;
+            const cur = _psbgrState.editedMask[idx];
+            if (isRestore) _psbgrState.editedMask[idx] = Math.min(255, cur + 255 * strength);
+            else           _psbgrState.editedMask[idx] = Math.max(0,   cur - 255 * strength);
+        }
+    }
+}
+
+// Interpolate stroke between two points so fast drags stay solid.
+/** @param {number} fromX @param {number} fromY @param {number} toX @param {number} toY @param {'restore' | 'erase'} mode @param {number} size @param {number} hardness */
+function brushStroke(fromX, fromY, toX, toY, mode, size, hardness) {
+    const dx = toX - fromX, dy = toY - fromY;
+    const dist = Math.hypot(dx, dy);
+    const spacing = Math.max(1, size * 0.25);
+    const steps = Math.max(1, Math.ceil(dist / spacing));
+    for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        applyBrush(fromX + dx * t, fromY + dy * t, mode, size, hardness);
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  UI plumbing
 // ══════════════════════════════════════════════════════════════════════
 
 /** @param {File} file */
@@ -691,60 +1219,37 @@ function loadFile(file) {
     _psbgrState.editedMask      = null;
     _psbgrState.bgInfo          = null;
     _psbgrState.forcedBgLab     = null;
-    drawCanvas('orig', _psbgrState.currentImageUrl);
-    drawCanvas('result', null);
+    samReset();
+    _samMode = false;
+    renderSamMarkers();
     showWorkspace();
-    setStatus('โหลดรูปแล้ว — กด Remove Background', 'ok');
+    updateSamStatus();
+    // Load into viewer (HTMLImage) then setImage
+    const img = new Image();
+    img.onload = () => {
+        if (_origViewer) _origViewer.setImage(img);
+        const ph = _psbgrPanel && /** @type {HTMLElement | null} */ (_psbgrPanel.querySelector('#psbgr-ph-orig'));
+        if (ph) ph.style.display = 'none';
+        updateZoomReadout();
+    };
+    img.onerror = () => setStatus('โหลดรูปไม่ได้', 'err');
+    if (_psbgrState.currentImageUrl) img.src = _psbgrState.currentImageUrl;
+    if (_resultViewer) _resultViewer.setImage(null);
+    const phResult = _psbgrPanel && /** @type {HTMLElement | null} */ (_psbgrPanel.querySelector('#psbgr-ph-result'));
+    if (phResult) phResult.style.display = '';
+    setStatus('โหลดรูปแล้ว — กด Remove Background หรือเปิด SAM Click mode', 'ok');
     bus.emit('psbgr:file-loaded', { name: file.name, size: file.size });
 }
 
-/** @param {'orig' | 'result'} which @param {string | null} src */
-function drawCanvas(which, src) {
-    if (!_psbgrPanel) return;
-    const canvas = /** @type {HTMLCanvasElement | null} */ (_psbgrPanel.querySelector(`#psbgr-canvas-${which}`));
-    const placeholder = /** @type {HTMLElement | null} */ (_psbgrPanel.querySelector(`#psbgr-ph-${which}`));
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    if (!src) {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        if (placeholder) placeholder.style.display = '';
-        canvas.style.display = 'none';
-        return;
-    }
-    const img = new Image();
-    img.onload = () => {
-        const maxW = 320, maxH = 240;
-        const scale = Math.min(maxW / img.width, maxH / img.height, 1);
-        canvas.width  = Math.round(img.width  * scale);
-        canvas.height = Math.round(img.height * scale);
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        // Checkerboard for result canvas (transparency indicator)
-        if (which === 'result') {
-            const tile = 8;
-            for (let y = 0; y < canvas.height; y += tile) {
-                for (let x = 0; x < canvas.width; x += tile) {
-                    ctx.fillStyle = ((x / tile + y / tile) | 0) % 2 ? '#222' : '#1a1a1a';
-                    ctx.fillRect(x, y, tile, tile);
-                }
-            }
-        }
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        if (placeholder) placeholder.style.display = 'none';
-        canvas.style.display = '';
-    };
-    img.onerror = () => setStatus('โหลดรูปไม่ได้', 'err');
-    img.src = src;
-}
-
-// Update result preview from current outputUrl (used after re-refine)
+// Update result preview from compositeCanvas — used by reRefine + brush
 function refreshResultPreview() {
-    if (!_psbgrState.compositeCanvas) return;
+    if (!_psbgrState.compositeCanvas || !_resultViewer) return;
+    _resultViewer.updateImage(_psbgrState.compositeCanvas);
+    // Also update the downloadable blob (Save PNG reads outputBlob)
     canvasToBlob(_psbgrState.compositeCanvas).then((blob) => {
         if (_psbgrState.outputUrl) URL.revokeObjectURL(_psbgrState.outputUrl);
         _psbgrState.outputBlob = blob;
         _psbgrState.outputUrl  = URL.createObjectURL(blob);
-        drawCanvas('result', _psbgrState.outputUrl);
     }).catch(() => {});
 }
 
@@ -752,6 +1257,231 @@ function showWorkspace() {
     if (!_psbgrPanel) return;
     const ws = /** @type {HTMLElement | null} */ (_psbgrPanel.querySelector('#psbgr-workspace'));
     if (ws) ws.style.display = '';
+}
+
+// ── SAM UI: toggle, mapped click coords, marker overlay, status badge ──
+
+/** @param {boolean} on */
+function setSamMode(on) {
+    _samMode = on;
+    if (!_psbgrPanel) return;
+    const btn  = /** @type {HTMLButtonElement | null} */ (_psbgrPanel.querySelector('#psbgr-sam-btn'));
+    const host = /** @type {HTMLElement | null} */ (_psbgrPanel.querySelector('#psbgr-host-orig'));
+    if (btn)  btn.classList.toggle('active', on);
+    if (host) host.classList.toggle('sam-active', on);
+    updateSamStatus();
+}
+
+function updateSamStatus() {
+    if (!_psbgrPanel) return;
+    const el = /** @type {HTMLElement | null} */ (_psbgrPanel.querySelector('#psbgr-sam-status'));
+    if (!el) return;
+    const pos = _psbgrSamPoints.filter((p) => p.label === 1).length;
+    const neg = _psbgrSamPoints.filter((p) => p.label === 0).length;
+    let suffix = '';
+    if (_samDecoding) suffix = ' · decoding…';
+    else if (_psbgrState.rawSource === 'sam') suffix = ' · SAM mask active';
+    el.textContent = pos + ' positive · ' + neg + ' negative' + suffix;
+}
+
+// Render SAM markers in viewer screen coords — tracks zoom/pan via viewer transform.
+function renderSamMarkers() {
+    if (!_psbgrPanel) return;
+    const layer = /** @type {HTMLElement | null} */ (_psbgrPanel.querySelector('#psbgr-sam-overlay'));
+    if (!layer) return;
+    if (!_psbgrState.origImgData || _psbgrSamPoints.length === 0 || !_origViewer) {
+        layer.innerHTML = '';
+        return;
+    }
+    const t = _origViewer.getTransform();
+    layer.innerHTML = _psbgrSamPoints.map((p, i) => {
+        const sx = p.x * t.scale + t.tx;
+        const sy = p.y * t.scale + t.ty;
+        const cls = p.label === 1 ? 'pos' : 'neg';
+        return `<div class="psbgr-sam-pt ${cls}" data-pt-idx="${i}" style="left:${sx.toFixed(1)}px;top:${sy.toFixed(1)}px;"></div>`;
+    }).join('');
+}
+
+/**
+ * Map a click to original-image coords via the Pro viewer's screenToImage
+ * (zoom/pan-aware). Returns null if click falls outside the image area.
+ * @param {MouseEvent} e @param {ReturnType<typeof makeViewer> | null} viewer
+ * @returns {{ x: number, y: number } | null}
+ */
+function viewerClickToImageCoords(e, viewer) {
+    if (!viewer || !_psbgrState.origImgData) return null;
+    const p = viewer.screenToImage(e.clientX, e.clientY);
+    const x = Math.round(p.x), y = Math.round(p.y);
+    const W = _psbgrState.origImgData.width, H = _psbgrState.origImgData.height;
+    if (x < 0 || x >= W || y < 0 || y >= H) return null;
+    return { x, y };
+}
+
+async function runSamDecodeAndApply() {
+    if (_samDecoding) { _samPendingDecode = true; return; }
+    if (_psbgrSamPoints.length === 0) return;
+    _samDecoding = true;
+    updateSamStatus();
+    try {
+        do {
+            _samPendingDecode = false;
+            const result = await samDecodeAndApply((label, pct) => {
+                const p = Math.max(0, Math.min(1, pct || 0));
+                const pctText = p > 0 && p < 1 ? ' · ' + (p * 100).toFixed(0) + '%' : '';
+                setStatus(label + pctText, '');
+            });
+            if (!result) break;
+            // Push composite into result viewer — preserve user zoom/pan after first show
+            if (_resultViewer && _psbgrState.compositeCanvas) {
+                if (_resultViewer.getImage()) _resultViewer.updateImage(_psbgrState.compositeCanvas);
+                else                          _resultViewer.setImage(_psbgrState.compositeCanvas);
+            }
+            const phResult = _psbgrPanel && /** @type {HTMLElement | null} */ (_psbgrPanel.querySelector('#psbgr-ph-result'));
+            if (phResult) phResult.style.display = 'none';
+            // Update saveable blob in background
+            if (_psbgrState.compositeCanvas) {
+                canvasToBlob(_psbgrState.compositeCanvas).then((blob) => {
+                    if (_psbgrState.outputUrl) URL.revokeObjectURL(_psbgrState.outputUrl);
+                    _psbgrState.outputBlob = blob;
+                    _psbgrState.outputUrl  = URL.createObjectURL(blob);
+                }).catch(() => {});
+            }
+            const iouTxt = result.iouScore ? ' · IoU ' + result.iouScore.toFixed(2) : '';
+            setStatus('SAM · ' + result.points + ' points' + iouTxt, 'ok');
+        } while (_samPendingDecode);
+    } catch (err) {
+        const e = /** @type {any} */ (err);
+        setStatus('SAM error: ' + ((e && e.message) || e), 'err');
+        if (typeof console !== 'undefined') console.warn('[PSBGR SAM]', e);
+    } finally {
+        _samDecoding = false;
+        updateSamStatus();
+    }
+}
+
+/** @param {MouseEvent} e @param {ReturnType<typeof makeViewer> | null} viewer */
+async function handleSamClick(e, viewer) {
+    if (!_samMode) return;
+    if (e.button !== 0) return;
+    if (!_psbgrState.currentFile) return;
+    e.stopImmediatePropagation();
+    e.preventDefault();
+    // Populate origImgData lazily — SAM may run before the user presses Process
+    if (!_psbgrState.origImgData) {
+        try {
+            _psbgrState.origImgData = await loadImgData(_psbgrState.currentFile);
+        } catch (err) {
+            const ex = /** @type {any} */ (err);
+            setStatus('SAM: cannot decode image — ' + ((ex && ex.message) || ex), 'err');
+            return;
+        }
+    }
+    const p = viewerClickToImageCoords(e, viewer);
+    if (!p) return;
+    /** @type {0 | 1} */
+    const label = e.shiftKey ? 0 : 1;
+    _psbgrSamPoints.push({ x: p.x, y: p.y, label });
+    renderSamMarkers();
+    updateSamStatus();
+    runSamDecodeAndApply();
+}
+
+function clearSamPoints() {
+    _psbgrSamPoints.length = 0;
+    renderSamMarkers();
+    updateSamStatus();
+}
+
+// ── Brush UI helpers ──
+/** @param {'off' | 'restore' | 'erase'} m */
+function setBrushMode(m) {
+    _brushMode = m;
+    if (!_psbgrPanel) return;
+    _psbgrPanel.querySelectorAll('.psbgr-brush-btn[data-brush]').forEach((el) => {
+        const e = /** @type {HTMLElement} */ (el);
+        e.classList.toggle('active', e.dataset.brush === m);
+    });
+    const hostOrig   = /** @type {HTMLElement | null} */ (_psbgrPanel.querySelector('#psbgr-host-orig'));
+    const hostResult = /** @type {HTMLElement | null} */ (_psbgrPanel.querySelector('#psbgr-host-result'));
+    const isOn = m !== 'off';
+    if (hostOrig)   hostOrig.classList.toggle('brush-mode',   isOn);
+    if (hostResult) hostResult.classList.toggle('brush-mode', isOn);
+    if (_origViewer)   _origViewer.setCursor(isOn ? 'none' : 'grab');
+    if (_resultViewer) _resultViewer.setCursor(isOn ? 'none' : 'grab');
+    // Brush is exclusive with SAM Click + eyedropper
+    if (isOn) {
+        if (_samMode) setSamMode(false);
+        if (_eyedropperActive) setEyedropper(false);
+    }
+    renderBrushCursor();
+}
+
+function renderBrushCursor() {
+    if (!_psbgrPanel) return;
+    const update = (/** @type {string} */ id, /** @type {ReturnType<typeof makeViewer> | null} */ viewer) => {
+        const cur = /** @type {HTMLElement | null} */ (_psbgrPanel && _psbgrPanel.querySelector(id));
+        if (!cur || !viewer) return;
+        if (_brushMode === 'off' || !_brushCursorImgPos) { cur.style.display = 'none'; return; }
+        const t = viewer.getTransform();
+        const sx = _brushCursorImgPos.x * t.scale + t.tx;
+        const sy = _brushCursorImgPos.y * t.scale + t.ty;
+        const sz = _brushSize * t.scale;
+        cur.style.left = sx + 'px';
+        cur.style.top  = sy + 'px';
+        cur.style.width  = sz + 'px';
+        cur.style.height = sz + 'px';
+        cur.style.display = '';
+        cur.style.borderColor = _brushMode === 'erase' ? '#f43f5e' : '#089981';
+    };
+    update('#psbgr-brush-cursor-orig',   _origViewer);
+    update('#psbgr-brush-cursor-result', _resultViewer);
+}
+
+// ── Eyedropper UI ──
+/** @param {boolean} on */
+function setEyedropper(on) {
+    _eyedropperActive = on;
+    if (!_psbgrPanel) return;
+    const btn = /** @type {HTMLElement | null} */ (_psbgrPanel.querySelector('#psbgr-eyedropper-btn'));
+    if (btn) btn.classList.toggle('active', on);
+    if (_origViewer) _origViewer.setCursor(on ? 'crosshair' : 'grab');
+    if (on) {
+        if (_samMode)         setSamMode(false);
+        if (_brushMode !== 'off') setBrushMode('off');
+    }
+}
+
+/** @param {MouseEvent} e */
+function handleEyedropperClick(e) {
+    if (!_eyedropperActive || !_origViewer || !_psbgrState.origImgData) return;
+    if (e.button !== 0) return;
+    e.stopImmediatePropagation();
+    e.preventDefault();
+    const p = viewerClickToImageCoords(e, _origViewer);
+    if (!p) { setEyedropper(false); return; }
+    const W = _psbgrState.origImgData.width;
+    const idx = (p.y * W + p.x) * 4;
+    const r = _psbgrState.origImgData.data[idx];
+    const g = _psbgrState.origImgData.data[idx + 1];
+    const b = _psbgrState.origImgData.data[idx + 2];
+    _psbgrState.forcedBgLab = rgbToLab(r, g, b);
+    if (_psbgrPanel) {
+        const sw = /** @type {HTMLElement | null} */ (_psbgrPanel.querySelector('#psbgr-bg-swatch'));
+        if (sw) sw.style.background = 'rgb(' + r + ',' + g + ',' + b + ')';
+    }
+    setEyedropper(false);
+    // Auto-switch detection mode to color-key so next Process uses the picked ref
+    _psbgrState.forceMode = 'color-key';
+    renderModeBar();
+    setStatus('Picked BG color · mode → color-key', 'ok');
+}
+
+function updateZoomReadout() {
+    if (!_psbgrPanel) return;
+    const el = /** @type {HTMLElement | null} */ (_psbgrPanel.querySelector('#psbgr-zoom-readout'));
+    if (!el) return;
+    const t = _origViewer ? _origViewer.getTransform() : null;
+    el.textContent = t ? Math.round(t.scale * 100) + '%' : '—';
 }
 
 // ── Real BG removal pipeline — replaces the 3f magenta-tint stub ──────
@@ -773,7 +1503,13 @@ async function processImage() {
         if (_psbgrState.outputUrl) URL.revokeObjectURL(_psbgrState.outputUrl);
         _psbgrState.outputBlob = blob;
         _psbgrState.outputUrl  = URL.createObjectURL(blob);
-        drawCanvas('result', _psbgrState.outputUrl);
+        if (_resultViewer && _psbgrState.compositeCanvas) {
+            // Preserve user zoom/pan on subsequent runs — only fit on first show
+            if (_resultViewer.getImage()) _resultViewer.updateImage(_psbgrState.compositeCanvas);
+            else                          _resultViewer.setImage(_psbgrState.compositeCanvas);
+        }
+        const phResult = _psbgrPanel && /** @type {HTMLElement | null} */ (_psbgrPanel.querySelector('#psbgr-ph-result'));
+        if (phResult) phResult.style.display = 'none';
         const info = _psbgrState.bgInfo;
         const debug = info ? ` · stdDev:${info.stdDev?.toFixed?.(1) || '–'} conf:${(info.confidence * 100 || 0).toFixed(0)}%` : '';
         setStatus(`Done · mode: ${_psbgrState.lastMode} · tier: ${_psbgrState.tier}${debug}`, 'ok');
@@ -821,7 +1557,9 @@ function clearResult() {
     _psbgrState.editedMask = null;
     _psbgrState.rawMask    = null;
     _psbgrState.compositeCanvas = null;
-    drawCanvas('result', null);
+    if (_resultViewer) _resultViewer.setImage(null);
+    const phResult = _psbgrPanel && /** @type {HTMLElement | null} */ (_psbgrPanel.querySelector('#psbgr-ph-result'));
+    if (phResult) phResult.style.display = '';
     setStatus('Result cleared', 'ok');
 }
 
@@ -847,9 +1585,10 @@ function renderPanel(rootEl) {
                 .psbgr-panel .dropzone-desc { font-size:12px; color:var(--dim, #888); margin-bottom:12px; }
                 .psbgr-panel .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:12px 0; }
                 @media (max-width: 640px) { .psbgr-panel .grid-2 { grid-template-columns:1fr; } }
-                .psbgr-panel .canvas-host { background:#000; border:1px solid var(--border, #2a2a2a); border-radius:8px; padding:8px; min-height:120px; display:flex; align-items:center; justify-content:center; position:relative; }
-                .psbgr-panel .canvas-host .ph { color:var(--dim, #888); font-size:12px; }
-                .psbgr-panel canvas.viewer { max-width:100%; height:auto; display:none; image-rendering:pixelated; }
+                .psbgr-panel .canvas-host { background:#000; border:1px solid var(--border, #2a2a2a); border-radius:8px; padding:0; height:340px; display:block; position:relative; overflow:hidden; }
+                .psbgr-panel .canvas-host .ph { color:var(--dim, #888); font-size:12px; position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; }
+                .psbgr-panel canvas.viewer { display:block; width:100%; height:100%; cursor:grab; }
+                .psbgr-panel .canvas-host.brush-mode canvas.viewer { cursor:none; }
                 .psbgr-panel .canvas-cap { font-size:11px; font-weight:600; color:var(--dim, #888); text-transform:uppercase; letter-spacing:.06em; margin-bottom:4px; }
                 .psbgr-panel .slider-row { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
                 .psbgr-panel .slider-row label { margin:0; flex-shrink:0; min-width:78px; }
@@ -864,6 +1603,30 @@ function renderPanel(rootEl) {
                 .psbgr-panel #psbgr-status[data-type="ok"] { color:var(--accent, #089981); }
                 .psbgr-panel #psbgr-status[data-type="err"] { color:#f43f5e; }
                 .psbgr-panel .info-note { background:rgba(8, 153, 129, 0.06); border-left:3px solid var(--accent, #089981); padding:10px 14px; font-size:12px; color:var(--dim, #888); margin-top:12px; border-radius:4px; }
+                .psbgr-panel .sam-bar { display:flex; gap:6px; align-items:center; margin:8px 0; flex-wrap:wrap; }
+                .psbgr-panel #psbgr-sam-status { font-family:var(--mono, monospace); font-size:11px; color:var(--dim, #888); padding:0 8px; }
+                .psbgr-panel #psbgr-host-orig { position:relative; }
+                .psbgr-panel #psbgr-host-orig.sam-active { cursor:crosshair; }
+                .psbgr-panel #psbgr-host-orig.sam-active canvas.viewer { cursor:crosshair; }
+                .psbgr-panel #psbgr-sam-overlay { position:absolute; inset:8px; pointer-events:none; }
+                .psbgr-panel .psbgr-sam-pt { position:absolute; width:14px; height:14px; transform:translate(-50%,-50%); border-radius:50%; border:2px solid #fff; box-shadow:0 0 0 1px rgba(0,0,0,.5),0 1px 4px rgba(0,0,0,.6); }
+                .psbgr-panel .psbgr-sam-pt.pos { background:#089981; }
+                .psbgr-panel .psbgr-sam-pt.neg { background:#f43f5e; }
+                .psbgr-panel button.act.active { outline:2px solid var(--accent, #089981); outline-offset:1px; }
+                .psbgr-panel .viewer-toolbar { display:flex; gap:6px; align-items:center; margin:8px 0 4px; flex-wrap:wrap; }
+                .psbgr-panel .viewer-toolbar .vt-btn { font-size:11px; padding:5px 10px; border:1px solid var(--border, #2a2a2a); border-radius:6px; background:transparent; color:var(--fg, #f5f5f7); cursor:pointer; }
+                .psbgr-panel .viewer-toolbar .vt-btn:hover { border-color:var(--accent, #089981); }
+                .psbgr-panel #psbgr-zoom-readout { font-family:var(--mono, monospace); font-size:10px; color:var(--dim, #888); padding:0 6px; min-width:48px; text-align:right; }
+                .psbgr-panel .brush-bar { display:flex; gap:6px; align-items:center; margin:8px 0; flex-wrap:wrap; }
+                .psbgr-panel .psbgr-brush-btn { font-size:11px; padding:6px 12px; border:1px solid var(--border, #2a2a2a); border-radius:6px; background:transparent; color:var(--fg, #f5f5f7); cursor:pointer; transition:all .15s; }
+                .psbgr-panel .psbgr-brush-btn:hover { border-color:var(--accent, #089981); }
+                .psbgr-panel .psbgr-brush-btn.active { background:var(--accent, #089981); border-color:var(--accent, #089981); color:#000; }
+                .psbgr-panel .brush-bar input[type=range] { flex:1; min-width:80px; max-width:140px; accent-color:var(--accent, #089981); }
+                .psbgr-panel .brush-bar .lbl { font-size:10px; color:var(--dim, #888); text-transform:uppercase; letter-spacing:.06em; min-width:48px; }
+                .psbgr-panel .brush-bar .val { font-family:var(--mono, monospace); font-size:11px; color:var(--accent, #089981); min-width:36px; text-align:right; }
+                .psbgr-panel #psbgr-bg-swatch { display:inline-block; width:20px; height:20px; border-radius:4px; border:1px solid var(--border, #2a2a2a); background:transparent; vertical-align:middle; }
+                .psbgr-panel .brush-cursor { position:absolute; pointer-events:none; border:2px solid #fff; border-radius:50%; box-shadow:0 0 0 1px rgba(0,0,0,.6); transform:translate(-50%,-50%); display:none; z-index:5; }
+                .psbgr-panel .canvas-host.brush-mode .brush-cursor { display:block; }
             </style>
 
             <div id="psbgr-dropzone" class="dropzone">
@@ -877,18 +1640,29 @@ function renderPanel(rootEl) {
                 <div class="grid-2">
                     <div>
                         <div class="canvas-cap">Original</div>
-                        <div class="canvas-host">
-                            <div class="ph" id="psbgr-ph-orig">—</div>
+                        <div class="canvas-host" id="psbgr-host-orig">
                             <canvas class="viewer" id="psbgr-canvas-orig"></canvas>
+                            <div id="psbgr-sam-overlay"></div>
+                            <div class="brush-cursor" id="psbgr-brush-cursor-orig"></div>
+                            <div class="ph" id="psbgr-ph-orig">drop or browse to start</div>
                         </div>
                     </div>
                     <div>
                         <div class="canvas-cap">Result</div>
-                        <div class="canvas-host">
-                            <div class="ph" id="psbgr-ph-result">click "Remove Background"</div>
+                        <div class="canvas-host" id="psbgr-host-result">
                             <canvas class="viewer" id="psbgr-canvas-result"></canvas>
+                            <div class="brush-cursor" id="psbgr-brush-cursor-result"></div>
+                            <div class="ph" id="psbgr-ph-result">click "Remove Background"</div>
                         </div>
                     </div>
+                </div>
+
+                <div class="viewer-toolbar">
+                    <button class="vt-btn" id="psbgr-vt-fit">Fit</button>
+                    <button class="vt-btn" id="psbgr-vt-actual">100%</button>
+                    <button class="vt-btn" id="psbgr-vt-zoomin">+</button>
+                    <button class="vt-btn" id="psbgr-vt-zoomout">−</button>
+                    <span id="psbgr-zoom-readout">—</span>
                 </div>
 
                 <label>Tier (model size vs quality)</label>
@@ -896,6 +1670,31 @@ function renderPanel(rootEl) {
 
                 <label>Detection Mode</label>
                 <div class="chip-bar" id="psbgr-mode-bar"></div>
+
+                <div class="brush-bar">
+                    <button class="psbgr-brush-btn" id="psbgr-eyedropper-btn" title="Click a background pixel on Original to set color-key reference">Pick BG</button>
+                    <span id="psbgr-bg-swatch" title="Picked background color"></span>
+                </div>
+
+                <label>SAM Click-to-Segment <span style="text-transform:none;font-weight:400;opacity:.7;">— click subject to mask, Shift+click = subtract</span></label>
+                <div class="sam-bar">
+                    <button class="act ghost" id="psbgr-sam-btn">SAM Click mode</button>
+                    <button class="act ghost" id="psbgr-sam-clear-btn">Clear points</button>
+                    <span id="psbgr-sam-status">0 positive · 0 negative</span>
+                </div>
+
+                <label>Brush — touch up the mask after model + slider settle</label>
+                <div class="brush-bar">
+                    <button class="psbgr-brush-btn active" data-brush="off">Off</button>
+                    <button class="psbgr-brush-btn"        data-brush="restore">Restore</button>
+                    <button class="psbgr-brush-btn"        data-brush="erase">Erase</button>
+                    <span class="lbl">Size</span>
+                    <input id="psbgr-brush-size" type="range" min="4" max="200" step="1" value="${_brushSize}" />
+                    <span class="val" id="psbgr-brush-size-val">${_brushSize}</span>
+                    <span class="lbl">Hard</span>
+                    <input id="psbgr-brush-hard" type="range" min="0" max="100" step="1" value="${Math.round(_brushHardness * 100)}" />
+                    <span class="val" id="psbgr-brush-hard-val">${Math.round(_brushHardness * 100)}%</span>
+                </div>
 
                 <label>Refine</label>
                 <div class="slider-row">
@@ -1033,6 +1832,85 @@ function wireEvents() {
     wireSlider('feather',   'psbgr-feather-val');
     wireSlider('expand',    'psbgr-expand-val');
 
+    // SAM toggle + clear + click via Pro viewer's screenToImage
+    const samBtn      = panel.querySelector('#psbgr-sam-btn');
+    const samClearBtn = panel.querySelector('#psbgr-sam-clear-btn');
+    const canvasOrig  = /** @type {HTMLCanvasElement | null} */ (panel.querySelector('#psbgr-canvas-orig'));
+    const canvasResult = /** @type {HTMLCanvasElement | null} */ (panel.querySelector('#psbgr-canvas-result'));
+    if (samBtn)      samBtn.addEventListener('click', () => setSamMode(!_samMode));
+    if (samClearBtn) samClearBtn.addEventListener('click', () => clearSamPoints());
+    // Capture-phase click on canvases so SAM/Eyedropper fire BEFORE the viewer's pan handler
+    if (canvasOrig) {
+        canvasOrig.addEventListener('mousedown', /** @param {Event} e */ (e) => {
+            const me = /** @type {MouseEvent} */ (e);
+            if (_eyedropperActive) handleEyedropperClick(me);
+            else if (_samMode)     handleSamClick(me, _origViewer);
+        }, true);
+    }
+    if (canvasResult) {
+        canvasResult.addEventListener('mousedown', /** @param {Event} e */ (e) => {
+            const me = /** @type {MouseEvent} */ (e);
+            if (_samMode) handleSamClick(me, _resultViewer);
+        }, true);
+    }
+
+    // Viewer toolbar — Fit / 100% / Zoom in / Zoom out
+    const vtFit     = panel.querySelector('#psbgr-vt-fit');
+    const vtActual  = panel.querySelector('#psbgr-vt-actual');
+    const vtZoomIn  = panel.querySelector('#psbgr-vt-zoomin');
+    const vtZoomOut = panel.querySelector('#psbgr-vt-zoomout');
+    if (vtFit)     vtFit.addEventListener('click', () => { if (_origViewer) _origViewer.fit(); if (_resultViewer) _resultViewer.fit(); updateZoomReadout(); });
+    if (vtActual)  vtActual.addEventListener('click', () => { if (_origViewer) _origViewer.setActual(); if (_resultViewer) _resultViewer.setActual(); updateZoomReadout(); });
+    if (vtZoomIn)  vtZoomIn.addEventListener('click', () => { if (_origViewer) _origViewer.zoomIn(); if (_resultViewer) _resultViewer.zoomIn(); updateZoomReadout(); });
+    if (vtZoomOut) vtZoomOut.addEventListener('click', () => { if (_origViewer) _origViewer.zoomOut(); if (_resultViewer) _resultViewer.zoomOut(); updateZoomReadout(); });
+
+    // Brush controls
+    panel.querySelectorAll('.psbgr-brush-btn[data-brush]').forEach((el) => {
+        const e = /** @type {HTMLElement} */ (el);
+        e.addEventListener('click', () => setBrushMode(/** @type {any} */ (e.dataset.brush || 'off')));
+    });
+    const brushSizeIn = /** @type {HTMLInputElement | null} */ (panel.querySelector('#psbgr-brush-size'));
+    const brushSizeVal = panel.querySelector('#psbgr-brush-size-val');
+    const brushHardIn = /** @type {HTMLInputElement | null} */ (panel.querySelector('#psbgr-brush-hard'));
+    const brushHardVal = panel.querySelector('#psbgr-brush-hard-val');
+    if (brushSizeIn) brushSizeIn.addEventListener('input', () => {
+        _brushSize = parseInt(brushSizeIn.value, 10) || 30;
+        if (brushSizeVal) brushSizeVal.textContent = String(_brushSize);
+        renderBrushCursor();
+    });
+    if (brushHardIn) brushHardIn.addEventListener('input', () => {
+        const pct = parseInt(brushHardIn.value, 10) || 70;
+        _brushHardness = pct / 100;
+        if (brushHardVal) brushHardVal.textContent = pct + '%';
+    });
+
+    // Mousemove on canvases — drives brush cursor preview
+    [canvasOrig, canvasResult].forEach((c) => {
+        if (!c) return;
+        c.addEventListener('mousemove', (e) => {
+            const me = /** @type {MouseEvent} */ (e);
+            const viewer = c === canvasOrig ? _origViewer : _resultViewer;
+            if (_brushMode !== 'off' && viewer) {
+                _brushCursorImgPos = viewer.screenToImage(me.clientX, me.clientY);
+                renderBrushCursor();
+            }
+        });
+        c.addEventListener('mouseleave', () => {
+            _brushCursorImgPos = null;
+            renderBrushCursor();
+        });
+    });
+
+    // Eyedropper toggle
+    const eyedropperBtn = panel.querySelector('#psbgr-eyedropper-btn');
+    if (eyedropperBtn) eyedropperBtn.addEventListener('click', async () => {
+        if (!_eyedropperActive && !_psbgrState.origImgData && _psbgrState.currentFile) {
+            try { _psbgrState.origImgData = await loadImgData(_psbgrState.currentFile); }
+            catch (_e) { setStatus('Eyedropper: cannot decode image', 'err'); return; }
+        }
+        setEyedropper(!_eyedropperActive);
+    });
+
     const procBtn  = panel.querySelector('#psbgr-process-btn');
     const saveBtn  = panel.querySelector('#psbgr-save-btn');
     const clearBtn = panel.querySelector('#psbgr-clear-btn');
@@ -1072,11 +1950,12 @@ export function init(rootEl, _ctx) {
     renderPanel(rootEl);
     renderTierBar();
     renderModeBar();
+    initViewers();
     wireEvents();
     bus.emit('psbgr:init', { rootEl, tier: _psbgrState.tier });
     return {
         id:       'psbgr',
-        version:  '0.3-session3l-heavy-port',
+        version:  '0.5-session3n-pro-ux',
         ready:    true,
         tier:     _psbgrState.tier,
         tierCfg:  _PSBGR_TIERS[_psbgrState.tier],
@@ -1085,7 +1964,74 @@ export function init(rootEl, _ctx) {
     };
 }
 
-/** Module teardown — frees lib cache + revokes object URLs. */
+// ── Viewer lifecycle ──
+function initViewers() {
+    if (!_psbgrPanel) return;
+    const hostOrig    = /** @type {HTMLElement | null} */ (_psbgrPanel.querySelector('#psbgr-host-orig'));
+    const hostResult  = /** @type {HTMLElement | null} */ (_psbgrPanel.querySelector('#psbgr-host-result'));
+    const canvasOrig  = /** @type {HTMLCanvasElement | null} */ (_psbgrPanel.querySelector('#psbgr-canvas-orig'));
+    const canvasRslt  = /** @type {HTMLCanvasElement | null} */ (_psbgrPanel.querySelector('#psbgr-canvas-result'));
+    if (!hostOrig || !hostResult || !canvasOrig || !canvasRslt) return;
+
+    _origViewer = makeViewer(hostOrig, canvasOrig, {
+        onTransform: () => { renderSamMarkers(); renderBrushCursor(); updateZoomReadout(); },
+        brushActive: () => _brushMode !== 'off',
+        onBrushStart: (p) => {
+            if (!_psbgrState.editedMask) return;
+            _brushStroking = true;
+            _brushLastImgPos = p;
+            applyBrush(p.x, p.y, /** @type {any} */ (_brushMode), _brushSize, _brushHardness);
+            renderComposite();
+            refreshResultPreview();
+        },
+        onBrushMove: (p) => {
+            if (!_brushStroking || !_psbgrState.editedMask || !_brushLastImgPos) {
+                _brushCursorImgPos = p;
+                renderBrushCursor();
+                return;
+            }
+            brushStroke(_brushLastImgPos.x, _brushLastImgPos.y, p.x, p.y,
+                /** @type {any} */ (_brushMode), _brushSize, _brushHardness);
+            _brushLastImgPos = p;
+            _brushCursorImgPos = p;
+            renderBrushCursor();
+            renderComposite();
+            refreshResultPreview();
+        },
+        onBrushEnd: () => { _brushStroking = false; _brushLastImgPos = null; },
+    });
+    _resultViewer = makeViewer(hostResult, canvasRslt, {
+        checkered: true,
+        onTransform: () => { renderBrushCursor(); updateZoomReadout(); },
+        brushActive: () => _brushMode !== 'off',
+        onBrushStart: (p) => {
+            if (!_psbgrState.editedMask) return;
+            _brushStroking = true;
+            _brushLastImgPos = p;
+            applyBrush(p.x, p.y, /** @type {any} */ (_brushMode), _brushSize, _brushHardness);
+            renderComposite();
+            refreshResultPreview();
+        },
+        onBrushMove: (p) => {
+            if (!_brushStroking || !_psbgrState.editedMask || !_brushLastImgPos) {
+                _brushCursorImgPos = p;
+                renderBrushCursor();
+                return;
+            }
+            brushStroke(_brushLastImgPos.x, _brushLastImgPos.y, p.x, p.y,
+                /** @type {any} */ (_brushMode), _brushSize, _brushHardness);
+            _brushLastImgPos = p;
+            _brushCursorImgPos = p;
+            renderBrushCursor();
+            renderComposite();
+            refreshResultPreview();
+        },
+        onBrushEnd: () => { _brushStroking = false; _brushLastImgPos = null; },
+    });
+    updateZoomReadout();
+}
+
+/** Module teardown — frees lib cache + revokes object URLs + terminates SAM worker. */
 export function destroy() {
     for (const k of Object.keys(_psbgrLibCache)) delete _psbgrLibCache[k];
     if (_psbgrState.currentImageUrl) URL.revokeObjectURL(_psbgrState.currentImageUrl);
@@ -1098,6 +2044,21 @@ export function destroy() {
     _psbgrState.rawMask         = null;
     _psbgrState.editedMask      = null;
     _psbgrState.compositeCanvas = null;
+    if (_psbgrSamWorker) {
+        try { _psbgrSamWorker.terminate(); } catch (_e) {}
+        _psbgrSamWorker = null;
+        _psbgrSamWorkerReady = false;
+        _psbgrSamPending.clear();
+    }
+    _psbgrSamEmbeddingsFile = null;
+    _psbgrSamPoints.length = 0;
+    if (_origViewer)   { try { _origViewer.destroy(); }   catch (_e) {} _origViewer = null; }
+    if (_resultViewer) { try { _resultViewer.destroy(); } catch (_e) {} _resultViewer = null; }
+    _samMode = false;
+    _brushMode = 'off';
+    _brushStroking = false;
+    _brushCursorImgPos = null;
+    _eyedropperActive = false;
     _psbgrPanel = null;
     bus.emit('psbgr:destroy');
 }
@@ -1126,4 +2087,16 @@ export {
     reRefine          as _psbgrReRefine,
     runPipeline       as _psbgrProcess,
     processImage      as _psbgrProcessFromUI,
+    loadSAM           as _psbgrLoadSAM,
+    samEncode         as _psbgrSamEncode,
+    samDecode         as _psbgrSamDecode,
+    samReset          as _psbgrSamReset,
+    samDecodeAndApply as _psbgrSamDecodeAndApply,
+    setSamMode        as _psbgrSetSamMode,
+    clearSamPoints    as _psbgrClearSamPoints,
+    makeViewer        as _psbgrMakeViewer,
+    applyBrush        as _psbgrApplyBrush,
+    brushStroke       as _psbgrBrushStroke,
+    setBrushMode      as _psbgrSetBrushMode,
+    setEyedropper     as _psbgrSetEyedropper,
 };
