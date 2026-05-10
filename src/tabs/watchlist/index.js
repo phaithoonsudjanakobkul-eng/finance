@@ -1,10 +1,11 @@
-// Watchlist tab — read-only view of cached quote data.
+// Watchlist tab — Phase 1 read-only view + Phase 2a HTTP refresh.
 //
-// Phase 1 port (Step 6 sub-session): renders the symbols stored in
-// `ps_watchlist` against the last-fetched quote data in `ps_wl_cache`. No
-// WebSocket, no real-time updates, no sparkline, no scanner, no AI chat —
-// those make up the heavy hot-path subsystem and need their own multi-session
-// port.
+// Phase 1 (read-only): renders ps_watchlist symbols against ps_wl_cache last-
+// fetched quote data.
+// Phase 2a (HTTP refresh): button-triggered fan-out fetch to Finnhub /quote
+// for every watched symbol. Updates ps_wl_cache in place + repaints. Free-tier
+// rate limit is 60 calls/min — typical 27-30 symbol watchlist stays within
+// budget on a single click. Per-symbol failure swallowed.
 //
 // Field shape from monolith wlDataCache[sym]: c (last), pc (prev close),
 // d (Δ$), dp (Δ%), o/h/l (OHLC), v (volume), name (display), logo, plus
@@ -12,15 +13,14 @@
 // missing field renders a dash.
 //
 // DEFERRED to dedicated Watchlist sub-sessions:
-// - WS pipeline (Alpaca + Finnhub) + rAF coalesce + viewport culling
-// - Sparkline cache (ps_wl_spark_cache_v5) + 1D regular-session render
-// - Market scanner (gainers/losers × regular/pre/AH)
-// - Lightweight Charts side panel
-// - News fetch per symbol + AI chat FAB
+// - Phase 2b: WS pipeline (Alpaca + Finnhub) + rAF coalesce + viewport culling
+// - Phase 2c: Sparkline cache (ps_wl_spark_cache_v5) + 1D regular-session render
+// - Phase 2d: Market scanner (gainers/losers × regular/pre/AH)
+// - Phase 2e: Lightweight Charts side panel + AI chat FAB
 // - Sort by column / pin / unpin / drag-reorder
 
 import { bus } from '../../core/bus.js';
-import { lsGetJson } from '../../core/storage.js';
+import { lsGet, lsSave, lsGetJson } from '../../core/storage.js';
 
 /** @typedef {{
  *   c?: number, pc?: number, d?: number, dp?: number,
@@ -34,6 +34,8 @@ const _VOL_FMT   = new Intl.NumberFormat('en-US', { notation: 'compact', maximum
 
 /** @type {HTMLElement | null} */
 let _panel = null;
+/** @type {AbortController | null} */
+let _ctrl = null;
 
 // ── Reads ──────────────────────────────────────────────────────────────
 
@@ -50,6 +52,36 @@ function loadCache() {
     return (raw && typeof raw === 'object') ? raw : {};
 }
 
+/** @param {Record<string, WlCacheEntry>} cache */
+function persistCache(cache) {
+    try { lsSave('ps_wl_cache', JSON.stringify(cache)); }
+    catch (e) { console.warn('[wl] cache save failed:', e); }
+}
+
+/**
+ * Finnhub /quote returns { c, d, dp, h, l, o, pc, t } — field names match
+ * our cache shape so we can shallow-merge.
+ * @param {string} symbol
+ * @param {string} key
+ * @param {AbortSignal} signal
+ * @returns {Promise<WlCacheEntry>}
+ */
+async function fetchQuote(symbol, key, signal) {
+    const url = `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(symbol)}&token=${encodeURIComponent(key)}`;
+    const res = await fetch(url, { signal });
+    if (!res.ok) throw new Error(`Finnhub ${res.status} for ${symbol}`);
+    const body = await res.json();
+    return /** @type {WlCacheEntry} */ ({
+        c: typeof body.c === 'number' ? body.c : undefined,
+        d: typeof body.d === 'number' ? body.d : undefined,
+        dp: typeof body.dp === 'number' ? body.dp : undefined,
+        h: typeof body.h === 'number' ? body.h : undefined,
+        l: typeof body.l === 'number' ? body.l : undefined,
+        o: typeof body.o === 'number' ? body.o : undefined,
+        pc: typeof body.pc === 'number' ? body.pc : undefined,
+    });
+}
+
 // ── Render ─────────────────────────────────────────────────────────────
 
 function renderPanel(/** @type {HTMLElement} */ rootEl) {
@@ -58,7 +90,8 @@ function renderPanel(/** @type {HTMLElement} */ rootEl) {
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
                 <span style="font-size:18px;font-weight:700;letter-spacing:-0.02em;">Watchlist</span>
                 <span style="font-size:11px;color:var(--dim, #888);font-family:var(--mono, monospace);">tab/watchlist · read-only</span>
-                <button id="wl-refresh" style="margin-left:auto;background:var(--card, #1a1a1a);border:1px solid var(--border, #2a2a2a);color:var(--fg, #f5f5f7);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;">Reload from cache</button>
+                <button id="wl-reload" style="margin-left:auto;background:var(--card, #1a1a1a);border:1px solid var(--border, #2a2a2a);color:var(--fg, #f5f5f7);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;">Reload cache</button>
+                <button id="wl-refresh-live" style="background:var(--accent, #089981);color:#000;border:0;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;">Refresh live</button>
             </div>
             <div style="background:var(--card, #1a1a1a);border:1px solid var(--border, #2a2a2a);border-radius:10px;overflow:hidden;">
                 <div id="wl-table-wrap" style="overflow:auto;max-height:60vh;">
@@ -125,6 +158,52 @@ function escapeAttr(/** @type {string} */ s) {
     return String(s).replace(/[&"<>]/g, (c) => /** @type {Record<string,string>} */ ({ '&': '&amp;', '"': '&quot;', '<': '&lt;', '>': '&gt;' })[c]);
 }
 
+// ── Phase 2a: HTTP refresh ─────────────────────────────────────────────
+
+async function refreshLive() {
+    if (!_panel) return;
+    if (_ctrl) _ctrl.abort();
+    _ctrl = new AbortController();
+    const symbols = loadSymbols();
+    if (!symbols.length) {
+        setStatus('No symbols to refresh');
+        return;
+    }
+    const key = lsGet('ps_finnhub_key', '');
+    if (!key) {
+        setStatus('Finnhub API key missing — set ps_finnhub_key via monolith Settings');
+        return;
+    }
+    const btn = /** @type {HTMLButtonElement | null} */ (_panel.querySelector('#wl-refresh-live'));
+    if (btn) { btn.setAttribute('disabled', 'true'); btn.textContent = 'Refreshing…'; }
+    setStatus(`Fetching ${symbols.length} quote(s)…`);
+    const cache = loadCache();
+    const t0 = performance.now();
+    let ok = 0, fail = 0;
+    await Promise.all(symbols.map((sym) =>
+        fetchQuote(sym, key, /** @type {AbortSignal} */ ((_ctrl && _ctrl.signal)))
+            .then((entry) => {
+                cache[sym] = { ...(cache[sym] || {}), ...entry };
+                ok++;
+            })
+            .catch((/** @type {any} */ e) => {
+                if (e && e.name !== 'AbortError') { fail++; console.warn('[wl]', sym, e && e.message); }
+            })
+    ));
+    persistCache(cache);
+    if (btn) { btn.removeAttribute('disabled'); btn.textContent = 'Refresh live'; }
+    const dt = ((performance.now() - t0) / 1000).toFixed(1);
+    repaint();
+    setStatus(`Refreshed ${ok}/${symbols.length} quote(s) in ${dt}s${fail ? ` · ${fail} failed` : ''} · ${new Date().toLocaleTimeString()}`);
+    bus.emit('watchlist:refreshed', { ok, fail });
+}
+
+function setStatus(/** @type {string} */ s) {
+    if (!_panel) return;
+    const el = _panel.querySelector('#wl-status');
+    if (el) el.textContent = s;
+}
+
 // ── Lifecycle ──────────────────────────────────────────────────────────
 
 export function init(/** @type {HTMLElement} */ rootEl) {
@@ -133,13 +212,17 @@ export function init(/** @type {HTMLElement} */ rootEl) {
     repaint();
     rootEl.addEventListener('click', (/** @type {Event} */ e) => {
         const t = /** @type {HTMLElement} */ (e.target);
-        if (t && t.id === 'wl-refresh') repaint();
+        if (!t) return;
+        if (t.id === 'wl-reload')       { repaint(); return; }
+        if (t.id === 'wl-refresh-live') { refreshLive(); return; }
     });
     bus.emit('tab:watchlist:init', { rootEl });
     return { id: 'watchlist', version: '0.2-step6-watchlist-readonly', ready: true, kind: 'tab' };
 }
 
 export function destroy() {
+    if (_ctrl) { try { _ctrl.abort(); } catch (e) { /* swallow */ } }
+    _ctrl = null;
     _panel = null;
     bus.emit('tab:watchlist:destroy');
 }
