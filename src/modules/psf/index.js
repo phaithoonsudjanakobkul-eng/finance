@@ -266,30 +266,9 @@ async function loadJSZip() {
     } finally { _jszipLoading = false; }
 }
 
-// XML escape (different from html escape — preserves angle brackets in CDATA)
-/** @param {string} s */
-function _psfXe(s) {
-    return String(s)
-        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-
-/**
- * Emit run content with proper <w:tab/> elements between text parts.
- * Preserves tab characters so Word re-renders tab stops on output.
- * @param {string} text
- */
-function _psfRunContent(text) {
-    if (!text) return '';
-    if (text.indexOf('\t') === -1) {
-        return '<w:t xml:space="preserve">' + _psfXe(text) + '</w:t>';
-    }
-    return text.split('\t').map((p, i) => {
-        const tab = i > 0 ? '<w:tab/>' : '';
-        const t = p ? '<w:t xml:space="preserve">' + _psfXe(p) + '</w:t>' : '';
-        return tab + t;
-    }).join('');
-}
+// XML escape + run-content helpers extracted to ./run-helpers.js + the
+// shared core/escape.js. escapeHtml is a strict superset of XML escape
+// (it also encodes ' → &#39; — a valid XML numeric character reference).
 
 /**
  * Compute per-row listId (one per logical list = group of consecutive items
@@ -484,7 +463,8 @@ async function exportDocx() {
     }
 }
 
-import { escapeHtml as he } from '../../core/escape.js';
+import { escapeHtml as he, escapeHtml as _psfXe } from '../../core/escape.js';
+import { runContent as _psfRunContent } from './run-helpers.js';
 
 // ── UI render ──────────────────────────────────────────────────────────
 /** @param {HTMLElement} rootEl */
