@@ -220,6 +220,7 @@ const _tabLoaders = {
     watchlist: () => import('./tabs/watchlist/index.js'),
     news:      () => import('./tabs/news/index.js'),
     utilities: () => import('./tabs/utilities/index.js'),
+    settings:  () => import('./tabs/settings/index.js'),
 };
 
 /** @type {Map<string, any>} */
