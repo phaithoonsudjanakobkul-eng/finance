@@ -56,3 +56,50 @@ html[data-preset="cinematic"] #tab-dashboard {
     background: transparent !important;
     border: none !important;
 }
+
+/* ─────────────────────────────────────────────────────────────
+   Glass treatment for v2 shell tab cards (Records / Dashboard /
+   Watchlist / News). Frosts the bg via backdrop-filter so the
+   body's photo-warm gradient bleeds through. Browser without
+   backdrop-filter (older Firefox) falls back to var(--cine-glass)
+   solid color — still legible.
+   ───────────────────────────────────────────────────────────── */
+
+html[data-preset="cinematic"] #rec-root .rec-cell,
+html[data-preset="cinematic"] #rec-root .rec-list-card,
+html[data-preset="cinematic"] #dash-root .dash-card,
+html[data-preset="cinematic"] #dash-root .dash-chart-card,
+html[data-preset="cinematic"] #wl-root .glass-card,
+html[data-preset="cinematic"] #news-root .news-row,
+html[data-preset="cinematic"] #news-root > div > div[style*="card"] {
+    background: var(--cine-glass) !important;
+    border: 1px solid var(--cine-glass-border) !important;
+    box-shadow: var(--cine-inner-highlight) !important;
+    backdrop-filter: blur(14px) saturate(140%);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+}
+
+/* Records form rows — subtle glass tint instead of solid bg so the
+   gradient peeks through the row's negative space */
+html[data-preset="cinematic"] #rec-root .rec-row {
+    background: rgba(245, 241, 232, 0.03) !important;
+    border-color: var(--cine-glass-border) !important;
+}
+
+/* Watchlist table — sticky header gets its own glass slab so it
+   doesn't break the body bg rhythm when scrolling */
+html[data-preset="cinematic"] #watchlist-table thead tr {
+    background: var(--cine-glass-strong) !important;
+    backdrop-filter: blur(10px) saturate(140%);
+    -webkit-backdrop-filter: blur(10px) saturate(140%);
+}
+
+/* Cinematic display family — Fraunces serif on hero numbers in tab cards.
+   Mirrors monolith's Studio rule pattern but scoped to v2 IDs. */
+html[data-preset="cinematic"] #dash-root .dash-value,
+html[data-preset="cinematic"] #rec-payday,
+html[data-preset="cinematic"] #sum-total-exp,
+html[data-preset="cinematic"] #record-balance-val {
+    font-family: var(--font-display) !important;
+    letter-spacing: -0.01em !important;
+}

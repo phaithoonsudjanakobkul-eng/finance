@@ -40,6 +40,8 @@ const SORT_LS_KEY = 'ps_v2_wl_sort';
 
 /** @type {{ field: SortField, dir: 'asc' | 'desc' }} */
 let _sort = { field: 'sym', dir: 'asc' };
+/** @type {string} */
+let _filter = '';
 
 /** @type {HTMLElement | null} */
 let _panel = null;
@@ -140,7 +142,8 @@ function renderPanel(/** @type {HTMLElement} */ rootEl) {
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
                 <span style="font-size:18px;font-weight:700;letter-spacing:-0.02em;">Watchlist</span>
                 <span style="font-size:11px;color:var(--dim, #888);font-family:var(--mono, monospace);">tab/watchlist · read-only</span>
-                <label style="margin-left:auto;display:flex;align-items:center;gap:6px;font-size:11px;color:var(--dim, #888);font-family:var(--mono, monospace);cursor:pointer;user-select:none;">
+                <input id="wl-filter" type="search" placeholder="Filter symbol or name…" autocomplete="off" style="margin-left:auto;background:var(--card, #1a1a1a);border:1px solid var(--border, #2a2a2a);color:var(--fg, #f5f5f7);padding:6px 10px;border-radius:6px;font-family:var(--mono, monospace);font-size:12px;min-width:200px;outline:none;">
+                <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--dim, #888);font-family:var(--mono, monospace);cursor:pointer;user-select:none;">
                     <input id="wl-auto" type="checkbox" style="cursor:pointer;accent-color:var(--accent, #089981);">
                     auto 30s
                 </label>
@@ -184,7 +187,19 @@ function repaint() {
     }
     const sparkData = loadSparkCache();
     const sorted = sortSymbols(symbols, cache);
-    const rows = sorted.map((sym) => {
+    const q = _filter.trim().toLowerCase();
+    const filtered = q ? sorted.filter((sym) => {
+        if (sym.toLowerCase().includes(q)) return true;
+        const n = (cache[sym] && cache[sym].name) || '';
+        return String(n).toLowerCase().includes(q);
+    }) : sorted;
+    if (q && !filtered.length) {
+        tbody.innerHTML = `<tr><td colspan="7" style="padding:18px;text-align:center;color:var(--dim, #888);">No matches for &ldquo;${escapeHtml(q)}&rdquo;.</td></tr>`;
+        paintSortIndicators();
+        if (status) status.textContent = `0 / ${symbols.length} symbol(s) shown · filter "${q}"`;
+        return;
+    }
+    const rows = filtered.map((sym) => {
         const c = cache[sym] || {};
         const last = (typeof c.c === 'number') ? _PRICE_FMT.format(c.c) : '—';
         const dRaw = (typeof c.d === 'number') ? c.d : null;
@@ -214,7 +229,9 @@ function repaint() {
     tbody.innerHTML = rows;
     paintSortIndicators();
     const cached = symbols.filter((s) => cache[s] && typeof cache[s].c === 'number').length;
-    if (status) status.textContent = `${symbols.length} symbol(s) · ${cached} with cached price · sort ${_sort.field} ${_sort.dir} · NO real-time WS (HTTP refresh + 30s auto only)`;
+    const shown = filtered.length;
+    const filterPart = q ? ` · filter "${q}" (${shown}/${symbols.length})` : '';
+    if (status) status.textContent = `${shown} symbol(s) shown · ${cached} cached · sort ${_sort.field} ${_sort.dir}${filterPart}`;
 }
 
 // ── Sort ───────────────────────────────────────────────────────────────
@@ -390,6 +407,13 @@ export function init(/** @type {HTMLElement} */ rootEl) {
     rootEl.addEventListener('change', (/** @type {Event} */ e) => {
         const t = /** @type {HTMLInputElement} */ (e.target);
         if (t && t.id === 'wl-auto') setAuto(t.checked);
+    });
+    rootEl.addEventListener('input', (/** @type {Event} */ e) => {
+        const t = /** @type {HTMLInputElement} */ (e.target);
+        if (t && t.id === 'wl-filter') {
+            _filter = t.value;
+            repaint();
+        }
     });
     // Resume / pause on tab visibility — keeps API rate sane when hidden
     const onVis = () => {
