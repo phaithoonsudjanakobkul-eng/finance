@@ -780,6 +780,10 @@ function renderPanel(rootEl) {
                 <div class="pane">
                     <h3>Queue</h3>
                     <div id="psup-queue-list"></div>
+                    <div id="psup-compare-wrap" style="margin-top:10px;display:none;">
+                        <h3 style="margin-bottom:8px;">Compare done</h3>
+                        <div id="psup-compare" style="display:grid;gap:8px;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));"></div>
+                    </div>
                 </div>
                 <div class="pane">
                     <h3>Settings</h3>
@@ -861,6 +865,7 @@ function renderQueue() {
     if (!_psupPanel) return;
     const host = _psupPanel.querySelector('#psup-queue-list');
     if (!host) return;
+    renderCompare();
     if (_psupQueue.length === 0) {
         host.innerHTML = '<div class="empty">Queue ว่าง — drop รูปด้านบนเพื่อเริ่ม</div>';
         return;
@@ -888,6 +893,31 @@ function renderQueue() {
             ${memBadge}
             <span class="badge" style="background:${statusColor}22;color:${statusColor};">${item.status}</span>
             <button class="x-btn" data-remove="${item.id}" title="Remove">✕</button>
+        </div>`;
+    }).join('');
+}
+
+function renderCompare() {
+    if (!_psupPanel) return;
+    const wrap = /** @type {HTMLElement | null} */ (_psupPanel.querySelector('#psup-compare-wrap'));
+    const host = /** @type {HTMLElement | null} */ (_psupPanel.querySelector('#psup-compare'));
+    if (!wrap || !host) return;
+    const done = _psupQueue.filter((x) => x && x.status === 'done' && x.outputUrl);
+    if (done.length < 2) {
+        wrap.style.display = 'none';
+        host.innerHTML = '';
+        return;
+    }
+    wrap.style.display = '';
+    host.innerHTML = done.slice(0, 6).map((it) => {
+        const dim = (it.width && it.height)
+            ? `${it.width * (_psupSettings.scale || 1)}×${it.height * (_psupSettings.scale || 1)}`
+            : '';
+        const name = he(it.name || it.id || '');
+        return `<div style="background:var(--bg, #0d0d0d);border:1px solid var(--border, #2a2a2a);border-radius:8px;padding:6px;display:flex;flex-direction:column;gap:4px;">
+            <img src="${he(it.outputUrl || '')}" alt="" style="width:100%;height:200px;object-fit:contain;background:#000;border-radius:4px;display:block;" loading="lazy">
+            <div style="font-size:11px;font-family:var(--mono, monospace);color:var(--dim, #888);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${name}</div>
+            <div style="font-size:10px;font-family:var(--mono, monospace);color:var(--dim, #888);">${he(it.modelId || '')} · ${dim}</div>
         </div>`;
     }).join('');
 }
