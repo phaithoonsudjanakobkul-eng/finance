@@ -21,6 +21,7 @@
 
 import { bus } from './core/bus.js';
 import { lsSave, lsGet } from './core/storage.js';
+import { applyPreset, applyVariant, presets, restoreActive } from './core/presets/index.js';
 
 console.log('[PSLink/v2] main.js boot — bus, storage ready');
 
@@ -136,7 +137,166 @@ window.addEventListener('DOMContentLoaded', () => {
 
     // Pre-warm in the background — first click feels instant
     prewarmModules();
+
+    // ── Preset switcher demo (Session 3t — Step 5) ───────────────────────
+    const presetOut = document.getElementById('preset-output');
+    const variantBar = document.getElementById('variant-bar');
+    const darkToggle = document.getElementById('toggle-dark');
+
+    function renderVariantBar() {
+        if (!variantBar) return;
+        const id = document.documentElement.getAttribute('data-preset') || 'origin';
+        const p = presets[id];
+        if (!p || !p.variants || !p.variants.length) {
+            variantBar.innerHTML = '<span style="opacity:.6;">no variants</span>';
+            return;
+        }
+        const active = document.documentElement.getAttribute('data-variant') || p.defaultVariant;
+        variantBar.innerHTML = '<span style="opacity:.6;">variants:</span> ' + p.variants.map((v) => {
+            const isActive = v === active;
+            const style = isActive
+                ? 'background:var(--accent, #089981);color:#000;'
+                : 'background:var(--card, #1a1a1a);color:var(--fg, #f5f5f7);border:1px solid var(--border, #2a2a2a);';
+            return `<button data-variant="${v}" style="${style}font-size:11px;padding:3px 9px;border-radius:6px;font-weight:600;cursor:pointer;">${v}</button>`;
+        }).join(' ');
+    }
+
+    function reportPreset(/** @type {any} */ res) {
+        if (!presetOut) return;
+        if (!res) { presetOut.textContent = 'No-op (preset unknown)'; return; }
+        const p = presets[res.preset];
+        presetOut.textContent =
+            `Applied · ${p.name} (${res.preset})` +
+            (res.variant ? ` · ${res.variant}` : '') +
+            ` · mode: ${res.mode}\n` +
+            `font-display: ${getComputedStyle(document.documentElement).getPropertyValue('--font-display').trim()}\n` +
+            `radius-md:    ${getComputedStyle(document.documentElement).getPropertyValue('--radius-md').trim()}\n` +
+            `accent:       ${getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '(theme default)'}`;
+        renderVariantBar();
+    }
+
+    document.querySelectorAll('button[data-preset]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const id = /** @type {HTMLElement} */ (btn).dataset.preset || 'origin';
+            reportPreset(applyPreset(id));
+        });
+    });
+    if (variantBar) {
+        variantBar.addEventListener('click', (e) => {
+            const t = /** @type {HTMLElement} */ (e.target);
+            const v = t && t.dataset && t.dataset.variant;
+            if (v) reportPreset(applyVariant(v));
+        });
+    }
+    if (darkToggle) {
+        darkToggle.addEventListener('click', () => {
+            document.documentElement.classList.toggle('dark');
+            // Re-apply active preset so variant colors pick the correct mode slot
+            const cur = document.documentElement.getAttribute('data-preset') || 'origin';
+            const curVar = document.documentElement.getAttribute('data-variant') || undefined;
+            reportPreset(applyPreset(cur, curVar));
+        });
+    }
+
+    // Boot: restore last preset (defaults to Origin if no storage)
+    document.documentElement.classList.add('dark'); // v2 shell defaults dark
+    reportPreset(restoreActive(true));
 });
 
 // Expose loader for legacy interop during cutover
 /** @type {any} */ (window).__psLoadModule = loadModule;
+
+// ── Tab router (Step 6 — Session 1 skeleton) ─────────────────────────────
+// Each tab is its own dynamic-import chunk. Switching tabs calls destroy() on
+// the previous tab so listeners + RAFs + WS handles get freed before the next
+// tab boots. activeTabId persists in localStorage so refresh restores last tab.
+
+/** @type {Record<string, () => Promise<any>>} */
+const _tabLoaders = {
+    dashboard: () => import('./tabs/dashboard/index.js'),
+    records:   () => import('./tabs/records/index.js'),
+    watchlist: () => import('./tabs/watchlist/index.js'),
+    news:      () => import('./tabs/news/index.js'),
+    utilities: () => import('./tabs/utilities/index.js'),
+};
+
+/** @type {Map<string, any>} */
+const _loadedTabs = new Map();
+
+/** @type {string} */
+let _activeTabId = '';
+
+/**
+ * Switch the active tab, destroying the previous tab if any.
+ * @param {string} id — tab key in _tabLoaders
+ * @param {HTMLElement} mountEl — DOM mount for the tab's init()
+ */
+export async function showTab(id, mountEl) {
+    const loader = _tabLoaders[id];
+    if (!loader) throw new Error(`[PSLink/v2] unknown tab: ${id}`);
+    if (_activeTabId && _activeTabId !== id) {
+        const prev = _loadedTabs.get(_activeTabId);
+        if (prev && typeof prev.destroy === 'function') {
+            try { prev.destroy(); } catch (e) { /* swallow */ }
+        }
+    }
+    let tab = _loadedTabs.get(id);
+    if (!tab) {
+        const t0 = performance.now();
+        tab = await loader();
+        const dt = (performance.now() - t0).toFixed(1);
+        console.log(`[PSLink/v2] loaded tab "${id}" in ${dt}ms`);
+        _loadedTabs.set(id, tab);
+        bus.emit('tab:loaded', { id, dt });
+    }
+    mountEl.innerHTML = '';
+    if (typeof tab.init === 'function') {
+        const result = tab.init(mountEl, { bus, lsSave, lsGet });
+        _activeTabId = id;
+        try { lsSave('ps_v2_active_tab', id); } catch (e) { /* swallow */ }
+        bus.emit('tab:active', { id });
+        return result;
+    }
+    return tab;
+}
+
+/** @type {any} */ (window).__psShowTab = showTab;
+
+window.addEventListener('DOMContentLoaded', () => {
+    const tabMount = document.getElementById('tab-mount');
+    if (!tabMount) return; // tab demo not on this page
+
+    /** @type {NodeListOf<HTMLButtonElement>} */
+    const tabBtns = document.querySelectorAll('button[data-tab]');
+    if (tabBtns.length === 0) return;
+
+    function setActiveBtn(/** @type {string} */ id) {
+        tabBtns.forEach((b) => {
+            const isActive = b.getAttribute('data-tab') === id;
+            b.style.background = isActive ? 'var(--accent, #089981)' : 'var(--card, #1a1a1a)';
+            b.style.color = isActive ? '#000' : 'var(--fg, #f5f5f7)';
+        });
+    }
+
+    tabBtns.forEach((btn) => {
+        btn.addEventListener('click', async () => {
+            const id = btn.dataset.tab;
+            if (!id) return;
+            setActiveBtn(id);
+            try {
+                await showTab(id, tabMount);
+            } catch (e) {
+                const err = /** @type {any} */ (e);
+                tabMount.textContent = `Error loading tab "${id}": ${err.message || err}`;
+            }
+        });
+    });
+
+    // Boot last tab (default dashboard)
+    const last = lsGet('ps_v2_active_tab', '') || 'dashboard';
+    const initialId = _tabLoaders[last] ? last : 'dashboard';
+    setActiveBtn(initialId);
+    showTab(initialId, tabMount).catch((e) => {
+        tabMount.textContent = `Error: ${(e && e.message) || e}`;
+    });
+});

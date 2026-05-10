@@ -1,0 +1,73 @@
+name: Deploy Vite build to Pages
+
+# Step 8 of the Vite migration. The workflow is INERT until the repo's Pages
+# source is switched from "Deploy from branch" to "GitHub Actions" (Settings →
+# Pages → Build and deployment). Until then, the production site continues to
+# ship from the monolith root index.html via dev-server.js auto-deploy commits.
+#
+# Activation order at cutover (Step 11):
+#   1. Merge vite-migration into main
+#   2. Repo Settings → Pages → Source: GitHub Actions
+#   3. Push or run workflow_dispatch — this workflow builds dist/ and publishes
+#
+# Triggers:
+#   - push to main (production cutover deploys)
+#   - push to vite-migration branch (preview deploys per Step 10)
+#   - workflow_dispatch (manual)
+
+on:
+  push:
+    branches:
+      - main
+      - vite-migration
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check
+        run: npm run type-check
+
+      - name: Build Vite
+        run: npm run build:vite
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

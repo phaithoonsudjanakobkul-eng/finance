@@ -1,0 +1,58 @@
+/* Cinematic preset — Photo + glass · dark-only · 2 variants (photo/aurora)
+ *
+ * Three-layer ambient gradient body bg + film-grain overlay + glass card tokens.
+ * Dashboard 4-col grid restructure + Markets focus-stock hero come with the
+ * Dashboard / Markets tabs in Step 6 — those rules target #dash-content and
+ * #tab-watchlist, which don't exist in v2 shell yet.
+ *
+ * Reference: monolith index.html lines 1653-1830.
+ *
+ * --cine-bg-warm / --cine-bg-cool / --cine-fg-rgb are overridden per-variant
+ * by JS via variantColors (see src/core/presets/cinematic.js).
+ */
+
+html[data-preset="cinematic"] {
+    /* Glass tokens (variant-overridable) */
+    --cine-glass: rgba(245, 241, 232, 0.06);
+    --cine-glass-strong: rgba(20, 12, 16, 0.55);
+    --cine-glass-border: rgba(245, 241, 232, 0.13);
+    --cine-glass-border-strong: rgba(245, 241, 232, 0.18);
+    --cine-inner-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    /* Body BG layers (variant-overridable) */
+    --cine-bg-warm: hsl(15, 60%, 35%);
+    --cine-bg-cool: rgba(45, 30, 80, 0.45);
+    --cine-bg-base: #1A0E12;
+    --cine-bg-base-mid: #221218;
+    /* Foreground RGB triplet for variant-aware rgba alpha */
+    --cine-fg-rgb: 245 241 232;
+}
+
+/* Body — three-layer ambient gradient. Variant-aware via --cine-bg-* tokens.
+   photo = warm sunset, aurora = cool aero. */
+html[data-preset="cinematic"] body {
+    background:
+        radial-gradient(ellipse at 75% 25%, var(--cine-bg-warm) 0%, transparent 55%),
+        radial-gradient(ellipse at 15% 85%, var(--cine-bg-cool) 0%, transparent 60%),
+        linear-gradient(135deg, var(--cine-bg-base) 0%, var(--cine-bg-base-mid) 50%, var(--cine-bg-base) 100%) !important;
+    background-attachment: fixed !important;
+}
+
+/* Subtle film grain over the whole viewport */
+html[data-preset="cinematic"] body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.035;
+    background-image: radial-gradient(circle at 1px 1px, white 1px, transparent 0);
+    background-size: 3px 3px;
+    z-index: 0;
+    mix-blend-mode: screen;
+}
+
+/* Markets shares the body bg — no tab-specific paint */
+html[data-preset="cinematic"] #tab-watchlist,
+html[data-preset="cinematic"] #tab-dashboard {
+    background: transparent !important;
+    border: none !important;
+}

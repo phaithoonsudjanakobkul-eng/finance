@@ -1,0 +1,57 @@
+/* Studio Warm preset — Editorial · cream + terracotta · single variant ("warm")
+ *
+ * Strips shadows/gradients/backdrop-blur from glass surfaces to land on the
+ * "print magazine that renders numbers" feel. Both light and dark supported.
+ *
+ * Reference: monolith index.html lines 10010-10060.
+ */
+
+html[data-preset="studio"] body {
+    background: var(--bg-main);
+}
+
+/* Flat surfaces — beats html.dark .glass-card + [data-theme="onyx"] .glass-card both !important */
+html[data-preset="studio"] .glass-card,
+html[data-preset="studio"].dark .glass-card,
+html[data-preset="studio"] #wl-table-panel .glass-card,
+html[data-preset="studio"] #tab-dashboard .glass-card,
+html[data-preset="studio"] #tab-records .glass-card {
+    background: var(--bg-card) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 8px !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+/* Nav: flat — keep border, drop shadow */
+html[data-preset="studio"] nav,
+html[data-preset="studio"].dark nav {
+    background: var(--bg-main) !important;
+    box-shadow: none !important;
+}
+
+/* Modals: refined backdrop */
+html[data-preset="studio"] .modal-backdrop,
+html[data-preset="studio"] [class*="-backdrop"] {
+    background: rgba(31, 27, 23, 0.45);
+}
+html[data-preset="studio"].dark .modal-backdrop,
+html[data-preset="studio"].dark [class*="-backdrop"] {
+    background: rgba(0, 0, 0, 0.7);
+}
+
+/* Display family — Fraunces serif for hero numbers + section heads */
+html[data-preset="studio"] .dash-value,
+html[data-preset="studio"] .profile-name,
+html[data-preset="studio"] #nav-brand {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
+}
+
+/* Mono caps labels — JetBrains Mono with tight tracking */
+html[data-preset="studio"] .dash-label,
+html[data-preset="studio"] #nav-version {
+    font-family: var(--font-data);
+    letter-spacing: 0.08em;
+}

@@ -38,6 +38,21 @@
     <h1>PSLink v2 <span class="pill">Vite scaffold</span></h1>
     <p>Session 3a proof-of-concept page. Production app still ships from root <code>index.html</code>. This page tests the Vite + lazy-import infrastructure that future Session 3 sub-sessions will grow into the full shell.</p>
 
+    <h2>Tab router (Step 6)</h2>
+    <div class="card">
+        <p>Each tab is its own dynamic-import chunk. Switching tabs destroys the previous tab before booting the next one. <code>ps_v2_active_tab</code> in localStorage restores last tab on refresh.</p>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+            <button data-tab="dashboard">Dashboard</button>
+            <button data-tab="records">Records</button>
+            <button data-tab="watchlist">Watchlist</button>
+            <button data-tab="news">News</button>
+            <button data-tab="utilities">Utilities</button>
+        </div>
+        <div id="tab-mount" style="min-height:200px;background:var(--bg);border:1px solid var(--border);border-radius:10px;overflow:auto;">
+            <div style="padding:18px;color:var(--dim);font-size:13px;">Loading active tab…</div>
+        </div>
+    </div>
+
     <h2>Lazy module loader</h2>
     <div class="card">
         <p>Click any module below to load it via dynamic <code>import()</code>. Each module ships as its own chunk under <code>dist/assets/</code>; first click downloads + initializes, subsequent clicks hit cache. Idle pre-warm fires after 2s to fetch all chunks in the background.</p>
@@ -59,6 +74,20 @@
     </div>
 
     <pre id="demo-output">Click any module button above...</pre>
+
+    <h2>Preset switcher (Session 3t — Step 5)</h2>
+    <div class="card">
+        <p>Origin / Phosphor / Studio / Cinematic — switching writes 5-axis CSS vars + variant colors to <code>:root</code>. Toggle dark mode to see darkOnly presets auto-flip + light slot heal.</p>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
+            <button data-preset="origin">Origin</button>
+            <button data-preset="phosphor">Phosphor <span style="font-size:10px;opacity:.7;">(dark-only · 4 variants)</span></button>
+            <button data-preset="studio">Studio Warm <span style="font-size:10px;opacity:.7;">(1 variant)</span></button>
+            <button data-preset="cinematic">Cinematic <span style="font-size:10px;opacity:.7;">(dark-only · 2 variants)</span></button>
+            <button id="toggle-dark" style="background:var(--card);color:var(--fg);border:1px solid var(--border);">Toggle dark</button>
+        </div>
+        <div id="variant-bar" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;font-size:12px;color:var(--dim);"></div>
+        <pre id="preset-output" style="margin-top:8px;min-height:32px;">Click a preset to apply</pre>
+    </div>
 
     <h2>What's wired (Session 3 complete)</h2>
     <div class="grid">
