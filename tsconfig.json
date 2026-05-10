@@ -37,7 +37,8 @@
   "include": [
     "src/**/*.ts",
     "src/**/*.js",
-    "vite.config.js"
+    "vite.config.js",
+    "vitest.config.js"
   ],
   "exclude": [
     "node_modules",
@@ -48,6 +49,7 @@
     "pslink-pdf-worker",
     "pslink-collabora",
     "pslink-wopi",
-    "pslink-r2-worker"
+    "pslink-r2-worker",
+    "src/**/*.test.js"
   ]
 }

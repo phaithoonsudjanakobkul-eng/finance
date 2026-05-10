@@ -31,6 +31,7 @@
 
 import { lsSave, lsGet, lsGetJson } from '../../core/storage.js';
 import { bus } from '../../core/bus.js';
+import { bufToBase64, wrapBase64, emlEncodeWord, emlMessageId } from './eml-utils.js';
 
 // ── Storage keys ───────────────────────────────────────────────────────
 export const PSQ_STATE_KEY            = 'ps_psq_state';
@@ -350,38 +351,9 @@ async function stage1Apply() {
 
 const _XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
-/** @param {ArrayBuffer} buf @returns {string} */
-function _bufToBase64(buf) {
-    const bytes = new Uint8Array(buf);
-    let bin = '';
-    const CHUNK = 0x8000; // 32 KB chunks — avoids "argument list too long" at >100KB
-    for (let i = 0; i < bytes.length; i += CHUNK) {
-        bin += String.fromCharCode.apply(null, /** @type {any} */ (bytes.subarray(i, i + CHUNK)));
-    }
-    return btoa(bin);
-}
-
-/** @param {string} s64 @returns {string} */
-function _wrapBase64(s64) {
-    // RFC 2822 line length cap is 998 chars; 76 is the conventional MIME line
-    const out = [];
-    for (let i = 0; i < s64.length; i += 76) out.push(s64.slice(i, i + 76));
-    return out.join('\r\n');
-}
-
-/** @param {string} s @returns {string} */
-function _emlEncodeWord(s) {
-    // Encode non-ASCII subjects/filenames as RFC 2047 base64
-    if (!/[^\x20-\x7E]/.test(s)) return s;
-    return '=?utf-8?B?' + btoa(unescape(encodeURIComponent(s))) + '?=';
-}
-
-/** @param {string} hostname for Message-ID — best-effort, not strict */
-function _emlMessageId(hostname) {
-    const ts = Date.now().toString(36);
-    const rnd = Math.random().toString(36).slice(2, 10);
-    return `<${ts}.${rnd}@${hostname || 'pslink.local'}>`;
-}
+// .eml builder helpers (bufToBase64 / wrapBase64 / emlEncodeWord /
+// emlMessageId) live in ./eml-utils.js so unit tests can import them
+// without dragging the whole PSQ panel.
 
 async function stage2Distribute() {
     if (!_psqState.comp1 && !_psqState.comp2) {
@@ -394,9 +366,9 @@ async function stage2Distribute() {
         const headers = [
             'MIME-Version: 1.0',
             'Date: ' + new Date().toUTCString(),
-            'Message-ID: ' + _emlMessageId(typeof location !== 'undefined' ? location.hostname : ''),
-            'Subject: ' + _emlEncodeWord('PSLink Quotation — Comp1 + Comp2'),
-            'From: ' + _emlEncodeWord('PSLink <noreply@pslink.local>'),
+            'Message-ID: ' + emlMessageId(typeof location !== 'undefined' ? location.hostname : ''),
+            'Subject: ' + emlEncodeWord('PSLink Quotation — Comp1 + Comp2'),
+            'From: ' + emlEncodeWord('PSLink <noreply@pslink.local>'),
             'To: ',
             'X-Unsent: 1', // Outlook draft-mode hint — opens as draft, not sent message
             `Content-Type: multipart/mixed; boundary="${boundary}"`,
@@ -419,11 +391,11 @@ async function stage2Distribute() {
         /** @param {string} slotName @param {string} fname @param {ArrayBuffer} buf */
         const buildAttachmentPart = (slotName, fname, buf) => [
             `--${boundary}`,
-            `Content-Type: ${_XLSX_MIME}; name="${_emlEncodeWord(fname)}"`,
+            `Content-Type: ${_XLSX_MIME}; name="${emlEncodeWord(fname)}"`,
             'Content-Transfer-Encoding: base64',
-            `Content-Disposition: attachment; filename="${_emlEncodeWord(fname)}"`,
+            `Content-Disposition: attachment; filename="${emlEncodeWord(fname)}"`,
             '',
-            _wrapBase64(_bufToBase64(buf)),
+            wrapBase64(bufToBase64(buf)),
             '',
         ].join('\r\n');
 
