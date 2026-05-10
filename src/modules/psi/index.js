@@ -74,6 +74,12 @@ const _psiAnglePts = [];
 let _psiAreaMode = false;
 /** @type {{x: number, y: number}[]} */
 const _psiAreaPts = [];
+/** @type {boolean} */
+let _psiFreehandMode = false;
+/** @type {boolean} */
+let _psiFreehandDragging = false;
+/** @type {{x: number, y: number}[]} */
+const _psiFreehandPts = [];
 
 /** @type {{ [stage: string]: boolean }} */
 const _psiStageOpen = { '1': true, '2': true, '3': false, '4': false };
@@ -547,6 +553,7 @@ function renderPanel(rootEl) {
                         <button class="act" id="psi-measure-line">Measure line</button>
                         <button class="act" id="psi-measure-angle">Measure angle</button>
                         <button class="act" id="psi-measure-area">Measure area</button>
+                        <button class="act" id="psi-measure-freehand">Freehand area</button>
                         <button class="act ghost" id="psi-measure-clear">Clear all</button>
                         <span id="psi-measure-hint" style="font-size:11px;color:var(--dim, #888);"></span>
                     </div>
@@ -717,6 +724,7 @@ function wireEvents() {
     panel.querySelector('#psi-measure-line')?.addEventListener('click', () => startMeasureLine());
     panel.querySelector('#psi-measure-angle')?.addEventListener('click', () => startMeasureAngle());
     panel.querySelector('#psi-measure-area')?.addEventListener('click', () => toggleAreaMode());
+    panel.querySelector('#psi-measure-freehand')?.addEventListener('click', () => startFreehandMode());
     panel.querySelector('#psi-measure-clear')?.addEventListener('click', () => clearMeasurements());
     const canvas = /** @type {HTMLCanvasElement | null} */ (panel.querySelector('#psi-canvas'));
     if (canvas) {
@@ -725,6 +733,18 @@ function wireEvents() {
             else if (_psiMeasureMode) onMeasureCanvasClick(ev);
             else if (_psiAngleMode) onAngleCanvasClick(ev);
             else if (_psiAreaMode) onAreaCanvasClick(ev);
+        });
+        canvas.addEventListener('mousedown', (ev) => {
+            if (_psiFreehandMode) onFreehandMouseDown(ev);
+        });
+        canvas.addEventListener('mousemove', (ev) => {
+            if (_psiFreehandMode && _psiFreehandDragging) onFreehandMouseMove(ev);
+        });
+        canvas.addEventListener('mouseup', (ev) => {
+            if (_psiFreehandMode && _psiFreehandDragging) onFreehandMouseUp(ev);
+        });
+        canvas.addEventListener('mouseleave', () => {
+            if (_psiFreehandMode && _psiFreehandDragging) onFreehandMouseUp(null);
         });
     }
 }
@@ -947,6 +967,105 @@ function finishAreaPolygon() {
         areaMicrons2 != null
             ? `Area ${_psiMeasurements.length}: ${areaMicrons2.toFixed(2)} µm²`
             : `Area ${_psiMeasurements.length}: ${areaPx2.toFixed(1)} px²`,
+        'ok',
+    );
+}
+
+function startFreehandMode() {
+    if (!_psiPanel) return;
+    const canvas = /** @type {HTMLCanvasElement | null} */ (_psiPanel.querySelector('#psi-canvas'));
+    if (!canvas || canvas.style.display === 'none') {
+        setStatus('Load an image first', 'err');
+        return;
+    }
+    if (_psiCalibMode) exitCalibLine();
+    if (_psiMeasureMode) exitMeasureMode();
+    if (_psiAngleMode) exitAngleMode();
+    if (_psiAreaMode) exitAreaMode();
+    _psiFreehandMode = true;
+    _psiFreehandDragging = false;
+    _psiFreehandPts.length = 0;
+    canvas.style.cursor = 'crosshair';
+    paintMeasureHint('Click & drag to outline a region');
+}
+
+function exitFreehandMode() {
+    if (!_psiPanel) return;
+    _psiFreehandMode = false;
+    _psiFreehandDragging = false;
+    _psiFreehandPts.length = 0;
+    const canvas = /** @type {HTMLCanvasElement | null} */ (_psiPanel.querySelector('#psi-canvas'));
+    if (canvas) canvas.style.cursor = '';
+    paintMeasureHint('');
+}
+
+const _PSI_FREEHAND_MIN_DIST_PX = 3; // distance-based simplification — drops noise samples while preserving curve fidelity
+
+/** @param {MouseEvent} ev */
+function onFreehandMouseDown(ev) {
+    if (!_psiFreehandMode || !_psiPanel) return;
+    const canvas = /** @type {HTMLCanvasElement | null} */ (_psiPanel.querySelector('#psi-canvas'));
+    if (!canvas) return;
+    const pt = canvasPointFromClick(canvas, ev);
+    _psiFreehandDragging = true;
+    _psiFreehandPts.length = 0;
+    _psiFreehandPts.push(pt);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.save();
+    ctx.fillStyle = '#fbbf24';
+    ctx.beginPath();
+    ctx.arc(pt.x, pt.y, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+}
+
+/** @param {MouseEvent} ev */
+function onFreehandMouseMove(ev) {
+    if (!_psiFreehandMode || !_psiFreehandDragging || !_psiPanel) return;
+    const canvas = /** @type {HTMLCanvasElement | null} */ (_psiPanel.querySelector('#psi-canvas'));
+    if (!canvas) return;
+    const pt = canvasPointFromClick(canvas, ev);
+    const last = _psiFreehandPts[_psiFreehandPts.length - 1];
+    if (!last) return;
+    if (distancePx(last, pt) < _PSI_FREEHAND_MIN_DIST_PX) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.save();
+    ctx.strokeStyle = '#fbbf24';
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(last.x, last.y);
+    ctx.lineTo(pt.x, pt.y);
+    ctx.stroke();
+    ctx.restore();
+    _psiFreehandPts.push(pt);
+}
+
+/** @param {MouseEvent | null} _ev */
+function onFreehandMouseUp(_ev) {
+    if (!_psiFreehandMode || !_psiFreehandDragging) return;
+    _psiFreehandDragging = false;
+    if (_psiFreehandPts.length < 3) {
+        setStatus('Freehand region too small (< 3 points)', 'err');
+        exitFreehandMode();
+        drawCanvas(psImagingState.currentImageUrl);
+        return;
+    }
+    const pts = _psiFreehandPts.slice();
+    const areaPx2 = polygonAreaPx(pts);
+    const ppm = psImagingState.pixelPerMicron;
+    const areaMicrons2 = (typeof ppm === 'number' && ppm > 0) ? areaPx2 / (ppm * ppm) : null;
+    _psiMeasurements.push({ kind: 'area', pts, areaMicrons2 });
+    exitFreehandMode();
+    drawCanvas(psImagingState.currentImageUrl);
+    renderMeasureList();
+    setStatus(
+        areaMicrons2 != null
+            ? `Freehand ${_psiMeasurements.length}: ${areaMicrons2.toFixed(2)} µm² · ${pts.length} samples`
+            : `Freehand ${_psiMeasurements.length}: ${areaPx2.toFixed(1)} px² · ${pts.length} samples`,
         'ok',
     );
 }
