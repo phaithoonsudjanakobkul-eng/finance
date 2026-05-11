@@ -36,3 +36,31 @@ test('app-shell carries cinematic background layers', async ({ page }) => {
   expect(bg).toContain('radial-gradient')
   expect(bg).toContain('linear-gradient')
 })
+
+test('R3 HeroPhoto + FrameStrip render on Dashboard', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.locator('[data-component="hero-photo"]')).toBeVisible()
+  await expect(page.locator('[data-component="frame-strip"]')).toBeVisible()
+  await expect(page.locator('[data-component="frame-strip"] [data-frame]')).toHaveCount(6)
+})
+
+test('FrameStrip switches active frame and updates hero caption + hue', async ({ page }) => {
+  await page.goto('/')
+  const heroBefore = await page.locator('[data-hero-caption]').textContent()
+  const hueBefore = await page.locator('.app-shell').getAttribute('data-hero-hue')
+
+  await page.locator('[data-frame="3"]').click()
+
+  const heroAfter = await page.locator('[data-hero-caption]').textContent()
+  const hueAfter = await page.locator('.app-shell').getAttribute('data-hero-hue')
+  expect(heroAfter).not.toBe(heroBefore)
+  expect(hueAfter).not.toBe(hueBefore)
+  await expect(page.locator('[data-frame="3"]')).toHaveAttribute('aria-current', 'true')
+})
+
+test('active frame persists across reload', async ({ page }) => {
+  await page.goto('/')
+  await page.locator('[data-frame="4"]').click()
+  await page.reload()
+  await expect(page.locator('[data-frame="4"]')).toHaveAttribute('aria-current', 'true')
+})

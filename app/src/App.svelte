@@ -6,9 +6,10 @@
   import News from './tabs/News.svelte'
   import Utilities from './tabs/Utilities.svelte'
   import { tabs } from './lib/tabs.svelte'
+  import { frames } from './lib/frames.svelte'
 </script>
 
-<div class="app-shell">
+<div class="app-shell" style:--hero-hue={frames.hue} data-hero-hue={frames.hue}>
   <div class="app-grain"></div>
   <div style="position:relative; z-index:1; padding:20px 24px;">
     <TopNav />
