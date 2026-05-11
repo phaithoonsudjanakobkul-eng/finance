@@ -64,3 +64,54 @@ test('active frame persists across reload', async ({ page }) => {
   await page.reload()
   await expect(page.locator('[data-frame="4"]')).toHaveAttribute('aria-current', 'true')
 })
+
+test('R4 Records tab shows zero totals and empty state on fresh device', async ({ page }) => {
+  await page.goto('/')
+  await page.locator('[data-tab="records"]').click()
+  await expect(page.locator('[data-component="record-form"]')).toBeVisible()
+  await expect(page.locator('[data-empty]')).toBeVisible()
+  const balanceCard = page.locator('[data-component="stat-glass"][data-label="Balance"] [data-value]')
+  await expect(balanceCard).toContainText('฿0')
+})
+
+test('R4 Add expense record — appears in list, updates totals + balance', async ({ page }) => {
+  await page.goto('/')
+  await page.locator('[data-tab="records"]').click()
+
+  await page.locator('[data-field="category"]').fill('Coffee')
+  await page.locator('[data-field="amount"]').fill('150')
+  await page.locator('[data-action="save-record"]').click()
+
+  await expect(page.locator('[data-records-list] [data-record-id]')).toHaveCount(1)
+  await expect(page.locator('[data-component="stat-glass"][data-label="Expense"]')).toContainText('150')
+  await expect(page.locator('[data-component="stat-glass"][data-label="Balance"]')).toContainText('150')
+})
+
+test('R4 Income type toggle + delete row', async ({ page }) => {
+  await page.goto('/')
+  await page.locator('[data-tab="records"]').click()
+
+  await page.locator('[data-type-toggle="income"]').click()
+  await page.locator('[data-field="category"]').fill('Salary')
+  await page.locator('[data-field="amount"]').fill('50000')
+  await page.locator('[data-action="save-record"]').click()
+
+  await expect(page.locator('[data-record-type="income"]')).toHaveCount(1)
+  await expect(page.locator('[data-component="stat-glass"][data-label="Income"]')).toContainText('50,000')
+
+  await page.locator('[data-action="delete-record"]').first().click()
+  await expect(page.locator('[data-records-list] [data-record-id]')).toHaveCount(0)
+})
+
+test('R4 records persist across reload', async ({ page }) => {
+  await page.goto('/')
+  await page.locator('[data-tab="records"]').click()
+  await page.locator('[data-field="category"]').fill('Rent')
+  await page.locator('[data-field="amount"]').fill('12000')
+  await page.locator('[data-action="save-record"]').click()
+
+  await page.reload()
+  await page.locator('[data-tab="records"]').click()
+  await expect(page.locator('[data-records-list] [data-record-id]')).toHaveCount(1)
+  await expect(page.locator('[data-component="stat-glass"][data-label="Expense"]')).toContainText('12,000')
+})
