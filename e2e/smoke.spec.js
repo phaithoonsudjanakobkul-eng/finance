@@ -12,9 +12,20 @@ import { test, expect } from '@playwright/test';
 test.describe('v2 shell smoke', () => {
     test.beforeEach(async ({ page }) => {
         // Clear localStorage between tests so each one boots with a known empty
-        // state (no Gist token → no auto-pull → empty tabs render fast)
+        // state. Seed a dummy ps_gist_token = '' BEFORE reload so the V21
+        // wizard (which only mounts on a completely-empty localStorage) is
+        // suppressed for everyday specs. The dedicated V21 spec re-clears
+        // localStorage + reloads to exercise the wizard explicitly.
         await page.goto('/src/', { waitUntil: 'load' });
-        await page.evaluate(() => { try { localStorage.clear(); } catch (_e) {} });
+        await page.evaluate(() => {
+            try {
+                localStorage.clear();
+                // Place a sentinel so isFresh() → false in main.js bootHydrate.
+                // The wizard guard is `!records && !watchlist && !token`; setting
+                // ps_records to '[]' is enough.
+                localStorage.setItem('ps_records', '[]');
+            } catch (_e) {}
+        });
         await page.reload({ waitUntil: 'load' });
     });
 
@@ -278,6 +289,20 @@ test.describe('v2 shell smoke', () => {
         await page.reload({ waitUntil: 'load' });
         await page.locator('button[data-tab="dashboard"]').click();
         await expect(page.locator('#muse-hero-img')).toBeVisible({ timeout: 5_000 });
+    });
+
+    test('V21 First-time wizard mounts when localStorage is fully empty', async ({ page }) => {
+        // beforeEach already auto-Skipped the wizard. Reload fresh so we
+        // can observe it before dismissing.
+        await page.evaluate(() => { try { localStorage.clear(); } catch (_e) {} });
+        await page.reload({ waitUntil: 'load' });
+        await expect(page.locator('#ps-wizard-overlay')).toBeVisible({ timeout: 5_000 });
+        await expect(page.locator('#ps-wizard-token')).toBeVisible();
+        await expect(page.locator('#ps-wizard-skip')).toBeVisible();
+        // Click Skip → wizard closes + Dashboard mounts
+        await page.locator('#ps-wizard-skip').click();
+        await expect(page.locator('#ps-wizard-overlay')).toHaveCount(0);
+        await expect(page.locator('#dash-profile-name')).toBeVisible({ timeout: 5_000 });
     });
 
     test('V19-20 Mobile bottom nav — exists in DOM, becomes visible at < 640 width', async ({ page }) => {

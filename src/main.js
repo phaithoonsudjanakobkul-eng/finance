@@ -478,6 +478,24 @@ window.addEventListener('DOMContentLoaded', () => {
 
     /** @returns {Promise<void>} */
     async function bootHydrate() {
+        // V21 first-time wizard — fresh device + no token: show the
+        // wizard so the user has a clear entry point rather than an
+        // empty Records/Watchlist tab.
+        const tokenEarly = lsGet('ps_gist_token', '');
+        const fresh = !localStorage.getItem('ps_records') && !localStorage.getItem('ps_watchlist');
+        if (fresh && !tokenEarly) {
+            setSplashStatus('First-time setup…');
+            // Hide splash so the wizard can be interacted with (otherwise
+            // the splash overlay intercepts pointer events).
+            const splash = document.getElementById('v2-splash');
+            if (splash) splash.classList.add('v2-splash-fade');
+            const wiz = await import('./widgets/wizard/index.js');
+            await wiz.showWizard();
+            // re-apply preset if the wizard pulled data
+            try { restoreActive(document.documentElement.classList.contains('dark')); }
+            catch (e) { /* swallow */ }
+            return;
+        }
         const token = lsGet('ps_gist_token', '');
         if (!token || !isFreshDevice()) return;
         setSplashStatus('Syncing from Gist…');
