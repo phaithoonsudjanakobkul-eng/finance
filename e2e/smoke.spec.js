@@ -280,6 +280,15 @@ test.describe('v2 shell smoke', () => {
         await expect(page.locator('#muse-hero-img')).toBeVisible({ timeout: 5_000 });
     });
 
+    test('V12 floating clock mounts on body and is visible on every tab', async ({ page }) => {
+        await expect(page.locator('#ps-floating-clock')).toBeVisible({ timeout: 5_000 });
+        // Tab away and back — clock should still be there (not torn down by tab swap)
+        await page.locator('button[data-tab="utilities"]').click();
+        await expect(page.locator('#ps-floating-clock')).toBeVisible();
+        await page.locator('button[data-tab="watchlist"]').click();
+        await expect(page.locator('#ps-floating-clock')).toBeVisible();
+    });
+
     test('Profile edit modal — clicking nav avatar opens, Esc closes', async ({ page }) => {
         await page.locator('#nav-avatar').click();
         await expect(page.locator('#profile-edit-panel')).toBeVisible({ timeout: 2_000 });

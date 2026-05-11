@@ -282,6 +282,22 @@ html[data-preset="cinematic"] #muse-root .muse-slot.is-active {
     box-shadow: 0 0 0 2px var(--accent), 0 8px 24px rgb(0 0 0 / 0.35) !important;
 }
 
+/* ─────────────────────────────────────────────────────────────
+   V12 — Floating clock widget. Glass card + accent text.
+   ───────────────────────────────────────────────────────────── */
+
+html[data-preset="cinematic"] #ps-floating-clock {
+    background: var(--cine-glass-strong) !important;
+    border-color: var(--cine-glass-border-strong) !important;
+    backdrop-filter: blur(14px) saturate(160%);
+    -webkit-backdrop-filter: blur(14px) saturate(160%);
+    color: var(--text-primary) !important;
+    box-shadow: 0 8px 24px rgb(0 0 0 / 0.35), var(--cine-inner-highlight) !important;
+}
+html[data-preset="cinematic"] #ps-floating-clock .ps-clock-time {
+    font-family: var(--font-display) !important;
+}
+
 /* V11 — photo album row: fixed 9:16 portrait chips ~120×215px, horizontal
    scroll if the row overflows. Reads like a row of polaroids below the
    cinematic hero. */

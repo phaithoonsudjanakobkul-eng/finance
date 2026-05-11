@@ -28,6 +28,7 @@ import { mount as mountSyncStatus } from './widgets/sync-status/index.js';
 import { mount as mountSaveButton } from './widgets/save-button/index.js';
 import { mount as mountThemeToggle } from './widgets/theme-toggle/index.js';
 import { mount as mountAvatarChip } from './widgets/avatar-chip/index.js';
+import { mount as mountFloatingClock } from './widgets/clock/index.js';
 import './styles/privacy.css';
 import './styles/watchlist.css';
 
@@ -425,6 +426,10 @@ window.addEventListener('DOMContentLoaded', () => {
     if (settingsBtn) {
         settingsBtn.addEventListener('click', () => activate('settings'));
     }
+
+    // Floating clock — visible on every tab (per CLAUDE.md). Mounts on
+    // <body>, NOT inside the tab mount, so tab swaps don't tear it down.
+    mountFloatingClock();
 
     // Fresh-device Gist auto-hydrate. localStorage empty + token set →
     // pull encrypted Gist → decrypt → seed records/watchlist/cache/keys
