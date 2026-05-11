@@ -103,6 +103,38 @@ test('R4 Income type toggle + delete row', async ({ page }) => {
   await expect(page.locator('[data-records-list] [data-record-id]')).toHaveCount(0)
 })
 
+test('R7 ProfileCard shows default name + EDIT button on fresh device', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.locator('[data-component="profile-card"]')).toBeVisible()
+  await expect(page.locator('[data-profile-name]')).toHaveText('Pi-keng')
+  await expect(page.locator('[data-action="edit-profile"]')).toBeVisible()
+  await expect(page.locator('[data-action="upload-photo"]')).toBeVisible()
+})
+
+test('R7 ProfileCard edit flow — name + notes save and persist across reload', async ({ page }) => {
+  await page.goto('/')
+  await page.locator('[data-action="edit-profile"]').click()
+  await page.locator('[data-field="profile-name"]').fill('Junie')
+  await page.locator('[data-field="profile-notes"]').fill('First note · 2026')
+  await page.locator('[data-action="save-profile"]').click()
+
+  await expect(page.locator('[data-profile-name]')).toHaveText('Junie')
+  await expect(page.locator('[data-profile-notes]')).toContainText('First note · 2026')
+
+  await page.reload()
+  await expect(page.locator('[data-profile-name]')).toHaveText('Junie')
+  await expect(page.locator('[data-profile-notes]')).toContainText('First note · 2026')
+})
+
+test('R7 ProfileCard cancel reverts changes', async ({ page }) => {
+  await page.goto('/')
+  await page.locator('[data-action="edit-profile"]').click()
+  await page.locator('[data-field="profile-name"]').fill('Throwaway')
+  await page.locator('[data-action="cancel-profile"]').click()
+
+  await expect(page.locator('[data-profile-name]')).toHaveText('Pi-keng')
+})
+
 test('R6 Watchlist tab renders mock symbols with correct semantic colors', async ({ page }) => {
   await page.goto('/')
   await page.locator('[data-tab="watchlist"]').click()
