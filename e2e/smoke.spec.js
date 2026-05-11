@@ -291,6 +291,13 @@ test.describe('v2 shell smoke', () => {
         await expect(page.locator('#muse-hero-img')).toBeVisible({ timeout: 5_000 });
     });
 
+    test('V22 PWA manifest link + theme-color present in <head>', async ({ page }) => {
+        // manifest <link>
+        await expect(page.locator('link[rel="manifest"]')).toHaveAttribute('href', /manifest\.webmanifest/);
+        // theme-color meta
+        await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#089981');
+    });
+
     test('V21 First-time wizard mounts when localStorage is fully empty', async ({ page }) => {
         // beforeEach already auto-Skipped the wizard. Reload fresh so we
         // can observe it before dismissing.

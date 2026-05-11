@@ -275,6 +275,15 @@ export async function showTab(id, mountEl) {
 
 /** @type {any} */ (window).__psShowTab = showTab;
 
+// V22 — Service worker registration. Only in production-style HTTPS;
+// skipping localhost http for dev cleanliness. Errors are swallowed —
+// SW failure must never block boot.
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(() => {/* swallow */});
+    });
+}
+
 window.addEventListener('DOMContentLoaded', () => {
     const tabMount = document.getElementById('tab-mount');
     if (!tabMount) return; // tab demo not on this page
