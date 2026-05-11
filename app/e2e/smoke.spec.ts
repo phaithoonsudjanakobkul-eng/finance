@@ -129,6 +129,83 @@ for (const v of VIEWPORTS) {
   })
 }
 
+test('R13 LowAlerts empty state on fresh device + CTA navigates to Market', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.locator('[data-component="low-alerts"]')).toBeVisible()
+  await expect(page.locator('[data-component="low-alerts"] [data-empty]')).toBeVisible()
+  await page.locator('[data-action="goto-market-alerts"]').click()
+  await expect(page.locator('[data-tab-content="watchlist"]')).toBeVisible()
+})
+
+test('R13 Set LOW alert above LAST → not triggered (quiet state)', async ({ page }) => {
+  await page.goto('/')
+  await page.locator('[data-tab="watchlist"]').click()
+
+  // TSLA last is 391.58; set alert at 350 → NOT triggered
+  await page.locator('[data-watchlist-row][data-symbol="TSLA"] [data-action="toggle-alert"]').click()
+  await page.locator('[data-watchlist-row][data-symbol="TSLA"] [data-field="alert-threshold"]').fill('350')
+  await page.locator('[data-watchlist-row][data-symbol="TSLA"] [data-action="save-alert"]').click()
+
+  await page.locator('[data-tab="dashboard"]').click()
+  await expect(page.locator('[data-component="low-alerts"] [data-quiet]')).toBeVisible()
+  await expect(page.locator('[data-alert-row]')).toHaveCount(0)
+})
+
+test('R13 Set LOW alert above LAST trigger → shows in Dashboard with belowPct', async ({ page }) => {
+  await page.goto('/')
+  await page.locator('[data-tab="watchlist"]').click()
+
+  // NVDA last is 199.65; set alert at 220 → TRIGGERED
+  await page.locator('[data-watchlist-row][data-symbol="NVDA"] [data-action="toggle-alert"]').click()
+  await page.locator('[data-watchlist-row][data-symbol="NVDA"] [data-field="alert-threshold"]').fill('220')
+  await page.locator('[data-watchlist-row][data-symbol="NVDA"] [data-action="save-alert"]').click()
+
+  await page.locator('[data-tab="dashboard"]').click()
+  const row = page.locator('[data-alert-row][data-symbol="NVDA"]')
+  await expect(row).toBeVisible()
+  await expect(row.locator('[data-below-pct]')).toContainText('%')
+})
+
+test('R13 Alert editor Enter saves, Esc cancels', async ({ page }) => {
+  await page.goto('/')
+  await page.locator('[data-tab="watchlist"]').click()
+
+  await page.locator('[data-watchlist-row][data-symbol="META"] [data-action="toggle-alert"]').click()
+  await page.locator('[data-watchlist-row][data-symbol="META"] [data-field="alert-threshold"]').fill('600')
+  await page.keyboard.press('Enter')
+  // META last 575.18 < 600 → triggered
+  await page.locator('[data-tab="dashboard"]').click()
+  await expect(page.locator('[data-alert-row][data-symbol="META"]')).toBeVisible()
+
+  await page.locator('[data-tab="watchlist"]').click()
+  await page.locator('[data-watchlist-row][data-symbol="AAPL"] [data-action="toggle-alert"]').click()
+  await page.locator('[data-watchlist-row][data-symbol="AAPL"] [data-field="alert-threshold"]').fill('999')
+  await page.keyboard.press('Escape')
+  // Esc did NOT save → no alert set on AAPL
+  await page.locator('[data-tab="dashboard"]').click()
+  await expect(page.locator('[data-alert-row][data-symbol="AAPL"]')).toHaveCount(0)
+})
+
+test('R13 Clear alert removes from Dashboard + persists across reload', async ({ page }) => {
+  await page.goto('/')
+  await page.locator('[data-tab="watchlist"]').click()
+
+  await page.locator('[data-watchlist-row][data-symbol="GOOGL"] [data-action="toggle-alert"]').click()
+  await page.locator('[data-watchlist-row][data-symbol="GOOGL"] [data-field="alert-threshold"]').fill('400')
+  await page.locator('[data-watchlist-row][data-symbol="GOOGL"] [data-action="save-alert"]').click()
+
+  await page.reload()
+  await page.locator('[data-tab="dashboard"]').click()
+  await expect(page.locator('[data-alert-row][data-symbol="GOOGL"]')).toBeVisible()
+
+  await page.locator('[data-tab="watchlist"]').click()
+  await page.locator('[data-watchlist-row][data-symbol="GOOGL"] [data-action="toggle-alert"]').click()
+  await page.locator('[data-watchlist-row][data-symbol="GOOGL"] [data-action="clear-alert"]').click()
+
+  await page.locator('[data-tab="dashboard"]').click()
+  await expect(page.locator('[data-alert-row][data-symbol="GOOGL"]')).toHaveCount(0)
+})
+
 test('R12 PinnedWatchlist shows empty state on fresh device', async ({ page }) => {
   await page.goto('/')
   await expect(page.locator('[data-component="pinned-watchlist"]')).toBeVisible()

@@ -1,6 +1,8 @@
 <script lang="ts">
   import WatchlistRow from '../components/WatchlistRow.svelte'
   import { watchlist } from '../lib/watchlist.svelte'
+
+  const alertCount = $derived(Object.keys(watchlist.alerts).length)
 </script>
 
 <section data-tab-content="watchlist" class="flex flex-col" style="gap:var(--card-gap);">
@@ -14,15 +16,16 @@
         <div class="label-mono">Market · Watchlist</div>
       </div>
       <div class="ff-mono" style="font-size:var(--text-xs); letter-spacing:0.12em; color:var(--text-faint);">
-        {watchlist.list.length} SYMBOLS · {watchlist.pinned.length} PINNED · MOCK
+        {watchlist.list.length} SYMBOLS · {watchlist.pinned.length} PINNED · {alertCount} ALERTS · MOCK
       </div>
     </div>
 
     <div
       class="grid"
-      style="grid-template-columns: auto 1fr 1fr 1fr; gap:var(--space-3); padding:6px var(--card-pad-x);"
+      style="grid-template-columns: auto auto 1fr 1fr 1fr; gap:var(--space-3); padding:6px var(--card-pad-x);"
     >
       <div class="label-mono" style="width:22px;">Pin</div>
+      <div class="label-mono" style="width:22px;">Alert</div>
       <div class="label-mono">Sym</div>
       <div class="label-mono text-right">Last</div>
       <div class="label-mono text-right">Chg</div>
@@ -30,7 +33,7 @@
 
     <div data-watchlist-list>
       {#each watchlist.list as q (q.sym)}
-        <WatchlistRow quote={q} showPin />
+        <WatchlistRow quote={q} showPin showAlert />
       {/each}
     </div>
   </div>
@@ -40,6 +43,6 @@
     style="padding:var(--card-pad-y) var(--card-pad-x); color:var(--text-muted); font-size:var(--text-base);"
   >
     <div class="label-mono">Note</div>
-    <p class="mt-2">Mock data only — live Alpaca / Finnhub WebSocket ticks land R-later. Pin/unpin a symbol with the pin icon — pinned symbols show on Dashboard.</p>
+    <p class="mt-2">Mock data only — live ticks land R-later. Click pin to follow on Dashboard. Click alert bell to set a LOW threshold — when price drops below it, it'll show up in the Dashboard's LOW Alerts card.</p>
   </div>
 </section>
