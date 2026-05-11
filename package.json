@@ -6,27 +6,12 @@
     "dev": "node dev-server.js",
     "dev:tunnel": "node dev-server.js tunnel",
     "dev:headless": "node dev-server.js --no-open",
-    "dev:local": "node dev-server.js --no-deploy",
-    "dev:vite": "vite --open /src/",
-    "dev:v2": "vite --open /src/",
-    "dev:vite:headless": "vite",
-    "build:vite": "vite build",
-    "preview:vite": "vite preview",
-    "type-check": "tsc --noEmit",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "e2e": "playwright test"
+    "dev:local": "node dev-server.js --no-deploy"
   },
   "devDependencies": {
-    "@playwright/test": "^1.59.1",
-    "happy-dom": "^20.9.0",
     "live-server": "^1.2.2",
     "local-ssl-proxy": "^2.0.5",
     "qrcode-terminal": "^0.12.0",
-    "serve": "^14.2.6",
-    "typescript": "^5.7.2",
-    "vite": "^6.0.7",
-    "vite-plugin-pwa": "^0.21.1",
-    "vitest": "^4.1.5"
+    "serve": "^14.2.6"
   }
 }

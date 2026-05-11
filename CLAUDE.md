@@ -37,20 +37,23 @@ The frontend is hosted on GitHub Pages ([production URL](https://phaithoonsudjan
 
 The app language is primarily **Thai** for UI labels and messages, with English for code/symbols/APIs.
 
-## Vite migration status (active — pre-cutover)
+## Svelte 5 rewrite status (active — R0 scaffold done 2026-05-12)
 
-A parallel Vite + dynamic-import architecture lives under `src/` and is being grown into a feature-complete replacement. **Production root `index.html` still ships the monolith** via dev-server.js auto-deploy commits — Vite work is parallel, root unchanged. Until cutover, both Rule 1 (single-file constraint) and Rule 2 (no build step) remain in force for code that ships to production.
+PSLink v2 is being **rewritten from scratch** as a Svelte 5 + TypeScript + Tailwind v4 SPA living under `app/`. The earlier Vite + dynamic-import shell (V1-V22) was archived to branch `archive-vite-shell-attempt` on origin — that path's level-B parity gap was too wide to close cheaply. Bulk-rewrite path is committed (30-60 sessions est.).
 
-Current state (2026-05-10):
-- `src/core/` — bus + storage + presets registry (origin/phosphor/studio/cinematic w/ darkOnly + variantColors)
-- `src/styles/presets/` — phosphor/studio/cinematic CSS overrides (body-level + universal hooks; module/tab-specific CSS ports alongside owning tab in Step 6 sub-sessions)
-- `src/modules/` — all 7 utility modules (PSAI/PSBGR/PSEC/PSF/PSI/PSQ/PSUP) ported with real UI + heavy logic
-- `src/tabs/` — 5 tab skeletons (dashboard/records/watchlist/news/utilities) + lazy router in main.js with destroy-on-swap
-- `src/index.html` — v2 shell proof page
-- `.github/workflows/deploy.yml` — CI workflow (inert until repo Pages source switched to Actions)
-- `vite-migration` branch exists locally at parity with main; cutover (Step 11) requires user push + repo Pages-source switch
+**Production `index.html` (monolith) at root stays untouched** and continues to serve via GitHub Pages until v2 reaches feature cutover (~session R55-R60). Pi-keng uses the monolith daily as the production app during the rewrite. Rule 1 (single-file constraint) and Rule 2 (no build step) STILL apply to the monolith only — they do NOT apply to anything in `app/`.
 
-Primary memory: `project_vite_migration_progress.md` (full state + remaining sub-sessions). Full plan: `MIGRATION-PLAN.md`. After cutover, Rules 1-2 retire; Rules 13-26 line refs need re-anchoring (Step 12 cutover phase).
+R0 (Reset & Scaffold) shipped:
+- `app/` — Svelte 5.55 + Vite 8 + TS 6 + Tailwind v4 + Vitest 4 + Playwright (one smoke test each, all green)
+- Root `package.json` trimmed back to monolith dev-server.js scripts only
+- V1-V22 leftovers removed: `src/`, `e2e/`, `dist/`, `vite.config.js`, `vitest.config.js`, `playwright.config.js`, `tsconfig.json`, `MIGRATION-PLAN.md`, `MIGRATION-VISUAL-PHASE.md`, `wireframe-target.png`
+- `archive-vite-shell-attempt` branch on origin preserves all V1-V22 work for salvage (utils, tests)
+
+Working directories now:
+- **Monolith dev**: root, `npm run dev` (runs `dev-server.js`)
+- **Svelte v2 dev**: `cd app && npm run dev` (runs Vite on `:5173`)
+
+Primary memory: `project_svelte_rewrite_decision.md` (decision rationale + R0-R60 path). Salvageable V1-V22 utils + 587 unit tests live on `archive-vite-shell-attempt` and get ported into Svelte components as the rewrite progresses.
 
 ## Architecture
 
