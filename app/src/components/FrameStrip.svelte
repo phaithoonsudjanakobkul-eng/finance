@@ -9,8 +9,8 @@
     <button
       type="button"
       class="transition cursor-pointer"
-      style:aspect-ratio="1/1"
-      style:border-radius="8px"
+      style:aspect-ratio="9/16"
+      style:border-radius="6px"
       style:background={`linear-gradient(135deg, hsl(${f.hue}, 78%) 0%, hsl(${f.hue}, 35%) 100%)`}
       style:border={isActive ? '1.5px solid var(--accent)' : '0.5px solid var(--border-glass)'}
       style:opacity={isActive ? '1' : '0.65'}

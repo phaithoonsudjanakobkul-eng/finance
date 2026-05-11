@@ -12,7 +12,7 @@
 
 <section
   data-tab-content="dashboard"
-  class="grid grid-cols-1 md:grid-cols-[1.4fr_1fr] xl:grid-cols-[1.55fr_1fr]"
+  class="grid grid-cols-1 md:grid-cols-[clamp(300px,24vw,400px)_1fr]"
   style="gap:var(--card-gap);"
 >
   <div class="flex flex-col" style="gap:var(--card-gap);">
