@@ -280,6 +280,24 @@ test.describe('v2 shell smoke', () => {
         await expect(page.locator('#muse-hero-img')).toBeVisible({ timeout: 5_000 });
     });
 
+    test('V13-14 AI chat FAB shows on Watchlist tab only', async ({ page }) => {
+        // Dashboard → no FAB
+        await page.locator('button[data-tab="dashboard"]').click();
+        await expect(page.locator('#ai-chat-fab')).toHaveCount(0);
+        // Watchlist → FAB
+        await page.locator('button[data-tab="watchlist"]').click();
+        await expect(page.locator('#ai-chat-fab')).toBeVisible({ timeout: 5_000 });
+        // Click → popup
+        await page.locator('#ai-chat-fab').click();
+        await expect(page.locator('#ai-chat-popup')).toBeVisible();
+        // Close
+        await page.locator('#ai-chat-popup .ai-chat-close').click();
+        await expect(page.locator('#ai-chat-popup')).toHaveCount(0);
+        // Tab away → FAB disappears
+        await page.locator('button[data-tab="news"]').click();
+        await expect(page.locator('#ai-chat-fab')).toHaveCount(0);
+    });
+
     test('V12 floating clock mounts on body and is visible on every tab', async ({ page }) => {
         await expect(page.locator('#ps-floating-clock')).toBeVisible({ timeout: 5_000 });
         // Tab away and back — clock should still be there (not torn down by tab swap)

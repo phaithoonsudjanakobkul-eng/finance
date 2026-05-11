@@ -29,6 +29,7 @@ import { mount as mountSaveButton } from './widgets/save-button/index.js';
 import { mount as mountThemeToggle } from './widgets/theme-toggle/index.js';
 import { mount as mountAvatarChip } from './widgets/avatar-chip/index.js';
 import { mount as mountFloatingClock } from './widgets/clock/index.js';
+import { mount as mountAiChat } from './widgets/ai-chat/index.js';
 import './styles/privacy.css';
 import './styles/watchlist.css';
 
@@ -430,6 +431,9 @@ window.addEventListener('DOMContentLoaded', () => {
     // Floating clock — visible on every tab (per CLAUDE.md). Mounts on
     // <body>, NOT inside the tab mount, so tab swaps don't tear it down.
     mountFloatingClock();
+
+    // AI chat FAB — mounts only when tab:active fires for 'watchlist'
+    mountAiChat();
 
     // Fresh-device Gist auto-hydrate. localStorage empty + token set →
     // pull encrypted Gist → decrypt → seed records/watchlist/cache/keys
