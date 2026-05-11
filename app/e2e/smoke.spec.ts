@@ -103,6 +103,21 @@ test('R4 Income type toggle + delete row', async ({ page }) => {
   await expect(page.locator('[data-records-list] [data-record-id]')).toHaveCount(0)
 })
 
+test('R6 Watchlist tab renders mock symbols with correct semantic colors', async ({ page }) => {
+  await page.goto('/')
+  await page.locator('[data-tab="watchlist"]').click()
+  await expect(page.locator('[data-watchlist-row]')).toHaveCount(8)
+
+  const tsla = page.locator('[data-watchlist-row][data-symbol="TSLA"] [data-pct]')
+  await expect(tsla).toContainText('▲')
+  await expect(tsla).toContainText('+2.61%')
+  const tslaColor = await tsla.evaluate(el => getComputedStyle(el).color)
+  expect(tslaColor).toMatch(/rgb\(124,\s*197,\s*124\)/) // --positive #7CC57C
+
+  const googl = page.locator('[data-watchlist-row][data-symbol="GOOGL"] [data-pct]')
+  await expect(googl).toContainText('▼')
+})
+
 test('R5 Dashboard reflects Records data after add', async ({ page }) => {
   await page.goto('/')
 
