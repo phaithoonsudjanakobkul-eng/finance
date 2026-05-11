@@ -21,6 +21,7 @@
 import { bus } from '../../core/bus.js';
 import { lsSave } from '../../core/storage.js';
 import { idbPut } from '../../core/idb.js';
+import { r2UploadEncrypted, isR2Configured } from '../../core/r2.js';
 import { minZoom, clampPan, computeCropRect, centerPan, zoomAboutCenter } from './crop.js';
 
 const VP_SIZE       = 280;   // viewport CSS pixels (square crop preview)
@@ -234,6 +235,13 @@ export function open() {
             bus.emit('profile:avatar-changed', { ts: Date.now(), size: fullBlob ? fullBlob.size : 0 });
             // 'settings:changed' so auto-push picks the thumbnail up
             bus.emit('settings:changed', { key: 'avatar' });
+            // R2 push is best-effort and background — close the modal even
+            // if R2 isn't configured / network is down.
+            if (fullBlob && isR2Configured()) {
+                r2UploadEncrypted('profile/avatar.enc.jpg', fullBlob)
+                    .then((ok) => bus.emit('profile:avatar-r2', { ok, ts: Date.now() }))
+                    .catch(() => bus.emit('profile:avatar-r2', { ok: false, ts: Date.now() }));
+            }
             setStatus('Saved · thumbnail ' + Math.round(thumbUrl.length / 1024) + ' KB · full-res ' + (fullBlob ? Math.round(fullBlob.size / 1024) + ' KB' : '—'));
             close();
         } catch (e) {

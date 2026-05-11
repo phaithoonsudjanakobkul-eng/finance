@@ -379,6 +379,14 @@ window.addEventListener('DOMContentLoaded', () => {
     // cache localStorage on init(), so without a destroy + re-init they
     // keep showing stale data until the next manual tab switch.
     bus.on('gist:pulled', () => {
+        // Best-effort: if R2 configured + IDB avatar:full empty, pull
+        // the full-res JPEG down in the background. No-op if anything
+        // is missing — never blocks the boot path.
+        import('./widgets/profile-edit/restore.js').then((m) => {
+            return m.maybeRestoreAvatarFromR2();
+        }).catch(() => { /* swallow */ });
+    });
+    bus.on('gist:pulled', () => {
         _lastPullTs = Date.now();
         // Theme: dark/light flag may have changed
         const wantDark = lsGet('ps_dark', '') === '1';
