@@ -4,14 +4,14 @@ test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => localStorage.clear())
 })
 
-test('R1 shell renders top nav + default Dashboard', async ({ page }) => {
+test('R2 Cinematic shell renders brand + nav + default Dashboard', async ({ page }) => {
   await page.goto('/')
+  await expect(page.getByText(/^PSLink\.?$/)).toBeVisible()
   await expect(page.getByRole('navigation')).toBeVisible()
-  await expect(page.getByText('PSLink', { exact: true })).toBeVisible()
   await expect(page.locator('[data-tab-content="dashboard"]')).toBeVisible()
 })
 
-test('tab pills switch active content', async ({ page }) => {
+test('tab pills switch active content (watchlist label = Market)', async ({ page }) => {
   await page.goto('/')
   await page.locator('[data-tab="watchlist"]').click()
   await expect(page.locator('[data-tab-content="watchlist"]')).toBeVisible()
@@ -21,20 +21,18 @@ test('tab pills switch active content', async ({ page }) => {
   await expect(page.locator('[data-tab-content="utilities"]')).toBeVisible()
 })
 
-test('theme toggle flips html.dark and persists', async ({ page }) => {
-  await page.goto('/')
-  await expect(page.locator('html')).not.toHaveClass(/dark/)
-
-  await page.locator('[data-action="toggle-theme"]').click()
-  await expect(page.locator('html')).toHaveClass(/dark/)
-
-  await page.reload()
-  await expect(page.locator('html')).toHaveClass(/dark/)
-})
-
 test('active tab persists across reload', async ({ page }) => {
   await page.goto('/')
   await page.locator('[data-tab="news"]').click()
   await page.reload()
   await expect(page.locator('[data-tab-content="news"]')).toBeVisible()
+})
+
+test('app-shell carries cinematic background layers', async ({ page }) => {
+  await page.goto('/')
+  const shell = page.locator('.app-shell')
+  await expect(shell).toBeVisible()
+  const bg = await shell.evaluate(el => getComputedStyle(el).backgroundImage)
+  expect(bg).toContain('radial-gradient')
+  expect(bg).toContain('linear-gradient')
 })

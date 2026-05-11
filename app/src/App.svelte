@@ -6,23 +6,25 @@
   import News from './tabs/News.svelte'
   import Utilities from './tabs/Utilities.svelte'
   import { tabs } from './lib/tabs.svelte'
-  import { theme } from './lib/theme.svelte'
-
-  theme.init()
 </script>
 
-<TopNav />
+<div class="app-shell">
+  <div class="app-grain"></div>
+  <div style="position:relative; z-index:1; padding:20px 24px;">
+    <TopNav />
 
-<main>
-  {#if tabs.active === 'dashboard'}
-    <Dashboard />
-  {:else if tabs.active === 'records'}
-    <Records />
-  {:else if tabs.active === 'watchlist'}
-    <Watchlist />
-  {:else if tabs.active === 'news'}
-    <News />
-  {:else if tabs.active === 'utilities'}
-    <Utilities />
-  {/if}
-</main>
+    <main>
+      {#if tabs.active === 'dashboard'}
+        <Dashboard />
+      {:else if tabs.active === 'records'}
+        <Records />
+      {:else if tabs.active === 'watchlist'}
+        <Watchlist />
+      {:else if tabs.active === 'news'}
+        <News />
+      {:else if tabs.active === 'utilities'}
+        <Utilities />
+      {/if}
+    </main>
+  </div>
+</div>

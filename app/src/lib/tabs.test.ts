@@ -12,6 +12,11 @@ describe('tabs', () => {
     ])
   })
 
+  it('uses Cinematic-direction "Market" label for watchlist tab', () => {
+    const market = TABS.find(t => t.id === 'watchlist')
+    expect(market?.label).toBe('Market')
+  })
+
   it('loadTab defaults to dashboard when storage empty', () => {
     expect(loadTab()).toBe('dashboard')
   })

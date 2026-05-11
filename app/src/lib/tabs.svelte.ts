@@ -8,7 +8,7 @@ export interface TabDef {
 export const TABS: readonly TabDef[] = [
   { id: 'dashboard',  label: 'Dashboard' },
   { id: 'records',    label: 'Records' },
-  { id: 'watchlist',  label: 'Watchlist' },
+  { id: 'watchlist',  label: 'Market' },
   { id: 'news',       label: 'News' },
   { id: 'utilities',  label: 'Utilities' },
 ] as const
