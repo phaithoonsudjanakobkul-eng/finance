@@ -11,10 +11,8 @@
 </script>
 
 <section data-tab-content="dashboard" class="dash-grid">
-  <div class="dash-area-hero flex flex-col" style="gap:var(--card-gap);">
-    <HeroPhoto />
-    <MiniFrameStrip />
-  </div>
+  <div class="dash-area-hero"><HeroPhoto /></div>
+  <div class="dash-area-mini"><MiniFrameStrip /></div>
 
   <div class="dash-area-right">
     <div
@@ -38,38 +36,39 @@
 </section>
 
 <style>
-  /* Monolith-style 4-row Dashboard grid. Top row is 2-col (Hero + Right
-     stack) at md+; finance + charts rows span FULL WIDTH below — these
-     bottom rows anchor the grid so column-height imbalance in row 1
-     becomes intentional breathing room, not awkward asymmetry. */
+  /* MONOLITHIC 4-col grid — every row uses the same 4 column tracks.
+     Hero col-1 left edge = Finance card-1 left edge = Trend chart
+     left edge = ONE vertical line. Same for col boundaries 1|2, 2|3,
+     3|4 across all rows. Inner row grids (FinanceRow 4-col, ChartsRow
+     2-col) inherit `minmax(0, 1fr)` ratio + same gap, so their cells
+     match parent col widths exactly. */
   .dash-grid {
     display: grid;
     grid-template-columns: 1fr;
     grid-template-areas:
       "hero"
       "right"
+      "mini"
       "finance"
       "charts";
     gap: var(--card-gap);
   }
 
-  @media (min-width: 1024px) {
+  @media (min-width: 640px) {
     .dash-grid {
-      grid-template-columns: clamp(300px, 24vw, 400px) 1fr;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       grid-template-areas:
-        "hero    right"
-        "finance finance"
-        "charts  charts";
+        "hero    right right right"
+        "mini    right right right"
+        "finance finance finance finance"
+        "charts  charts  charts  charts";
     }
   }
 
-  .dash-area-hero    { grid-area: hero; }
-  .dash-area-right   {
+  .dash-area-hero { grid-area: hero; }
+  .dash-area-mini { grid-area: mini; }
+  .dash-area-right {
     grid-area: right;
-    /* Inner grid: Alerts/Pinned (auto) · Profile (grows to fill) ·
-       Payday/Month (auto). When row 1's height is driven by the tall
-       Hero column, Profile expands to consume the slack so the right
-       column doesn't trail off with empty space above Finance row. */
     display: grid;
     grid-template-rows: auto 1fr auto;
     gap: var(--card-gap);
