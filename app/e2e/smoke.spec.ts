@@ -103,6 +103,25 @@ test('R4 Income type toggle + delete row', async ({ page }) => {
   await expect(page.locator('[data-records-list] [data-record-id]')).toHaveCount(0)
 })
 
+test('R8 PaydayCard + MonthCard render on Dashboard with sensible values', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.locator('[data-component="payday-card"]')).toBeVisible()
+  await expect(page.locator('[data-component="month-card"]')).toBeVisible()
+
+  // Payday: either a number string OR the word "TODAY"
+  const paydayText = await page.locator('[data-payday-num]').textContent()
+  expect(paydayText).toBeTruthy()
+  expect(paydayText!.length).toBeGreaterThan(0)
+
+  // Month: bar fill width is a percentage between 0 and 100
+  const barStyle = await page.locator('[data-month-bar-fill]').getAttribute('style')
+  expect(barStyle).toMatch(/width:\s*\d{1,3}%/)
+
+  // Month label is uppercase "MONTH YEAR"
+  const monthLabel = await page.locator('[data-month-label]').textContent()
+  expect(monthLabel).toMatch(/^[A-Z]+ \d{4}$/)
+})
+
 test('R7 ProfileCard shows default name + EDIT button on fresh device', async ({ page }) => {
   await page.goto('/')
   await expect(page.locator('[data-component="profile-card"]')).toBeVisible()
