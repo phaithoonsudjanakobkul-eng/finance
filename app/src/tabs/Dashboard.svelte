@@ -8,27 +8,33 @@
   import { records } from '../lib/records.svelte'
 </script>
 
-<section data-tab-content="dashboard" class="grid gap-3.5" style="grid-template-columns: 1.4fr 1fr;">
-  <div class="flex flex-col gap-3">
+<section
+  data-tab-content="dashboard"
+  class="grid grid-cols-1 md:grid-cols-[1.4fr_1fr] xl:grid-cols-[1.55fr_1fr]"
+  style="gap:var(--card-gap);"
+>
+  <div class="flex flex-col" style="gap:var(--card-gap);">
     <HeroPhoto />
     <FrameStrip />
   </div>
 
-  <div class="flex flex-col gap-3">
+  <div class="flex flex-col" style="gap:var(--card-gap);">
     <ProfileCard />
 
-    <div class="grid gap-3" style="grid-template-columns: 1fr 1fr;">
+    <div class="grid grid-cols-2" style="gap:var(--card-gap);">
       <PaydayCard />
       <MonthCard />
     </div>
 
-    <StatGlass label="Income" value={records.incomeTotal} accent="var(--positive)" />
-    <StatGlass label="Expense" value={records.expenseTotal} accent="var(--accent-bright)" />
-    <StatGlass
-      label="Balance"
-      value={records.balance}
-      accent={records.balance >= 0 ? 'var(--positive)' : 'var(--accent-bright)'}
-      showSign
-    />
+    <div class="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-1 lg:grid-cols-3" style="gap:var(--card-gap);">
+      <StatGlass label="Income"  value={records.incomeTotal}  accent="var(--positive)" />
+      <StatGlass label="Expense" value={records.expenseTotal} accent="var(--accent-bright)" />
+      <StatGlass
+        label="Balance"
+        value={records.balance}
+        accent={records.balance >= 0 ? 'var(--positive)' : 'var(--accent-bright)'}
+        showSign
+      />
+    </div>
   </div>
 </section>

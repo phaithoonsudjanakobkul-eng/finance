@@ -11,7 +11,7 @@
 
 <div
   class="grid items-center"
-  style="grid-template-columns: 1fr 1fr 1fr; padding:11px 16px; border-top:0.5px solid rgba(245,241,232,0.07);"
+  style="grid-template-columns: 1fr 1fr 1fr; padding:var(--space-4) var(--card-pad-x); border-top:0.5px solid rgba(245,241,232,0.07);"
   data-watchlist-row
   data-symbol={quote.sym}
 >

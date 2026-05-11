@@ -11,7 +11,7 @@
 
 <div class="app-shell" style:--hero-hue={frames.hue} data-hero-hue={frames.hue}>
   <div class="app-grain"></div>
-  <div style="position:relative; z-index:1; padding:20px 24px;">
+  <div class="app-shell-inner">
     <TopNav />
 
     <main>

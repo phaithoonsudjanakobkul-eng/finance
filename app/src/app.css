@@ -1,35 +1,99 @@
 @import "tailwindcss";
 
+/* ────────────────────────────────────────────────────────────────────
+   Tailwind v4 theme — semantic breakpoints (PSLink target devices)
+   xs  < 640   — phones (iPhone SE 360, large Android up to 600)
+   sm  640+    — large mobile / tablet portrait
+   md  1024+   — tablet landscape / small laptop (≥ pi-keng's notebook)
+   lg  1400+   — laptop (1366-1707 CSS)
+   xl  1800+   — desktop (pi-keng's home 2560 reduced by scaling)
+   2xl 2400+   — ultrawide / native 2560+
+   ──────────────────────────────────────────────────────────────────── */
+@theme {
+  --breakpoint-xs:  360px;
+  --breakpoint-sm:  640px;
+  --breakpoint-md:  1024px;
+  --breakpoint-lg:  1400px;
+  --breakpoint-xl:  1800px;
+  --breakpoint-2xl: 2400px;
+}
+
 :root {
+  /* Hero hue — updated when user switches hero frame. Drives ambient bg. */
   --hero-hue: 15, 60%;
 
+  /* Background base */
   --bg-base: #0A0810;
 
-  --surface-glass: rgba(245, 241, 232, 0.06);
+  /* Glass surfaces */
+  --surface-glass:        rgba(245, 241, 232, 0.06);
   --surface-glass-strong: rgba(20, 12, 16, 0.55);
-  --border-glass: rgba(245, 241, 232, 0.13);
-  --border-glass-strong: rgba(245, 241, 232, 0.18);
-  --inner-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --border-glass:         rgba(245, 241, 232, 0.13);
+  --border-glass-strong:  rgba(245, 241, 232, 0.18);
+  --inner-highlight:      inset 0 1px 0 rgba(255, 255, 255, 0.06);
 
-  --text: #F5F1E8;
-  --text-muted: rgba(245, 241, 232, 0.7);
-  --text-faint: rgba(245, 241, 232, 0.5);
-  --text-ghost: rgba(245, 241, 232, 0.35);
+  /* Text */
+  --text:        #F5F1E8;
+  --text-muted:  rgba(245, 241, 232, 0.7);
+  --text-faint:  rgba(245, 241, 232, 0.5);
+  --text-ghost:  rgba(245, 241, 232, 0.35);
 
-  --accent: #E8855E;
+  /* Accent + semantic */
+  --accent:        #E8855E;
   --accent-bright: #F0A37D;
-  --accent-glow: rgba(232, 133, 94, 0.16);
-  --positive: #7CC57C;
-  --negative: #E8855E;
+  --accent-glow:   rgba(232, 133, 94, 0.16);
+  --positive:      #7CC57C;
+  --negative:      #E8855E;
 
+  /* Typography families */
   --font-display: 'Fraunces', Georgia, serif;
-  --font-body: 'Inter Tight', system-ui, -apple-system, sans-serif;
-  --font-mono: 'JetBrains Mono', 'SF Mono', ui-monospace, Menlo, monospace;
+  --font-body:    'Inter Tight', system-ui, -apple-system, sans-serif;
+  --font-mono:    'JetBrains Mono', 'SF Mono', ui-monospace, Menlo, monospace;
 
+  /* Static design values (never scale) */
   --radius-glass: 14px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --space-card: 14px;
+  --radius-md:    8px;
+  --radius-sm:    6px;
+  --radius-xs:    4px;
+  --radius-pill:  999px;
+
+  /* ─── Fluid spacing scale ──────────────────────────────────────────
+     Each step is clamp(min, vw-based, max). Min holds the layout
+     coherent on tiny phones; max prevents huge gaps on 2560+ monitors.
+     Use these for padding/gap/margin in components instead of fixed px. */
+  --space-1: clamp(2px,  0.25vw, 4px);
+  --space-2: clamp(4px,  0.4vw,  7px);
+  --space-3: clamp(6px,  0.6vw,  10px);
+  --space-4: clamp(8px,  0.85vw, 13px);
+  --space-5: clamp(12px, 1.1vw,  17px);
+  --space-6: clamp(14px, 1.4vw,  22px);
+  --space-7: clamp(18px, 1.8vw,  28px);
+  --space-8: clamp(22px, 2.2vw,  36px);
+
+  /* Component-purpose tokens (compose from scale or define directly) */
+  --card-pad-y: clamp(13px, 1.3vw, 18px);
+  --card-pad-x: clamp(14px, 1.4vw, 20px);
+  --card-gap:   clamp(8px,  0.9vw, 14px);
+  --shell-pad-x: clamp(14px, 1.8vw, 32px);
+  --shell-pad-y: clamp(14px, 1.6vw, 24px);
+  --shell-max-w: 1800px;
+
+  /* ─── Fluid typography scale ──────────────────────────────────────
+     Min size for legibility on phones; max prevents oversize on 2560.
+     Mono caps labels stay tight (smaller range), display heros scale
+     more aggressively (numbers want to breathe on big screens). */
+  --text-xs:    clamp(9px,  0.65vw, 11px);   /* mono labels */
+  --text-sm:    clamp(10px, 0.75vw, 12px);
+  --text-base:  clamp(12px, 0.95vw, 14px);   /* body text */
+  --text-md:    clamp(14px, 1.1vw,  16px);
+  --text-lg:    clamp(17px, 1.4vw,  20px);   /* display titles */
+  --text-xl:    clamp(20px, 1.7vw,  26px);   /* card titles */
+  --text-2xl:   clamp(26px, 2.4vw,  36px);   /* hero stat numbers */
+  --text-hero:  clamp(36px, 4vw,    52px);   /* main hero numbers */
+
+  /* Component sizes that flex with viewport */
+  --photo-portrait-w: clamp(140px, 16vw, 240px);
+  --hero-aspect:      4 / 5;
 
   color-scheme: dark;
 }
@@ -45,6 +109,9 @@ html, body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* App shell — layered cinematic background driven by --hero-hue.
+   Wraps the entire app at the root; max-width caps on ultrawide so
+   content stays in a comfortable reading column. */
 .app-shell {
   min-height: 100vh;
   background:
@@ -56,6 +123,14 @@ html, body {
   transition: background 0.6s ease;
 }
 
+.app-shell-inner {
+  position: relative;
+  z-index: 1;
+  padding: var(--shell-pad-y) var(--shell-pad-x);
+  max-width: var(--shell-max-w);
+  margin: 0 auto;
+}
+
 .app-grain {
   position: absolute;
   inset: 0;
@@ -65,6 +140,9 @@ html, body {
   background-size: 3px 3px;
 }
 
+/* Glass surfaces — the heart of Cinematic. 5 ingredients (DESIGN.md §4):
+   translucent fill + backdrop-filter blur+saturate + 0.5px border +
+   inner highlight + radius 14px. Don't ship a "glass" missing any. */
 .glass {
   background: var(--surface-glass);
   backdrop-filter: blur(24px) saturate(140%);
@@ -82,6 +160,7 @@ html, body {
   border-radius: var(--radius-glass);
 }
 
+/* Typography helpers */
 .ff-display { font-family: var(--font-display); font-feature-settings: 'ss01'; }
 .ff-body    { font-family: var(--font-body); }
 .ff-mono    { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
@@ -89,19 +168,18 @@ html, body {
 
 .label-mono {
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: var(--text-xs);
   font-weight: 500;
   letter-spacing: 0.12em;
   color: var(--text-faint);
   text-transform: uppercase;
 }
 
-.pulse-dot {
-  animation: pulse-glow 2s ease-in-out infinite;
-}
+/* Pulse — live indicator */
+.pulse-dot { animation: pulse-glow 2s ease-in-out infinite; }
 @keyframes pulse-glow {
-  0%, 100% { opacity: 1; box-shadow: 0 0 12px currentColor; }
-  50% { opacity: 0.55; box-shadow: 0 0 6px currentColor; }
+  0%, 100% { opacity: 1;    box-shadow: 0 0 12px currentColor; }
+  50%      { opacity: 0.55; box-shadow: 0 0 6px  currentColor; }
 }
 
 @media (prefers-reduced-motion: reduce) {

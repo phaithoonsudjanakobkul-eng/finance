@@ -14,10 +14,15 @@
     amount = ''
   }
 
-  const inputStyle = 'padding:8px 12px; border-radius:6px; border:0.5px solid var(--border-glass); background:var(--surface-glass); color:var(--text); font-size:14px; outline:none; width:100%;'
+  const inputStyle = 'padding:8px 12px; border-radius:var(--radius-sm); border:0.5px solid var(--border-glass); background:var(--surface-glass); color:var(--text); font-size:var(--text-base); outline:none; width:100%;'
 </script>
 
-<form class="glass p-4 flex flex-col gap-3" onsubmit={submit} data-component="record-form">
+<form
+  class="glass flex flex-col"
+  style="padding:var(--card-pad-y) var(--card-pad-x); gap:var(--space-4);"
+  onsubmit={submit}
+  data-component="record-form"
+>
   <div class="label-mono">Add record</div>
 
   <div class="flex gap-2">

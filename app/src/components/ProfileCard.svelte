@@ -50,14 +50,14 @@
 
 <div class="glass overflow-hidden flex flex-col" data-component="profile-card">
   <div class="flex" style="min-height:220px;">
-    <div class="flex-1 min-w-0 flex flex-col" style="padding:18px 20px;">
+    <div class="flex-1 min-w-0 flex flex-col" style="padding:var(--card-pad-y) var(--card-pad-x);">
       {#if !editing}
         <div class="flex items-start justify-between gap-2">
           <div class="flex-1 min-w-0">
             <div class="label-mono">Profile</div>
             <div
               class="ff-display mt-2"
-              style="font-size:20px; font-weight:600; letter-spacing:-0.01em; color:var(--text);"
+              style="font-size:var(--text-xl); font-weight:600; letter-spacing:-0.01em; color:var(--text);"
               data-profile-name
             >{profile.name}</div>
           </div>
@@ -72,7 +72,7 @@
 
         <div
           class="mt-3 flex-1 overflow-y-auto"
-          style="font-size:12px; line-height:1.65; color:var(--text-muted); white-space:pre-wrap; word-break:break-word;"
+          style="font-size:var(--text-base); line-height:1.65; color:var(--text-muted); white-space:pre-wrap; word-break:break-word;"
           data-profile-notes
         >{profile.notes || 'No notes yet — click EDIT to add some.'}</div>
       {:else}
@@ -101,7 +101,7 @@
           bind:value={draftName}
           placeholder="Name"
           class="ff-display mt-2"
-          style="font-size:18px; font-weight:600; letter-spacing:-0.01em; padding:6px 10px; background:var(--surface-glass); border:0.5px solid var(--border-glass); border-radius:6px; color:var(--text); outline:none; width:100%;"
+          style="font-size:var(--text-lg); font-weight:600; letter-spacing:-0.01em; padding:6px 10px; background:var(--surface-glass); border:0.5px solid var(--border-glass); border-radius:var(--radius-sm); color:var(--text); outline:none; width:100%;"
           data-field="profile-name"
         />
 
@@ -109,7 +109,7 @@
           bind:value={draftNotes}
           placeholder="Free notes — anything that matters today."
           class="ff-body mt-3 flex-1"
-          style="font-size:12px; line-height:1.65; padding:10px 12px; background:var(--surface-glass); border:0.5px solid var(--border-glass); border-radius:6px; color:var(--text); outline:none; resize:none; min-height:80px;"
+          style="font-size:var(--text-base); line-height:1.65; padding:10px 12px; background:var(--surface-glass); border:0.5px solid var(--border-glass); border-radius:var(--radius-sm); color:var(--text); outline:none; resize:none; min-height:80px;"
           data-field="profile-notes"
         ></textarea>
       {/if}
@@ -117,7 +117,7 @@
 
     <div
       class="shrink-0 relative overflow-hidden"
-      style="width:160px; border-left:0.5px solid var(--border-glass);"
+      style="width:var(--photo-portrait-w); max-width:50%; border-left:0.5px solid var(--border-glass);"
     >
       {#if profile.photo}
         <img

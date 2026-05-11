@@ -17,16 +17,21 @@
   const display = $derived(fmtBaht(Math.abs(value)))
 </script>
 
-<div class="glass p-4" data-component="stat-glass" data-label={label}>
+<div
+  class="glass"
+  style="padding:var(--card-pad-y) var(--card-pad-x);"
+  data-component="stat-glass"
+  data-label={label}
+>
   <div class="label-mono">{label}</div>
   <div
     class="ff-display mt-2"
-    style:font-size="26px"
+    style:font-size="var(--text-2xl)"
     style:font-weight="600"
     style:letter-spacing="-0.02em"
     style:color={accent}
     data-value
   >
-    <span style="color:var(--text-ghost); font-size:18px;">{sign}฿</span>{display}
+    <span style="color:var(--text-ghost); font-size:0.7em;">{sign}฿</span>{display}
   </div>
 </div>

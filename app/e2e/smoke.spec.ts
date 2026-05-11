@@ -103,6 +103,39 @@ test('R4 Income type toggle + delete row', async ({ page }) => {
   await expect(page.locator('[data-records-list] [data-record-id]')).toHaveCount(0)
 })
 
+const VIEWPORTS = [
+  { name: 'mobile-360',   width: 360,  height: 800 },
+  { name: 'mobile-414',   width: 414,  height: 896 },
+  { name: 'tablet-768',   width: 768,  height: 1024 },
+  { name: 'laptop-1366',  width: 1366, height: 768 },
+  { name: 'laptop-1707',  width: 1707, height: 1067 },
+  { name: 'desktop-1920', width: 1920, height: 1080 },
+  { name: 'desktop-2560', width: 2560, height: 1440 },
+]
+
+for (const v of VIEWPORTS) {
+  test(`R9 responsive — ${v.name} renders Dashboard without horizontal overflow`, async ({ page }) => {
+    await page.setViewportSize({ width: v.width, height: v.height })
+    await page.goto('/')
+
+    await expect(page.locator('[data-component="profile-card"]')).toBeVisible()
+    await expect(page.locator('[data-component="payday-card"]')).toBeVisible()
+    await expect(page.locator('[data-component="month-card"]')).toBeVisible()
+
+    const bodyOverflow = await page.evaluate(() => {
+      return document.documentElement.scrollWidth - document.documentElement.clientWidth
+    })
+    expect(bodyOverflow, `viewport ${v.name} (${v.width}×${v.height}) has horizontal overflow`).toBeLessThanOrEqual(1)
+  })
+}
+
+test('R9 ultrawide caps shell-inner at --shell-max-w', async ({ page }) => {
+  await page.setViewportSize({ width: 3000, height: 1200 })
+  await page.goto('/')
+  const innerWidth = await page.locator('.app-shell-inner').evaluate(el => el.getBoundingClientRect().width)
+  expect(innerWidth).toBeLessThanOrEqual(1800)
+})
+
 test('R8 PaydayCard + MonthCard render on Dashboard with sensible values', async ({ page }) => {
   await page.goto('/')
   await expect(page.locator('[data-component="payday-card"]')).toBeVisible()

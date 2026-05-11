@@ -7,8 +7,8 @@
   const sorted = $derived([...records.list].sort((a, b) => b.ts - a.ts))
 </script>
 
-<section data-tab-content="records" class="flex flex-col gap-3.5">
-  <div class="grid gap-3" style="grid-template-columns: repeat(3, 1fr);">
+<section data-tab-content="records" class="flex flex-col" style="gap:var(--card-gap);">
+  <div class="grid grid-cols-1 sm:grid-cols-3" style="gap:var(--card-gap);">
     <StatGlass label="Income"  value={records.incomeTotal}  accent="var(--positive)" />
     <StatGlass label="Expense" value={records.expenseTotal} accent="var(--accent-bright)" />
     <StatGlass
@@ -19,20 +19,23 @@
     />
   </div>
 
-  <div class="grid gap-3" style="grid-template-columns: 1fr 2fr;">
+  <div class="grid grid-cols-1 md:grid-cols-[1fr_2fr]" style="gap:var(--card-gap);">
     <RecordForm />
 
     <div class="glass" data-records-panel>
-      <div class="flex items-center justify-between" style="padding:14px 16px 8px;">
+      <div
+        class="flex items-center justify-between"
+        style="padding:var(--card-pad-y) var(--card-pad-x) 8px;"
+      >
         <div class="label-mono">All records</div>
-        <div class="ff-mono" style="font-size:9px; letter-spacing:0.12em; color:var(--text-faint);">
+        <div class="ff-mono" style="font-size:var(--text-xs); letter-spacing:0.12em; color:var(--text-faint);">
           {records.list.length} ENTRIES
         </div>
       </div>
 
       {#if sorted.length === 0}
         <div
-          style="padding:32px 16px; color:var(--text-faint); font-size:12px; text-align:center;"
+          style="padding:var(--space-7) var(--card-pad-x); color:var(--text-faint); font-size:var(--text-base); text-align:center;"
           data-empty
         >
           No records yet — add your first one with the form on the left.

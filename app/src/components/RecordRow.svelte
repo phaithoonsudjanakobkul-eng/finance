@@ -7,7 +7,7 @@
 
 <div
   class="flex items-center justify-between"
-  style="padding:11px 16px; border-top:0.5px solid rgba(245,241,232,0.07);"
+  style="padding:var(--space-4) var(--card-pad-x); border-top:0.5px solid rgba(245,241,232,0.07);"
   data-record-id={record.id}
   data-record-type={record.type}
 >
