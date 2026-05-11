@@ -513,8 +513,45 @@ async function stage3PrepareAll() {
     }
 }
 
-function stage4OpenEditor() {
-    setStatus('Path E Collabora live xlsx editor — port Session 3r (full WOPI flow)', '');
+async function stage4OpenEditor() {
+    if (!_psqState.main) {
+        setStatus('Pick a main xlsx first', 'err');
+        return;
+    }
+    const wopiBase = lsGet(PSQ_WOPI_URL_KEY, '');
+    const wopiToken = lsGet(PSQ_WOPI_TOKEN_KEY, '');
+    const collaboraBase = lsGet(PSQ_COLLABORA_URL_KEY, '');
+    if (!wopiBase || !wopiToken || !collaboraBase) {
+        setStatus('Set WOPI URL + token + Collabora URL in Settings first', 'err');
+        return;
+    }
+    setStatus('Path E — uploading to WOPI…', '');
+    try {
+        const { openEditor } = await import('./path-e.js');
+        const buffer = _psqState.main.buffer;
+        const filename = (_psqState.main.name || 'edit.xlsx').replace(/[^A-Za-z0-9._-]/g, '_');
+        const updated = await openEditor({
+            wopiBase: /** @type {string} */ (wopiBase),
+            wopiToken: /** @type {string} */ (wopiToken),
+            collaboraBase: /** @type {string} */ (collaboraBase),
+            buffer: /** @type {ArrayBuffer} */ (buffer),
+            filename,
+            onStateChange: (state) => {
+                if (state === 'uploading') setStatus('Path E — uploading…', '');
+                else if (state === 'open') setStatus('Path E — live editor open', 'ok');
+                else if (state === 'saving') setStatus('Path E — saving + downloading…', '');
+                else if (state === 'closed') setStatus('Path E — saved · use Stage 3 to re-render PDF', 'ok');
+                else if (state === 'error')  setStatus('Path E — error', 'err');
+            },
+        });
+        if (updated && _psqState.main) {
+            _psqState.main.buffer = updated;
+            bus.emit('psq:path-e:saved', { bytes: updated.byteLength });
+        }
+    } catch (err) {
+        const e = /** @type {any} */ (err);
+        setStatus('Path E error: ' + ((e && e.message) || e), 'err');
+    }
 }
 
 // ── UI render ──────────────────────────────────────────────────────────

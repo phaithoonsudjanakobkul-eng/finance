@@ -325,6 +325,21 @@ html[data-preset="cinematic"] #quickchart-panel {
     -webkit-backdrop-filter: blur(18px) saturate(160%);
 }
 
+/* ─────────────────────────────────────────────────────────────
+   V16-18 — PSQ Path E iframe modal. Glass + accent close pill.
+   ───────────────────────────────────────────────────────────── */
+
+html[data-preset="cinematic"] #psq-path-e-backdrop {
+    background: rgba(8, 6, 14, 0.78) !important;
+}
+html[data-preset="cinematic"] #psq-path-e-panel {
+    background: var(--cine-glass-strong) !important;
+    border-color: var(--cine-glass-border-strong) !important;
+    backdrop-filter: blur(18px) saturate(160%);
+    -webkit-backdrop-filter: blur(18px) saturate(160%);
+    box-shadow: 0 16px 48px rgb(0 0 0 / 0.5) !important;
+}
+
 /* V11 — photo album row: fixed 9:16 portrait chips ~120×215px, horizontal
    scroll if the row overflows. Reads like a row of polaroids below the
    cinematic hero. */
