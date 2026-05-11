@@ -22,7 +22,7 @@ export const SLOT_COUNT_KEY      = 'ps_muse_slot_count';
 export const AUTOROTATE_KEY      = 'ps_muse_autorotate';
 export const TRANSITION_KEY      = 'ps_muse_transition';
 
-/** @typedef {{ type: 'empty' } | { type: 'image', thumb: string, src: string } | { type: 'video', thumb: string, r2Key?: string, src?: string } | { type: 'tiktok', url: string, thumb?: string }} Slot */
+/** @typedef {{ type: 'empty' } | { type: 'image', thumb: string, src: string, panFracX?: number, panFracY?: number, zoom?: number } | { type: 'video', thumb: string, r2Key?: string, src?: string, panFracX?: number, panFracY?: number, zoom?: number } | { type: 'tiktok', url: string, thumb?: string }} Slot */
 
 /** @returns {number} 0..5 */
 export function getActivePresetIdx() {

@@ -243,9 +243,21 @@ test.describe('v2 shell smoke', () => {
         await page.locator('#muse-edit-btn').click();
         await expect(page.locator('#muse-edit-controls')).toBeVisible();
         await expect(page.locator('#muse-pw-set')).toBeVisible();
+        await expect(page.locator('#muse-add-image')).toBeVisible();
         // toggle back off
         await page.locator('#muse-edit-btn').click();
         await expect(page.locator('#muse-edit-controls')).toBeHidden();
+    });
+
+    test('Muse V7 — seeded image slot renders in active hero', async ({ page }) => {
+        await page.evaluate(() => {
+            const slot = { type: 'image', src: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVQYV2NgYAAAAAMAAWgmWQ0AAAAASUVORK5CYII=', thumb: '', panFracX: 0, panFracY: 0, zoom: 1 };
+            localStorage.setItem('ps_muse_clips_a', JSON.stringify([slot]));
+            localStorage.setItem('ps_muse_active_slot', JSON.stringify([0,0,0,0,0,0]));
+        });
+        await page.reload({ waitUntil: 'load' });
+        await page.locator('button[data-tab="dashboard"]').click();
+        await expect(page.locator('#muse-hero-img')).toBeVisible({ timeout: 5_000 });
     });
 
     test('Profile edit modal — clicking nav avatar opens, Esc closes', async ({ page }) => {

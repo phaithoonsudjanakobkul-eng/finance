@@ -22,6 +22,9 @@ import {
     deriveVisibleSlotCount, padSlots, reorderSlots,
     hashPassword, verifyPassword,
 } from './state.js';
+import {
+    coverDims, clampPan, resolveSplit, syncFracFromPx, syncPxFromFrac, clampZoom,
+} from './pan-zoom.js';
 
 /** @typedef {import('./state.js').Slot} Slot */
 
@@ -30,6 +33,29 @@ let _host = null;
 let _editMode = false;
 /** @type {Set<number>} unlocked preset indices for this session */
 const _unlocked = new Set();
+
+// Active slot index per preset, in-memory (loaded from state on mount)
+/** @type {number[]} */
+let _activeSlots = [];
+
+// Pan/zoom drag state for the active hero
+let _dragging = false;
+let _dragStartX = 0, _dragStartY = 0;
+let _dragStartPanX = 0, _dragStartPanY = 0;
+let _saveFracTimer = /** @type {any} */ (0);
+
+/** @returns {number} */
+function getActiveSlot() {
+    const p = getActivePresetIdx();
+    return _activeSlots[p] || 0;
+}
+/** @param {number} idx */
+function setActiveSlot(idx) {
+    const p = getActivePresetIdx();
+    if (!_activeSlots.length) _activeSlots = loadActiveSlots();
+    _activeSlots[p] = idx;
+    saveActiveSlots(_activeSlots);
+}
 
 function isUnlocked(/** @type {number} */ idx) {
     const hashes = loadPasswordHashes();
@@ -46,6 +72,223 @@ async function promptUnlock(/** @type {number} */ idx) {
     if (ok) _unlocked.add(idx);
     else window.alert('Wrong password');
     return ok;
+}
+
+// ── Active hero (V7) ──────────────────────────────────────────────────
+
+/** Apply pan/zoom transform to the hero IMG. @param {HTMLImageElement} img */
+function applyHeroTransform(img) {
+    if (!_host) return;
+    const slot = getCurrentSlot();
+    if (!slot || slot.type !== 'image') return;
+    // Invariant 1: don't clear transform when image is loaded but clientWidth=0
+    // (transient layout). Returning early avoids the black flash.
+    const slotW = img.clientWidth;
+    const slotH = img.clientHeight;
+    if (slotW === 0 || slotH === 0) return;
+    const c = coverDims({ naturalW: img.naturalWidth, naturalH: img.naturalHeight, slotW, slotH });
+    const zoom = clampZoom(/** @type {any} */ (slot).zoom || 1);
+    // Derive panX/Y from fraction (Invariant 3: fraction is source of truth)
+    const px = syncPxFromFrac({
+        srcW: c.srcW, srcH: c.srcH, slotW, slotH, zoom,
+        panFracX: /** @type {any} */ (slot).panFracX || 0,
+        panFracY: /** @type {any} */ (slot).panFracY || 0,
+    });
+    const clamped = clampPan({ srcW: c.srcW, srcH: c.srcH, slotW, slotH, zoom, panX: px.panX, panY: px.panY });
+    const split = resolveSplit({ srcW: c.srcW, srcH: c.srcH, slotW, slotH, zoom, panX: clamped.panX, panY: clamped.panY });
+    img.style.objectPosition = `${split.opXPct}% ${split.opYPct}%`;
+    // Invariant 2: always translate3d, never bare translate, never empty
+    img.style.transform = `translate3d(${split.txX}px, ${split.txY}px, 0) scale(${zoom})`;
+}
+
+function getCurrentSlot() {
+    const idx = getActivePresetIdx();
+    const slots = loadSlots(idx);
+    const active = getActiveSlot();
+    return slots[active];
+}
+
+function setSlotPanZoom(/** @type {{ panFracX?: number, panFracY?: number, zoom?: number }} */ delta) {
+    const idx = getActivePresetIdx();
+    const active = getActiveSlot();
+    const slots = loadSlots(idx);
+    const s = slots[active];
+    if (!s || s.type !== 'image') return;
+    /** @type {any} */
+    const cs = s;
+    if (delta.panFracX != null) cs.panFracX = delta.panFracX;
+    if (delta.panFracY != null) cs.panFracY = delta.panFracY;
+    if (delta.zoom     != null) cs.zoom     = delta.zoom;
+    saveSlots(idx, slots);
+    if (_saveFracTimer) clearTimeout(_saveFracTimer);
+    _saveFracTimer = setTimeout(() => {
+        bus.emit('settings:changed', { key: 'muse-pan' });
+    }, 250);
+}
+
+function onHeroPointerDown(/** @type {PointerEvent} */ e) {
+    if (!_host) return;
+    const img = /** @type {HTMLImageElement | null} */ (_host.querySelector('#muse-hero-img'));
+    if (!img) return;
+    const slot = getCurrentSlot();
+    if (!slot || slot.type !== 'image') return;
+    const slotW = img.clientWidth;
+    const slotH = img.clientHeight;
+    const c = coverDims({ naturalW: img.naturalWidth, naturalH: img.naturalHeight, slotW, slotH });
+    const zoom = clampZoom(/** @type {any} */ (slot).zoom || 1);
+    const px = syncPxFromFrac({
+        srcW: c.srcW, srcH: c.srcH, slotW, slotH, zoom,
+        panFracX: /** @type {any} */ (slot).panFracX || 0,
+        panFracY: /** @type {any} */ (slot).panFracY || 0,
+    });
+    _dragging = true;
+    _dragStartX = e.clientX;
+    _dragStartY = e.clientY;
+    _dragStartPanX = px.panX;
+    _dragStartPanY = px.panY;
+    img.style.cursor = 'grabbing';
+    img.setPointerCapture(e.pointerId);
+}
+function onHeroPointerMove(/** @type {PointerEvent} */ e) {
+    if (!_dragging || !_host) return;
+    const img = /** @type {HTMLImageElement | null} */ (_host.querySelector('#muse-hero-img'));
+    if (!img) return;
+    const slot = getCurrentSlot();
+    if (!slot || slot.type !== 'image') return;
+    const slotW = img.clientWidth;
+    const slotH = img.clientHeight;
+    const c = coverDims({ naturalW: img.naturalWidth, naturalH: img.naturalHeight, slotW, slotH });
+    const zoom = clampZoom(/** @type {any} */ (slot).zoom || 1);
+    const dx = e.clientX - _dragStartX;
+    const dy = e.clientY - _dragStartY;
+    const panX = _dragStartPanX + dx;
+    const panY = _dragStartPanY + dy;
+    const clamped = clampPan({ srcW: c.srcW, srcH: c.srcH, slotW, slotH, zoom, panX, panY });
+    const frac = syncFracFromPx({ srcW: c.srcW, srcH: c.srcH, slotW, slotH, zoom, panX: clamped.panX, panY: clamped.panY });
+    setSlotPanZoom({ panFracX: frac.panFracX, panFracY: frac.panFracY });
+    applyHeroTransform(img);
+}
+function onHeroPointerUp(/** @type {PointerEvent} */ e) {
+    _dragging = false;
+    if (!_host) return;
+    const img = /** @type {HTMLImageElement | null} */ (_host.querySelector('#muse-hero-img'));
+    if (img) {
+        img.style.cursor = 'grab';
+        try { img.releasePointerCapture(e.pointerId); } catch (_) {}
+    }
+}
+function onHeroWheel(/** @type {WheelEvent} */ e) {
+    if (!e.ctrlKey && !e.metaKey) return; // wheel-without-Ctrl is preset cycle
+    e.preventDefault();
+    if (!_host) return;
+    const img = /** @type {HTMLImageElement | null} */ (_host.querySelector('#muse-hero-img'));
+    if (!img) return;
+    const slot = getCurrentSlot();
+    if (!slot || slot.type !== 'image') return;
+    const cur = clampZoom(/** @type {any} */ (slot).zoom || 1);
+    const factor = Math.exp(-e.deltaY / 400);
+    const z = clampZoom(cur * factor);
+    setSlotPanZoom({ zoom: z });
+    applyHeroTransform(img);
+}
+
+function renderHero() {
+    if (!_host) return;
+    /** @type {HTMLElement | null} */
+    const heroHost = _host.querySelector('#muse-hero');
+    if (!heroHost) return;
+    const slot = getCurrentSlot();
+    if (!slot || slot.type === 'empty') {
+        heroHost.innerHTML = `<div style="aspect-ratio:16/9;background:var(--bg, #0d0d0d);border:1px solid var(--border, #2a2a2a);border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--dim, #888);font-size:12px;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.08em;">empty — pick a slot or add an image</div>`;
+        return;
+    }
+    if (slot.type === 'image') {
+        const src = /** @type {any} */ (slot).src || '';
+        heroHost.innerHTML = `<div class="muse-hero-frame" style="aspect-ratio:16/9;background:#000;border:1px solid var(--border, #2a2a2a);border-radius:8px;overflow:hidden;position:relative;contain:paint;"><img id="muse-hero-img" alt="" draggable="false" style="width:100%;height:100%;object-fit:cover;display:block;cursor:grab;user-select:none;touch-action:none;will-change:transform;" src="${src}"></div>`;
+        const img = /** @type {HTMLImageElement} */ (heroHost.querySelector('#muse-hero-img'));
+        img.addEventListener('pointerdown', onHeroPointerDown);
+        img.addEventListener('pointermove', onHeroPointerMove);
+        img.addEventListener('pointerup',   onHeroPointerUp);
+        img.addEventListener('wheel',       onHeroWheel, { passive: false });
+        img.addEventListener('load', () => applyHeroTransform(img), { once: true });
+        if (img.complete && img.naturalWidth > 0) applyHeroTransform(img);
+        return;
+    }
+    if (slot.type === 'video' || slot.type === 'tiktok') {
+        heroHost.innerHTML = `<div style="aspect-ratio:16/9;background:#111;border:1px solid var(--border, #2a2a2a);border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--accent, #089981);font-size:36px;">▶</div><div style="font-size:11px;color:var(--dim, #888);text-align:center;margin-top:4px;font-family:var(--mono);">${slot.type} clips port in V8 / V10</div>`;
+    }
+}
+
+// ── Add image flow (V7) ──────────────────────────────────────────────
+
+/**
+ * Resize an image File to max `maxSide` pixels (longest edge) and return
+ * a JPEG data URL. Keeps the file small enough to safely live in localStorage.
+ * @param {File} file
+ * @param {number} maxSide
+ * @returns {Promise<string>}
+ */
+async function fileToResizedDataUrl(file, maxSide) {
+    const dataUrl = await new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(/** @type {string} */ (r.result));
+        r.onerror = () => reject(new Error('read failed'));
+        r.readAsDataURL(file);
+    });
+    return await new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+            const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+            const w = Math.round(img.width * scale);
+            const h = Math.round(img.height * scale);
+            const c = document.createElement('canvas');
+            c.width = w; c.height = h;
+            const ctx = c.getContext('2d');
+            if (!ctx) return reject(new Error('canvas alloc failed'));
+            ctx.imageSmoothingQuality = 'high';
+            ctx.drawImage(img, 0, 0, w, h);
+            resolve(c.toDataURL('image/jpeg', 0.85));
+        };
+        img.onerror = () => reject(new Error('img decode failed'));
+        img.src = /** @type {string} */ (dataUrl);
+    });
+}
+
+async function handleAddImage() {
+    if (!_host) return;
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.style.display = 'none';
+    document.body.appendChild(input);
+    input.click();
+    await new Promise((resolve) => {
+        input.onchange = resolve;
+        // Fallback if user cancels: input still goes through change-less path.
+        // Most browsers fire focus on body when picker closes.
+        window.addEventListener('focus', () => setTimeout(resolve, 200), { once: true });
+    });
+    const file = input.files && input.files[0];
+    if (input.parentNode) input.parentNode.removeChild(input);
+    if (!file) return;
+    try {
+        const dataUrl = await fileToResizedDataUrl(file, 800);
+        const idx = getActivePresetIdx();
+        const slots = loadSlots(idx);
+        const visible = deriveVisibleSlotCount(slots);
+        const padded = padSlots(slots, visible);
+        // Find the first empty slot, otherwise overwrite the active slot
+        let target = padded.findIndex((s) => s.type === 'empty');
+        if (target < 0) target = getActiveSlot();
+        padded[target] = { type: 'image', src: dataUrl, thumb: dataUrl, panFracX: 0, panFracY: 0, zoom: 1 };
+        saveSlots(idx, padded);
+        setActiveSlot(target);
+        rerenderAll();
+        bus.emit('settings:changed', { key: 'muse-slots' });
+    } catch (e) {
+        const err = /** @type {any} */ (e);
+        window.alert('Add image failed: ' + (err && err.message || err));
+    }
 }
 
 /** @param {Slot} slot @param {number} i @returns {string} */
@@ -120,6 +363,7 @@ function renderEditControls() {
         if (_editMode && isUnlocked(idx)) {
             controls.style.display = 'flex';
             controls.innerHTML = `
+                <button id="muse-add-image" style="background:var(--accent, #089981);border:0;color:#000;padding:4px 12px;border-radius:6px;cursor:pointer;font-size:11px;font-family:var(--mono);font-weight:700;">+ Add image</button>
                 <button id="muse-pw-set"    style="background:var(--card, #1a1a1a);border:1px solid var(--border, #2a2a2a);color:var(--fg, #f5f5f7);padding:4px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-family:var(--mono);">${hashes[idx] ? 'Change password' : 'Set password'}</button>
                 ${hashes[idx] ? '<button id="muse-pw-clear" style="background:var(--card, #1a1a1a);border:1px solid var(--border, #2a2a2a);color:var(--fg, #f5f5f7);padding:4px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-family:var(--mono);">Clear password</button>' : ''}
                 <span style="font-size:11px;color:var(--dim, #888);font-family:var(--mono);margin-left:auto;">Drag slots to reorder · × to clear</span>
@@ -133,6 +377,7 @@ function renderEditControls() {
 
 function rerenderAll() {
     renderPresetBar();
+    renderHero();
     renderSlots();
     renderEditControls();
 }
@@ -257,6 +502,17 @@ function onClick(/** @type {Event} */ e) {
     }
     if (t.id === 'muse-pw-set')   { handleSetPassword();   return; }
     if (t.id === 'muse-pw-clear') { handleClearPassword(); return; }
+    if (t.id === 'muse-add-image') { handleAddImage(); return; }
+    // Click slot → set active (when not in edit mode, no drag in progress)
+    const slot = t.closest && t.closest('.muse-slot');
+    if (slot && !_editMode) {
+        const i = parseInt(/** @type {HTMLElement} */ (slot).dataset.slotIdx || '-1', 10);
+        if (i >= 0) {
+            setActiveSlot(i);
+            renderHero();
+            renderSlots();
+        }
+    }
 }
 
 function onWheel(/** @type {WheelEvent} */ e) {
@@ -280,11 +536,13 @@ export function mount(host) {
                 <div id="muse-preset-bar" style="display:flex;gap:4px;flex-wrap:wrap;"></div>
                 <button id="muse-edit-btn" data-muse-action="edit" title="Edit slots" style="margin-left:auto;background:transparent;border:1px solid var(--border, #2a2a2a);color:var(--fg, #f5f5f7);padding:4px 12px;border-radius:6px;cursor:pointer;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;">Edit</button>
             </div>
+            <div id="muse-hero"></div>
             <div id="muse-edit-controls" style="display:none;gap:8px;align-items:center;flex-wrap:wrap;"></div>
             <div id="muse-slot-grid" style="display:grid;grid-template-columns:repeat(7, 1fr);gap:8px;"></div>
-            <div style="font-size:10px;color:var(--dim, #888);font-family:var(--mono);text-transform:uppercase;letter-spacing:0.08em;">wheel cycles preset · drag reorders in edit mode · clips port in V7</div>
+            <div style="font-size:10px;color:var(--dim, #888);font-family:var(--mono);text-transform:uppercase;letter-spacing:0.08em;">wheel cycles preset · Ctrl+wheel zooms · drag reorders in edit · video + tiktok in V8/V10</div>
         </div>
     `;
+    _activeSlots = loadActiveSlots();
     host.addEventListener('click', onClick);
     host.addEventListener('wheel', onWheel, { passive: false });
     host.addEventListener('dragstart', onDragStart);
