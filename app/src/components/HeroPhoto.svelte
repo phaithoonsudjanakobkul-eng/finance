@@ -3,7 +3,7 @@
 </script>
 
 <div
-  class="relative overflow-hidden"
+  class="relative overflow-hidden hero-photo-shell"
   style:aspect-ratio="4/5"
   style:border-radius="16px"
   style:background={`linear-gradient(135deg, hsl(${frames.hue}, 78%) 0%, hsl(${frames.hue}, 55%) 50%, hsl(${frames.hue}, 35%) 100%)`}
@@ -58,3 +58,16 @@
     </div>
   </div>
 </div>
+
+<style>
+  /* Hero photo height cap — without this the 4/5 aspect ratio makes
+     the hero grow to ~1900px tall on a 2560px wide viewport, pushing
+     caption + frame strip below the fold. Cap to fit the right
+     column's typical stack height so the layout stays balanced.
+     min(75dvh, 720px): tall enough to feel hero, short enough that
+     caption + 80px frame strip are visible above the fold. */
+  .hero-photo-shell {
+    max-height: min(75dvh, 720px);
+    min-height: 360px;
+  }
+</style>
