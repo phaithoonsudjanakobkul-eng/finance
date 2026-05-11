@@ -177,6 +177,47 @@ test.describe('v2 shell smoke', () => {
         await expect(page.locator('button[data-tab="settings"]')).toHaveClass(/is-active/);
     });
 
+    test('Dashboard V3 hero row — 3 cards visible (profile / payday / month)', async ({ page }) => {
+        await page.locator('button[data-tab="dashboard"]').click();
+        await expect(page.locator('#dash-profile')).toBeVisible({ timeout: 5_000 });
+        await expect(page.locator('#cine-payday-card')).toBeVisible();
+        await expect(page.locator('#cine-month-card')).toBeVisible();
+        // No leftover Balance / MoM cards from pre-V3 layout
+        await expect(page.locator('#dash-balance')).toHaveCount(0);
+        await expect(page.locator('#dash-mom')).toHaveCount(0);
+    });
+
+    test('Dashboard V3 — profile name + role + contact render from ps_profile JSON', async ({ page }) => {
+        await page.evaluate(() => {
+            localStorage.setItem('ps_profile', JSON.stringify({
+                displayName: 'Phaithoon S.',
+                role: 'Sales Executive',
+                company: 'Evident Olympus',
+                email: 'pi@example.com',
+                phone: '081-234-5678',
+                payday: 25,
+            }));
+        });
+        await page.reload({ waitUntil: 'load' });
+        await page.locator('button[data-tab="dashboard"]').click();
+        await expect(page.locator('#dash-profile-name')).toHaveText('Phaithoon S.', { timeout: 5_000 });
+        await expect(page.locator('#dash-profile-role')).toHaveText('Sales Executive');
+        await expect(page.locator('#dash-profile-company')).toHaveText('Evident Olympus');
+        await expect(page.locator('#dash-profile-contact')).toContainText('081-234-5678');
+        await expect(page.locator('#dash-profile-contact')).toContainText('pi@example.com');
+    });
+
+    test('Dashboard V3 — month card renders today day-of-month and "OF N"', async ({ page }) => {
+        await page.locator('button[data-tab="dashboard"]').click();
+        const dayEl = page.locator('#dash-month-day');
+        await expect(dayEl).toBeVisible({ timeout: 5_000 });
+        // Day should be 1-31 — assert it's a number, not the placeholder dash
+        const v = await dayEl.textContent();
+        expect(Number(v)).toBeGreaterThanOrEqual(1);
+        expect(Number(v)).toBeLessThanOrEqual(31);
+        await expect(page.locator('#dash-month-of')).toContainText(/OF \d+/);
+    });
+
     test('SAVE button flips to pending after a records edit', async ({ page }) => {
         await page.locator('button[data-tab="records"]').click();
         await expect(page.locator('#rec-payday')).toBeVisible({ timeout: 5_000 });

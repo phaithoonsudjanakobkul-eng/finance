@@ -16,7 +16,7 @@
 import { bus } from '../../core/bus.js';
 import { lsGetJson } from '../../core/storage.js';
 import { todayMonth, shiftMonth, readMonth } from '../records/helpers.js';
-import { MONEY_FMT as _MONEY_FMT, PRICE_FMT as _PRICE_FMT, DELTA_FMT as _DELTA_FMT } from '../../core/formatters.js';
+import { PRICE_FMT as _PRICE_FMT, DELTA_FMT as _DELTA_FMT } from '../../core/formatters.js';
 
 /** @typedef {import('../records/helpers.js').Item} Item */
 /** @typedef {import('../records/helpers.js').MonthRecord} MonthRecord */
@@ -53,29 +53,33 @@ function renderPanel(/** @type {HTMLElement} */ rootEl) {
                 <span style="font-size:11px;color:var(--dim, #888);font-family:var(--mono, monospace);">tab/dashboard</span>
             </div>
 
-            <div id="dash-row1" style="display:grid;grid-template-columns:minmax(280px, 1fr) repeat(3, minmax(0, 1fr));gap:12px;">
-                <div id="dash-profile" class="dash-card" style="background:var(--card, #1a1a1a);border:1px solid var(--border, #2a2a2a);border-radius:10px;padding:14px;display:flex;align-items:center;gap:12px;">
-                    <div id="dash-avatar" style="width:56px;height:56px;border-radius:50%;background:var(--bg, #0d0d0d);border:1px solid var(--border, #2a2a2a);display:flex;align-items:center;justify-content:center;font-family:var(--font-display, var(--mono, monospace));font-size:20px;font-weight:700;color:var(--accent, #089981);overflow:hidden;flex-shrink:0;">P</div>
-                    <div style="min-width:0;">
-                        <div class="dash-label" style="font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent, #089981);margin-bottom:4px;">Profile</div>
-                        <div id="dash-profile-name" class="profile-name" style="font-family:var(--font-display, var(--sans, system-ui));font-size:18px;font-weight:700;letter-spacing:-0.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">—</div>
-                        <div id="dash-profile-sub" class="dash-sub" style="font-size:11px;color:var(--dim, #888);margin-top:2px;font-family:var(--mono, monospace);">No profile saved</div>
+            <div id="dash-row1" class="cine-profile-row" style="display:grid;grid-template-columns:minmax(320px, 1.4fr) repeat(2, minmax(0, 1fr));gap:12px;">
+                <div id="dash-profile" class="dash-card" style="background:var(--card, #1a1a1a);border:1px solid var(--border, #2a2a2a);border-radius:10px;padding:18px;display:flex;align-items:flex-start;gap:16px;min-width:0;">
+                    <div id="dash-avatar" style="width:96px;height:96px;border-radius:50%;background:var(--bg, #0d0d0d);border:1px solid var(--border, #2a2a2a);display:flex;align-items:center;justify-content:center;font-family:var(--font-display, var(--mono, monospace));font-size:36px;font-weight:700;color:var(--accent, #089981);overflow:hidden;flex-shrink:0;">P</div>
+                    <div style="min-width:0;flex:1;display:flex;flex-direction:column;gap:6px;">
+                        <div>
+                            <div id="dash-profile-name" class="profile-name dash-value" style="font-family:var(--font-display, var(--sans, system-ui));font-size:22px;font-weight:700;letter-spacing:-0.01em;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">—</div>
+                            <div id="dash-profile-role" class="dash-sub" style="font-size:12px;color:var(--text-secondary, #aaa);margin-top:2px;font-family:var(--sans, system-ui);">—</div>
+                            <div id="dash-profile-company" class="dash-sub" style="font-size:11px;color:var(--dim, #888);margin-top:1px;font-family:var(--mono, monospace);"></div>
+                        </div>
+                        <div id="dash-profile-contact" style="display:flex;flex-direction:column;gap:3px;margin-top:4px;font-size:11px;font-family:var(--mono, monospace);color:var(--text-secondary, #aaa);"></div>
                     </div>
                 </div>
-                <div id="dash-month" class="dash-card" style="background:var(--card, #1a1a1a);border:1px solid var(--border, #2a2a2a);border-radius:10px;padding:14px;">
-                    <div class="dash-label" style="font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent, #089981);margin-bottom:4px;">Month</div>
-                    <div id="dash-month-label" class="dash-value" style="font-family:var(--font-display, var(--mono, monospace));font-size:20px;font-weight:700;letter-spacing:-0.01em;font-variant-numeric:tabular-nums;">—</div>
-                    <div id="dash-payday" class="dash-sub" style="font-size:12px;color:var(--dim, #888);margin-top:2px;font-family:var(--mono, monospace);">income —</div>
+                <div id="cine-payday-card" class="dash-card cine-payday-card" style="background:var(--card, #1a1a1a);border:1px solid var(--border, #2a2a2a);border-radius:10px;padding:14px 18px;display:flex;flex-direction:column;justify-content:space-between;min-height:128px;">
+                    <div class="dash-label cine-aux-label" style="font-size:11px;text-transform:uppercase;letter-spacing:0.1em;color:var(--accent, #089981);font-weight:700;">Next Payday</div>
+                    <div style="display:flex;align-items:baseline;gap:8px;">
+                        <span id="dash-payday-days" class="cine-payday-num dash-value" style="font-family:var(--font-display, var(--mono, monospace));font-size:48px;font-weight:700;letter-spacing:-0.03em;line-height:1;font-variant-numeric:tabular-nums;color:var(--text-primary, #f5f5f7);">—</span>
+                        <span class="cine-aux-label" style="font-size:11px;text-transform:uppercase;letter-spacing:0.12em;color:var(--text-secondary, #aaa);font-weight:700;">days</span>
+                    </div>
+                    <div id="dash-payday-sublabel" class="cine-payday-sublabel" style="font-size:11px;color:var(--dim, #888);font-family:var(--mono, monospace);text-transform:uppercase;letter-spacing:0.06em;">set payday in profile</div>
                 </div>
-                <div id="dash-balance" class="dash-card" style="background:var(--card, #1a1a1a);border:1px solid var(--border, #2a2a2a);border-radius:10px;padding:14px;">
-                    <div class="dash-label" style="font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent, #089981);margin-bottom:4px;">Balance</div>
-                    <div id="dash-balance-val" class="dash-value" style="font-family:var(--font-display, var(--mono, monospace));font-size:20px;font-weight:700;letter-spacing:-0.01em;font-variant-numeric:tabular-nums;">—</div>
-                    <div id="dash-rate" class="dash-sub" style="font-size:12px;color:var(--dim, #888);margin-top:2px;font-family:var(--mono, monospace);">saving rate —</div>
-                </div>
-                <div id="dash-mom" class="dash-card" style="background:var(--card, #1a1a1a);border:1px solid var(--border, #2a2a2a);border-radius:10px;padding:14px;">
-                    <div class="dash-label" style="font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent, #089981);margin-bottom:4px;">MoM Change</div>
-                    <div id="dash-mom-val" class="dash-value" style="font-family:var(--font-display, var(--mono, monospace));font-size:20px;font-weight:700;letter-spacing:-0.01em;font-variant-numeric:tabular-nums;">—</div>
-                    <div class="dash-sub" style="font-size:12px;color:var(--dim, #888);margin-top:2px;font-family:var(--mono, monospace);">vs prior month balance</div>
+                <div id="cine-month-card" class="dash-card cine-month-card" style="background:var(--card, #1a1a1a);border:1px solid var(--border, #2a2a2a);border-radius:10px;padding:14px 18px;display:flex;flex-direction:column;justify-content:space-between;min-height:128px;">
+                    <div class="dash-label cine-aux-label" style="font-size:11px;text-transform:uppercase;letter-spacing:0.1em;color:var(--accent, #089981);font-weight:700;">This Month</div>
+                    <div style="display:flex;align-items:baseline;gap:8px;">
+                        <span id="dash-month-day" class="cine-month-num dash-value" style="font-family:var(--font-display, var(--mono, monospace));font-size:48px;font-weight:700;letter-spacing:-0.03em;line-height:1;font-variant-numeric:tabular-nums;color:var(--text-primary, #f5f5f7);">—</span>
+                        <span id="dash-month-of" class="cine-aux-label" style="font-size:11px;text-transform:uppercase;letter-spacing:0.12em;color:var(--text-secondary, #aaa);font-weight:700;">of 31</span>
+                    </div>
+                    <div id="dash-month-name" class="cine-month-sublabel" style="font-size:11px;color:var(--dim, #888);font-family:var(--mono, monospace);text-transform:uppercase;letter-spacing:0.06em;">—</div>
                 </div>
             </div>
 
@@ -110,13 +114,32 @@ function renderPanel(/** @type {HTMLElement} */ rootEl) {
 function renderProfile() {
     if (!_panel) return;
     const p = loadProfile();
-    const nameEl = _panel.querySelector('#dash-profile-name');
-    const subEl  = _panel.querySelector('#dash-profile-sub');
-    const avEl   = /** @type {HTMLElement} */ (_panel.querySelector('#dash-avatar'));
-    const name = (p && (p.displayName || p.name || p.fullName)) || '';
-    const role = (p && (p.role || p.position || p.title)) || '';
-    if (nameEl) nameEl.textContent = name || '—';
-    if (subEl)  subEl.textContent = role || (name ? 'Profile loaded' : 'No profile saved');
+    const nameEl    = _panel.querySelector('#dash-profile-name');
+    const roleEl    = _panel.querySelector('#dash-profile-role');
+    const companyEl = _panel.querySelector('#dash-profile-company');
+    const contactEl = _panel.querySelector('#dash-profile-contact');
+    const avEl      = /** @type {HTMLElement} */ (_panel.querySelector('#dash-avatar'));
+    const name    = (p && (p.displayName || p.name || p.fullName)) || '';
+    const role    = (p && (p.role || p.position || p.title)) || '';
+    const company = (p && (p.company || p.organization || p.org)) || '';
+    const email   = (p && p.email)   || '';
+    const phone   = (p && p.phone)   || '';
+    const address = (p && p.address) || '';
+    if (nameEl)    nameEl.textContent    = name || '—';
+    if (roleEl)    roleEl.textContent    = role || (name ? '' : 'No profile saved');
+    if (companyEl) companyEl.textContent = company || '';
+    if (contactEl) {
+        /** @type {string[]} */
+        const lines = [];
+        if (phone)   lines.push('☎  ' + phone);
+        if (email)   lines.push('✉  ' + email);
+        if (address) lines.push('⌂  ' + address);
+        contactEl.innerHTML = lines.map((l) => {
+            const span = document.createElement('span');
+            span.textContent = l;
+            return span.outerHTML;
+        }).join('');
+    }
     if (avEl) {
         const avatar = /** @type {string} */ (typeof window !== 'undefined' && window.localStorage && window.localStorage.getItem('ps_avatar')) || '';
         if (avatar && avatar.length > 64) {
@@ -130,24 +153,74 @@ function renderProfile() {
     }
 }
 
-function renderMonthCards() {
+// ── Hero numeric cards (Payday + Month) ──────────────────────────────
+//
+// Pure helpers — exported for unit testing. Pass an explicit "today"
+// to keep tests deterministic; callers in the live render pass new Date().
+
+/**
+ * Days-in-month for a given year + month (1-12). Handles Feb leap.
+ * @param {number} year @param {number} month1 @returns {number}
+ */
+export function _daysInMonth(year, month1) {
+    return new Date(year, month1, 0).getDate();
+}
+
+/**
+ * Days until the next payday-of-month. If today's date ≤ paydayDay, the
+ * payday is later this month; otherwise it's that day next month.
+ * Returns 0 on payday itself.
+ * @param {number} paydayDay 1-31 — clamped to month length
+ * @param {Date} [today]
+ * @returns {{ days: number, when: string }}
+ */
+export function _nextPayday(paydayDay, today) {
+    const now = today || new Date();
+    const y = now.getFullYear();
+    const m = now.getMonth(); // 0-11
+    const d = now.getDate();
+    let pyear = y, pmonth = m;
+    if (d > paydayDay) {
+        pmonth += 1;
+        if (pmonth > 11) { pmonth = 0; pyear += 1; }
+    }
+    const targetDay = Math.min(paydayDay, _daysInMonth(pyear, pmonth + 1));
+    const target = new Date(pyear, pmonth, targetDay);
+    const startOfToday = new Date(y, m, d);
+    const days = Math.round((target.getTime() - startOfToday.getTime()) / 86_400_000);
+    /** @type {Intl.DateTimeFormatOptions} */
+    const opts = { day: '2-digit', month: 'short' };
+    const when = target.toLocaleDateString('en-US', opts);
+    return { days, when };
+}
+
+function renderHeroNumbers() {
     if (!_panel) return;
-    const records = loadRecords();
-    const m = todayMonth();
-    const cur = readMonth(m, records);
-    const prev = readMonth(shiftMonth(m, -1), records);
-    setText('#dash-month-label', m);
-    setText('#dash-payday',      cur.payday ? `income ฿${_MONEY_FMT.format(cur.payday)}` : 'income —');
-    setText('#dash-balance-val', cur.payday ? `฿${_MONEY_FMT.format(cur.balance)}` : '—');
-    setText('#dash-rate',        cur.payday ? `saving rate ${cur.rate}%` : 'saving rate —');
-    if (prev.payday) {
-        const diff = cur.balance - prev.balance;
-        const sign = diff >= 0 ? '+' : '−';
-        setText('#dash-mom-val', `${sign}฿${_MONEY_FMT.format(Math.abs(diff))}`);
+    const p = loadProfile();
+    const paydayDay = (p && Number(p.payday)) || 0;
+    const now = new Date();
+    const dayEl   = _panel.querySelector('#dash-month-day');
+    const ofEl    = _panel.querySelector('#dash-month-of');
+    const nameEl  = _panel.querySelector('#dash-month-name');
+    const daysEl  = _panel.querySelector('#dash-payday-days');
+    const subEl   = _panel.querySelector('#dash-payday-sublabel');
+    const dim = _daysInMonth(now.getFullYear(), now.getMonth() + 1);
+    if (dayEl)  dayEl.textContent = String(now.getDate());
+    if (ofEl)   ofEl.textContent = 'OF ' + dim;
+    if (nameEl) nameEl.textContent = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    if (paydayDay >= 1 && paydayDay <= 31) {
+        const r = _nextPayday(paydayDay, now);
+        if (daysEl) daysEl.textContent = String(r.days);
+        if (subEl)  subEl.textContent = r.when.toUpperCase();
     } else {
-        setText('#dash-mom-val', '—');
+        if (daysEl) daysEl.textContent = '—';
+        if (subEl)  subEl.textContent = 'SET PAYDAY IN PROFILE';
     }
 }
+
+// renderMonthCards removed (V3) — Balance + MoM Change cards are gone
+// from the dashboard hero. The financial bar lives on the Records tab;
+// dashboard's job is now profile-led (Profile / Payday / Month).
 
 function renderTrend() {
     if (!_panel) return;
@@ -215,7 +288,7 @@ function renderPinned() {
 
 function refreshAll() {
     renderProfile();
-    renderMonthCards();
+    renderHeroNumbers();
     renderTrend();
     renderPinned();
 }

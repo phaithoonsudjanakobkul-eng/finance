@@ -207,6 +207,43 @@ html[data-preset="cinematic"] .ps-brand-sub {
     color: var(--accent) !important;
 }
 
+/* ─────────────────────────────────────────────────────────────
+   V3 — Dashboard hero row. Profile / Next Payday / This Month.
+   Cinematic gives the two numeric cards huge serif numerals and
+   wider line-height so the hero reads like a magazine title.
+   ───────────────────────────────────────────────────────────── */
+
+html[data-preset="cinematic"] #dash-root .cine-profile-row {
+    gap: 14px;
+}
+
+html[data-preset="cinematic"] #dash-root .cine-payday-num,
+html[data-preset="cinematic"] #dash-root .cine-month-num {
+    font-size: 64px !important;
+    line-height: 0.95 !important;
+    letter-spacing: -0.04em !important;
+    font-family: var(--font-display) !important;
+}
+
+html[data-preset="cinematic"] #dash-root .cine-aux-label {
+    color: var(--text-secondary) !important;
+    font-family: var(--font-ui, var(--font-main)) !important;
+}
+
+html[data-preset="cinematic"] #dash-root .cine-payday-sublabel,
+html[data-preset="cinematic"] #dash-root .cine-month-sublabel {
+    color: var(--text-secondary) !important;
+}
+
+/* Mobile/tablet — single column under 720 so the 64px numerals
+   stay legible without horizontal squish. */
+@media (max-width: 720px) {
+    html[data-preset="cinematic"] #dash-root .cine-profile-row,
+    #dash-root .cine-profile-row {
+        grid-template-columns: 1fr !important;
+    }
+}
+
 html[data-preset="cinematic"] #tab-mount {
     background: transparent !important;
     border: 0 !important;
