@@ -129,6 +129,25 @@ for (const v of VIEWPORTS) {
   })
 }
 
+test('R10 container query — ProfileCard photo shrinks when its own container is narrow', async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 800 })
+  await page.goto('/')
+
+  const photoCol = page.locator('[data-component="profile-card"] .pc-photo-col').first()
+  await expect(photoCol).toBeVisible()
+  const w = await photoCol.evaluate(el => el.getBoundingClientRect().width)
+  expect(w, 'photo col should shrink in narrow container (<420px)').toBeLessThanOrEqual(120)
+})
+
+test('R10 modern viewport unit — app-shell uses 100dvh not 100vh', async ({ page }) => {
+  await page.goto('/')
+  const minHeight = await page.locator('.app-shell').evaluate(el => getComputedStyle(el).minHeight)
+  expect(minHeight).toMatch(/^\d+px$/)  // dvh resolves to px at compute time
+  const vh = await page.evaluate(() => window.innerHeight)
+  const numeric = parseFloat(minHeight)
+  expect(Math.abs(numeric - vh)).toBeLessThan(2)
+})
+
 test('R9 ultrawide caps shell-inner at --shell-max-w', async ({ page }) => {
   await page.setViewportSize({ width: 3000, height: 1200 })
   await page.goto('/')

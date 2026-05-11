@@ -113,7 +113,7 @@ html, body {
    Wraps the entire app at the root; max-width caps on ultrawide so
    content stays in a comfortable reading column. */
 .app-shell {
-  min-height: 100vh;
+  min-height: 100dvh;
   background:
     radial-gradient(ellipse at 75% 25%, hsl(var(--hero-hue), 35%) 0%, transparent 55%),
     radial-gradient(ellipse at 15% 85%, rgba(45, 30, 80, 0.45) 0%, transparent 60%),
@@ -185,4 +185,31 @@ html, body {
 @media (prefers-reduced-motion: reduce) {
   .pulse-dot { animation: none; }
   .app-shell { transition: none; }
+}
+
+/* ────────────────────────────────────────────────────────────────────
+   Container queries — components adapt to their CONTAINER size, not
+   viewport. `.cq-card` on a card host registers it as an inline-size
+   container; descendants can use @container queries to layout-adapt.
+   ──────────────────────────────────────────────────────────────────── */
+.cq-card {
+  container-type: inline-size;
+}
+
+/* ────────────────────────────────────────────────────────────────────
+   View Transitions API — tab + frame swaps cross-fade smoothly
+   instead of snapping. Falls back to plain swap on browsers without
+   support (handled in lib/view-transition.ts feature detect).
+   ──────────────────────────────────────────────────────────────────── */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 220ms;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 1ms;
+  }
 }

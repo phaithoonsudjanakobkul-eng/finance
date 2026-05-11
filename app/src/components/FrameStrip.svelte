@@ -1,5 +1,6 @@
 <script lang="ts">
   import { frames, FRAMES } from '../lib/frames.svelte'
+  import { withViewTransition } from '../lib/view-transition'
 </script>
 
 <div class="grid gap-2" style="grid-template-columns:repeat(6, 1fr);" data-component="frame-strip">
@@ -16,7 +17,7 @@
       data-frame={f.id}
       aria-current={isActive ? 'true' : undefined}
       aria-label={`Frame ${f.id + 1}: ${f.tag}`}
-      onclick={() => frames.set(f.id)}
+      onclick={() => withViewTransition(() => frames.set(f.id))}
     ></button>
   {/each}
 </div>

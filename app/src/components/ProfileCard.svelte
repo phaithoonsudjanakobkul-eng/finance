@@ -48,7 +48,7 @@
   }
 </script>
 
-<div class="glass overflow-hidden flex flex-col" data-component="profile-card">
+<div class="glass cq-card overflow-hidden flex flex-col" data-component="profile-card">
   <div class="flex" style="min-height:220px;">
     <div class="flex-1 min-w-0 flex flex-col" style="padding:var(--card-pad-y) var(--card-pad-x);">
       {#if !editing}
@@ -116,7 +116,7 @@
     </div>
 
     <div
-      class="shrink-0 relative overflow-hidden"
+      class="shrink-0 relative overflow-hidden pc-photo-col"
       style="width:var(--photo-portrait-w); max-width:50%; border-left:0.5px solid var(--border-glass);"
     >
       {#if profile.photo}
@@ -181,8 +181,31 @@
   {#if uploadErr}
     <div
       class="ff-mono"
-      style="padding:6px 16px; font-size:10px; color:var(--accent-bright); border-top:0.5px solid var(--border-glass); background:rgba(232,133,94,0.08);"
+      style="padding:6px 16px; font-size:var(--text-xs); color:var(--accent-bright); border-top:0.5px solid var(--border-glass); background:rgba(232,133,94,0.08);"
       data-upload-error
     >{uploadErr}</div>
   {/if}
 </div>
+
+<style>
+  /* Container-query responsive: when the ProfileCard's own width
+     drops below 420px (independent of viewport), shrink the photo
+     column so the info panel stays readable. Real component-level
+     responsive — works even when this card is in a narrow column
+     on a wide viewport (sidebar use case). */
+  :global(.cq-card[data-component="profile-card"]) {
+    container-type: inline-size;
+  }
+
+  @container (max-width: 420px) {
+    :global([data-component="profile-card"]) .pc-photo-col {
+      width: 110px;
+    }
+  }
+
+  @container (max-width: 340px) {
+    :global([data-component="profile-card"]) .pc-photo-col {
+      width: 88px;
+    }
+  }
+</style>

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { tabs, TABS, type TabId } from '../lib/tabs.svelte'
+  import { withViewTransition } from '../lib/view-transition'
 </script>
 
 <header class="flex items-center justify-between flex-wrap gap-3" style="margin-bottom:var(--space-7);">
@@ -35,7 +36,7 @@
           style:color={isActive ? 'var(--accent-bright)' : 'var(--text-muted)'}
           data-tab={t.id}
           aria-current={isActive ? 'page' : undefined}
-          onclick={() => tabs.set(t.id as TabId)}
+          onclick={() => withViewTransition(() => tabs.set(t.id as TabId))}
         >
           {t.label}
         </button>
