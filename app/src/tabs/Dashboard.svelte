@@ -1,6 +1,5 @@
 <script lang="ts">
   import HeroPhoto from '../components/HeroPhoto.svelte'
-  import FrameStrip from '../components/FrameStrip.svelte'
   import ProfileCard from '../components/ProfileCard.svelte'
   import PaydayCard from '../components/PaydayCard.svelte'
   import MonthCard from '../components/MonthCard.svelte'
@@ -17,7 +16,6 @@
 >
   <div class="flex flex-col" style="gap:var(--card-gap);">
     <HeroPhoto />
-    <FrameStrip />
   </div>
 
   <div class="flex flex-col" style="gap:var(--card-gap);">

@@ -37,11 +37,21 @@ test('app-shell carries cinematic background layers', async ({ page }) => {
   expect(bg).toContain('linear-gradient')
 })
 
-test('R3 HeroPhoto + FrameStrip render on Dashboard', async ({ page }) => {
+test('R3 HeroPhoto + Mini frame strip render on Dashboard', async ({ page }) => {
   await page.goto('/')
   await expect(page.locator('[data-component="hero-photo"]')).toBeVisible()
   await expect(page.locator('[data-component="frame-strip"]')).toBeVisible()
   await expect(page.locator('[data-component="frame-strip"] [data-frame]')).toHaveCount(6)
+})
+
+test('R16 mini frame strip lives INSIDE HeroPhoto (bottom-right overlay)', async ({ page }) => {
+  await page.goto('/')
+  const hero = page.locator('[data-component="hero-photo"]')
+  const strip = hero.locator('[data-component="frame-strip"]')
+  await expect(strip).toBeVisible()
+  // Strip is inside the hero card (descendant, not a sibling below)
+  await expect(strip).toHaveCount(1)
+  await expect(page.locator('[data-component="hero-photo"] [data-component="frame-strip"]')).toHaveCount(1)
 })
 
 test('FrameStrip switches active frame and updates hero caption + hue', async ({ page }) => {
