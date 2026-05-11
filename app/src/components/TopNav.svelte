@@ -20,11 +20,16 @@
       </div>
     </div>
 
-    <nav class="flex flex-wrap gap-0.5" aria-label="Tabs">
-      {#each TABS as t (t.id)}
+    <div role="tablist" class="flex flex-wrap gap-0.5" aria-label="App sections">
+      {#each TABS as t, i (t.id)}
         {@const isActive = tabs.active === t.id}
         <button
           type="button"
+          role="tab"
+          id="tab-{t.id}"
+          aria-selected={isActive}
+          aria-controls="panel-{t.id}"
+          tabindex={isActive ? 0 : -1}
           class="ff-body uppercase transition cursor-pointer"
           style:padding="6px 12px"
           style:font-size="var(--text-xs)"
@@ -36,12 +41,13 @@
           style:color={isActive ? 'var(--accent-bright)' : 'var(--text-muted)'}
           data-tab={t.id}
           aria-current={isActive ? 'page' : undefined}
+          title="Press {i + 1} to switch"
           onclick={() => withViewTransition(() => tabs.set(t.id as TabId))}
         >
           {t.label}
         </button>
       {/each}
-    </nav>
+    </div>
   </div>
 
   <div class="flex items-center gap-2">

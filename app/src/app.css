@@ -175,6 +175,59 @@ html, body {
   text-transform: uppercase;
 }
 
+/* ────────────────────────────────────────────────────────────────────
+   Accessibility — focus-visible + skip-link + touch targets
+   ──────────────────────────────────────────────────────────────────── */
+
+/* Keyboard-only focus ring on every interactive element. Cinematic
+   accent-bright color keeps the ring on-brand against the dark bg.
+   Outline-offset adds breathing room from button edge. */
+:focus-visible {
+  outline: 2px solid var(--accent-bright);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
+}
+
+/* Skip link — invisible until tab-focused, jumps screen readers /
+   keyboard users straight to <main>. Slides in from top. */
+.skip-link {
+  position: fixed;
+  inset-block-start: var(--space-3);
+  inset-inline-start: var(--space-3);
+  padding: var(--space-3) var(--space-5);
+  background: var(--accent);
+  color: #1A1018;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-decoration: none;
+  border-radius: var(--radius-sm);
+  z-index: 100;
+  transform: translateY(-200%);
+  transition: transform 0.2s ease;
+}
+.skip-link:focus-visible {
+  transform: translateY(0);
+  outline: none;
+}
+
+/* Touch-device target sizing — bumps every interactive element to a
+   44×44 minimum tap area on devices without a fine pointer (phones,
+   tablets). No effect on desktop with mouse. WCAG 2.5.5 (Level AAA). */
+@media (hover: none) and (pointer: coarse) {
+  button,
+  [role="button"],
+  [role="tab"],
+  input,
+  textarea,
+  select,
+  a {
+    min-height: 44px;
+  }
+}
+
 /* Pulse — live indicator */
 .pulse-dot { animation: pulse-glow 2s ease-in-out infinite; }
 @keyframes pulse-glow {

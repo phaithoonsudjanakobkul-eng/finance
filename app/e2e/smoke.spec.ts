@@ -129,6 +129,54 @@ for (const v of VIEWPORTS) {
   })
 }
 
+test('R11 a11y — tabs have proper ARIA roles + tablist semantics', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.getByRole('tablist')).toBeVisible()
+  await expect(page.getByRole('tab')).toHaveCount(5)
+  await expect(page.getByRole('tabpanel')).toBeVisible()
+
+  const activeTab = page.locator('[role="tab"][aria-selected="true"]')
+  await expect(activeTab).toHaveCount(1)
+  await expect(activeTab).toHaveAttribute('id', 'tab-dashboard')
+})
+
+test('R11 a11y — number key 1-5 switches tabs', async ({ page }) => {
+  await page.goto('/')
+  await page.keyboard.press('3')
+  await expect(page.locator('[data-tab-content="watchlist"]')).toBeVisible()
+  await page.keyboard.press('2')
+  await expect(page.locator('[data-tab-content="records"]')).toBeVisible()
+  await page.keyboard.press('1')
+  await expect(page.locator('[data-tab-content="dashboard"]')).toBeVisible()
+})
+
+test('R11 a11y — number key shortcuts are ignored when typing in inputs', async ({ page }) => {
+  await page.goto('/')
+  await page.locator('[data-tab="records"]').click()
+  const input = page.locator('[data-field="category"]')
+  await input.click()
+  await input.fill('3')
+  // Tab should not switch — we're still on Records
+  await expect(page.locator('[data-tab-content="records"]')).toBeVisible()
+  await expect(input).toHaveValue('3')
+})
+
+test('R11 a11y — Esc in ProfileCard edit mode cancels the edit', async ({ page }) => {
+  await page.goto('/')
+  await page.locator('[data-action="edit-profile"]').click()
+  await page.locator('[data-field="profile-name"]').fill('Throwaway')
+  await page.keyboard.press('Escape')
+  await expect(page.locator('[data-profile-name]')).toHaveText('Pi-keng')
+})
+
+test('R11 a11y — skip link exists and points to #main', async ({ page }) => {
+  await page.goto('/')
+  const skip = page.locator('.skip-link')
+  await expect(skip).toHaveAttribute('href', '#main')
+  // Skip link should be present in DOM (hidden via transform) but accessible
+  await expect(skip).toHaveText(/Skip/i)
+})
+
 test('R10 container query — ProfileCard photo shrinks when its own container is narrow', async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 800 })
   await page.goto('/')

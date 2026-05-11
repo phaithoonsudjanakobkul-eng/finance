@@ -8,6 +8,18 @@
   let uploadErr = $state<string | null>(null)
   let fileInput: HTMLInputElement | null = $state(null)
 
+  $effect(() => {
+    if (!editing) return
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        cancelEdit()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
+
   function startEdit() {
     draftName = profile.name
     draftNotes = profile.notes
@@ -181,6 +193,8 @@
   {#if uploadErr}
     <div
       class="ff-mono"
+      role="alert"
+      aria-live="polite"
       style="padding:6px 16px; font-size:var(--text-xs); color:var(--accent-bright); border-top:0.5px solid var(--border-glass); background:rgba(232,133,94,0.08);"
       data-upload-error
     >{uploadErr}</div>
