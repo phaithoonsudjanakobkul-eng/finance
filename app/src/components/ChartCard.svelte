@@ -43,7 +43,7 @@
   {#if type === 'trend'}
     <svg
       viewBox="0 0 400 160"
-      style="width:100%; height:auto; aspect-ratio:400/160;"
+      style="width:100%; height:clamp(140px, 22vh, 220px);"
       preserveAspectRatio="none"
       aria-hidden="true"
     >

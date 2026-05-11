@@ -16,7 +16,7 @@
     <MiniFrameStrip />
   </div>
 
-  <div class="dash-area-right flex flex-col" style="gap:var(--card-gap);">
+  <div class="dash-area-right">
     <div
       class="grid grid-cols-1 sm:grid-cols-[1fr_1.5fr] md:grid-cols-1 lg:grid-cols-[1fr_1.5fr]"
       style="gap:var(--card-gap);"
@@ -64,7 +64,16 @@
   }
 
   .dash-area-hero    { grid-area: hero; }
-  .dash-area-right   { grid-area: right; }
+  .dash-area-right   {
+    grid-area: right;
+    /* Inner grid: Alerts/Pinned (auto) · Profile (grows to fill) ·
+       Payday/Month (auto). When row 1's height is driven by the tall
+       Hero column, Profile expands to consume the slack so the right
+       column doesn't trail off with empty space above Finance row. */
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    gap: var(--card-gap);
+  }
   .dash-area-finance { grid-area: finance; }
   .dash-area-charts  { grid-area: charts; }
 </style>

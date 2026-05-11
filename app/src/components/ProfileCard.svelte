@@ -61,7 +61,7 @@
 </script>
 
 <div class="glass cq-card overflow-hidden flex flex-col" data-component="profile-card">
-  <div class="flex" style="min-height:220px;">
+  <div class="flex" style="flex:1; min-height:220px;">
     <div class="flex-1 min-w-0 flex flex-col" style="padding:var(--card-pad-y) var(--card-pad-x);">
       {#if !editing}
         <div class="flex items-start justify-between gap-2">
