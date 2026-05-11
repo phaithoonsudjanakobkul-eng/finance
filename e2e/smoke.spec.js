@@ -218,6 +218,36 @@ test.describe('v2 shell smoke', () => {
         await expect(page.locator('#dash-month-of')).toContainText(/OF \d+/);
     });
 
+    test('Muse V6 — Dashboard renders Muse panel with preset bar + slot grid', async ({ page }) => {
+        await page.locator('button[data-tab="dashboard"]').click();
+        await expect(page.locator('#muse-root')).toBeVisible({ timeout: 5_000 });
+        await expect(page.locator('#muse-preset-bar')).toBeVisible();
+        // 6 preset pills A..F
+        for (const L of ['A','B','C','D','E','F']) {
+            await expect(page.locator(`button[data-muse-preset]:has-text("${L}")`)).toBeVisible();
+        }
+        // Slot grid has the default 7 visible
+        const slots = page.locator('#muse-slot-grid .muse-slot');
+        await expect(slots).toHaveCount(7);
+    });
+
+    test('Muse V6 — preset switch updates active highlight + persists', async ({ page }) => {
+        await page.locator('button[data-tab="dashboard"]').click();
+        await page.locator('button[data-muse-preset="2"]').click();
+        await expect.poll(async () => page.evaluate(() => localStorage.getItem('ps_muse_preset_idx'))).toBe('2');
+    });
+
+    test('Muse V6 — Edit toggle shows edit controls', async ({ page }) => {
+        await page.locator('button[data-tab="dashboard"]').click();
+        await expect(page.locator('#muse-edit-controls')).toBeHidden();
+        await page.locator('#muse-edit-btn').click();
+        await expect(page.locator('#muse-edit-controls')).toBeVisible();
+        await expect(page.locator('#muse-pw-set')).toBeVisible();
+        // toggle back off
+        await page.locator('#muse-edit-btn').click();
+        await expect(page.locator('#muse-edit-controls')).toBeHidden();
+    });
+
     test('Profile edit modal — clicking nav avatar opens, Esc closes', async ({ page }) => {
         await page.locator('#nav-avatar').click();
         await expect(page.locator('#profile-edit-panel')).toBeVisible({ timeout: 2_000 });

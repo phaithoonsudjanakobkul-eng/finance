@@ -17,6 +17,7 @@ import { bus } from '../../core/bus.js';
 import { lsGetJson } from '../../core/storage.js';
 import { todayMonth, shiftMonth, readMonth } from '../records/helpers.js';
 import { PRICE_FMT as _PRICE_FMT, DELTA_FMT as _DELTA_FMT } from '../../core/formatters.js';
+import { mount as mountMuse } from '../../widgets/muse/index.js';
 
 /** @typedef {import('../records/helpers.js').Item} Item */
 /** @typedef {import('../records/helpers.js').MonthRecord} MonthRecord */
@@ -26,6 +27,8 @@ import { PRICE_FMT as _PRICE_FMT, DELTA_FMT as _DELTA_FMT } from '../../core/for
 let _panel = null;
 /** @type {(() => void) | null} */
 let _busOff = null;
+/** @type {{ destroy: () => void } | null} */
+let _museHandle = null;
 
 // ── Reads ──────────────────────────────────────────────────────────────
 
@@ -94,18 +97,14 @@ function renderPanel(/** @type {HTMLElement} */ rootEl) {
                 <svg id="dash-trend" viewBox="0 0 600 200" preserveAspectRatio="none" style="width:100%;height:200px;background:var(--bg, #0d0d0d);border-radius:8px;border:1px solid var(--border, #2a2a2a);"></svg>
             </div>
 
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-                <div id="dash-pinned" class="dash-card" style="background:var(--card, #1a1a1a);border:1px solid var(--border, #2a2a2a);border-radius:10px;padding:14px;">
-                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-                        <div class="dash-label sec-label" style="font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent, #089981);">Pinned</div>
-                        <a href="#tab=watchlist" style="font-size:11px;color:var(--dim, #888);text-decoration:none;font-family:var(--mono, monospace);">edit ↗</a>
-                    </div>
-                    <div id="dash-pinned-rows" style="display:flex;flex-direction:column;gap:6px;font-family:var(--mono, monospace);font-size:13px;font-variant-numeric:tabular-nums;"></div>
+            <div id="dash-muse-host"></div>
+
+            <div id="dash-pinned" class="dash-card" style="background:var(--card, #1a1a1a);border:1px solid var(--border, #2a2a2a);border-radius:10px;padding:14px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                    <div class="dash-label sec-label" style="font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent, #089981);">Pinned</div>
+                    <a href="#tab=watchlist" style="font-size:11px;color:var(--dim, #888);text-decoration:none;font-family:var(--mono, monospace);">edit ↗</a>
                 </div>
-                <div class="dash-card" style="background:var(--card, #1a1a1a);border:1px solid var(--border, #2a2a2a);border-radius:10px;padding:14px;opacity:0.7;">
-                    <div class="dash-label" style="font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent, #089981);margin-bottom:4px;">Muse</div>
-                    <div class="dash-sub" style="font-size:12px;color:var(--dim, #888);">Stays in shell — port pending</div>
-                </div>
+                <div id="dash-pinned-rows" style="display:flex;flex-direction:column;gap:6px;font-family:var(--mono, monospace);font-size:13px;font-variant-numeric:tabular-nums;"></div>
             </div>
         </div>
     `;
@@ -299,6 +298,8 @@ export function init(/** @type {HTMLElement} */ rootEl) {
     _panel = rootEl;
     renderPanel(rootEl);
     refreshAll();
+    const museHost = /** @type {HTMLElement | null} */ (rootEl.querySelector('#dash-muse-host'));
+    if (museHost) _museHandle = mountMuse(museHost);
     const offSaved   = bus.on('records:saved',           () => refreshAll());
     const offLoaded  = bus.on('records:loaded',          () => refreshAll());
     const offPinned  = bus.on('watchlist:pinned',        () => renderPinned());
@@ -317,7 +318,9 @@ export function init(/** @type {HTMLElement} */ rootEl) {
 
 export function destroy() {
     if (_busOff) { try { _busOff(); } catch (e) { /* swallow */ } }
+    if (_museHandle) { try { _museHandle.destroy(); } catch (e) { /* swallow */ } }
     _busOff = null;
+    _museHandle = null;
     _panel = null;
     bus.emit('tab:dashboard:destroy');
 }
