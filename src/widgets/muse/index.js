@@ -28,6 +28,7 @@ import {
 import { openTrimFor } from './video-trim.js';
 import { idbGet } from '../../core/idb.js';
 import { uploadClipToR2, loadClipForSlot } from './r2-clip.js';
+import { extractTikTokId, embedUrl as tiktokEmbedUrl } from './tiktok.js';
 
 /** @typedef {import('./state.js').Slot} Slot */
 
@@ -233,7 +234,15 @@ function renderHero() {
         return;
     }
     if (slot.type === 'tiktok') {
-        heroHost.innerHTML = `<div style="aspect-ratio:16/9;background:#111;border:1px solid var(--border, #2a2a2a);border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--accent, #089981);font-size:36px;">▶</div><div style="font-size:11px;color:var(--dim, #888);text-align:center;margin-top:4px;font-family:var(--mono);">TikTok port in V10</div>`;
+        const id = extractTikTokId(/** @type {any} */ (slot).url || '');
+        if (!id) {
+            heroHost.innerHTML = `<div style="aspect-ratio:16/9;background:#111;border:1px solid var(--border, #2a2a2a);border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--danger, #ef4444);font-size:11px;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.08em;">invalid tiktok url</div>`;
+            return;
+        }
+        // Per project_muse_tiktok_iframe_limit.md: TikTok iframe restarts +
+        // mutes on tab return. Platform limit, not something to work around.
+        heroHost.innerHTML = `<div class="muse-hero-frame" style="aspect-ratio:9/16;max-height:480px;background:#000;border:1px solid var(--border, #2a2a2a);border-radius:8px;overflow:hidden;position:relative;margin:0 auto;"><iframe id="muse-hero-tiktok" src="${tiktokEmbedUrl(id)}" allow="autoplay; encrypted-media" allowfullscreen style="width:100%;height:100%;border:0;display:block;"></iframe></div>`;
+        return;
     }
 }
 
@@ -270,6 +279,24 @@ async function fileToResizedDataUrl(file, maxSide) {
         img.onerror = () => reject(new Error('img decode failed'));
         img.src = /** @type {string} */ (dataUrl);
     });
+}
+
+function handleAddTiktok() {
+    const url = window.prompt('Paste TikTok URL (e.g. https://www.tiktok.com/@user/video/123…)');
+    if (!url) return;
+    const id = extractTikTokId(url);
+    if (!id) { window.alert('Could not parse a TikTok video ID from that URL'); return; }
+    const idx = getActivePresetIdx();
+    const slots = loadSlots(idx);
+    const visible = deriveVisibleSlotCount(slots);
+    const padded = padSlots(slots, visible);
+    let target = padded.findIndex((s) => s.type === 'empty');
+    if (target < 0) target = getActiveSlot();
+    padded[target] = { type: 'tiktok', url };
+    saveSlots(idx, padded);
+    setActiveSlot(target);
+    rerenderAll();
+    bus.emit('settings:changed', { key: 'muse-slots' });
 }
 
 async function handleAddVideo() {
@@ -434,8 +461,9 @@ function renderEditControls() {
         if (_editMode && isUnlocked(idx)) {
             controls.style.display = 'flex';
             controls.innerHTML = `
-                <button id="muse-add-image" style="background:var(--accent, #089981);border:0;color:#000;padding:4px 12px;border-radius:6px;cursor:pointer;font-size:11px;font-family:var(--mono);font-weight:700;">+ Image</button>
-                <button id="muse-add-video" style="background:var(--accent, #089981);border:0;color:#000;padding:4px 12px;border-radius:6px;cursor:pointer;font-size:11px;font-family:var(--mono);font-weight:700;">+ Video</button>
+                <button id="muse-add-image"  style="background:var(--accent, #089981);border:0;color:#000;padding:4px 12px;border-radius:6px;cursor:pointer;font-size:11px;font-family:var(--mono);font-weight:700;">+ Image</button>
+                <button id="muse-add-video"  style="background:var(--accent, #089981);border:0;color:#000;padding:4px 12px;border-radius:6px;cursor:pointer;font-size:11px;font-family:var(--mono);font-weight:700;">+ Video</button>
+                <button id="muse-add-tiktok" style="background:var(--accent, #089981);border:0;color:#000;padding:4px 12px;border-radius:6px;cursor:pointer;font-size:11px;font-family:var(--mono);font-weight:700;">+ TikTok</button>
                 <button id="muse-pw-set"    style="background:var(--card, #1a1a1a);border:1px solid var(--border, #2a2a2a);color:var(--fg, #f5f5f7);padding:4px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-family:var(--mono);">${hashes[idx] ? 'Change password' : 'Set password'}</button>
                 ${hashes[idx] ? '<button id="muse-pw-clear" style="background:var(--card, #1a1a1a);border:1px solid var(--border, #2a2a2a);color:var(--fg, #f5f5f7);padding:4px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-family:var(--mono);">Clear password</button>' : ''}
                 <span style="font-size:11px;color:var(--dim, #888);font-family:var(--mono);margin-left:auto;">Drag slots to reorder · × to clear</span>
@@ -574,8 +602,9 @@ function onClick(/** @type {Event} */ e) {
     }
     if (t.id === 'muse-pw-set')   { handleSetPassword();   return; }
     if (t.id === 'muse-pw-clear') { handleClearPassword(); return; }
-    if (t.id === 'muse-add-image') { handleAddImage(); return; }
-    if (t.id === 'muse-add-video') { handleAddVideo(); return; }
+    if (t.id === 'muse-add-image')  { handleAddImage();  return; }
+    if (t.id === 'muse-add-video')  { handleAddVideo();  return; }
+    if (t.id === 'muse-add-tiktok') { handleAddTiktok(); return; }
     // Click slot → set active (when not in edit mode, no drag in progress)
     const slot = t.closest && t.closest('.muse-slot');
     if (slot && !_editMode) {

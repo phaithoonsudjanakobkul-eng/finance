@@ -255,6 +255,20 @@ test.describe('v2 shell smoke', () => {
         await expect(page.locator('#muse-add-video')).toBeVisible();
     });
 
+    test('Muse V10 — Add TikTok button visible in edit mode + tiktok hero renders', async ({ page }) => {
+        await page.evaluate(() => {
+            localStorage.setItem('ps_muse_clips_a', JSON.stringify([
+                { type: 'tiktok', url: 'https://www.tiktok.com/@user/video/7456123456789012345' },
+            ]));
+            localStorage.setItem('ps_muse_active_slot', JSON.stringify([0,0,0,0,0,0]));
+        });
+        await page.reload({ waitUntil: 'load' });
+        await page.locator('button[data-tab="dashboard"]').click();
+        await expect(page.locator('#muse-hero-tiktok')).toBeVisible({ timeout: 5_000 });
+        await page.locator('#muse-edit-btn').click();
+        await expect(page.locator('#muse-add-tiktok')).toBeVisible();
+    });
+
     test('Muse V7 — seeded image slot renders in active hero', async ({ page }) => {
         await page.evaluate(() => {
             const slot = { type: 'image', src: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVQYV2NgYAAAAAMAAWgmWQ0AAAAASUVORK5CYII=', thumb: '', panFracX: 0, panFracY: 0, zoom: 1 };
