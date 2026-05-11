@@ -48,6 +48,10 @@ let _dragStartX = 0, _dragStartY = 0;
 let _dragStartPanX = 0, _dragStartPanY = 0;
 let _saveFracTimer = /** @type {any} */ (0);
 
+/** @type {ResizeObserver | null} */
+let _heroResizeObserver = null;
+let _heroResizeRaf = 0;
+
 /** @returns {number} */
 function getActiveSlot() {
     const p = getActivePresetIdx();
@@ -196,8 +200,16 @@ function onHeroWheel(/** @type {WheelEvent} */ e) {
     applyHeroTransform(img);
 }
 
+function disconnectHeroObserver() {
+    if (_heroResizeObserver) {
+        try { _heroResizeObserver.disconnect(); } catch (_) {}
+        _heroResizeObserver = null;
+    }
+}
+
 function renderHero() {
     if (!_host) return;
+    disconnectHeroObserver();
     /** @type {HTMLElement | null} */
     const heroHost = _host.querySelector('#muse-hero');
     if (!heroHost) return;
@@ -208,7 +220,10 @@ function renderHero() {
     }
     if (slot.type === 'image') {
         const src = /** @type {any} */ (slot).src || '';
-        heroHost.innerHTML = `<div class="muse-hero-frame" style="aspect-ratio:16/9;background:#000;border:1px solid var(--border, #2a2a2a);border-radius:8px;overflow:hidden;position:relative;contain:paint;"><img id="muse-hero-img" alt="" draggable="false" style="width:100%;height:100%;object-fit:cover;display:block;cursor:grab;user-select:none;touch-action:none;will-change:transform;" src="${src}"></div>`;
+        const cs = /** @type {any} */ (slot);
+        const isModified = (cs.zoom && cs.zoom !== 1) || cs.panFracX || cs.panFracY;
+        const resetBtn = isModified ? `<button id="muse-hero-reset" title="Reset pan/zoom" style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,0.55);color:#fff;border:0;border-radius:6px;padding:4px 10px;font-size:11px;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.08em;cursor:pointer;">Reset</button>` : '';
+        heroHost.innerHTML = `<div class="muse-hero-frame" style="aspect-ratio:16/9;background:#000;border:1px solid var(--border, #2a2a2a);border-radius:8px;overflow:hidden;position:relative;contain:paint;"><img id="muse-hero-img" alt="" draggable="false" style="width:100%;height:100%;object-fit:cover;display:block;cursor:grab;user-select:none;touch-action:none;will-change:transform;" src="${src}">${resetBtn}</div>`;
         const img = /** @type {HTMLImageElement} */ (heroHost.querySelector('#muse-hero-img'));
         img.addEventListener('pointerdown', onHeroPointerDown);
         img.addEventListener('pointermove', onHeroPointerMove);
@@ -216,6 +231,19 @@ function renderHero() {
         img.addEventListener('wheel',       onHeroWheel, { passive: false });
         img.addEventListener('load', () => applyHeroTransform(img), { once: true });
         if (img.complete && img.naturalWidth > 0) applyHeroTransform(img);
+        // ResizeObserver re-derives pan from fraction whenever the slot
+        // geometry changes (browser maximize/restore, responsive breaks).
+        // rAF-coalesced so a burst of size-change callbacks doesn't thrash.
+        if (typeof ResizeObserver !== 'undefined') {
+            _heroResizeObserver = new ResizeObserver(() => {
+                if (_heroResizeRaf) return;
+                _heroResizeRaf = requestAnimationFrame(() => {
+                    _heroResizeRaf = 0;
+                    if (img.isConnected) applyHeroTransform(img);
+                });
+            });
+            _heroResizeObserver.observe(img);
+        }
         return;
     }
     if (slot.type === 'video') {
@@ -435,12 +463,15 @@ function renderSlots() {
     /** @type {HTMLElement | null} */
     const grid = _host.querySelector('#muse-slot-grid');
     if (!grid) return;
+    const active = getActiveSlot();
     grid.innerHTML = slots.map((s, i) => {
         const draggable = _editMode ? 'draggable="true"' : '';
         const editChrome = _editMode
             ? '<button class="muse-slot-rm" title="Clear slot" style="position:absolute;top:4px;right:4px;width:20px;height:20px;border-radius:50%;background:rgba(0,0,0,0.55);color:#fff;border:0;cursor:pointer;font-size:12px;line-height:1;">×</button>'
             : '';
-        return `<div class="muse-slot" data-slot-idx="${i}" ${draggable} style="position:relative;aspect-ratio:9/16;border-radius:8px;background:var(--bg, #0d0d0d);border:1px solid var(--border, #2a2a2a);overflow:hidden;cursor:${_editMode ? 'grab' : 'pointer'};">${renderSlotInner(s, i)}${editChrome}</div>`;
+        const isActive = i === active;
+        const activeRing = isActive ? 'box-shadow:0 0 0 2px var(--accent, #089981);' : '';
+        return `<div class="muse-slot${isActive ? ' is-active' : ''}" data-slot-idx="${i}" ${draggable} style="position:relative;aspect-ratio:9/16;border-radius:8px;background:var(--bg, #0d0d0d);border:1px solid var(--border, #2a2a2a);overflow:hidden;cursor:${_editMode ? 'grab' : 'pointer'};${activeRing}">${renderSlotInner(s, i)}${editChrome}</div>`;
     }).join('');
 }
 
@@ -605,6 +636,21 @@ function onClick(/** @type {Event} */ e) {
     if (t.id === 'muse-add-image')  { handleAddImage();  return; }
     if (t.id === 'muse-add-video')  { handleAddVideo();  return; }
     if (t.id === 'muse-add-tiktok') { handleAddTiktok(); return; }
+    if (t.id === 'muse-hero-reset') {
+        // Reset pan/zoom on the active image slot
+        const idx = getActivePresetIdx();
+        const slots = loadSlots(idx);
+        const s = slots[getActiveSlot()];
+        if (s && s.type === 'image') {
+            /** @type {any} */ (s).panFracX = 0;
+            /** @type {any} */ (s).panFracY = 0;
+            /** @type {any} */ (s).zoom     = 1;
+            saveSlots(idx, slots);
+            renderHero();
+            bus.emit('settings:changed', { key: 'muse-pan' });
+        }
+        return;
+    }
     // Click slot → set active (when not in edit mode, no drag in progress)
     const slot = t.closest && t.closest('.muse-slot');
     if (slot && !_editMode) {
@@ -667,6 +713,8 @@ export function mount(host) {
             host.removeEventListener('dragover',  onDragOver);
             host.removeEventListener('drop',      onDrop);
             window.removeEventListener('resize', applyResponsive);
+            disconnectHeroObserver();
+            if (_heroResizeRaf) { cancelAnimationFrame(_heroResizeRaf); _heroResizeRaf = 0; }
             _host = null;
             _editMode = false;
         },

@@ -278,6 +278,32 @@ html[data-preset="cinematic"] #muse-root .muse-slot {
 html[data-preset="cinematic"] #muse-root .muse-slot:hover {
     border-color: var(--accent) !important;
 }
+html[data-preset="cinematic"] #muse-root .muse-slot.is-active {
+    box-shadow: 0 0 0 2px var(--accent), 0 8px 24px rgb(0 0 0 / 0.35) !important;
+}
+
+/* V11 — photo album row: fixed 9:16 portrait chips ~120×215px, horizontal
+   scroll if the row overflows. Reads like a row of polaroids below the
+   cinematic hero. */
+html[data-preset="cinematic"] #muse-root #muse-slot-grid {
+    display: flex !important;
+    grid-template-columns: none !important;
+    overflow-x: auto;
+    gap: 10px;
+    padding-bottom: 4px;
+    scroll-snap-type: x proximity;
+}
+html[data-preset="cinematic"] #muse-root #muse-slot-grid .muse-slot {
+    flex: 0 0 auto;
+    width: 120px;
+    aspect-ratio: 9/16;
+    scroll-snap-align: start;
+}
+@media (max-width: 720px) {
+    html[data-preset="cinematic"] #muse-root #muse-slot-grid .muse-slot {
+        width: 100px;
+    }
+}
 
 html[data-preset="cinematic"] #tab-mount {
     background: transparent !important;
