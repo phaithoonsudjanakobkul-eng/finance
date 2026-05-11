@@ -103,6 +103,27 @@ test('R4 Income type toggle + delete row', async ({ page }) => {
   await expect(page.locator('[data-records-list] [data-record-id]')).toHaveCount(0)
 })
 
+test('R5 Dashboard reflects Records data after add', async ({ page }) => {
+  await page.goto('/')
+
+  await page.locator('[data-tab="records"]').click()
+  await page.locator('[data-type-toggle="income"]').click()
+  await page.locator('[data-field="category"]').fill('Salary')
+  await page.locator('[data-field="amount"]').fill('75000')
+  await page.locator('[data-action="save-record"]').click()
+
+  await page.locator('[data-type-toggle="expense"]').click()
+  await page.locator('[data-field="category"]').fill('Rent')
+  await page.locator('[data-field="amount"]').fill('15000')
+  await page.locator('[data-action="save-record"]').click()
+
+  await page.locator('[data-tab="dashboard"]').click()
+  await expect(page.locator('[data-component="profile-card"]')).toBeVisible()
+  await expect(page.locator('[data-tab-content="dashboard"] [data-component="stat-glass"][data-label="Income"]')).toContainText('75,000')
+  await expect(page.locator('[data-tab-content="dashboard"] [data-component="stat-glass"][data-label="Expense"]')).toContainText('15,000')
+  await expect(page.locator('[data-tab-content="dashboard"] [data-component="stat-glass"][data-label="Balance"]')).toContainText('60,000')
+})
+
 test('R4 records persist across reload', async ({ page }) => {
   await page.goto('/')
   await page.locator('[data-tab="records"]').click()
