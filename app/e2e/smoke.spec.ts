@@ -37,21 +37,18 @@ test('app-shell carries cinematic background layers', async ({ page }) => {
   expect(bg).toContain('linear-gradient')
 })
 
-test('R3 HeroPhoto + Mini frame strip render on Dashboard', async ({ page }) => {
+test('R17 HeroPhoto + MiniFrameStrip render on Dashboard (separate cards)', async ({ page }) => {
   await page.goto('/')
   await expect(page.locator('[data-component="hero-photo"]')).toBeVisible()
+  await expect(page.locator('[data-component="mini-frames"]')).toBeVisible()
   await expect(page.locator('[data-component="frame-strip"]')).toBeVisible()
   await expect(page.locator('[data-component="frame-strip"] [data-frame]')).toHaveCount(6)
 })
 
-test('R16 mini frame strip lives INSIDE HeroPhoto (bottom-right overlay)', async ({ page }) => {
+test('R17 MiniFrameStrip lives OUTSIDE HeroPhoto (Hero is content-only)', async ({ page }) => {
   await page.goto('/')
-  const hero = page.locator('[data-component="hero-photo"]')
-  const strip = hero.locator('[data-component="frame-strip"]')
-  await expect(strip).toBeVisible()
-  // Strip is inside the hero card (descendant, not a sibling below)
-  await expect(strip).toHaveCount(1)
-  await expect(page.locator('[data-component="hero-photo"] [data-component="frame-strip"]')).toHaveCount(1)
+  await expect(page.locator('[data-component="hero-photo"] [data-component="frame-strip"]')).toHaveCount(0)
+  await expect(page.locator('[data-component="mini-frames"] [data-component="frame-strip"]')).toHaveCount(1)
 })
 
 test('FrameStrip switches active frame and updates hero caption + hue', async ({ page }) => {
@@ -397,7 +394,7 @@ test('R6 Watchlist tab renders mock symbols with correct semantic colors', async
   await expect(googl).toContainText('▼')
 })
 
-test('R5 Dashboard reflects Records data after add', async ({ page }) => {
+test('R5/R17 Records totals reflect adds + persist across tab switch', async ({ page }) => {
   await page.goto('/')
 
   await page.locator('[data-tab="records"]').click()
@@ -411,11 +408,16 @@ test('R5 Dashboard reflects Records data after add', async ({ page }) => {
   await page.locator('[data-field="amount"]').fill('15000')
   await page.locator('[data-action="save-record"]').click()
 
+  await expect(page.locator('[data-component="stat-glass"][data-label="Income"]')).toContainText('75,000')
+  await expect(page.locator('[data-component="stat-glass"][data-label="Expense"]')).toContainText('15,000')
+  await expect(page.locator('[data-component="stat-glass"][data-label="Balance"]')).toContainText('60,000')
+
+  // After R17 the dashboard right column no longer duplicates Income/
+  // Expense/Balance — they now only live on the Records tab. Cross-tab
+  // verification: switch to Dashboard and back, totals must still hold.
   await page.locator('[data-tab="dashboard"]').click()
-  await expect(page.locator('[data-component="profile-card"]')).toBeVisible()
-  await expect(page.locator('[data-tab-content="dashboard"] [data-component="stat-glass"][data-label="Income"]')).toContainText('75,000')
-  await expect(page.locator('[data-tab-content="dashboard"] [data-component="stat-glass"][data-label="Expense"]')).toContainText('15,000')
-  await expect(page.locator('[data-tab-content="dashboard"] [data-component="stat-glass"][data-label="Balance"]')).toContainText('60,000')
+  await page.locator('[data-tab="records"]').click()
+  await expect(page.locator('[data-component="stat-glass"][data-label="Income"]')).toContainText('75,000')
 })
 
 test('R4 records persist across reload', async ({ page }) => {

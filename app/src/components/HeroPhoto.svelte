@@ -1,6 +1,5 @@
 <script lang="ts">
   import { frames, FRAMES } from '../lib/frames.svelte'
-  import { withViewTransition } from '../lib/view-transition'
 </script>
 
 <div
@@ -31,35 +30,6 @@
     style="top:14px; right:14px; font-size:9px; letter-spacing:0.1em; color:rgba(255,255,255,0.65); text-shadow:0 1px 2px rgba(0,0,0,0.4);"
   >
     {frames.active.tag.toUpperCase()}
-  </div>
-
-  <div
-    class="glass-strong absolute flex"
-    style="bottom:108px; right:12px; padding:6px; gap:5px; border-radius:8px; z-index:5;"
-    data-component="frame-strip"
-    role="tablist"
-    aria-label="Frame picker"
-  >
-    {#each FRAMES as f (f.id)}
-      {@const isActive = frames.activeId === f.id}
-      <button
-        type="button"
-        role="tab"
-        class="cursor-pointer"
-        style:width="30px"
-        style:aspect-ratio="9/16"
-        style:border-radius="3px"
-        style:background={`linear-gradient(135deg, hsl(${f.hue}, 78%) 0%, hsl(${f.hue}, 35%) 100%)`}
-        style:border={isActive ? '1.5px solid var(--accent)' : '0.5px solid var(--border-glass)'}
-        style:opacity={isActive ? '1' : '0.6'}
-        style:transition="opacity 0.2s ease, border-color 0.2s ease"
-        style:padding="0"
-        data-frame={f.id}
-        aria-selected={isActive}
-        aria-label={`Frame ${f.id + 1}: ${f.tag}`}
-        onclick={() => withViewTransition(() => frames.set(f.id))}
-      ></button>
-    {/each}
   </div>
 
   <div

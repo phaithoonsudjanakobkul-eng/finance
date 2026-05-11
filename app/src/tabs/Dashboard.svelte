@@ -5,8 +5,7 @@
   import MonthCard from '../components/MonthCard.svelte'
   import PinnedWatchlist from '../components/PinnedWatchlist.svelte'
   import LowAlertsCard from '../components/LowAlertsCard.svelte'
-  import StatGlass from '../components/StatGlass.svelte'
-  import { records } from '../lib/records.svelte'
+  import MiniFrameStrip from '../components/MiniFrameStrip.svelte'
 </script>
 
 <section
@@ -31,15 +30,6 @@
       <MonthCard />
     </div>
 
-    <div class="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-1 lg:grid-cols-3" style="gap:var(--card-gap);">
-      <StatGlass label="Income"  value={records.incomeTotal}  accent="var(--positive)" />
-      <StatGlass label="Expense" value={records.expenseTotal} accent="var(--accent-bright)" />
-      <StatGlass
-        label="Balance"
-        value={records.balance}
-        accent={records.balance >= 0 ? 'var(--positive)' : 'var(--accent-bright)'}
-        showSign
-      />
-    </div>
+    <MiniFrameStrip />
   </div>
 </section>
