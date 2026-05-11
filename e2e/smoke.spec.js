@@ -218,6 +218,16 @@ test.describe('v2 shell smoke', () => {
         await expect(page.locator('#dash-month-of')).toContainText(/OF \d+/);
     });
 
+    test('Profile edit modal — clicking nav avatar opens, Esc closes', async ({ page }) => {
+        await page.locator('#nav-avatar').click();
+        await expect(page.locator('#profile-edit-panel')).toBeVisible({ timeout: 2_000 });
+        await expect(page.locator('#profile-edit-pick')).toBeVisible();
+        await expect(page.locator('#profile-edit-save')).toBeDisabled();
+        // Press Escape to close
+        await page.keyboard.press('Escape');
+        await expect(page.locator('#profile-edit-panel')).toHaveCount(0);
+    });
+
     test('SAVE button flips to pending after a records edit', async ({ page }) => {
         await page.locator('button[data-tab="records"]').click();
         await expect(page.locator('#rec-payday')).toBeVisible({ timeout: 5_000 });

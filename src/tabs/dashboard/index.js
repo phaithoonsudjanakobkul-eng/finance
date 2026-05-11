@@ -299,15 +299,17 @@ export function init(/** @type {HTMLElement} */ rootEl) {
     _panel = rootEl;
     renderPanel(rootEl);
     refreshAll();
-    const offSaved  = bus.on('records:saved',  () => refreshAll());
-    const offLoaded = bus.on('records:loaded', () => refreshAll());
-    const offPinned = bus.on('watchlist:pinned',   () => renderPinned());
-    const offWlRef  = bus.on('watchlist:refreshed', () => renderPinned());
+    const offSaved   = bus.on('records:saved',           () => refreshAll());
+    const offLoaded  = bus.on('records:loaded',          () => refreshAll());
+    const offPinned  = bus.on('watchlist:pinned',        () => renderPinned());
+    const offWlRef   = bus.on('watchlist:refreshed',     () => renderPinned());
+    const offAvatar  = bus.on('profile:avatar-changed',  () => renderProfile());
     _busOff = () => {
-        offSaved && offSaved();
+        offSaved  && offSaved();
         offLoaded && offLoaded();
         offPinned && offPinned();
-        offWlRef && offWlRef();
+        offWlRef  && offWlRef();
+        offAvatar && offAvatar();
     };
     bus.emit('tab:dashboard:init', { rootEl });
     return { id: 'dashboard', version: '0.2-step6-dashboard', ready: true, kind: 'tab' };
