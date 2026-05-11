@@ -27,6 +27,7 @@ import {
 } from './pan-zoom.js';
 import { openTrimFor } from './video-trim.js';
 import { idbGet } from '../../core/idb.js';
+import { uploadClipToR2, loadClipForSlot } from './r2-clip.js';
 
 /** @typedef {import('./state.js').Slot} Slot */
 
@@ -217,13 +218,14 @@ function renderHero() {
         return;
     }
     if (slot.type === 'video') {
-        const idbKey = /** @type {any} */ (slot).idbKey || '';
         const thumb  = /** @type {any} */ (slot).thumb  || '';
         heroHost.innerHTML = `<div class="muse-hero-frame" style="aspect-ratio:16/9;background:#000;border:1px solid var(--border, #2a2a2a);border-radius:8px;overflow:hidden;position:relative;"><video id="muse-hero-video" autoplay muted loop playsinline preload="metadata" style="width:100%;height:100%;object-fit:cover;background:#000;display:block;${thumb ? `background:center/cover url('${thumb}');` : ''}" ></video></div>`;
         const videoEl = /** @type {HTMLVideoElement} */ (heroHost.querySelector('#muse-hero-video'));
-        if (idbKey && videoEl) {
-            idbGet(idbKey).then((blob) => {
-                if (!blob) return;
+        if (videoEl) {
+            // loadClipForSlot tries IDB first, falls back to R2 (and caches
+            // back into IDB on success) — V9 cross-device path
+            loadClipForSlot(slot).then((blob) => {
+                if (!blob || !videoEl.isConnected) return;
                 videoEl.src = URL.createObjectURL(blob);
                 videoEl.play().catch(() => {/* autoplay may need user gesture */});
             });
@@ -294,11 +296,29 @@ async function handleAddVideo() {
         const padded = padSlots(slots, visible);
         let target = padded.findIndex((s) => s.type === 'empty');
         if (target < 0) target = getActiveSlot();
-        padded[target] = { type: 'video', idbKey: result.idbKey, thumb: result.thumb, panFracX: 0, panFracY: 0, zoom: 1 };
+        padded[target] = { type: 'video', idbKey: result.idbKey, thumb: result.thumb, duration: result.duration, panFracX: 0, panFracY: 0, zoom: 1 };
         saveSlots(idx, padded);
         setActiveSlot(target);
         rerenderAll();
         bus.emit('settings:changed', { key: 'muse-slots' });
+        // V9: best-effort R2 upload so this clip syncs to other devices.
+        // The actual upload runs in the background; the slot already has
+        // the IDB key for local playback.
+        const blob = await idbGet(result.idbKey);
+        if (blob) {
+            uploadClipToR2(blob).then((r2Key) => {
+                if (!r2Key) return;
+                // Re-read in case the user has moved on / edited the slot
+                const cur = loadSlots(idx);
+                const s = cur[target];
+                if (s && s.type === 'video' && /** @type {any} */ (s).idbKey === result.idbKey) {
+                    /** @type {any} */ (s).r2Key = r2Key;
+                    saveSlots(idx, cur);
+                    bus.emit('muse:clip-uploaded', { r2Key, idbKey: result.idbKey });
+                    bus.emit('settings:changed', { key: 'muse-clip-r2' });
+                }
+            }).catch(() => {/* swallow — clip still plays locally */});
+        }
     } catch (e) {
         const err = /** @type {any} */ (e);
         window.alert('Add video failed: ' + (err && err.message || err));
