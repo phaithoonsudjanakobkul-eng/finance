@@ -249,6 +249,12 @@ test.describe('v2 shell smoke', () => {
         await expect(page.locator('#muse-edit-controls')).toBeHidden();
     });
 
+    test('Muse V8 — Add video button visible in edit mode', async ({ page }) => {
+        await page.locator('button[data-tab="dashboard"]').click();
+        await page.locator('#muse-edit-btn').click();
+        await expect(page.locator('#muse-add-video')).toBeVisible();
+    });
+
     test('Muse V7 — seeded image slot renders in active hero', async ({ page }) => {
         await page.evaluate(() => {
             const slot = { type: 'image', src: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVQYV2NgYAAAAAMAAWgmWQ0AAAAASUVORK5CYII=', thumb: '', panFracX: 0, panFracY: 0, zoom: 1 };

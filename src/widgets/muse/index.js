@@ -25,6 +25,8 @@ import {
 import {
     coverDims, clampPan, resolveSplit, syncFracFromPx, syncPxFromFrac, clampZoom,
 } from './pan-zoom.js';
+import { openTrimFor } from './video-trim.js';
+import { idbGet } from '../../core/idb.js';
 
 /** @typedef {import('./state.js').Slot} Slot */
 
@@ -214,8 +216,22 @@ function renderHero() {
         if (img.complete && img.naturalWidth > 0) applyHeroTransform(img);
         return;
     }
-    if (slot.type === 'video' || slot.type === 'tiktok') {
-        heroHost.innerHTML = `<div style="aspect-ratio:16/9;background:#111;border:1px solid var(--border, #2a2a2a);border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--accent, #089981);font-size:36px;">▶</div><div style="font-size:11px;color:var(--dim, #888);text-align:center;margin-top:4px;font-family:var(--mono);">${slot.type} clips port in V8 / V10</div>`;
+    if (slot.type === 'video') {
+        const idbKey = /** @type {any} */ (slot).idbKey || '';
+        const thumb  = /** @type {any} */ (slot).thumb  || '';
+        heroHost.innerHTML = `<div class="muse-hero-frame" style="aspect-ratio:16/9;background:#000;border:1px solid var(--border, #2a2a2a);border-radius:8px;overflow:hidden;position:relative;"><video id="muse-hero-video" autoplay muted loop playsinline preload="metadata" style="width:100%;height:100%;object-fit:cover;background:#000;display:block;${thumb ? `background:center/cover url('${thumb}');` : ''}" ></video></div>`;
+        const videoEl = /** @type {HTMLVideoElement} */ (heroHost.querySelector('#muse-hero-video'));
+        if (idbKey && videoEl) {
+            idbGet(idbKey).then((blob) => {
+                if (!blob) return;
+                videoEl.src = URL.createObjectURL(blob);
+                videoEl.play().catch(() => {/* autoplay may need user gesture */});
+            });
+        }
+        return;
+    }
+    if (slot.type === 'tiktok') {
+        heroHost.innerHTML = `<div style="aspect-ratio:16/9;background:#111;border:1px solid var(--border, #2a2a2a);border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--accent, #089981);font-size:36px;">▶</div><div style="font-size:11px;color:var(--dim, #888);text-align:center;margin-top:4px;font-family:var(--mono);">TikTok port in V10</div>`;
     }
 }
 
@@ -252,6 +268,41 @@ async function fileToResizedDataUrl(file, maxSide) {
         img.onerror = () => reject(new Error('img decode failed'));
         img.src = /** @type {string} */ (dataUrl);
     });
+}
+
+async function handleAddVideo() {
+    if (!_host) return;
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'video/*';
+    input.style.display = 'none';
+    document.body.appendChild(input);
+    input.click();
+    await new Promise((resolve) => {
+        input.onchange = resolve;
+        window.addEventListener('focus', () => setTimeout(resolve, 200), { once: true });
+    });
+    const file = input.files && input.files[0];
+    if (input.parentNode) input.parentNode.removeChild(input);
+    if (!file) return;
+    try {
+        const result = await openTrimFor(file);
+        if (!result) return;
+        const idx = getActivePresetIdx();
+        const slots = loadSlots(idx);
+        const visible = deriveVisibleSlotCount(slots);
+        const padded = padSlots(slots, visible);
+        let target = padded.findIndex((s) => s.type === 'empty');
+        if (target < 0) target = getActiveSlot();
+        padded[target] = { type: 'video', idbKey: result.idbKey, thumb: result.thumb, panFracX: 0, panFracY: 0, zoom: 1 };
+        saveSlots(idx, padded);
+        setActiveSlot(target);
+        rerenderAll();
+        bus.emit('settings:changed', { key: 'muse-slots' });
+    } catch (e) {
+        const err = /** @type {any} */ (e);
+        window.alert('Add video failed: ' + (err && err.message || err));
+    }
 }
 
 async function handleAddImage() {
@@ -363,7 +414,8 @@ function renderEditControls() {
         if (_editMode && isUnlocked(idx)) {
             controls.style.display = 'flex';
             controls.innerHTML = `
-                <button id="muse-add-image" style="background:var(--accent, #089981);border:0;color:#000;padding:4px 12px;border-radius:6px;cursor:pointer;font-size:11px;font-family:var(--mono);font-weight:700;">+ Add image</button>
+                <button id="muse-add-image" style="background:var(--accent, #089981);border:0;color:#000;padding:4px 12px;border-radius:6px;cursor:pointer;font-size:11px;font-family:var(--mono);font-weight:700;">+ Image</button>
+                <button id="muse-add-video" style="background:var(--accent, #089981);border:0;color:#000;padding:4px 12px;border-radius:6px;cursor:pointer;font-size:11px;font-family:var(--mono);font-weight:700;">+ Video</button>
                 <button id="muse-pw-set"    style="background:var(--card, #1a1a1a);border:1px solid var(--border, #2a2a2a);color:var(--fg, #f5f5f7);padding:4px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-family:var(--mono);">${hashes[idx] ? 'Change password' : 'Set password'}</button>
                 ${hashes[idx] ? '<button id="muse-pw-clear" style="background:var(--card, #1a1a1a);border:1px solid var(--border, #2a2a2a);color:var(--fg, #f5f5f7);padding:4px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-family:var(--mono);">Clear password</button>' : ''}
                 <span style="font-size:11px;color:var(--dim, #888);font-family:var(--mono);margin-left:auto;">Drag slots to reorder · × to clear</span>
@@ -503,6 +555,7 @@ function onClick(/** @type {Event} */ e) {
     if (t.id === 'muse-pw-set')   { handleSetPassword();   return; }
     if (t.id === 'muse-pw-clear') { handleClearPassword(); return; }
     if (t.id === 'muse-add-image') { handleAddImage(); return; }
+    if (t.id === 'muse-add-video') { handleAddVideo(); return; }
     // Click slot → set active (when not in edit mode, no drag in progress)
     const slot = t.closest && t.closest('.muse-slot');
     if (slot && !_editMode) {
