@@ -37,6 +37,53 @@ test('app-shell carries cinematic background layers', async ({ page }) => {
   expect(bg).toContain('linear-gradient')
 })
 
+test('R20 Finance row renders 4 cards including Savings Rate ring', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.locator('[data-component="finance-row"]')).toBeVisible()
+  await expect(page.locator('[data-component="finance-card"]')).toHaveCount(4)
+  await expect(page.locator('[data-component="finance-card"][data-label="Current Balance"]')).toBeVisible()
+  await expect(page.locator('[data-component="finance-card"][data-label="YTD Income"]')).toBeVisible()
+  await expect(page.locator('[data-component="finance-card"][data-label="YTD Expense"]')).toBeVisible()
+  await expect(page.locator('[data-component="finance-card"][data-label="Savings Rate"]')).toBeVisible()
+  await expect(page.locator('[data-component="finance-card"][data-label="Savings Rate"] [data-donut-ring]')).toBeVisible()
+})
+
+test('R20 Finance YTD Income reflects Records totals reactively', async ({ page }) => {
+  await page.goto('/')
+  await page.locator('[data-tab="records"]').click()
+  await page.locator('[data-type-toggle="income"]').click()
+  await page.locator('[data-field="category"]').fill('Salary')
+  await page.locator('[data-field="amount"]').fill('90000')
+  await page.locator('[data-action="save-record"]').click()
+
+  await page.locator('[data-tab="dashboard"]').click()
+  await expect(page.locator('[data-component="finance-card"][data-label="YTD Income"] [data-value]')).toContainText('90,000')
+})
+
+test('R20 Charts row renders 2 cards (trend + distribution)', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.locator('[data-component="charts-row"]')).toBeVisible()
+  await expect(page.locator('[data-component="chart-card"]')).toHaveCount(2)
+  await expect(page.locator('[data-component="chart-card"][data-chart-type="trend"]')).toBeVisible()
+  await expect(page.locator('[data-component="chart-card"][data-chart-type="distribution"]')).toBeVisible()
+})
+
+test('R20 Dashboard 4-row grid: hero / right / finance / charts in order', async ({ page }) => {
+  await page.setViewportSize({ width: 1366, height: 900 })
+  await page.goto('/')
+
+  const hero = await page.locator('[data-component="hero-photo"]').boundingBox()
+  const finance = await page.locator('[data-component="finance-row"]').boundingBox()
+  const charts = await page.locator('[data-component="charts-row"]').boundingBox()
+
+  expect(hero).not.toBeNull()
+  expect(finance).not.toBeNull()
+  expect(charts).not.toBeNull()
+  // Vertical order: hero top, finance below, charts last
+  expect(finance!.y).toBeGreaterThan(hero!.y)
+  expect(charts!.y).toBeGreaterThan(finance!.y)
+})
+
 test('R17 HeroPhoto + MiniFrameStrip render on Dashboard (separate cards)', async ({ page }) => {
   await page.goto('/')
   await expect(page.locator('[data-component="hero-photo"]')).toBeVisible()
