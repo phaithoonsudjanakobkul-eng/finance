@@ -41,7 +41,7 @@ This document is the entry point for the **visual port phase** that brings v2 fr
 
 ---
 
-## Current state (2026-05-10 night, end of session)
+## Current state (2026-05-11, V1 shipped)
 
 ### What's done (logic layer — B-grade complete)
 
@@ -56,11 +56,15 @@ This document is the entry point for the **visual port phase** that brings v2 fr
 - **Shared utils** (core/escape, core/formatters, news/cache, watchlist/sort+reorder)
 - **Path E URL helpers** (psq/wopi.js — 33 tests; iframe UI deferred)
 
+### Visual phase progress
+
+- **V1 Cinematic preset visual layer** — DONE 2026-05-11. `src/styles/presets/cinematic.css` extended with: shell chrome glass slab (`.ps-nav` / `.ps-tab-pill` / `.ps-clock` / `#tab-mount` / `.ps-dev-panel`), watchlist `.wl-row` alternating zebra glass tint + hover state, Records `#rec-prev/next/month/clone/clear` control-strip glass pills, `.rec-row` inline-style override strengthened, Dashboard `#dash-trend` SVG + `#dash-avatar` (initials-only) transparency, `.ps-brand-name` Fraunces serif. Records hero numbers (`#rec-payday` / `#sum-total-exp` / `#record-balance-val`) promoted to `--font-display`. All scoped under `html[data-preset="cinematic"]` so Origin/Phosphor/Studio are unaffected. Tests: 446 unit + 16 e2e green, tsc clean.
+
 ### What's missing (visual layer — the work of THIS phase)
 
 | # | Item | Effort | Visible impact | Section below |
 |---|---|---|---|---|
-| 1 | Cinematic preset visual layer (glass cards · photo bg · 3-card profile row · backdrop-filter) | 1-2 sessions | **Highest** | [§1](#1-cinematic-preset-visual-layer) |
+| 1 | Cinematic preset visual layer (glass cards · photo bg · 3-card profile row · backdrop-filter) — DONE 2026-05-11 | 1-2 sessions | **Highest** | [§1](#1-cinematic-preset-visual-layer) |
 | 2 | Custom nav with avatar + brand chrome | 1 session | High | [§2](#2-custom-nav-with-avatar) |
 | 3 | Dashboard hero row (Profile/Payday/Month 3-card layout) | 1 session | High | [§3](#3-dashboard-hero-row) |
 | 4 | Profile photo upload + R2 sync (avatar + full-res) | 2 sessions | High | [§4](#4-profile-photo-subsystem) |

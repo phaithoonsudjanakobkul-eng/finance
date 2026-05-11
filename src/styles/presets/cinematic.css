@@ -94,12 +94,128 @@ html[data-preset="cinematic"] #watchlist-table thead tr {
     -webkit-backdrop-filter: blur(10px) saturate(140%);
 }
 
+/* Watchlist rows — alternating subtle glass tint per V1 acceptance.
+   Even rows take a touch more fg-alpha so they read as zebra stripes
+   without breaking the body gradient bleed-through. Cells have inline
+   border-top to var(--border); Cinematic's --border token resolves to
+   the glass-border RGBA so the divider stays cohesive. */
+html[data-preset="cinematic"] #wl-root .wl-row {
+    background: transparent !important;
+}
+html[data-preset="cinematic"] #wl-root .wl-row:nth-child(odd) {
+    background: rgb(var(--cine-fg-rgb) / 0.025) !important;
+}
+html[data-preset="cinematic"] #wl-root .wl-row:nth-child(even) {
+    background: rgb(var(--cine-fg-rgb) / 0.045) !important;
+}
+html[data-preset="cinematic"] #wl-root .wl-row:hover {
+    background: rgb(var(--cine-fg-rgb) / 0.08) !important;
+}
+
 /* Cinematic display family — Fraunces serif on hero numbers in tab cards.
-   Mirrors monolith's Studio rule pattern but scoped to v2 IDs. */
+   Mirrors monolith's Studio rule pattern but scoped to v2 IDs. Records
+   uses --font-data on its three Income/Expenses/Balance numbers; promote
+   them to --font-display so they get the serif personality in Cinematic. */
 html[data-preset="cinematic"] #dash-root .dash-value,
 html[data-preset="cinematic"] #rec-payday,
 html[data-preset="cinematic"] #sum-total-exp,
 html[data-preset="cinematic"] #record-balance-val {
     font-family: var(--font-display) !important;
     letter-spacing: -0.01em !important;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Shell chrome — nav slab + tab pills + clock + main mount.
+   Cinematic restyles these so the v2 top bar feels like one
+   continuous glass strip floating over the body gradient
+   instead of the default solid card chrome.
+   ───────────────────────────────────────────────────────────── */
+
+html[data-preset="cinematic"] .ps-nav {
+    background: var(--cine-glass-strong) !important;
+    border-bottom: 1px solid var(--cine-glass-border) !important;
+    backdrop-filter: blur(18px) saturate(160%);
+    -webkit-backdrop-filter: blur(18px) saturate(160%);
+}
+
+html[data-preset="cinematic"] .ps-brand-name {
+    font-family: var(--font-display) !important;
+    letter-spacing: -0.02em !important;
+}
+
+html[data-preset="cinematic"] .ps-tab-pill {
+    background: transparent;
+    border-color: var(--cine-glass-border);
+}
+html[data-preset="cinematic"] .ps-tab-pill:hover {
+    background: rgb(var(--cine-fg-rgb) / 0.08);
+    color: var(--text-primary);
+}
+html[data-preset="cinematic"] .ps-tab-pill.is-active {
+    background: var(--accent);
+    color: #1A0E12;
+    box-shadow: 0 0 0 1px rgb(var(--cine-fg-rgb) / 0.15), 0 4px 12px rgb(0 0 0 / 0.25);
+}
+
+html[data-preset="cinematic"] .ps-clock {
+    background: var(--cine-glass) !important;
+    border-color: var(--cine-glass-border) !important;
+    color: var(--text-secondary) !important;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+
+html[data-preset="cinematic"] #tab-mount {
+    background: transparent !important;
+    border: 0 !important;
+}
+
+html[data-preset="cinematic"] .ps-dev-panel {
+    background: rgb(var(--cine-fg-rgb) / 0.02) !important;
+    border-color: var(--cine-glass-border) !important;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Records — bring the inline-styled per-row backgrounds under
+   Cinematic's glass treatment. The rec-row inline style sets
+   var(--bg) which is opaque — wins over the earlier rec-row
+   rule on specificity. Strengthen to !important here.
+   ───────────────────────────────────────────────────────────── */
+
+html[data-preset="cinematic"] #rec-root .rec-row[style] {
+    background: rgb(var(--cine-fg-rgb) / 0.03) !important;
+    border-color: var(--cine-glass-border) !important;
+}
+
+/* Records month/control bar — flatten the four solid pills into the
+   ambient glass strip so the toolbar reads as one floating element. */
+html[data-preset="cinematic"] #rec-prev,
+html[data-preset="cinematic"] #rec-next,
+html[data-preset="cinematic"] #rec-month,
+html[data-preset="cinematic"] #rec-clone,
+html[data-preset="cinematic"] #rec-clear {
+    background: var(--cine-glass) !important;
+    border-color: var(--cine-glass-border) !important;
+    color: var(--text-primary) !important;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+
+/* Dashboard trend chart — bg of the SVG itself uses inline var(--bg)
+   which is the opaque body base. In Cinematic the card already provides
+   the glass surface, so the SVG canvas should sit transparent on top
+   to keep the bleed-through. */
+html[data-preset="cinematic"] #dash-trend {
+    background: transparent !important;
+    border-color: var(--cine-glass-border) !important;
+}
+
+/* Dashboard avatar — same story, opaque inline bg breaks the ambient
+   feel. Photo avatars (background:cover url) still win because
+   JS-assigned inline styles override stylesheet rules without
+   !important. The empty-avatar (initials on opaque bg) gets the
+   glass treatment automatically. */
+html[data-preset="cinematic"] #dash-avatar:not([style*="url("]) {
+    background: rgb(var(--cine-fg-rgb) / 0.06) !important;
+    border-color: var(--cine-glass-border) !important;
 }
