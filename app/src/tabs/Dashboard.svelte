@@ -4,6 +4,7 @@
   import ProfileCard from '../components/ProfileCard.svelte'
   import PaydayCard from '../components/PaydayCard.svelte'
   import MonthCard from '../components/MonthCard.svelte'
+  import PinnedWatchlist from '../components/PinnedWatchlist.svelte'
   import StatGlass from '../components/StatGlass.svelte'
   import { records } from '../lib/records.svelte'
 </script>
@@ -19,6 +20,7 @@
   </div>
 
   <div class="flex flex-col" style="gap:var(--card-gap);">
+    <PinnedWatchlist />
     <ProfileCard />
 
     <div class="grid grid-cols-2" style="gap:var(--card-gap);">

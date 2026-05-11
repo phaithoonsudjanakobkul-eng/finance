@@ -129,6 +129,47 @@ for (const v of VIEWPORTS) {
   })
 }
 
+test('R12 PinnedWatchlist shows empty state on fresh device', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.locator('[data-component="pinned-watchlist"]')).toBeVisible()
+  await expect(page.locator('[data-component="pinned-watchlist"] [data-empty]')).toBeVisible()
+  await expect(page.locator('[data-action="goto-market"]')).toBeVisible()
+})
+
+test('R12 Pin symbol in Market → appears in Pinned on Dashboard', async ({ page }) => {
+  await page.goto('/')
+  await page.locator('[data-tab="watchlist"]').click()
+
+  await page.locator('[data-watchlist-row][data-symbol="TSLA"] [data-action="toggle-pin"]').click()
+  await page.locator('[data-watchlist-row][data-symbol="NVDA"] [data-action="toggle-pin"]').click()
+
+  await page.locator('[data-tab="dashboard"]').click()
+  await expect(page.locator('[data-pinned-row][data-symbol="TSLA"]')).toBeVisible()
+  await expect(page.locator('[data-pinned-row][data-symbol="NVDA"]')).toBeVisible()
+  await expect(page.locator('[data-pinned-row]')).toHaveCount(2)
+})
+
+test('R12 unpin removes from Pinned + persists across reload', async ({ page }) => {
+  await page.goto('/')
+  await page.locator('[data-tab="watchlist"]').click()
+  await page.locator('[data-watchlist-row][data-symbol="MSFT"] [data-action="toggle-pin"]').click()
+
+  await page.reload()
+  await page.locator('[data-tab="dashboard"]').click()
+  await expect(page.locator('[data-pinned-row][data-symbol="MSFT"]')).toBeVisible()
+
+  await page.locator('[data-tab="watchlist"]').click()
+  await page.locator('[data-watchlist-row][data-symbol="MSFT"] [data-action="toggle-pin"]').click()
+  await page.locator('[data-tab="dashboard"]').click()
+  await expect(page.locator('[data-pinned-row][data-symbol="MSFT"]')).toHaveCount(0)
+})
+
+test('R12 empty-state CTA navigates to Market', async ({ page }) => {
+  await page.goto('/')
+  await page.locator('[data-action="goto-market"]').click()
+  await expect(page.locator('[data-tab-content="watchlist"]')).toBeVisible()
+})
+
 test('R11 a11y — tabs have proper ARIA roles + tablist semantics', async ({ page }) => {
   await page.goto('/')
   await expect(page.getByRole('tablist')).toBeVisible()

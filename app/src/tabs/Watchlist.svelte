@@ -14,14 +14,15 @@
         <div class="label-mono">Market · Watchlist</div>
       </div>
       <div class="ff-mono" style="font-size:var(--text-xs); letter-spacing:0.12em; color:var(--text-faint);">
-        {watchlist.list.length} SYMBOLS · MOCK
+        {watchlist.list.length} SYMBOLS · {watchlist.pinned.length} PINNED · MOCK
       </div>
     </div>
 
     <div
       class="grid"
-      style="grid-template-columns: 1fr 1fr 1fr; padding:6px var(--card-pad-x);"
+      style="grid-template-columns: auto 1fr 1fr 1fr; gap:var(--space-3); padding:6px var(--card-pad-x);"
     >
+      <div class="label-mono" style="width:22px;">Pin</div>
       <div class="label-mono">Sym</div>
       <div class="label-mono text-right">Last</div>
       <div class="label-mono text-right">Chg</div>
@@ -29,7 +30,7 @@
 
     <div data-watchlist-list>
       {#each watchlist.list as q (q.sym)}
-        <WatchlistRow quote={q} />
+        <WatchlistRow quote={q} showPin />
       {/each}
     </div>
   </div>
@@ -39,6 +40,6 @@
     style="padding:var(--card-pad-y) var(--card-pad-x); color:var(--text-muted); font-size:var(--text-base);"
   >
     <div class="label-mono">Note</div>
-    <p class="mt-2">Mock data only — live Alpaca / Finnhub WebSocket ticks land R-later. Sparklines, scanner, quick chart, AI panel come after that.</p>
+    <p class="mt-2">Mock data only — live Alpaca / Finnhub WebSocket ticks land R-later. Pin/unpin a symbol with the pin icon — pinned symbols show on Dashboard.</p>
   </div>
 </section>
