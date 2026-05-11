@@ -30,6 +30,7 @@ import { mount as mountThemeToggle } from './widgets/theme-toggle/index.js';
 import { mount as mountAvatarChip } from './widgets/avatar-chip/index.js';
 import { mount as mountFloatingClock } from './widgets/clock/index.js';
 import { mount as mountAiChat } from './widgets/ai-chat/index.js';
+import { mount as mountQuickChart } from './widgets/quickchart/index.js';
 import './styles/privacy.css';
 import './styles/watchlist.css';
 
@@ -434,6 +435,9 @@ window.addEventListener('DOMContentLoaded', () => {
 
     // AI chat FAB — mounts only when tab:active fires for 'watchlist'
     mountAiChat();
+
+    // Quick chart side panel — opens on quickchart:request bus event
+    mountQuickChart();
 
     // Fresh-device Gist auto-hydrate. localStorage empty + token set →
     // pull encrypted Gist → decrypt → seed records/watchlist/cache/keys

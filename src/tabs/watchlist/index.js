@@ -417,7 +417,8 @@ function renderFocusCard() {
             <div>
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
                     <span style="font-family:var(--mono, monospace);font-size:18px;font-weight:700;letter-spacing:0.02em;">${escapeHtml(_focusSym)}</span>
-                    <button id="wl-focus-close" title="Clear (Esc)" style="margin-left:auto;background:transparent;border:0;color:var(--dim, #888);cursor:pointer;font-size:18px;line-height:1;padding:0 4px;">×</button>
+                    <button id="wl-focus-chart" title="Open TradingView chart" style="margin-left:auto;background:var(--card, #1a1a1a);border:1px solid var(--border, #2a2a2a);color:var(--fg, #f5f5f7);padding:3px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-family:var(--mono, monospace);font-weight:700;letter-spacing:0.06em;text-transform:uppercase;">Chart</button>
+                    <button id="wl-focus-close" title="Clear (Esc)" style="background:transparent;border:0;color:var(--dim, #888);cursor:pointer;font-size:18px;line-height:1;padding:0 4px;">×</button>
                 </div>
                 ${name ? `<div style="font-size:12px;color:var(--dim, #888);margin-bottom:10px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${name}</div>` : ''}
                 <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:6px;">
@@ -1044,6 +1045,10 @@ export function init(/** @type {HTMLElement} */ rootEl) {
             _focusSym = '';
             renderFocusCard();
             paintFocusActive();
+            return;
+        }
+        if (t.id === 'wl-focus-chart') {
+            if (_focusSym) bus.emit('quickchart:request', { sym: _focusSym });
             return;
         }
         const row = t.closest && t.closest('.wl-row');

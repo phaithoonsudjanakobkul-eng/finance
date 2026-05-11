@@ -314,6 +314,17 @@ html[data-preset="cinematic"] #ai-chat-popup .ai-chat-row.ai-chat-assistant {
     border-color: var(--cine-glass-border) !important;
 }
 
+/* ─────────────────────────────────────────────────────────────
+   V15 — Quick chart side panel. Glass slab on the right.
+   ───────────────────────────────────────────────────────────── */
+
+html[data-preset="cinematic"] #quickchart-panel {
+    background: var(--cine-glass-strong) !important;
+    border-left-color: var(--cine-glass-border-strong) !important;
+    backdrop-filter: blur(18px) saturate(160%);
+    -webkit-backdrop-filter: blur(18px) saturate(160%);
+}
+
 /* V11 — photo album row: fixed 9:16 portrait chips ~120×215px, horizontal
    scroll if the row overflows. Reads like a row of polaroids below the
    cinematic hero. */

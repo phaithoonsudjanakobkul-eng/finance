@@ -280,6 +280,22 @@ test.describe('v2 shell smoke', () => {
         await expect(page.locator('#muse-hero-img')).toBeVisible({ timeout: 5_000 });
     });
 
+    test('V15 Quick chart — Chart button on focus card opens TradingView panel', async ({ page }) => {
+        await page.evaluate(() => {
+            localStorage.setItem('ps_watchlist', JSON.stringify(['AAPL']));
+        });
+        await page.reload({ waitUntil: 'load' });
+        await page.locator('button[data-tab="watchlist"]').click();
+        await page.locator('tr.wl-row[data-sym="AAPL"]').click();
+        await expect(page.locator('#wl-focus-chart')).toBeVisible({ timeout: 5_000 });
+        await page.locator('#wl-focus-chart').click();
+        await expect(page.locator('#quickchart-panel')).toBeVisible();
+        await expect(page.locator('#quickchart-iframe')).toBeVisible();
+        // Timeframe pills rendered
+        await expect(page.locator('button[data-tf="D"]')).toBeVisible();
+        await page.locator('#quickchart-close').click();
+    });
+
     test('V13-14 AI chat FAB shows on Watchlist tab only', async ({ page }) => {
         // Dashboard → no FAB
         await page.locator('button[data-tab="dashboard"]').click();
