@@ -1,0 +1,110 @@
+/* Global responsive overrides — V19-20.
+ *
+ * Strategy:
+ *   - Top nav becomes compact at < 1024 (brand sub hidden, dev panel
+ *     collapsed by default)
+ *   - At < 640 (mobile portrait), the top tab pill row hides and a
+ *     fixed bottom bar takes over with the same 6 tabs at icon-size
+ *   - Floating clock + AI FAB lift above the bottom bar so they don't
+ *     overlap
+ *   - Mobile landscape gets a rotate overlay (matches monolith — the
+ *     app is portrait-only on phones, per CLAUDE.md)
+ *
+ * Per CLAUDE.md Rule 8: 640 mobile, 768 tablet, 1024 desktop, 1200
+ * wide, 1800 ultrawide. Cinematic preset still applies at every size
+ * (no Origin fallback — pi-keng rejected). */
+
+/* ── Bottom nav (mobile only) ───────────────────────────────────── */
+.ps-bottom-nav {
+    display: none;
+}
+
+@media (max-width: 640px) {
+    /* Hide brand sub + top tabs; tab pills move to bottom */
+    .ps-brand-sub { display: none; }
+    .ps-nav-tabs  { display: none; }
+
+    /* Right-side widgets compress: keep clock + privacy + cog, drop SYNC/SAVE
+       text into icons (we keep the button there, just narrow it) */
+    .ps-clock { font-size: 10px; padding: 3px 6px; }
+    #nav-sync, #nav-save { padding: 4px 6px; font-size: 9px; }
+
+    /* Bottom nav slab */
+    .ps-bottom-nav {
+        position: fixed;
+        left: 0; right: 0; bottom: 0;
+        z-index: 4000;
+        display: flex;
+        background: color-mix(in srgb, var(--bg, #0d0d0d) 92%, transparent);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border-top: 1px solid var(--border, #2a2a2a);
+        padding: 6px env(safe-area-inset-right, 0) calc(env(safe-area-inset-bottom, 0) + 4px) env(safe-area-inset-left, 0);
+    }
+    .ps-bottom-nav .ps-tab-pill {
+        flex: 1;
+        padding: 8px 0;
+        border-radius: 0;
+        border: 0;
+        background: transparent;
+        color: var(--dim, #888);
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+    }
+    .ps-bottom-nav .ps-tab-pill.is-active {
+        color: var(--accent, #089981);
+        background: transparent;
+    }
+
+    /* Hoist floating chrome above the bottom bar */
+    #ai-chat-fab {
+        bottom: calc(env(safe-area-inset-bottom, 0px) + 78px);
+    }
+    #ai-chat-popup {
+        bottom: calc(env(safe-area-inset-bottom, 0px) + 144px);
+        height: min(440px, calc(100vh - 200px));
+    }
+
+    /* Tabs: 1-col layouts where possible */
+    #dash-row1 { grid-template-columns: 1fr !important; }
+    #financial-bar-grid, #rec-lists-grid { grid-template-columns: 1fr !important; }
+    #wl-focus-card > div {
+        grid-template-columns: 1fr !important;
+    }
+    /* Add safe-area bottom inset so last row isn't behind the nav */
+    .ps-main { padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 80px); }
+}
+
+/* ── Tablet — 641-1023 ─────────────────────────────────────────── */
+@media (min-width: 641px) and (max-width: 1023px) {
+    .ps-brand-sub { font-size: 9px; }
+    #dash-row1 { grid-template-columns: 1fr 1fr !important; }
+}
+
+/* ── Wide ≥ 1800 ───────────────────────────────────────────────── */
+@media (min-width: 1800px) {
+    .ps-main { max-width: 1680px; }
+}
+
+/* ── Portrait-only enforcement on phones ───────────────────────── */
+/* Matches monolith: a small device in landscape gets a rotate prompt
+   instead of the broken landscape layout. */
+.ps-rotate-overlay {
+    display: none;
+    position: fixed; inset: 0; z-index: 99000;
+    background: rgba(0, 0, 0, 0.9);
+    color: var(--fg, #f5f5f7);
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 12px;
+    font-family: var(--font-ui, system-ui);
+    text-align: center;
+    padding: 24px;
+}
+.ps-rotate-overlay .icon { font-size: 48px; }
+@media (max-width: 900px) and (orientation: landscape) {
+    .ps-rotate-overlay { display: flex; }
+    body { overflow: hidden; }
+}

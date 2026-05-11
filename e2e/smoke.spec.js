@@ -280,6 +280,20 @@ test.describe('v2 shell smoke', () => {
         await expect(page.locator('#muse-hero-img')).toBeVisible({ timeout: 5_000 });
     });
 
+    test('V19-20 Mobile bottom nav — exists in DOM, becomes visible at < 640 width', async ({ page }) => {
+        // DOM regardless of viewport
+        await expect(page.locator('.ps-bottom-nav')).toHaveCount(1);
+        // Desktop default → bottom nav hidden via display:none
+        await page.setViewportSize({ width: 1280, height: 720 });
+        await expect(page.locator('.ps-bottom-nav')).toBeHidden();
+        // Mobile width → bottom nav visible
+        await page.setViewportSize({ width: 390, height: 844 });
+        await expect(page.locator('.ps-bottom-nav')).toBeVisible();
+        // Clicking the bottom-nav button activates that tab
+        await page.locator('button[data-tab-mobile="news"]').click();
+        await expect(page.locator('#news-refresh')).toBeVisible({ timeout: 5_000 });
+    });
+
     test('V15 Quick chart — Chart button on focus card opens TradingView panel', async ({ page }) => {
         await page.evaluate(() => {
             localStorage.setItem('ps_watchlist', JSON.stringify(['AAPL']));

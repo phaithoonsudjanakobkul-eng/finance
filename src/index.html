@@ -162,6 +162,26 @@
         </div>
     </main>
 
+    <!-- ── Bottom nav (mobile only, hidden ≥ 640 via CSS) ───────────
+         Uses data-tab-mobile so e2e locators that read data-tab don't
+         hit two matches. Click handler in main.js mirrors the click
+         onto the matching top nav button via activate(). -->
+    <nav class="ps-bottom-nav">
+        <button class="ps-tab-pill" data-tab-mobile="dashboard">Dash</button>
+        <button class="ps-tab-pill" data-tab-mobile="records">Records</button>
+        <button class="ps-tab-pill" data-tab-mobile="watchlist">Watch</button>
+        <button class="ps-tab-pill" data-tab-mobile="news">News</button>
+        <button class="ps-tab-pill" data-tab-mobile="utilities">Util</button>
+        <button class="ps-tab-pill" data-tab-mobile="settings">⚙</button>
+    </nav>
+
+    <!-- ── Portrait-only landscape rotate overlay (phones) ────────── -->
+    <div class="ps-rotate-overlay" aria-hidden="true">
+        <div class="icon">↻</div>
+        <div>Please rotate to portrait</div>
+        <div style="font-size:12px;color:var(--dim);font-family:var(--mono, monospace);">PSLink works best held vertically</div>
+    </div>
+
     <!-- ── Dev panel (collapsed by default) ───────────────────────── -->
     <details class="ps-dev-panel">
         <summary>Developer tools · preset switcher · module loader · status</summary>

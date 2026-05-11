@@ -33,6 +33,7 @@ import { mount as mountAiChat } from './widgets/ai-chat/index.js';
 import { mount as mountQuickChart } from './widgets/quickchart/index.js';
 import './styles/privacy.css';
 import './styles/watchlist.css';
+import './styles/responsive.css';
 
 console.log('[PSLink/v2] main.js boot — bus, storage ready');
 
@@ -337,6 +338,24 @@ window.addEventListener('DOMContentLoaded', () => {
         btn.addEventListener('click', () => {
             const id = btn.dataset.tab;
             if (id) activate(id);
+        });
+    });
+
+    // Mobile bottom nav uses data-tab-mobile so e2e locators that read
+    // data-tab don't double-match. Wire those buttons to activate() and
+    // mirror the active class onto them via setActiveBtn extension below.
+    /** @type {NodeListOf<HTMLButtonElement>} */
+    const mobileBtns = document.querySelectorAll('button[data-tab-mobile]');
+    mobileBtns.forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const id = btn.dataset.tabMobile;
+            if (id) activate(id);
+        });
+    });
+    bus.on('tab:active', (d) => {
+        if (!d) return;
+        mobileBtns.forEach((b) => {
+            b.classList.toggle('is-active', b.dataset.tabMobile === d.id);
         });
     });
 
