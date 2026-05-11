@@ -43,18 +43,19 @@
   .mini-strip-row {
     display: flex;
     flex-wrap: wrap;
-    gap: 12px;
+    gap: 8px;
   }
 
   .mini-thumb {
     flex: 0 0 auto;
-    /* Container-query-driven width: 14% of card width, clamped 64-150px.
-       Card on right column (large viewport): ~14cqi ≈ 100-150px → clamp 150.
-       Card on narrow column: 14cqi shrinks → clamp 64.
-       9:16 aspect: height = width × 16/9. At 150px → 267px tall. */
-    width: clamp(64px, 14cqi, 150px);
+    /* Container-query-driven width clamp(40, 14cqi, 120).
+       In the left column under Hero (card width ~280-380px): each
+       thumb 40-53px → 6 fit in one row with 8-12px gap.
+       In wider containers (if ever reused on right col / Settings):
+       caps at 120px so they stay "preview-sized" not "poster-sized". */
+    width: clamp(40px, 14cqi, 120px);
     aspect-ratio: 9 / 16;
-    border-radius: 8px;
+    border-radius: 6px;
     padding: 0;
     transition: opacity 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
   }

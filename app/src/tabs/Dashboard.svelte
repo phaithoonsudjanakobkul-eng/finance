@@ -1,11 +1,11 @@
 <script lang="ts">
   import HeroPhoto from '../components/HeroPhoto.svelte'
+  import MiniFrameStrip from '../components/MiniFrameStrip.svelte'
   import ProfileCard from '../components/ProfileCard.svelte'
   import PaydayCard from '../components/PaydayCard.svelte'
   import MonthCard from '../components/MonthCard.svelte'
   import PinnedWatchlist from '../components/PinnedWatchlist.svelte'
   import LowAlertsCard from '../components/LowAlertsCard.svelte'
-  import MiniFrameStrip from '../components/MiniFrameStrip.svelte'
 </script>
 
 <section
@@ -15,6 +15,7 @@
 >
   <div class="flex flex-col" style="gap:var(--card-gap);">
     <HeroPhoto />
+    <MiniFrameStrip />
   </div>
 
   <div class="flex flex-col" style="gap:var(--card-gap);">
@@ -29,7 +30,5 @@
       <PaydayCard />
       <MonthCard />
     </div>
-
-    <MiniFrameStrip />
   </div>
 </section>
