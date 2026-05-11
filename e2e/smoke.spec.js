@@ -154,4 +154,37 @@ test.describe('v2 shell smoke', () => {
         // The monolith-era hint must not survive
         await expect(page.locator('tbody#wl-tbody')).not.toContainText('Add via the monolith');
     });
+
+    test('Nav chrome — V2 SYNC + SAVE + avatar + settings cog all mount', async ({ page }) => {
+        // Each widget mounts into its dedicated host. If any host is missing
+        // or the widget fails to attach, the page is broken.
+        await expect(page.locator('#nav-avatar')).toBeVisible();
+        await expect(page.locator('#nav-sync')).toBeVisible();
+        await expect(page.locator('#nav-save')).toBeVisible();
+        await expect(page.locator('#nav-theme')).toBeVisible();
+        await expect(page.locator('#privacy-toggle')).toBeVisible();
+        await expect(page.locator('#nav-settings-btn')).toBeVisible();
+        // Brand subtitle should now say PSLINK DATABASE (was "v2" pre-V2)
+        await expect(page.locator('.ps-brand-sub')).toHaveText('PSLINK DATABASE');
+    });
+
+    test('Nav settings cog activates Settings tab', async ({ page }) => {
+        // Start on Dashboard so cog click is the action under test
+        await page.locator('button[data-tab="dashboard"]').click();
+        await expect(page.locator('#dash-profile-name')).toBeVisible({ timeout: 5_000 });
+        await page.locator('#nav-settings-btn').click();
+        await expect(page.locator('#gist-pull-btn')).toBeVisible({ timeout: 5_000 });
+        await expect(page.locator('button[data-tab="settings"]')).toHaveClass(/is-active/);
+    });
+
+    test('SAVE button flips to pending after a records edit', async ({ page }) => {
+        await page.locator('button[data-tab="records"]').click();
+        await expect(page.locator('#rec-payday')).toBeVisible({ timeout: 5_000 });
+        // Edit the payday → records:saved emits → SAVE turns pending (accent fill)
+        await page.locator('#rec-payday').fill('12345');
+        await page.locator('#rec-payday').press('Tab'); // commit
+        // Poll the title attribute — flips to "Pending edits — click to push now"
+        await expect.poll(async () => page.locator('#nav-save').getAttribute('title'))
+            .toMatch(/Pending edits/);
+    });
 });

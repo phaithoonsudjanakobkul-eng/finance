@@ -165,6 +165,48 @@ html[data-preset="cinematic"] .ps-clock {
     -webkit-backdrop-filter: blur(8px);
 }
 
+/* V2 nav additions — SYNC / SAVE pills + avatar chip + theme + privacy +
+   settings cog. Each gets the same glass-pill treatment so the nav reads
+   as one continuous control strip in Cinematic. */
+html[data-preset="cinematic"] #nav-sync,
+html[data-preset="cinematic"] #nav-save,
+html[data-preset="cinematic"] #nav-theme,
+html[data-preset="cinematic"] #privacy-toggle,
+html[data-preset="cinematic"] .ps-icon-btn {
+    background: var(--cine-glass) !important;
+    border-color: var(--cine-glass-border) !important;
+    color: var(--text-primary) !important;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+html[data-preset="cinematic"] .ps-icon-btn:hover,
+html[data-preset="cinematic"] #nav-theme:hover,
+html[data-preset="cinematic"] #privacy-toggle:hover {
+    background: rgb(var(--cine-fg-rgb) / 0.10) !important;
+    border-color: var(--cine-glass-border-strong) !important;
+}
+
+/* SAVE button "pending" state keeps the accent fill — strengthen the
+   glow in Cinematic so the call-to-action stands against the glass strip. */
+html[data-preset="cinematic"] #nav-save[style*="accent"],
+html[data-preset="cinematic"] #nav-save[title^="Pending"] {
+    box-shadow: 0 0 0 1px rgb(var(--cine-fg-rgb) / 0.15), 0 4px 12px rgb(0 0 0 / 0.25);
+}
+
+/* Avatar chip — ambient ring + accent border tint in Cinematic */
+html[data-preset="cinematic"] #nav-avatar {
+    border-color: var(--cine-glass-border-strong) !important;
+    box-shadow: 0 0 0 2px rgb(var(--cine-fg-rgb) / 0.05);
+}
+html[data-preset="cinematic"] #nav-avatar:hover {
+    border-color: var(--accent) !important;
+}
+
+/* Brand subtitle "PSLINK DATABASE" — pick up Cinematic accent tone */
+html[data-preset="cinematic"] .ps-brand-sub {
+    color: var(--accent) !important;
+}
+
 html[data-preset="cinematic"] #tab-mount {
     background: transparent !important;
     border: 0 !important;

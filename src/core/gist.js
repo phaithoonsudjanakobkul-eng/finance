@@ -267,12 +267,18 @@ export function applyToLocalStorage(data) {
  */
 export async function pullFromGist(token) {
     if (!token) throw new Error('No Gist token');
-    const content = await fetchGistContent(token);
-    const data = await gistDecrypt(token, content);
-    const result = applyToLocalStorage(data);
-    const ts = (data && typeof data.lastModifiedTs === 'number') ? data.lastModifiedTs : null;
-    bus.emit('gist:pulled', { applied: result.applied, skipped: result.skipped, lastModifiedTs: ts });
-    return Object.assign({ lastModifiedTs: ts }, result);
+    bus.emit('gist:syncing', { dir: 'pull' });
+    try {
+        const content = await fetchGistContent(token);
+        const data = await gistDecrypt(token, content);
+        const result = applyToLocalStorage(data);
+        const ts = (data && typeof data.lastModifiedTs === 'number') ? data.lastModifiedTs : null;
+        bus.emit('gist:pulled', { applied: result.applied, skipped: result.skipped, lastModifiedTs: ts });
+        return Object.assign({ lastModifiedTs: ts }, result);
+    } catch (e) {
+        bus.emit('gist:error', { dir: 'pull', error: /** @type {any} */ (e) && /** @type {any} */ (e).message || String(e) });
+        throw e;
+    }
 }
 
 // ── Push: rebuild export shape + PATCH ─────────────────────────────────
@@ -392,6 +398,7 @@ export async function pushToGist(token, payload) {
     if (_pushInflight) return _pushInflight;
 
     const data = payload || buildExportFromLocalStorage();
+    bus.emit('gist:syncing', { dir: 'push' });
     _pushInflight = (async () => {
         const ct = await gistEncrypt(token, data);
         const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
@@ -412,6 +419,10 @@ export async function pushToGist(token, payload) {
     })();
 
     try { return await _pushInflight; }
+    catch (e) {
+        bus.emit('gist:error', { dir: 'push', error: /** @type {any} */ (e) && /** @type {any} */ (e).message || String(e) });
+        throw e;
+    }
     finally { _pushInflight = null; }
 }
 

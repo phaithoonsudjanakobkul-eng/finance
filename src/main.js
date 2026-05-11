@@ -24,6 +24,10 @@ import { lsSave, lsGet } from './core/storage.js';
 import { applyPreset, applyVariant, presets, restoreActive } from './core/presets/index.js';
 import { pullFromGist, pushToGist } from './core/gist.js';
 import { mount as mountPrivacy } from './widgets/privacy/index.js';
+import { mount as mountSyncStatus } from './widgets/sync-status/index.js';
+import { mount as mountSaveButton } from './widgets/save-button/index.js';
+import { mount as mountThemeToggle } from './widgets/theme-toggle/index.js';
+import { mount as mountAvatarChip } from './widgets/avatar-chip/index.js';
 import './styles/privacy.css';
 import './styles/watchlist.css';
 
@@ -394,9 +398,25 @@ window.addEventListener('DOMContentLoaded', () => {
         showTab(id, mount).catch((e) => console.warn('[PSLink/v2] tab re-init after pull failed:', e));
     });
 
-    // Mount global widgets (privacy toggle) into the tab nav row
+    // Mount global widgets into the nav. Mount order matters for the
+    // visual left-to-right ordering inside each host span.
+    const avatarHost = document.getElementById('nav-avatar-host');
+    if (avatarHost) mountAvatarChip(avatarHost);
+    const syncHost = document.getElementById('nav-sync-host');
+    if (syncHost) mountSyncStatus(syncHost);
+    const saveHost = document.getElementById('nav-save-host');
+    if (saveHost) mountSaveButton(saveHost);
     const widgetHost = document.getElementById('widget-host');
-    if (widgetHost) mountPrivacy(widgetHost);
+    if (widgetHost) {
+        mountThemeToggle(widgetHost);
+        mountPrivacy(widgetHost);
+    }
+
+    // Settings cog → activate Settings tab (inline button — no widget folder)
+    const settingsBtn = document.getElementById('nav-settings-btn');
+    if (settingsBtn) {
+        settingsBtn.addEventListener('click', () => activate('settings'));
+    }
 
     // Fresh-device Gist auto-hydrate. localStorage empty + token set →
     // pull encrypted Gist → decrypt → seed records/watchlist/cache/keys

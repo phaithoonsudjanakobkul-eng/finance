@@ -59,13 +59,14 @@ This document is the entry point for the **visual port phase** that brings v2 fr
 ### Visual phase progress
 
 - **V1 Cinematic preset visual layer** — DONE 2026-05-11. `src/styles/presets/cinematic.css` extended with: shell chrome glass slab (`.ps-nav` / `.ps-tab-pill` / `.ps-clock` / `#tab-mount` / `.ps-dev-panel`), watchlist `.wl-row` alternating zebra glass tint + hover state, Records `#rec-prev/next/month/clone/clear` control-strip glass pills, `.rec-row` inline-style override strengthened, Dashboard `#dash-trend` SVG + `#dash-avatar` (initials-only) transparency, `.ps-brand-name` Fraunces serif. Records hero numbers (`#rec-payday` / `#sum-total-exp` / `#record-balance-val`) promoted to `--font-display`. All scoped under `html[data-preset="cinematic"]` so Origin/Phosphor/Studio are unaffected. Tests: 446 unit + 16 e2e green, tsc clean.
+- **V2 Custom nav with avatar** — DONE 2026-05-11. Brand subtitle changed from `v2` pill to `PSLINK DATABASE`. Five new mountable widgets added: `src/widgets/avatar-chip` (32 px circle, ps_avatar thumbnail, click → Settings until V4 modal lands), `src/widgets/sync-status` (Gist sync dot — idle green / sync amber / error red, click = force pull), `src/widgets/save-button` (pending accent fill on edit bus events, click = force push), `src/widgets/theme-toggle` (☾/☀ in nav, re-applies active preset on flip), inline `#nav-settings-btn` cog → activate Settings tab. `src/core/gist.js` now emits `gist:syncing` + `gist:error` (in addition to existing pulled/pushed) so widgets can stay in sync. Cinematic preset extended with glass pills for every new nav control + accent-toned `.ps-brand-sub`. Tests: 446 unit + 19 e2e (3 new V2 specs) green, tsc clean.
 
 ### What's missing (visual layer — the work of THIS phase)
 
 | # | Item | Effort | Visible impact | Section below |
 |---|---|---|---|---|
 | 1 | Cinematic preset visual layer (glass cards · photo bg · 3-card profile row · backdrop-filter) — DONE 2026-05-11 | 1-2 sessions | **Highest** | [§1](#1-cinematic-preset-visual-layer) |
-| 2 | Custom nav with avatar + brand chrome | 1 session | High | [§2](#2-custom-nav-with-avatar) |
+| 2 | Custom nav with avatar + brand chrome — DONE 2026-05-11 | 1 session | High | [§2](#2-custom-nav-with-avatar) |
 | 3 | Dashboard hero row (Profile/Payday/Month 3-card layout) | 1 session | High | [§3](#3-dashboard-hero-row) |
 | 4 | Profile photo upload + R2 sync (avatar + full-res) | 2 sessions | High | [§4](#4-profile-photo-subsystem) |
 | 5 | Muse playlist port (Dashboard widget · 7 slots · video clip · pan/zoom · trim) | **5-6 sessions** | **Highest** (size) | [§5](#5-muse-playlist) |
